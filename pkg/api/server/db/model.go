@@ -1,11 +1,17 @@
 // Package db defines database models for Result data.
 package db
 
+import "fmt"
+
 // Result is the database model of a Result.
 type Result struct {
 	Parent string `gorm:"primaryKey;index:results_by_name,priority:1"`
 	ID     string `gorm:"primaryKey"`
 	Name   string `gorm:"index:results_by_name,priority:2"`
+}
+
+func (r Result) String() string {
+	return fmt.Sprintf("(%s, %s)", r.Parent, r.ID)
 }
 
 // Record is the database model of a Record
