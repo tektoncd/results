@@ -8,9 +8,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/experimental/results/pkg/api/server/test"
-	ppb "github.com/tektoncd/experimental/results/proto/pipeline/v1beta1/pipeline_go_proto"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha1/results_go_proto"
+	"github.com/tektoncd/results/pkg/api/server/test"
+	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

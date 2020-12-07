@@ -7,7 +7,7 @@ import "google/api/resource.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/tektoncd/experimental/results/proto/v1alpha2/results_go_proto";
+option go_package = "github.com/tektoncd/results/proto/v1alpha2/results_go_proto";
 
 message Result {
     // User assigned identifier of the Result.

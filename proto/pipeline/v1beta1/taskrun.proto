@@ -6,7 +6,7 @@ import "common.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/tektoncd/experimental/results/proto/pipeline/v1beta1/pipeline_go_proto";
+option go_package = "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto";
 
 message TaskRun {
 	// TODO: add some uniqueness token here (hash of cluster info?)

@@ -27,7 +27,7 @@ export DISABLE_MD_LINTING=1
 export TEST_FOLDER=$(pwd)
 export GO111MODULE=on
 
-source $(dirname $0)/../../vendor/github.com/tektoncd/plumbing/scripts/presubmit-tests.sh
+source $(dirname $0)/vendor/github.com/tektoncd/plumbing/scripts/presubmit-tests.sh
 
 function pre_build_tests() {
     pushd ${TEST_FOLDER}

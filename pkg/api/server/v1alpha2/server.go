@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/google/uuid"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
 )
 

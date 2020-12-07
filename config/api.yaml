@@ -26,29 +26,28 @@ spec:
     spec:
       serviceAccountName: tekton-pipelines-controller
       containers:
-      - name: tekton-results-api
-        image: ko://github.com/tektoncd/experimental/results/cmd/api
-        env:
-          # See cmd/api/README.md for documentation of these vars.
-          - name: DB_USER
-            valueFrom:
-              secretKeyRef:
-                name: tekton-results-mysql
-                key: user
-          - name: DB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: tekton-results-mysql
-                key: password
-          - name: DB_PROTOCOL
-            value: tcp
-          - name: DB_ADDR
-            value: tekton-results-mysql.tekton-pipelines.svc.cluster.local
-          - name: DB_NAME
-            value: results
+        - name: tekton-results-api
+          image: ko://github.com/tektoncd/results/cmd/api
+          env:
+            # See cmd/api/README.md for documentation of these vars.
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: tekton-results-mysql
+                  key: user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tekton-results-mysql
+                  key: password
+            - name: DB_PROTOCOL
+              value: tcp
+            - name: DB_ADDR
+              value: tekton-results-mysql.tekton-pipelines.svc.cluster.local
+            - name: DB_NAME
+              value: results
 
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -58,6 +57,6 @@ spec:
   selector:
     app: tekton-results-api
   ports:
-  - protocol: TCP
-    port: 50051
-    targetPort: 50051
+    - protocol: TCP
+      port: 50051
+      targetPort: 50051
