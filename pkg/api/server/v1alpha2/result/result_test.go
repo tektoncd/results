@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/experimental/results/pkg/api/server/db"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/pkg/api/server/db"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

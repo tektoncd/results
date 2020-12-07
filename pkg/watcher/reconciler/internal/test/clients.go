@@ -5,11 +5,11 @@ import (
 	"net"
 	"testing"
 
-	"github.com/tektoncd/experimental/results/pkg/api/server/test"
-	server "github.com/tektoncd/experimental/results/pkg/api/server/v1alpha1"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha1/results_go_proto"
 	ttesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	pipelinetest "github.com/tektoncd/pipeline/test"
+	"github.com/tektoncd/results/pkg/api/server/test"
+	server "github.com/tektoncd/results/pkg/api/server/v1alpha1"
+	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
 	"google.golang.org/grpc"
 	"knative.dev/pkg/configmap"
 )

@@ -12,7 +12,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "google/rpc/status.proto";
 
-option go_package = "github.com/tektoncd/experimental/results/proto/v1alpha1/results_go_proto";
+option go_package = "github.com/tektoncd/results/proto/v1alpha1/results_go_proto";
 
 service Results {
   rpc CreateResult(CreateResultRequest) returns (Result) {

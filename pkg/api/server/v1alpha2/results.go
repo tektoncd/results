@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/tektoncd/experimental/results/pkg/api/server/db"
-	"github.com/tektoncd/experimental/results/pkg/api/server/v1alpha2/result"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

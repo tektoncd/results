@@ -7,8 +7,11 @@
 package results_go_proto
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	proto "github.com/golang/protobuf/proto"
-	pipeline_go_proto "github.com/tektoncd/experimental/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	pipeline_go_proto "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	status "google.golang.org/genproto/googleapis/rpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -17,8 +20,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (

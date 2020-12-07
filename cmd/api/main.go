@@ -23,8 +23,8 @@ import (
 	"net"
 	"os"
 
-	server "github.com/tektoncd/experimental/results/pkg/api/server/v1alpha1"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha1/results_go_proto"
+	server "github.com/tektoncd/results/pkg/api/server/v1alpha1"
+	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"

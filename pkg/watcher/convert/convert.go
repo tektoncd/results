@@ -24,8 +24,8 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/jsonpb"
-	pb "github.com/tektoncd/experimental/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 )
 
 // ToTaskRunProto converts a v1beta1.TaskRun object to the equivalent Results API

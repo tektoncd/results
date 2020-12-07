@@ -21,15 +21,17 @@ spec:
         app: tekton-results-watcher
         app.kubernetes.io/name: tekton-results
         app.kubernetes.io/component: watcher
-        # tekton.dev/release value replaced with inputs.params.versionTag in pipeline/tekton/publish.yaml
         pipeline.tekton.dev/release: "devel"
         version: "devel"
     spec:
       serviceAccountName: tekton-pipelines-controller
       containers:
-      - name: tekton-results-watcher
-        image: ko://github.com/tektoncd/experimental/results/cmd/watcher
-        args: [
-          '-api_addr', 'tekton-results-api-service.tekton-pipelines.svc.cluster.local:50051',
-          '-auth_mode', 'insecure',
-        ]
+        - name: tekton-results-watcher
+          image: ko://github.com/tektoncd/results/cmd/watcher
+          args:
+            [
+              "-api_addr",
+              "tekton-results-api-service.tekton-pipelines.svc.cluster.local:50051",
+              "-auth_mode",
+              "insecure",
+            ]

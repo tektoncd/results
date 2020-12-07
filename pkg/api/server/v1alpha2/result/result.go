@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/tektoncd/experimental/results/pkg/api/server/db"
-	pb "github.com/tektoncd/experimental/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/pkg/api/server/db"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

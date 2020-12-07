@@ -1,4 +1,4 @@
-module github.com/tektoncd/experimental/results
+module github.com/tektoncd/results
 
 go 1.13
 

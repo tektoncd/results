@@ -5,7 +5,7 @@ metadata:
   namespace: tekton-pipelines
 spec:
   ports:
-  - port: 3306
+    - port: 3306
   selector:
     app: tekton-results-mysql
 ---
@@ -26,28 +26,28 @@ spec:
         app: tekton-results-mysql
     spec:
       containers:
-      - image: mysql:5.6
-        name: mysql
-        env:
-        - name: MYSQL_DATABASE
-          value: results
-        - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: tekton-results-mysql
-              key: password
-        ports:
-        - containerPort: 3306
+        - image: mysql:5.6
           name: mysql
-        volumeMounts:
-        - name: mysql-persistent-storage
-          mountPath: /var/lib/mysql
-        - name: mysql-initdb
-          mountPath: /docker-entrypoint-initdb.d
+          env:
+            - name: MYSQL_DATABASE
+              value: results
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tekton-results-mysql
+                  key: password
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: mysql-persistent-storage
+              mountPath: /var/lib/mysql
+            - name: mysql-initdb
+              mountPath: /docker-entrypoint-initdb.d
       volumes:
-      - name: mysql-persistent-storage
-        persistentVolumeClaim:
-          claimName: results-mysql-pv-claim
-      - name: mysql-initdb
-        configMap:
-          name: mysql-initdb-config
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: results-mysql-pv-claim
+        - name: mysql-initdb
+          configMap:
+            name: mysql-initdb-config
