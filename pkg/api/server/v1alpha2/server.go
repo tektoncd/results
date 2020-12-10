@@ -6,6 +6,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/uuid"
 
+	cw "github.com/jonboulle/clockwork"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
@@ -15,6 +16,7 @@ var (
 	uid = func() string {
 		return uuid.New().String()
 	}
+	clock cw.Clock = cw.NewRealClock()
 )
 
 // Server with implementation of API server

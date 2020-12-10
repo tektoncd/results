@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -26,6 +28,7 @@ func TestMain(m *testing.M) {
 	uid = func() string {
 		return fmt.Sprint(atomic.AddUint32(&lastID, 1))
 	}
+	clock = cw.NewFakeClock()
 	os.Exit(m.Run())
 }
 
@@ -49,6 +52,8 @@ func TestCreateResult(t *testing.T) {
 		}
 		want := proto.Clone(req.GetResult()).(*pb.Result)
 		want.Id = fmt.Sprint(lastID)
+		want.CreatedTime = timestamppb.New(clock.Now())
+		want.UpdatedTime = timestamppb.New(clock.Now())
 		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
 			t.Errorf("-want, +got: %s", diff)
 		}
