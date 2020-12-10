@@ -9,6 +9,7 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/tektoncd/results/proto/v1alpha2/results_go_proto";
 
+// Next field number: 7
 message Result {
     // User assigned identifier of the Result.
     // Encodes parent information.
@@ -22,8 +23,12 @@ message Result {
     // Server assigned identifier of the Result.
     string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
   
-      // Server assigned timestamp for when the result was created.
+    // Server assigned timestamp for when the result was created.
     google.protobuf.Timestamp created_time = 3
+        [(google.api.field_behavior) = OUTPUT_ONLY];
+    
+    // Server assigned timestamp for when the results was updated.
+    google.protobuf.Timestamp updated_time = 6
         [(google.api.field_behavior) = OUTPUT_ONLY];
   
     // Arbitrary user provided labels for the result.

@@ -11,6 +11,7 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 func ParseName(raw string) (parent, name string, err error) {
 	s := NameRegex.FindStringSubmatch(raw)
 	if len(s) != 3 {
-		return "", "", status.Errorf(codes.InvalidArgument, "name must match %s", NameRegex.String())
+		return "", "", fmt.Errorf("name must match %s", NameRegex.String())
 	}
 	return s[1], s[2], nil
 }
@@ -31,11 +32,17 @@ func ParseName(raw string) (parent, name string, err error) {
 // ToStorage converts an API Result into its corresponding database storage
 // equivalent.
 // parent,name should be the name parts (e.g. not containing "/results/").
-func ToStorage(parent, name string, r *pb.Result) (*db.Result, error) {
+func ToStorage(r *pb.Result) (*db.Result, error) {
+	parent, name, err := ParseName(r.GetName())
+	if err != nil {
+		return nil, err
+	}
 	result := &db.Result{
-		Parent: parent,
-		ID:     r.GetId(),
-		Name:   name,
+		Parent:      parent,
+		ID:          r.GetId(),
+		Name:        name,
+		UpdatedTime: r.UpdatedTime.AsTime(),
+		CreatedTime: r.CreatedTime.AsTime(),
 	}
 	return result, nil
 }
@@ -44,8 +51,10 @@ func ToStorage(parent, name string, r *pb.Result) (*db.Result, error) {
 // equivalent.
 func ToAPI(r *db.Result) *pb.Result {
 	return &pb.Result{
-		Name: fmt.Sprintf("%s/results/%s", r.Parent, r.Name),
-		Id:   r.ID,
+		Name:        fmt.Sprintf("%s/results/%s", r.Parent, r.Name),
+		Id:          r.ID,
+		CreatedTime: timestamppb.New(r.CreatedTime),
+		UpdatedTime: timestamppb.New(r.UpdatedTime),
 	}
 }
 

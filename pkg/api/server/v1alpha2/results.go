@@ -14,6 +14,7 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -26,9 +27,9 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	r := req.GetResult()
 
 	// Validate the incoming request
-	parent, name, err := result.ParseName(r.GetName())
+	parent, _, err := result.ParseName(r.GetName())
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if req.GetParent() != parent {
 		return nil, status.Error(codes.InvalidArgument, "requested parent does not match resource name")
@@ -36,8 +37,10 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 
 	// Populate Result with server provided fields.
 	r.Id = uid()
+	r.CreatedTime = timestamppb.New(clock.Now())
+	r.UpdatedTime = timestamppb.New(clock.Now())
 
-	store, err := result.ToStorage(parent, name, req.GetResult())
+	store, err := result.ToStorage(r)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +55,7 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.Result, error) {
 	parent, name, err := result.ParseName(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	store := &db.Result{}
 	q := s.db.WithContext(ctx).

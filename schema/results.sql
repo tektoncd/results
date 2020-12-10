@@ -4,7 +4,8 @@ CREATE TABLE results (
 	id varchar(64),
 
 	name varchar(64),
-	data BLOB,
+	created_time timestamp default current_timestamp not null,
+	updated_time timestamp default current_timestamp not null,
 
 	PRIMARY KEY(parent, id)
 );

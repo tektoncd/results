@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -13,6 +14,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+var clock cw.Clock = cw.NewFakeClock()
 
 func TestParseName(t *testing.T) {
 	for _, tc := range []struct {
@@ -81,23 +84,25 @@ func TestParseName(t *testing.T) {
 }
 
 func TestToStorage(t *testing.T) {
-	got, err := ToStorage("foo", "bar", &pb.Result{
-		Name: "foo/results/bar",
-		Id:   "a",
+	got, err := ToStorage(&pb.Result{
+		Name:        "foo/results/bar",
+		Id:          "a",
+		CreatedTime: timestamppb.New(clock.Now()),
+		UpdatedTime: timestamppb.New(clock.Now()),
 
 		// These fields are ignored for now.
-		CreatedTime: timestamppb.Now(),
 		Annotations: map[string]string{"a": "b"},
 		Etag:        "tacocat",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	want := &db.Result{
-		Parent: "foo",
-		Name:   "bar",
-		ID:     "a",
+		Parent:      "foo",
+		Name:        "bar",
+		ID:          "a",
+		CreatedTime: clock.Now(),
+		UpdatedTime: clock.Now(),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("-want,+got: %s", diff)
@@ -106,13 +111,17 @@ func TestToStorage(t *testing.T) {
 
 func TestToAPI(t *testing.T) {
 	got := ToAPI(&db.Result{
-		Parent: "foo",
-		Name:   "bar",
-		ID:     "a",
+		Parent:      "foo",
+		Name:        "bar",
+		ID:          "a",
+		CreatedTime: clock.Now(),
+		UpdatedTime: clock.Now(),
 	})
 	want := &pb.Result{
-		Name: "foo/results/bar",
-		Id:   "a",
+		Name:        "foo/results/bar",
+		Id:          "a",
+		CreatedTime: timestamppb.New(clock.Now()),
+		UpdatedTime: timestamppb.New(clock.Now()),
 	}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("-want,+got: %s", diff)
