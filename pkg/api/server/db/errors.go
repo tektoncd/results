@@ -53,6 +53,8 @@ func sqlite(err sqlite3.Error) codes.Code {
 		switch err.ExtendedCode {
 		case sqlite3.ErrConstraintUnique:
 			return codes.AlreadyExists
+		case sqlite3.ErrConstraintForeignKey:
+			return codes.FailedPrecondition
 		}
 		return codes.InvalidArgument
 	case sqlite3.ErrNotFound:

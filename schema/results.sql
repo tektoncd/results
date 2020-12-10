@@ -1,4 +1,3 @@
-
 CREATE TABLE results (
 	parent varchar(64),
 	id varchar(64),
@@ -20,6 +19,7 @@ CREATE TABLE records (
 	name varchar(64),
 	data BLOB,
 
-	PRIMARY KEY(parent, result_id, id)
+	PRIMARY KEY(parent, result_id, id),
+	FOREIGN KEY(parent, result_id) REFERENCES results(parent, id) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX records_by_name ON records(parent, result_name, name);

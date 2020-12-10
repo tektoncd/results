@@ -76,7 +76,7 @@ func TestParseName(t *testing.T) {
 				t.Fatalf("expected error, got: [%s, %s]", parent, name)
 			}
 
-			if parent != tc.want[0] && name != tc.want[1] {
+			if parent != tc.want[0] || name != tc.want[1] {
 				t.Errorf("want: %v, got: [%s, %s]", tc.want, parent, name)
 			}
 		})
@@ -198,5 +198,13 @@ func TestMatch(t *testing.T) {
 				t.Errorf("want: %t, got: %t", tc.match, got)
 			}
 		})
+	}
+}
+
+func TestFormatName(t *testing.T) {
+	got := FormatName("a", "b")
+	want := "a/results/b"
+	if want != got {
+		t.Errorf("want %s, got %s", want, got)
 	}
 }

@@ -29,6 +29,12 @@ func ParseName(raw string) (parent, name string, err error) {
 	return s[1], s[2], nil
 }
 
+// FormatName takes in a parent ("a") and result name ("b") and
+// returns the full resource name ("a/results/b").
+func FormatName(parent, name string) string {
+	return fmt.Sprintf("%s/results/%s", parent, name)
+}
+
 // ToStorage converts an API Result into its corresponding database storage
 // equivalent.
 // parent,name should be the name parts (e.g. not containing "/results/").
@@ -51,7 +57,7 @@ func ToStorage(r *pb.Result) (*db.Result, error) {
 // equivalent.
 func ToAPI(r *db.Result) *pb.Result {
 	return &pb.Result{
-		Name:        fmt.Sprintf("%s/results/%s", r.Parent, r.Name),
+		Name:        FormatName(r.Parent, r.Name),
 		Id:          r.ID,
 		CreatedTime: timestamppb.New(r.CreatedTime),
 		UpdatedTime: timestamppb.New(r.UpdatedTime),
