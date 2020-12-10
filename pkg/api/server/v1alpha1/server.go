@@ -51,12 +51,18 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	// Slightly confusing since this is CreateResult, but this maps better to
 	// Records in the v1alpha2 API, so store this as a Record for
 	// compatibility.
-	record := &dbmodel.Record{
+	result := &dbmodel.Result{
 		Parent: req.GetParent(),
-		// TODO: Require Records to be nested in Results. Since v1alpha1
-		// results ~= records, allow parent-less records for now to allow
-		// clients to continue working.
-		ResultID: "",
+		ID:     name,
+		// This should be the parent-less name, but allow for now for compatibility.
+		Name: r.Name,
+	}
+	if err := s.gdb.WithContext(ctx).Create(result).Error; err != nil {
+		return nil, err
+	}
+	record := &dbmodel.Record{
+		Parent:   req.GetParent(),
+		ResultID: name,
 		ID:       name,
 		// This should be the parent-less name, but allow for now for compatibility.
 		Name: r.Name,

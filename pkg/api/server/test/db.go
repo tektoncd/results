@@ -60,6 +60,10 @@ func NewDB(t *testing.T) *gorm.DB {
 		t.Fatalf("failed to open the results.db: %v", err)
 	}
 
+	// Enable foreign key support. Only needed for sqlite instance we use for
+	// tests.
+	gdb.Exec("PRAGMA foreign_keys = ON;")
+
 	return gdb
 }
 
