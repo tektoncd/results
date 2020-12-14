@@ -15,10 +15,10 @@
 
 set -e
 
-ROOT="$(git rev-parse --show-toplevel)/results"
-TASKRUN="${DIR}/test/e2e/taskrun.yaml"
+ROOT="$(git rev-parse --show-toplevel)"
+TASKRUN="${ROOT}/test/e2e/taskrun.yaml"
 
-kubectl delete -f "${TASKRUN}" || true
+kubectl delete -f "${TASKRUN}" || echo "continuing anyway..."
 kubectl apply -f "${TASKRUN}"
 echo "Waiting for TaskRun to complete..."
 kubectl wait -f "${TASKRUN}" --for=condition=Succeeded

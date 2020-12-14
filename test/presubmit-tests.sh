@@ -38,7 +38,8 @@ function pre_unit_tests() {
 }
 
 function pre_integration_tests() {
-    pushd ${TEST_FOLDER}
+    #${TEST_FOLDER}/test/e2e/setup.sh
+    ${TEST_FOLDER}/test/e2e/install.sh
 }
 
 function post_build_tests() {
@@ -60,6 +61,15 @@ function unit_tests() {
   go test -v -race ./... || failed=1
   echo "unit_tests returning $@"
   return ${failed}
+}
+
+function integration_tests() {
+    ${TEST_FOLDER}/test/e2e/test.sh
+}
+
+function post_integration_tests() {
+    #${TEST_FOLDER}/test/e2e/cleanup.sh
+    popd
 }
 
 # We use the default build, unit and integration test runners.
