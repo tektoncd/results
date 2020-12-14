@@ -12,6 +12,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	// Inject sqlite error checking.
+	_ "github.com/tektoncd/results/pkg/api/server/db/errors/sqlite"
 )
 
 // NewDB set up a temporary database for testing
