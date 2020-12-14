@@ -1,6 +1,7 @@
 package result
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -89,18 +90,23 @@ func TestToStorage(t *testing.T) {
 		Id:          "a",
 		CreatedTime: timestamppb.New(clock.Now()),
 		UpdatedTime: timestamppb.New(clock.Now()),
+		Annotations: map[string]string{"a": "b"},
 
 		// These fields are ignored for now.
-		Annotations: map[string]string{"a": "b"},
-		Etag:        "tacocat",
+		Etag: "tacocat",
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	ann, err := json.Marshal(map[string]string{"a": "b"})
+	if err != nil {
+		t.Fatalf("fail to marshal annotation")
 	}
 	want := &db.Result{
 		Parent:      "foo",
 		Name:        "bar",
 		ID:          "a",
+		Annotations: ann,
 		CreatedTime: clock.Now(),
 		UpdatedTime: clock.Now(),
 	}

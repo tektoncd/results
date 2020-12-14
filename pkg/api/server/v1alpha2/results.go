@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/golang/protobuf/ptypes/empty"
 
@@ -12,8 +13,10 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"go.chromium.org/luci/common/proto/mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -65,6 +68,61 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 		return nil, err
 	}
 	return result.ToAPI(store), nil
+}
+
+// UpdateResult receives Result and FieldMask from client and uses them to update records in local Sqlite Server.
+func (s Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) (*pb.Result, error) {
+	// Find corresponding Result in the database according to results_id.
+	tx := s.db.WithContext(ctx).Begin()
+	prev, err := result.GetResultByName(tx, req.GetName())
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "failed to find a result: %v", err)
+	}
+
+	r := proto.Clone(prev).(*pb.Result)
+	// Update entire result if user do not specify paths
+	if req.GetUpdateMask() == nil {
+		r = req.GetResult()
+	} else {
+		// Merge Result from client into existing Result based on fieldmask.
+		msk, err := mask.FromFieldMask(req.GetUpdateMask(), r, false, true)
+		// Return NotFound error to client field is invalid
+		if err != nil {
+			log.Printf("failed to convert fieldmask to mask: %v", err)
+			return nil, status.Errorf(codes.NotFound, "field in fieldmask not found in result")
+		}
+		if err := msk.Merge(req.GetResult(), r); err != nil {
+			log.Printf("failed to merge new result into old result: %v", err)
+			return nil, fmt.Errorf("failed to update result: %w", err)
+		}
+	}
+	// Do any most-mask validation to make sure we are not mutating any immutable fields.
+	if r.GetName() != prev.GetName() {
+		return prev, status.Error(codes.InvalidArgument, "result name cannot be changed")
+	}
+	if r.GetId() != prev.GetId() {
+		return prev, status.Error(codes.InvalidArgument, "result id cannot be changed")
+	}
+	if r.GetCreatedTime().AsTime() != prev.GetCreatedTime().AsTime() {
+		return prev, status.Error(codes.InvalidArgument, "created time cannot be changed")
+	}
+
+	r.UpdatedTime = timestamppb.New(clock.Now())
+
+	// Write result back to database.
+	dbResult, err := result.ToStorage(r)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.WrapError(tx.Save(&dbResult).Error); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("failed to commit transaction: %v", err)
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+	return r, nil
 }
 
 // DeleteResult deletes a given result.

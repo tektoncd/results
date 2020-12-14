@@ -7,6 +7,7 @@ CREATE TABLE results (
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,
 
+	annotations text,
 	PRIMARY KEY(parent, id)
 );
 CREATE UNIQUE INDEX results_by_name ON results(parent, name);

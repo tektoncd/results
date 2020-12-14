@@ -11,7 +11,9 @@ import (
 	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -142,6 +144,112 @@ func TestGetResult(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := srv.GetResult(ctx, tc.req); status.Code(err) != tc.want {
 				t.Fatalf("want: %v, got: %v - %+v", tc.want, status.Code(err), err)
+			}
+		})
+	}
+}
+
+func TestUpdateResult(t *testing.T) {
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+
+	tt := []struct {
+		name      string
+		parent    string
+		in        *pb.Result
+		fieldmask *field_mask.FieldMask
+		update    *pb.Result
+		expect    *pb.Result
+		errcode   codes.Code
+	}{
+		{
+			name:   "Test no Mask",
+			in:     &pb.Result{Name: "foo/results/bar-001"},
+			update: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+			expect: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+		},
+		{
+			name:      "Test Mask with empty field",
+			in:        &pb.Result{Name: "foo/results/bar-002"},
+			fieldmask: &field_mask.FieldMask{Paths: []string{}},
+			// unset field value to default value in fieldmask
+			update: &pb.Result{Name: "foo/results/bar-002", Annotations: map[string]string{"foo": "bar"}},
+			expect: &pb.Result{},
+		},
+		{
+			name:      "Test Mask with nil Paths field",
+			in:        &pb.Result{Name: "foo/results/bar-003"},
+			fieldmask: &field_mask.FieldMask{},
+			// do not update
+			update: &pb.Result{Name: "foo/results/bar-003", Annotations: map[string]string{"foo": "bar"}},
+			expect: &pb.Result{},
+		},
+
+		// Errors
+		{
+			name:      "ERR Test update with invalid name",
+			in:        &pb.Result{Name: "foo/results/bar-005"},
+			fieldmask: &field_mask.FieldMask{Paths: []string{"annotations"}},
+			// do not update
+			update:  &pb.Result{Name: "invalid", Annotations: map[string]string{"foo": "bar"}},
+			errcode: codes.NotFound,
+		},
+		{
+			name:      "ERR Test Mask with invalid mask field",
+			in:        &pb.Result{Name: "foo/results/bar-004"},
+			fieldmask: &field_mask.FieldMask{Paths: []string{"annotations", "invalid_field"}},
+			// do not update
+			update:  &pb.Result{Name: "foo/results/bar-004", Annotations: map[string]string{"foo": "bar"}},
+			errcode: codes.NotFound,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			parent, _, err := result.ParseName(tc.in.GetName())
+			if err != nil {
+				t.Fatalf("could not parse result name: %v", err)
+			}
+			r, err := srv.CreateResult(ctx, &pb.CreateResultRequest{Result: tc.in, Parent: parent})
+			if err != nil {
+				t.Fatalf("could not create taskrun: %v", err)
+			}
+
+			// If we're doing a full update, pass through immutable fields to
+			// the update result. Since these are created dynamicly,
+			// we can't prepopulate these.
+			if tc.fieldmask == nil {
+				tc.update.Id = r.GetId()
+				tc.update.Name = r.GetName()
+				tc.update.CreatedTime = r.GetCreatedTime()
+			}
+			// Update the created taskrun
+			r, err = srv.UpdateResult(ctx, &pb.UpdateResultRequest{Result: tc.update, Name: tc.update.GetName(), UpdateMask: tc.fieldmask})
+			if err != nil {
+				if status.Code(err) != tc.errcode {
+					t.Fatalf("expected error: %v, got %v", tc.errcode, status.Code(err))
+				} else {
+					return
+				}
+				t.Fatalf("could not update taskrun: %v, %v", err, status.Code(err))
+			}
+
+			// Expected results should always match the created result.
+			if tc.expect != nil {
+				tc.expect.Name = tc.in.GetName()
+				tc.expect.Id = r.GetId()
+				tc.expect.CreatedTime = r.CreatedTime
+				tc.expect.UpdatedTime = r.UpdatedTime
+			}
+			got, err := srv.GetResult(ctx, &pb.GetResultRequest{Name: r.GetName()})
+			if err != nil {
+				t.Fatalf("GetResult: %v", err)
+			}
+			if diff := cmp.Diff(tc.expect, got, protocmp.Transform()); diff != "" {
+				t.Fatalf("-want, +got: %s", diff)
 			}
 		})
 	}
