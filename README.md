@@ -1,14 +1,13 @@
 # Tekton Results API
 
-This package contains experimental code to support a richly queryable API for
-Tekton execution history and results.
-
-The full proposal is here:
-https://docs.google.com/document/d/1-XBYQ4kBlCHIHSVoYAAf_iC01_by_KoK2aRVO0t8ZQ0/edit
+This package contains the experimental code to support a richly queryable API for Tekton
+execution history and results.
 
 The main components of this design are a **queryable indexed API server** backed
 by persistent storage, and an **in-cluster watcher** to report updates to the
 API server.
+
+The full motivation and design are available in [TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
 
 The API server interface is defined in `./proto/api.proto`, and a reference
 implementation backed by Sqlite will live in `./cmd/api`. A reference
@@ -32,7 +31,7 @@ kubectl create configmap mysql-initdb-config --from-file="schema/results.sql" --
 ### Deploying
 
 To build and deploy both components, use
-[`ko`](https://github.com/GoogleCloudPlatform/ko). Make sure you have a valid
+[`ko`](https://github.com/google/ko). Make sure you have a valid
 kubeconfig, and have set the `KO_DOCKER_REPO` env var.
 
 ```
