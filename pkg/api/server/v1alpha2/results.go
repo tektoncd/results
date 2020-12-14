@@ -9,6 +9,7 @@ import (
 	"github.com/google/cel-go/cel"
 	celenv "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -44,7 +45,7 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	if err != nil {
 		return nil, err
 	}
-	if err := db.WrapError(s.db.WithContext(ctx).Create(store).Error); err != nil {
+	if err := errors.Wrap(s.db.WithContext(ctx).Create(store).Error); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +62,7 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 	q := s.db.WithContext(ctx).
 		Where(&db.Result{Parent: parent, Name: name}).
 		First(store)
-	if err := db.WrapError(q.Error); err != nil {
+	if err := errors.Wrap(q.Error); err != nil {
 		return nil, err
 	}
 	return result.ToAPI(store), nil
@@ -82,13 +83,13 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 	get := s.db.WithContext(ctx).
 		Where(&db.Result{Parent: parent, Name: name}).
 		First(r)
-	if err := db.WrapError(get.Error); err != nil {
+	if err := errors.Wrap(get.Error); err != nil {
 		return nil, err
 	}
 
 	// Delete the result.
 	delete := s.db.WithContext(ctx).Delete(&db.Result{}, r)
-	return nil, db.WrapError(delete.Error)
+	return nil, errors.Wrap(delete.Error)
 }
 
 func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*pb.ListResultsResponse, error) {
@@ -159,7 +160,7 @@ func (s *Server) getFilteredPaginatedResults(ctx context.Context, parent string,
 			Where("parent = ? AND id > ?", parent, start).
 			Limit(batchSize).
 			Find(&dbresults)
-		if err := db.WrapError(q.Error); err != nil {
+		if err := errors.Wrap(q.Error); err != nil {
 			return nil, err
 		}
 

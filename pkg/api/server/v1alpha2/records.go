@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -42,7 +43,7 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	q := s.db.WithContext(ctx).
 		Model(store).
 		Create(store).Error
-	if err := db.WrapError(q); err != nil {
+	if err := errors.Wrap(q); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +63,7 @@ func (s *Server) getResultIDImpl(ctx context.Context, parent, result string) (st
 		Model(&db.Result{}).
 		Where(&db.Result{Parent: parent, Name: result}).
 		First(id)
-	if err := db.WrapError(q.Error); err != nil {
+	if err := errors.Wrap(q.Error); err != nil {
 		return "", err
 	}
 	return id.ID, nil
@@ -78,7 +79,7 @@ func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.R
 	q := s.db.WithContext(ctx).
 		Where(&db.Record{Result: db.Result{Parent: parent, Name: result}, Name: name}).
 		First(store)
-	if err := db.WrapError(q.Error); err != nil {
+	if err := errors.Wrap(q.Error); err != nil {
 		return nil, err
 	}
 	return record.ToAPI(store), nil
