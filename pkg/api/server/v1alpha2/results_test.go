@@ -20,6 +20,7 @@ import (
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	cw "github.com/jonboulle/clockwork"
@@ -35,14 +36,15 @@ import (
 
 var (
 	// Used for deterministically increasing UUID generation.
-	lastID = uint32(0)
+	lastID                 = uint32(0)
+	fakeClock cw.FakeClock = cw.NewFakeClock()
 )
 
 func TestMain(m *testing.M) {
 	uid = func() string {
 		return fmt.Sprint(atomic.AddUint32(&lastID, 1))
 	}
-	clock = cw.NewFakeClock()
+	clock = fakeClock
 	os.Exit(m.Run())
 }
 
@@ -111,6 +113,87 @@ func TestCreateResult(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := srv.CreateResult(ctx, tc.req); status.Code(err) != tc.want {
 				t.Fatalf("want: %v, got: %v - %+v", tc.want, status.Code(err), err)
+			}
+		})
+	}
+}
+
+func TestUpdateResult(t *testing.T) {
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+
+	tt := []struct {
+		name        string
+		requestName string // the `Nam`e field of the `UpdateResultRequest`
+		update      *pb.Result
+		// `expect` is the expected result after an update request, it only contains two fields here: `Annotations` and `Etag`.
+		// the other fields will be set the same as the automatically created one.
+		expect  *pb.Result
+		errcode codes.Code
+	}{
+		{
+			name:   "test success",
+			update: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+			expect: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+		},
+		{
+			name:   "test update with empty result",
+			expect: &pb.Result{},
+		},
+		// errors
+		{
+			name:        "test update with invalid name",
+			requestName: "invalid name",
+			errcode:     codes.InvalidArgument,
+		},
+		{
+			name:        "test update a non-existent result",
+			requestName: "foo/results/bar-non-existent",
+			errcode:     codes.NotFound,
+		},
+	}
+	for idx, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			// create a result for test.
+			created, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+				Parent: "foo",
+				Result: &pb.Result{Name: fmt.Sprintf("foo/results/bar-%v", idx)}})
+			if err != nil {
+				t.Fatalf("could not create result: %v", err)
+			}
+
+			// foward the time to test if the UpdateTime field is properly updated.
+			fakeClock.Advance(time.Second)
+
+			if tc.requestName == "" {
+				tc.requestName = created.GetName()
+			}
+			updated, err := srv.UpdateResult(ctx, &pb.UpdateResultRequest{Result: tc.update, Name: tc.requestName})
+			if err != nil || tc.errcode != codes.OK {
+				if status.Code(err) == tc.errcode {
+					return
+				}
+				t.Fatalf("UpdateResult()=(%v, %v); want %v", updated, err, tc.errcode)
+			}
+
+			proto.Merge(tc.expect, created)
+			tc.expect.UpdatedTime = timestamppb.New(clock.Now())
+
+			// test if the returned result is the same as the expected.
+			if diff := cmp.Diff(tc.expect, updated, protocmp.Transform()); diff != "" {
+				t.Fatalf("-want, +updated: %s", diff)
+			}
+
+			// test if the result is successfully updated to the database.
+			got, err := srv.GetResult(ctx, &pb.GetResultRequest{Name: updated.GetName()})
+			if err != nil {
+				t.Fatalf("failed to get result from server: %v", err)
+			}
+			if diff := cmp.Diff(tc.expect, got, protocmp.Transform()); diff != "" {
+				t.Fatalf("-want, +got: %s", diff)
 			}
 		})
 	}
