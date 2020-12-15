@@ -42,13 +42,18 @@ func TestCreateResult(t *testing.T) {
 	req := &pb.CreateResultRequest{
 		Parent: "foo",
 		Result: &pb.Result{
-			Name: "foo/results/bar",
+			Name:        "foo/results/bar",
+			Annotations: map[string]string{"foo": "bar"},
 		},
 	}
 	t.Run("success", func(t *testing.T) {
 		got, err := srv.CreateResult(ctx, req)
 		if err != nil {
 			t.Fatalf("could not create result: %v", err)
+		}
+		got, err = srv.GetResult(ctx, &pb.GetResultRequest{Name: got.GetName()})
+		if err != nil {
+			t.Fatalf("could not get result from database: %v", err)
 		}
 		want := proto.Clone(req.GetResult()).(*pb.Result)
 		want.Id = fmt.Sprint(lastID)
@@ -200,7 +205,8 @@ func TestListResults(t *testing.T) {
 		res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
 			Parent: "foo",
 			Result: &pb.Result{
-				Name: fmt.Sprintf("%s/results/%d", parent, i),
+				Name:        fmt.Sprintf("%s/results/%d", parent, i),
+				Annotations: map[string]string{"foo": fmt.Sprintf("bar-%d", i)},
 			},
 		})
 		if err != nil {
@@ -287,6 +293,16 @@ func TestListResults(t *testing.T) {
 				Filter: `result.id == "doesnotexist"`,
 			},
 			want: &pb.ListResultsResponse{},
+		},
+		{
+			name: "filter by annotations",
+			req: &pb.ListResultsRequest{
+				Parent: parent,
+				Filter: `result.annotations["foo"]=="bar-1"`,
+			},
+			want: &pb.ListResultsResponse{
+				Results: results[:1],
+			},
 		},
 		{
 			name: "non-boolean expression",
