@@ -5,6 +5,8 @@ CREATE TABLE results (
 	name varchar(64),
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,
+	
+	annotations BLOB,
 
 	PRIMARY KEY(parent, id)
 );

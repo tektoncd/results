@@ -2,6 +2,9 @@
 package db
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -13,6 +16,7 @@ type Result struct {
 	Name        string `gorm:"index:results_by_name,priority:2"`
 	CreatedTime time.Time
 	UpdatedTime time.Time
+	Annotations Annotations
 }
 
 func (r Result) String() string {
@@ -32,4 +36,34 @@ type Record struct {
 	ID   string `gorm:"primaryKey"`
 	Name string `gorm:"index:records_by_name,priority:3"`
 	Data []byte
+}
+
+// Annotations is a custom-defined type of a gorm model field.
+type Annotations map[string]string
+
+// Scan resolves serialized data read from database into an Annotation.
+// This implements the sql.Scanner interface.
+func (ann *Annotations) Scan(value interface{}) error {
+	if ann == nil {
+		return errors.New("the annotation pointer mustn't be nil")
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("wanted []byte, got %T: %+v", value, value)
+	}
+	if err := json.Unmarshal(bytes, ann); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Value returns the value of Annotations for database driver. This implements driver.Valuer.
+// gorm uses this function to convert a database model's Annotation field into a type that gorm
+// driver can write into the database.
+func (ann Annotations) Value() (driver.Value, error) {
+	bytes, err := json.Marshal(ann)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }

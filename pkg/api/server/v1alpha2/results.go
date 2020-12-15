@@ -48,7 +48,6 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	if err := errors.Wrap(s.db.WithContext(ctx).Create(store).Error); err != nil {
 		return nil, err
 	}
-
 	return result.ToAPI(store), nil
 }
 
