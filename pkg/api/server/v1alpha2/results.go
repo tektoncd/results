@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
 
@@ -16,11 +15,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-)
-
-const (
-	minPageSize = 50
-	maxPageSize = 10000
 )
 
 // CreateResult creates a new result in the database.
@@ -96,26 +90,14 @@ func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
 
-	userPageSize := int(req.GetPageSize())
-	if userPageSize < 0 {
-		return nil, status.Error(codes.InvalidArgument, "PageSize should be greater than 0")
-	} else if userPageSize == 0 {
-		userPageSize = minPageSize
-	} else if userPageSize > maxPageSize {
-		userPageSize = maxPageSize
+	userPageSize, err := pageSize(int(req.GetPageSize()))
+	if err != nil {
+		return nil, err
 	}
 
-	var start string
-	pageToken := req.GetPageToken()
-	if pageToken != "" {
-		name, filter, err := pagination.DecodeToken(pageToken)
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid PageToken: %v", err))
-		}
-		if req.GetFilter() != filter {
-			return nil, status.Error(codes.InvalidArgument, "filter does not match previous query")
-		}
-		start = name
+	start, err := pageStart(req.GetPageToken(), req.GetFilter())
+	if err != nil {
+		return nil, err
 	}
 
 	prg, err := celenv.ParseFilter(s.env, req.GetFilter())

@@ -2,6 +2,8 @@
 package cel
 
 import (
+	"log"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
@@ -10,6 +12,7 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // NewEnv returns the CEL environment for Results, loading in definitions for
@@ -18,6 +21,8 @@ func NewEnv() (*cel.Env, error) {
 	return cel.NewEnv(
 		cel.Types(&pb.Result{}, &ppb.PipelineRun{}, &ppb.TaskRun{}),
 		cel.Declarations(decls.NewVar("result", decls.NewObjectType("tekton.results.v1alpha2.Result"))),
+		cel.Declarations(decls.NewVar("record", decls.NewObjectType("tekton.results.v1alpha2.Record"))),
+
 		cel.Declarations(decls.NewVar("taskrun", decls.NewObjectType("tekton.pipeline.v1beta1.TaskRun"))),
 		cel.Declarations(decls.NewVar("pipelinerun", decls.NewObjectType("tekton.pipeline.v1beta1.PipelineRun"))),
 	)
@@ -46,4 +51,27 @@ type allowAll struct{}
 
 func (allowAll) Eval(interface{}) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
+}
+
+// Match determines whether the given CEL filter matches the result.
+func Match(prg cel.Program, key string, val proto.Message) (bool, error) {
+	if prg == nil {
+		return true, nil
+	}
+	if val == nil {
+		return false, nil
+	}
+
+	out, _, err := prg.Eval(map[string]interface{}{
+		key: val,
+	})
+	if err != nil {
+		log.Printf("failed to evaluate the expression: %v", err)
+		return false, status.Errorf(codes.InvalidArgument, "failed to evaluate filter: %v", err)
+	}
+	b, ok := out.Value().(bool)
+	if !ok {
+		return false, status.Errorf(codes.InvalidArgument, "expected boolean result, got %s", out.Type().TypeName())
+	}
+	return b, nil
 }

@@ -65,6 +65,12 @@ service Results {
     };
   }
 
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse) {
+    option (google.api.http) = {
+      get: "/v1alpha2/{parent=*/results/*}/records"
+    };
+  }
+
   rpc DeleteRecord(DeleteRecordRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/v1alpha2/{name=*/results/*/records/*}"
@@ -139,4 +145,18 @@ message UpdateRecordRequest {
 
 message GetRecordRequest {
   string name = 1;
+}
+
+message ListRecordsRequest {
+  string parent = 1;
+
+  string filter = 2;
+
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+message ListRecordsResponse {
+  repeated Record records = 1;
+  string next_page_token = 2;
 }
