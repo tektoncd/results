@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tektoncd/results/pkg/api/server/internal/protoutil"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	resultutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
-
+	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,6 +39,7 @@ func TestCreateRecord(t *testing.T) {
 		Parent: result.GetName(),
 		Record: &pb.Record{
 			Name: recordutil.FormatName(result.GetName(), "baz"),
+			Data: protoutil.Any(&ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}),
 		},
 	}
 	t.Run("success", func(t *testing.T) {

@@ -5,6 +5,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/internal/protoutil"
+	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -80,43 +82,106 @@ func TestParseName(t *testing.T) {
 }
 
 func TestToStorage(t *testing.T) {
-	got, err := ToStorage("foo", "bar", "1", "baz", &pb.Record{
-		Name: "foo/results/bar",
-		Id:   "a",
+	data := &ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}
 
-		// These fields are ignored for now.
-		Etag: "tacocat",
-	})
-	if err != nil {
-		t.Fatal(err)
+	for _, tc := range []struct {
+		name string
+		in   *pb.Record
+		want *db.Record
+	}{
+		{
+			name: "full",
+			in: &pb.Record{
+				Name: "foo/results/bar",
+				Id:   "a",
+				Data: protoutil.Any(data),
+				// These fields are ignored for now.
+				Etag: "tacocat",
+			},
+			want: &db.Record{
+				Parent:     "foo",
+				ResultID:   "1",
+				ResultName: "bar",
+				Name:       "baz",
+				ID:         "a",
+				Data:       protoutil.AnyBytes(data),
+			},
+		},
+		{
+			name: "missing data",
+			in: &pb.Record{
+				Name: "foo/results/bar",
+				Id:   "a",
+			},
+			want: &db.Record{
+				Parent:     "foo",
+				ResultID:   "1",
+				ResultName: "bar",
+				Name:       "baz",
+				ID:         "a",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("-want,+got: %s", diff)
+			}
+		})
 	}
 
-	want := &db.Record{
-		Parent:     "foo",
-		ResultID:   "1",
-		ResultName: "bar",
-		Name:       "baz",
-		ID:         "a",
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("-want,+got: %s", diff)
-	}
 }
 
 func TestToAPI(t *testing.T) {
-	got := ToAPI(&db.Record{
-		Parent:     "foo",
-		ResultID:   "1",
-		ResultName: "bar",
-		Name:       "baz",
-		ID:         "a",
-	})
-	want := &pb.Record{
-		Name: "foo/results/bar/records/baz",
-		Id:   "a",
-	}
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-		t.Errorf("-want,+got: %s", diff)
+	data := &ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}
+	for _, tc := range []struct {
+		name string
+		in   *db.Record
+		want *pb.Record
+	}{
+		{
+			name: "full",
+			in: &db.Record{
+				Parent:     "foo",
+				ResultID:   "1",
+				ResultName: "bar",
+				Name:       "baz",
+				ID:         "a",
+				Data:       protoutil.AnyBytes(data),
+			},
+			want: &pb.Record{
+				Name: "foo/results/bar/records/baz",
+				Id:   "a",
+				Data: protoutil.Any(data),
+			},
+		},
+		{
+			in: &db.Record{
+				Parent:     "foo",
+				ResultID:   "1",
+				ResultName: "bar",
+				Name:       "baz",
+				ID:         "a",
+			},
+			want: &pb.Record{
+				Name: "foo/results/bar/records/baz",
+				Id:   "a",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToAPI(tc.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("-want,+got: %s", diff)
+			}
+		})
 	}
 }
 

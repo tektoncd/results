@@ -9,6 +9,8 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var (
@@ -36,6 +38,10 @@ func FormatName(parent, name string) string {
 // equivalent.
 // parent,result,name should be the name parts (e.g. not containing "/results/" or "/records/").
 func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Record, error) {
+	data, err := proto.Marshal(r.Data)
+	if err != nil {
+		return nil, err
+	}
 	return &db.Record{
 		Parent:     parent,
 		ResultName: resultName,
@@ -43,14 +49,27 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 
 		ID:   r.GetId(),
 		Name: name,
+
+		Data: data,
 	}, nil
 }
 
 // ToAPI converts a database storage Record into its corresponding API
 // equivalent.
-func ToAPI(r *db.Record) *pb.Record {
-	return &pb.Record{
+func ToAPI(r *db.Record) (*pb.Record, error) {
+	out := &pb.Record{
 		Name: fmt.Sprintf("%s/results/%s/records/%s", r.Parent, r.ResultName, r.Name),
 		Id:   r.ID,
 	}
+
+	// Check if data was stored before unmarshalling, to avoid returning `{}`.
+	if r.Data != nil {
+		any := new(anypb.Any)
+		if err := proto.Unmarshal(r.Data, any); err != nil {
+			return nil, err
+		}
+		out.Data = any
+	}
+
+	return out, nil
 }
