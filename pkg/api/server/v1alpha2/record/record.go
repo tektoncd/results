@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/google/cel-go/cel"
+	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
@@ -72,4 +74,12 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	}
 
 	return out, nil
+}
+
+// Match determines whether the given CEL filter matches the result.
+func Match(r *pb.Record, prg cel.Program) (bool, error) {
+	if r == nil {
+		return false, nil
+	}
+	return resultscel.Match(prg, "record", r)
 }

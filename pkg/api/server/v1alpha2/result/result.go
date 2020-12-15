@@ -3,10 +3,10 @@ package result
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 
 	"github.com/google/cel-go/cel"
+	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
@@ -24,7 +24,7 @@ var (
 func ParseName(raw string) (parent, name string, err error) {
 	s := NameRegex.FindStringSubmatch(raw)
 	if len(s) != 3 {
-		return "", "", fmt.Errorf("name must match %s", NameRegex.String())
+		return "", "", status.Errorf(codes.InvalidArgument, "name must match %s", NameRegex.String())
 	}
 	return s[1], s[2], nil
 }
@@ -68,23 +68,8 @@ func ToAPI(r *db.Result) *pb.Result {
 
 // Match determines whether the given CEL filter matches the result.
 func Match(r *pb.Result, prg cel.Program) (bool, error) {
-	if prg == nil {
-		return true, nil
-	}
 	if r == nil {
 		return false, nil
 	}
-
-	out, _, err := prg.Eval(map[string]interface{}{
-		"result": r,
-	})
-	if err != nil {
-		log.Printf("failed to evaluate the expression: %v", err)
-		return false, status.Errorf(codes.InvalidArgument, "failed to evaluate filter: %v", err)
-	}
-	b, ok := out.Value().(bool)
-	if !ok {
-		return false, status.Errorf(codes.InvalidArgument, "expected boolean result, got %s", out.Type().TypeName())
-	}
-	return b, nil
+	return resultscel.Match(prg, "result", r)
 }

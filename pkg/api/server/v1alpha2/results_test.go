@@ -383,8 +383,8 @@ func TestListResults(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("-want,+got: %s", diff)
-				if name, filter, err := pagination.DecodeToken(tc.want.GetNextPageToken()); err == nil {
-					t.Logf("(name, filter) = (%s, %s)", name, filter)
+				if name, filter, err := pagination.DecodeToken(got.GetNextPageToken()); err == nil {
+					t.Logf("Next (name, filter) = (%s, %s)", name, filter)
 				}
 			}
 		})

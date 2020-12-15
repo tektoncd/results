@@ -4,10 +4,10 @@ package results_go_proto
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -21,12 +21,13 @@ type ResultsClient interface {
 	CreateResult(ctx context.Context, in *CreateResultRequest, opts ...grpc.CallOption) (*Result, error)
 	UpdateResult(ctx context.Context, in *UpdateResultRequest, opts ...grpc.CallOption) (*Result, error)
 	GetResult(ctx context.Context, in *GetResultRequest, opts ...grpc.CallOption) (*Result, error)
-	DeleteResult(ctx context.Context, in *DeleteResultRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteResult(ctx context.Context, in *DeleteResultRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ListResults(ctx context.Context, in *ListResultsRequest, opts ...grpc.CallOption) (*ListResultsResponse, error)
 	CreateRecord(ctx context.Context, in *CreateRecordRequest, opts ...grpc.CallOption) (*Record, error)
 	UpdateRecord(ctx context.Context, in *UpdateRecordRequest, opts ...grpc.CallOption) (*Record, error)
 	GetRecord(ctx context.Context, in *GetRecordRequest, opts ...grpc.CallOption) (*Record, error)
-	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error)
+	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type resultsClient struct {
@@ -64,8 +65,8 @@ func (c *resultsClient) GetResult(ctx context.Context, in *GetResultRequest, opt
 	return out, nil
 }
 
-func (c *resultsClient) DeleteResult(ctx context.Context, in *DeleteResultRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *resultsClient) DeleteResult(ctx context.Context, in *DeleteResultRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/tekton.results.v1alpha2.Results/DeleteResult", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -109,8 +110,17 @@ func (c *resultsClient) GetRecord(ctx context.Context, in *GetRecordRequest, opt
 	return out, nil
 }
 
-func (c *resultsClient) DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *resultsClient) ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error) {
+	out := new(ListRecordsResponse)
+	err := c.cc.Invoke(ctx, "/tekton.results.v1alpha2.Results/ListRecords", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resultsClient) DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/tekton.results.v1alpha2.Results/DeleteRecord", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -125,12 +135,13 @@ type ResultsServer interface {
 	CreateResult(context.Context, *CreateResultRequest) (*Result, error)
 	UpdateResult(context.Context, *UpdateResultRequest) (*Result, error)
 	GetResult(context.Context, *GetResultRequest) (*Result, error)
-	DeleteResult(context.Context, *DeleteResultRequest) (*emptypb.Empty, error)
+	DeleteResult(context.Context, *DeleteResultRequest) (*empty.Empty, error)
 	ListResults(context.Context, *ListResultsRequest) (*ListResultsResponse, error)
 	CreateRecord(context.Context, *CreateRecordRequest) (*Record, error)
 	UpdateRecord(context.Context, *UpdateRecordRequest) (*Record, error)
 	GetRecord(context.Context, *GetRecordRequest) (*Record, error)
-	DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error)
+	ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error)
+	DeleteRecord(context.Context, *DeleteRecordRequest) (*empty.Empty, error)
 	mustEmbedUnimplementedResultsServer()
 }
 
@@ -147,7 +158,7 @@ func (UnimplementedResultsServer) UpdateResult(context.Context, *UpdateResultReq
 func (UnimplementedResultsServer) GetResult(context.Context, *GetResultRequest) (*Result, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetResult not implemented")
 }
-func (UnimplementedResultsServer) DeleteResult(context.Context, *DeleteResultRequest) (*emptypb.Empty, error) {
+func (UnimplementedResultsServer) DeleteResult(context.Context, *DeleteResultRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteResult not implemented")
 }
 func (UnimplementedResultsServer) ListResults(context.Context, *ListResultsRequest) (*ListResultsResponse, error) {
@@ -162,7 +173,10 @@ func (UnimplementedResultsServer) UpdateRecord(context.Context, *UpdateRecordReq
 func (UnimplementedResultsServer) GetRecord(context.Context, *GetRecordRequest) (*Record, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRecord not implemented")
 }
-func (UnimplementedResultsServer) DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error) {
+func (UnimplementedResultsServer) ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRecords not implemented")
+}
+func (UnimplementedResultsServer) DeleteRecord(context.Context, *DeleteRecordRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRecord not implemented")
 }
 func (UnimplementedResultsServer) mustEmbedUnimplementedResultsServer() {}
@@ -322,6 +336,24 @@ func _Results_GetRecord_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Results_ListRecords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRecordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResultsServer).ListRecords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/tekton.results.v1alpha2.Results/ListRecords",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResultsServer).ListRecords(ctx, req.(*ListRecordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Results_DeleteRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRecordRequest)
 	if err := dec(in); err != nil {
@@ -375,6 +407,10 @@ var _Results_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRecord",
 			Handler:    _Results_GetRecord_Handler,
+		},
+		{
+			MethodName: "ListRecords",
+			Handler:    _Results_ListRecords_Handler,
 		},
 		{
 			MethodName: "DeleteRecord",
