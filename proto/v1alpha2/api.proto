@@ -106,12 +106,11 @@ message DeleteResultRequest {
 message UpdateResultRequest {
   string name = 1;
   Result result = 2;
-
-  google.protobuf.FieldMask update_mask = 3;
+  
   // If set, then the request will succeed if and only if the provided etag
   // matches the server-computed value, else will fail.
   // Should be used to prevent concurrent updates from overwritting each other.
-  string etag = 4;
+  string etag = 3;
 }
 
 message GetResultRequest {

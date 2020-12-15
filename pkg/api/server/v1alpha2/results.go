@@ -16,8 +16,10 @@ package server
 
 import (
 	"context"
+	"log"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"gorm.io/gorm"
 
 	"github.com/google/cel-go/cel"
 	celenv "github.com/tektoncd/results/pkg/api/server/cel"
@@ -67,14 +69,41 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	store := &db.Result{}
-	q := s.db.WithContext(ctx).
-		Where(&db.Result{Parent: parent, Name: name}).
-		First(store)
-	if err := errors.Wrap(q.Error); err != nil {
+	store, err := getResultByParentName(s.db, parent, name)
+	if err != nil {
 		return nil, err
 	}
 	return result.ToAPI(store), nil
+}
+
+// UpdateResult updates a Result in the database.
+func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) (*pb.Result, error) {
+	var out *pb.Result
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Retrieve result from database by name
+		parent, name, err := result.ParseName(req.GetName())
+		if err != nil {
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+		prev, err := getResultByParentName(tx, parent, name)
+		if err != nil {
+			return status.Errorf(codes.NotFound, "failed to find a result: %v", err)
+		}
+
+		prev.Annotations = req.GetResult().GetAnnotations()
+		prev.UpdatedTime = clock.Now()
+		// TODO update Etag
+
+		// Write result back to database.
+		if err = errors.Wrap(tx.Save(&prev).Error); err != nil {
+			log.Printf("failed to save result into database: %v", err)
+			return err
+		}
+
+		out = result.ToAPI(prev)
+		return nil
+	})
+	return out, err
 }
 
 // DeleteResult deletes a given result.
@@ -190,4 +219,12 @@ func (s *Server) getFilteredPaginatedResults(ctx context.Context, parent string,
 
 	}
 	return out, nil
+}
+
+func getResultByParentName(gdb *gorm.DB, parent, name string) (*db.Result, error) {
+	r := &db.Result{}
+	if err := errors.Wrap(gdb.Where(&db.Result{Parent: parent, Name: name}).First(r).Error); err != nil {
+		return nil, status.Errorf(status.Code(err), "failed to query on database: %v", err)
+	}
+	return r, nil
 }
