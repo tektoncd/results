@@ -47,7 +47,7 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 		return nil, err
 	}
 
-	return record.ToAPI(store), nil
+	return record.ToAPI(store)
 }
 
 // resultID is a utility struct to extract partial Result data representing
@@ -82,5 +82,5 @@ func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.R
 	if err := errors.Wrap(q.Error); err != nil {
 		return nil, err
 	}
-	return record.ToAPI(store), nil
+	return record.ToAPI(store)
 }
