@@ -23,8 +23,11 @@ import (
 	"net"
 	"os"
 
-	server "github.com/tektoncd/results/pkg/api/server/v1alpha1"
-	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
+	v1alpha1 "github.com/tektoncd/results/pkg/api/server/v1alpha1"
+	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
+	v1alpha1pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
+	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"
@@ -46,12 +49,25 @@ func main() {
 		log.Fatalf("failed to open the results.db: %v", err)
 	}
 
-	// Create cel enviroment for filter
-	srv, err := server.New(db)
+	s := grpc.NewServer()
+
+	// Register API servers
+	v1a1, err := v1alpha1.New(db)
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
 	}
-	// Listen for gRPC requests.
+	v1alpha1pb.RegisterResultsServer(s, v1a1)
+
+	v1a2, err := v1alpha2.New(db)
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
+	v1alpha2pb.RegisterResultsServer(s, v1a2)
+
+	// Allow service reflection - required for grpc_cli ls to work.
+	reflection.Register(s)
+
+	// Listen on port and serve.
 	port := os.Getenv("PORT")
 	if port == "" {
 		// Default gRPC server port to this value from tutorials (e.g., https://grpc.io/docs/guides/auth/#go)
@@ -61,9 +77,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
-	pb.RegisterResultsServer(s, srv)
-	reflection.Register(s)
 	log.Printf("Listening on :%s...", port)
 	log.Fatal(s.Serve(lis))
 }
