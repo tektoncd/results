@@ -9,7 +9,9 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/internal/protoutil"
 	"github.com/tektoncd/results/pkg/api/server/test"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	resultutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -400,6 +402,118 @@ func TestListRecords(t *testing.T) {
 				if name, filter, err := pagination.DecodeToken(got.GetNextPageToken()); err == nil {
 					t.Logf("Next (name, filter) = (%s, %s)", name, filter)
 				}
+			}
+		})
+	}
+}
+
+func TestUpdateRecord(t *testing.T) {
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+
+	result, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "foo",
+		Result: &pb.Result{
+			Name: result.FormatName("foo", "bar"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult(): %v", err)
+	}
+
+	tr := &ppb.TaskRun{
+		Metadata: &ppb.ObjectMeta{
+			Name: "taskrun",
+		},
+	}
+
+	tt := []struct {
+		name string
+		// Starting Record to create.
+		record *pb.Record
+		req    *pb.UpdateRecordRequest
+		// Expected update diff: expected Record should be merge of
+		// record + diff.
+		diff   *pb.Record
+		status codes.Code
+	}{
+		{
+			name: "success",
+			record: &pb.Record{
+				Name: record.FormatName(result.GetName(), "a"),
+			},
+			req: &pb.UpdateRecordRequest{
+				Record: &pb.Record{
+					Name: record.FormatName(result.GetName(), "a"),
+					Data: protoutil.Any(t, tr),
+				},
+			},
+			diff: &pb.Record{
+				Data: protoutil.Any(t, tr),
+			},
+		},
+		{
+			name: "ignored fields",
+			record: &pb.Record{
+				Name: record.FormatName(result.GetName(), "b"),
+			},
+			req: &pb.UpdateRecordRequest{
+				Record: &pb.Record{
+					Name: record.FormatName(result.GetName(), "b"),
+					Id:   "ignored",
+				},
+			},
+		},
+		// Errors
+		{
+			name: "rename",
+			req: &pb.UpdateRecordRequest{
+				Record: &pb.Record{
+					Name: record.FormatName(result.GetName(), "doesnotexist"),
+					Data: protoutil.Any(t, tr),
+				},
+			},
+			status: codes.NotFound,
+		},
+		{
+			name: "bad name",
+			req: &pb.UpdateRecordRequest{
+				Record: &pb.Record{
+					Name: "tacocat",
+					Data: protoutil.Any(t, tr),
+				},
+			},
+			status: codes.InvalidArgument,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			var r *pb.Record
+			if tc.record != nil {
+				var err error
+				r, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+					Parent: result.GetName(),
+					Record: tc.record,
+				})
+				if err != nil {
+					t.Fatalf("CreateRecord(): %v", err)
+				}
+			}
+
+			got, err := srv.UpdateRecord(ctx, tc.req)
+			if status.Code(err) == tc.status {
+				return
+			}
+			if err != nil {
+				t.Fatalf("UpdateRecord(%+v): %v", tc.req, err)
+			}
+
+			proto.Merge(r, tc.diff)
+			if diff := cmp.Diff(r, got, protocmp.Transform()); diff != "" {
+				t.Error(diff)
 			}
 		})
 	}
