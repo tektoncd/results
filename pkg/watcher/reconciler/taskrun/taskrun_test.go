@@ -20,114 +20,134 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pipelinetest "github.com/tektoncd/pipeline/test"
+	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
+	fakepipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client/fake"
+	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/results/pkg/watcher/convert"
+	"github.com/tektoncd/results/pkg/watcher/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
-	"github.com/tektoncd/results/pkg/watcher/reconciler/internal/test"
-	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	"knative.dev/pkg/controller"
 )
 
-type taskRunTest struct {
-	taskRun *v1beta1.TaskRun
-	asset   pipelinetest.Assets
-	ctx     context.Context
-	client  pb.ResultsClient
+type env struct {
+	ctx      context.Context
+	ctrl     *controller.Impl
+	results  pb.ResultsClient
+	pipeline *fake.Clientset
 }
 
-func newTaskRunTest(t *testing.T) *taskRunTest {
-	client := test.NewResultsClient(t)
-	taskRun := &v1beta1.TaskRun{
+func newEnv(t *testing.T) *env {
+	t.Helper()
+
+	// Configures fake tekton clients + informers.
+	ctx, _ := rtesting.SetupFakeContext(t)
+
+	results := test.NewResultsClient(t)
+	ctrl := NewController(ctx, results)
+
+	pipeline := fakepipelineclient.Get(ctx)
+
+	return &env{
+		ctx:      ctx,
+		ctrl:     ctrl,
+		results:  results,
+		pipeline: pipeline,
+	}
+}
+
+func TestReconcile(t *testing.T) {
+	env := newEnv(t)
+
+	tr, err := env.pipeline.TektonV1beta1().TaskRuns("ns").Create(&v1beta1.TaskRun{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1beta1",
+			Kind:       "taskrun",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "Tekton-TaskRun",
-			Namespace:   "default",
+			Namespace:   "ns",
 			Annotations: map[string]string{"demo": "demo"},
 			UID:         "12345",
 		},
-	}
-	d := pipelinetest.Data{
-		TaskRuns: []*v1beta1.TaskRun{taskRun},
-	}
-	ctx, tclients, cmw := test.GetFakeClients(t, d, client)
-	taskRunTest := &taskRunTest{
-		taskRun: taskRun,
-		asset: pipelinetest.Assets{
-			Controller: NewController(ctx, cmw, client),
-			Clients:    tclients,
+		Status: v1beta1.TaskRunStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{
+					apis.Condition{
+						Type:   apis.ConditionSucceeded,
+						Status: corev1.ConditionFalse,
+					},
+				},
+			},
+			TaskRunStatusFields: v1beta1.TaskRunStatusFields{},
 		},
-		ctx:    ctx,
-		client: client,
+		Spec: v1beta1.TaskRunSpec{
+			TaskSpec: &v1beta1.TaskSpec{
+				Steps: []v1beta1.Step{{
+					Script: "echo hello world!",
+				}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	return taskRunTest
+
+	t.Run("create", func(t *testing.T) {
+		tr = reconcile(t, env, tr)
+	})
+
+	t.Run("nop", func(t *testing.T) {
+		// This is treated like an update, even though there is no change.
+		reconcile(t, env, tr)
+	})
+
+	t.Run("update", func(t *testing.T) {
+		tr, err = env.pipeline.TektonV1beta1().TaskRuns(tr.GetNamespace()).Update(tr)
+		if err != nil {
+			t.Fatalf("TaskRun.Update: %v", err)
+		}
+		reconcile(t, env, tr)
+	})
 }
 
-func TestReconcile_CreateTaskRun(t *testing.T) {
-	tt := newTaskRunTest(t)
-	tr, err := test.ReconcileTaskRun(tt.ctx, tt.asset, tt.taskRun)
-	if err != nil {
-		t.Fatalf("Failed to get completed TaskRun %s: %v", tt.taskRun.Name, err)
-	}
-	if _, ok := tr.Annotations[annotation.ResultID]; !ok {
-		t.Fatalf("Expected completed TaskRun %s should be updated with a results_id field in annotations", tt.taskRun.Name)
-	}
-	if _, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: tr.Annotations[annotation.ResultID]}); err != nil {
-		t.Fatalf("Expected completed TaskRun %s not created in api server", tt.taskRun.Name)
-	}
-}
-
-func TestReconcile_UnchangeTaskRun(t *testing.T) {
-	tt := newTaskRunTest(t)
-
-	// Reconcile once to get IDs, etc.
-	tr, err := test.ReconcileTaskRun(tt.ctx, tt.asset, tt.taskRun)
-	if err != nil {
-		t.Fatalf("failed to get completed TaskRun %s: %v", tt.taskRun.Name, err)
+// reconcile forces a reconcile for the given TaskRun, and returns the newest
+// TaskRun post-reconcile.
+func reconcile(t *testing.T, env *env, want *v1beta1.TaskRun) *v1beta1.TaskRun {
+	if err := env.ctrl.Reconciler.Reconcile(env.ctx, want.GetNamespacedName().String()); err != nil {
+		t.Fatalf("Reconcile: %v", err)
 	}
 
-	// Reconcile again to verify nothing changes.
-	newtr, err := test.ReconcileTaskRun(tt.ctx, tt.asset, tt.taskRun)
+	// Verify that the TaskRun now has a Result annotation associated with it.
+	tr, err := env.pipeline.TektonV1beta1().TaskRuns(want.GetNamespace()).Get(want.GetName(), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to get completed TaskRun %s: %v", tt.taskRun.Name, err)
+		t.Fatalf("TaskRun.Get(%s): %v", tr.Name, err)
 	}
-	if diff := cmp.Diff(tr, newtr); diff != "" {
-		t.Error(diff)
+	for _, a := range []string{annotation.Result, annotation.Record} {
+		if _, ok := tr.Annotations[a]; !ok {
+			t.Errorf("annotation %s missing", a)
+		}
 	}
-}
 
-func TestReconcile_UpdateTaskRun(t *testing.T) {
-	tt := newTaskRunTest(t)
-	tr, err := test.ReconcileTaskRun(tt.ctx, tt.asset, tt.taskRun)
+	// Verify Result data matches TaskRun.
+	got, err := env.results.GetRecord(env.ctx, &pb.GetRecordRequest{Name: tr.Annotations[annotation.Record]})
 	if err != nil {
-		t.Fatalf("Failed to get completed TaskRun %s: %v", tt.taskRun.Name, err)
+		t.Fatalf("GetRecord: %v", err)
 	}
-	tr.UID = "234435"
-	if _, err := tt.asset.Clients.Pipeline.TektonV1beta1().TaskRuns(tt.taskRun.Namespace).Update(tr); err != nil {
-		t.Fatalf("Failed to update TaskRun %s to Tekton Pipeline Client: %v", tt.taskRun.Name, err)
-	}
-	updatetr, err := test.ReconcileTaskRun(tt.ctx, tt.asset, tr)
+	// We diff the base since we're storing the current state. We don't include
+	// the result annotations since that's part of the "next" state.
+	wantpb, err := convert.ToProto(want)
 	if err != nil {
-		t.Fatalf("Failed to reconcile TaskRun %s: %v", tt.taskRun.Name, err)
+		t.Fatalf("convert.ToProto: %v", err)
 	}
-	updatetr.ResourceVersion = tr.ResourceVersion
-	if diff := cmp.Diff(tr, updatetr); diff != "" {
-		t.Fatalf("Expected completed TaskRun should be updated in cluster: %v", diff)
+	if diff := cmp.Diff(wantpb, got.GetData(), protocmp.Transform()); diff != "" {
+		t.Errorf("Result diff (-want, +got):\n%s", diff)
 	}
-	res, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: tr.Annotations[annotation.ResultID]})
-	if err != nil {
-		t.Fatalf("Expected completed TaskRun %s not created in api server", tt.taskRun.Name)
-	}
-	p, err := convert.ToTaskRunProto(updatetr)
-	if err != nil {
-		t.Fatalf("failed to convert to proto: %v", err)
-	}
-	want := &pb.Result{
-		Name: tr.Annotations[annotation.ResultID],
-		Executions: []*pb.Execution{{
-			Execution: &pb.Execution_TaskRun{TaskRun: p},
-		}},
-	}
-	if diff := cmp.Diff(want, res, protocmp.Transform()); diff != "" {
-		t.Fatalf("Expected completed TaskRun should be upated in api server: %v", diff)
-	}
+
+	return tr
 }

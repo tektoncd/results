@@ -21,12 +21,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
-	"github.com/tektoncd/results/pkg/api/server/internal/protoutil"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	resultutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
+	"github.com/tektoncd/results/pkg/internal/protoutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"

@@ -17,6 +17,7 @@ limitations under the License.
 package convert
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -470,6 +471,36 @@ func TestToPipelineRunProto(t *testing.T) {
 
 	if d := cmp.Diff(want, got, protocmp.Transform()); d != "" {
 		t.Errorf("Diff(-want,+got): %s", d)
+	}
+}
+
+func TestToProto(t *testing.T) {
+	for _, tc := range []struct {
+		in interface{}
+		ok bool
+	}{
+		{
+			in: &v1beta1.TaskRun{},
+			ok: true,
+		},
+		{
+			in: &v1beta1.PipelineRun{},
+			ok: true,
+		},
+		{
+			in: metav1.ObjectMeta{},
+			ok: false,
+		},
+		{
+			in: nil,
+			ok: false,
+		},
+	} {
+		t.Run(fmt.Sprintf("%T", tc.in), func(t *testing.T) {
+			if _, err := ToProto(tc.in); (err == nil) != tc.ok {
+				t.Error(err)
+			}
+		})
 	}
 }
 

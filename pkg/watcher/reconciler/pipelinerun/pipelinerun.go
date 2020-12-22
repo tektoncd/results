@@ -62,7 +62,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if resultID, ok := prProto.GetMetadata().GetAnnotations()[annotation.ResultID]; ok {
+	if resultID, ok := prProto.GetMetadata().GetAnnotations()[annotation.Result]; ok {
 		result, err := r.client.GetResult(ctx, &pb.GetResultRequest{Name: resultID})
 		if err != nil {
 			logger.Fatalf("Error retrieving result %s: %v", resultID, err)
@@ -98,7 +98,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			logger.Errorf("Error creating PipelineRun Result: %v", err)
 			return err
 		}
-		path, err := annotation.AddResultID(prResult.GetName())
+		path, err := annotation.Add(prResult.GetName(), "")
 		if err != nil {
 			logger.Errorf("Error jsonpatch for PipelineRun Result %s: %v", prResult.GetName(), err)
 			return err
