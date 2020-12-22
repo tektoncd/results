@@ -28,6 +28,8 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) (*pb.Record, error) {
@@ -90,18 +92,26 @@ func (s *Server) getResultIDImpl(ctx context.Context, parent, result string) (st
 
 // GetRecord returns a single Record.
 func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.Record, error) {
-	parent, result, name, err := record.ParseName(req.GetName())
+	r, err := getRecord(s.db.WithContext(ctx), req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return record.ToAPI(r)
+}
+
+func getRecord(txn *gorm.DB, name string) (*db.Record, error) {
+	parent, result, name, err := record.ParseName(name)
 	if err != nil {
 		return nil, err
 	}
 	store := &db.Record{}
-	q := s.db.WithContext(ctx).
+	q := txn.
 		Where(&db.Record{Result: db.Result{Parent: parent, Name: result}, Name: name}).
 		First(store)
 	if err := errors.Wrap(q.Error); err != nil {
 		return nil, err
 	}
-	return record.ToAPI(store)
+	return store, nil
 }
 
 func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
@@ -200,4 +210,41 @@ func (s *Server) getFilteredPaginatedRecords(ctx context.Context, parent, start 
 		batcher.Update(len(dbrecords), batchSize)
 	}
 	return out, nil
+}
+
+// UpdateRecord updates a record in the database.
+func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) (*pb.Record, error) {
+	in := req.GetRecord()
+	protoutil.ClearOutputOnly(in)
+
+	var out *pb.Record
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		r, err := getRecord(tx, in.GetName())
+		if err != nil {
+			return err
+		}
+
+		// TODO: etag validation.
+
+		// Merge existing data with user request.
+		pb, err := record.ToAPI(r)
+		if err != nil {
+			return err
+		}
+		// TODO: field mask support.
+		proto.Merge(pb, in)
+
+		// Convert back to storage and store.
+		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb)
+		if err != nil {
+			return err
+		}
+		if err := errors.Wrap(tx.Save(s).Error); err != nil {
+			return err
+		}
+
+		out = pb
+		return nil
+	})
+	return out, err
 }
