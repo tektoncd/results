@@ -10,6 +10,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
+	"github.com/tektoncd/results/pkg/api/server/internal/protoutil"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
@@ -31,6 +32,7 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	}
 
 	// Populate Result with server provided fields.
+	protoutil.ClearOutputOnly(r)
 	r.Id = uid()
 	r.CreatedTime = timestamppb.New(clock.Now())
 	r.UpdatedTime = timestamppb.New(clock.Now())

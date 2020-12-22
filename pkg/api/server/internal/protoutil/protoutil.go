@@ -4,7 +4,10 @@ package protoutil
 import (
 	"testing"
 
+	fbpb "google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -27,4 +30,18 @@ func AnyBytes(t testing.TB, m proto.Message) []byte {
 		t.Fatalf("error marshalling Any proto: %v", err)
 	}
 	return b
+}
+
+// ClearOutputOnly clears any proto fields marked as OUTPUT_ONLY.
+func ClearOutputOnly(pb proto.Message) {
+	m := pb.ProtoReflect()
+	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		opts := fd.Options().(*descriptorpb.FieldOptions)
+		for _, b := range proto.GetExtension(opts, fbpb.E_FieldBehavior).([]fbpb.FieldBehavior) {
+			if b == fbpb.FieldBehavior_OUTPUT_ONLY {
+				m.Clear(fd)
+			}
+		}
+		return true
+	})
 }
