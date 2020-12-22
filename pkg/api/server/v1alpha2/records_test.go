@@ -40,7 +40,7 @@ func TestCreateRecord(t *testing.T) {
 		Parent: result.GetName(),
 		Record: &pb.Record{
 			Name: recordutil.FormatName(result.GetName(), "baz"),
-			Data: protoutil.Any(&ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}),
+			Data: protoutil.Any(t, &ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}),
 		},
 	}
 	t.Run("success", func(t *testing.T) {
@@ -233,7 +233,7 @@ func TestListRecords(t *testing.T) {
 			Parent: result.GetName(),
 			Record: &pb.Record{
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
-				Data: protoutil.Any(&ppb.TaskRun{
+				Data: protoutil.Any(t, &ppb.TaskRun{
 					Metadata: &ppb.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
 					},
@@ -252,7 +252,7 @@ func TestListRecords(t *testing.T) {
 			Parent: result.GetName(),
 			Record: &pb.Record{
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
-				Data: protoutil.Any(&ppb.PipelineRun{
+				Data: protoutil.Any(t, &ppb.PipelineRun{
 					Metadata: &ppb.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
 					},

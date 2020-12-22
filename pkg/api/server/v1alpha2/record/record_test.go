@@ -94,7 +94,7 @@ func TestToStorage(t *testing.T) {
 			in: &pb.Record{
 				Name: "foo/results/bar",
 				Id:   "a",
-				Data: protoutil.Any(data),
+				Data: protoutil.Any(t, data),
 				// These fields are ignored for now.
 				Etag: "tacocat",
 			},
@@ -104,7 +104,7 @@ func TestToStorage(t *testing.T) {
 				ResultName: "bar",
 				Name:       "baz",
 				ID:         "a",
-				Data:       protoutil.AnyBytes(data),
+				Data:       protoutil.AnyBytes(t, data),
 			},
 		},
 		{
@@ -150,12 +150,12 @@ func TestToAPI(t *testing.T) {
 				ResultName: "bar",
 				Name:       "baz",
 				ID:         "a",
-				Data:       protoutil.AnyBytes(data),
+				Data:       protoutil.AnyBytes(t, data),
 			},
 			want: &pb.Record{
 				Name: "foo/results/bar/records/baz",
 				Id:   "a",
-				Data: protoutil.Any(data),
+				Data: protoutil.Any(t, data),
 			},
 		},
 		{
