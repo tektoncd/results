@@ -17,7 +17,7 @@ set -e
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 
-ROOT="$(git rev-parse --show-toplevel)/results"
+ROOT="$(git rev-parse --show-toplevel)"
 
 echo "Installing Tekton Pipelines..."
 TEKTON_PIPELINE_CONFIG=${TEKTON_PIPELINE_CONFIG:-"https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml"}

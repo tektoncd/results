@@ -26,7 +26,29 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
+
+func ToProto(in interface{}) (*anypb.Any, error) {
+	var (
+		m   proto.Message
+		err error
+	)
+	switch i := in.(type) {
+	case *v1beta1.TaskRun:
+		m, err = ToTaskRunProto(i)
+	case *v1beta1.PipelineRun:
+		m, err = ToPipelineRunProto(i)
+	default:
+		return nil, fmt.Errorf("unsupported type %T", i)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return anypb.New(m)
+}
 
 // ToTaskRunProto converts a v1beta1.TaskRun object to the equivalent Results API
 // proto message.

@@ -25,8 +25,8 @@ import (
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
+	"github.com/tektoncd/results/pkg/watcher/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
-	"github.com/tektoncd/results/pkg/watcher/reconciler/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +44,9 @@ func TestController(t *testing.T) {
 
 	// Create reconcilers, start controller.
 	results := test.NewResultsClient(t)
-	trctrl := taskrun.NewController(ctx, nil, results)
-	prctrl := pipelinerun.NewController(ctx, nil, results)
+	trctrl := taskrun.NewController(ctx, results)
+	v1alpha1 := test.NewLegacyResultsClient(t)
+	prctrl := pipelinerun.NewController(ctx, nil, v1alpha1)
 	go controller.StartAll(ctx, trctrl, prctrl)
 
 	// Start informers - this notifies the controller of new events.
@@ -83,7 +84,7 @@ func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset)
 	select {
 	case <-tick.C:
 		tr, err = client.TektonV1beta1().TaskRuns("ns").Get(tr.GetName(), metav1.GetOptions{})
-		if err == nil && tr.Annotations[annotation.ResultID] != "" {
+		if err == nil && tr.Annotations[annotation.Result] != "" {
 			break
 		}
 	case <-ctx.Done():
@@ -113,7 +114,7 @@ func reconcilePipelineRun(ctx context.Context, t *testing.T, client *fake.Client
 	select {
 	case <-tick.C:
 		pr, err = client.TektonV1beta1().PipelineRuns("ns").Get(pr.GetName(), metav1.GetOptions{})
-		if err == nil && pr.Annotations[annotation.ResultID] != "" {
+		if err == nil && pr.Annotations[annotation.Result] != "" {
 			break
 		}
 	case <-ctx.Done():

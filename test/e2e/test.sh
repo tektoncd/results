@@ -15,18 +15,28 @@
 
 set -e
 
-ROOT="$(git rev-parse --show-toplevel)/results"
-TASKRUN="${DIR}/test/e2e/taskrun.yaml"
+ROOT="$(git rev-parse --show-toplevel)"
+TASKRUN="${ROOT}/test/e2e/taskrun.yaml"
 
 kubectl delete -f "${TASKRUN}" || true
 kubectl apply -f "${TASKRUN}"
 echo "Waiting for TaskRun to complete..."
 kubectl wait -f "${TASKRUN}" --for=condition=Succeeded
 
-result_id=$(kubectl get -f "${TASKRUN}" -o json | jq -r '.metadata.annotations."results.tekton.dev/id"')
-if [[ -z "${result_id}" ]]; then
-    echo "Could not find 'results.tekton.dev/id' for ${TASKRUN}"
+# Try a few times to get the result, since we might query before the reconciler
+# picks it up.
+for n in $(seq 10); do
+    result_id=$(kubectl get -f "${TASKRUN}" -o json | jq -r '.metadata.annotations."results.tekton.dev/result"')
+    if [[ "${result_id}" == "null" ]]; then
+        echo "Attempt #${n}: Could not find 'results.tekton.dev/result' for ${TASKRUN}"
+        sleep 1
+    fi
+done
+
+if [[ "${result_id}" == "null" ]]; then
+    echo "Giving up."
     exit 1
 fi
+
 echo "Found result ${result_id}"
 echo "Success!"

@@ -27,7 +27,8 @@ import (
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
-	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
+	v1alpha1pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
+	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -55,15 +56,15 @@ func main() {
 	}
 	log.Println("connected!")
 	defer conn.Close()
+	v1alpha1 := v1alpha1pb.NewResultsClient(conn)
+	v1alpha2 := v1alpha2pb.NewResultsClient(conn)
 
 	cfg := sharedmain.ParseAndGetConfigOrDie()
 	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, ""), "watcher", cfg,
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			client := pb.NewResultsClient(conn)
-			return pipelinerun.NewController(ctx, cmw, client)
+			return pipelinerun.NewController(ctx, cmw, v1alpha1)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			client := pb.NewResultsClient(conn)
-			return taskrun.NewController(ctx, cmw, client)
+			return taskrun.NewController(ctx, v1alpha2)
 		},
 	)
 }

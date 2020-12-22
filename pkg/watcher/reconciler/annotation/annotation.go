@@ -16,22 +16,40 @@ package annotation
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"gomodules.xyz/jsonpatch/v2"
 )
 
 const (
-	path     = "/metadata/annotations/results.tekton.dev~1id"
-	ResultID = "results.tekton.dev/id"
+	Result = "results.tekton.dev/result"
+	Record = "results.tekton.dev/record"
 )
 
-// AddResultID creates a jsonpatch path used for adding results_id to Result
-// annotations field.
-func AddResultID(resultID string) ([]byte, error) {
-	patches := []jsonpatch.JsonPatchOperation{{
-		Operation: "add",
-		Path:      path,
-		Value:     resultID,
-	}}
+var (
+	resultPath = path(Result)
+	recordPath = path(Record)
+)
+
+func path(s string) string {
+	return fmt.Sprintf("/metadata/annotations/%s", strings.ReplaceAll(s, "/", "~1"))
+}
+
+// Add creates a jsonpatch path used for adding result / record identifiers
+// an object's annotations field.
+func Add(result, record string) ([]byte, error) {
+	patches := []jsonpatch.JsonPatchOperation{
+		{
+			Operation: "add",
+			Path:      resultPath,
+			Value:     result,
+		},
+		{
+			Operation: "add",
+			Path:      recordPath,
+			Value:     record,
+		},
+	}
 	return json.Marshal(patches)
 }

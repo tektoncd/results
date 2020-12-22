@@ -22,8 +22,8 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pipelinetest "github.com/tektoncd/pipeline/test"
 	"github.com/tektoncd/results/pkg/watcher/convert"
+	"github.com/tektoncd/results/pkg/watcher/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
-	"github.com/tektoncd/results/pkg/watcher/reconciler/internal/test"
 	pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ type pipelineRunTest struct {
 }
 
 func newPipelineRunTest(t *testing.T) *pipelineRunTest {
-	client := test.NewResultsClient(t)
+	client := test.NewLegacyResultsClient(t)
 	pipelineRun := &v1beta1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "Tekton-PipelineRun",
@@ -69,10 +69,10 @@ func TestReconcile_CreatePipelineRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get completed PipelineRun %s: %v", tt.pipelineRun.Name, err)
 	}
-	if _, ok := pr.Annotations[annotation.ResultID]; !ok {
+	if _, ok := pr.Annotations[annotation.Result]; !ok {
 		t.Fatalf("Expected completed PipelineRun %s should be updated with a results_id field in annotations", tt.pipelineRun.Name)
 	}
-	if _, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: pr.Annotations[annotation.ResultID]}); err != nil {
+	if _, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: pr.Annotations[annotation.Result]}); err != nil {
 		t.Fatalf("Expected completed PipelineRun %s not created in api server", tt.pipelineRun.Name)
 	}
 }
@@ -115,7 +115,7 @@ func TestReconcile_UpdatePipelineRun(t *testing.T) {
 	if diff := cmp.Diff(pr, updatepr); diff != "" {
 		t.Fatalf("Expected completed PipelineRun should be updated in cluster: %v", diff)
 	}
-	res, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: pr.Annotations[annotation.ResultID]})
+	res, err := tt.client.GetResult(tt.ctx, &pb.GetResultRequest{Name: pr.Annotations[annotation.Result]})
 	if err != nil {
 		t.Fatalf("Expected completed PipelineRun %s not created in api server", tt.pipelineRun.Name)
 	}
@@ -124,7 +124,7 @@ func TestReconcile_UpdatePipelineRun(t *testing.T) {
 		t.Fatalf("failed to convert to proto: %v", err)
 	}
 	want := &pb.Result{
-		Name: pr.Annotations[annotation.ResultID],
+		Name: pr.Annotations[annotation.Result],
 		Executions: []*pb.Execution{{
 			Execution: &pb.Execution_PipelineRun{PipelineRun: p},
 		}},
