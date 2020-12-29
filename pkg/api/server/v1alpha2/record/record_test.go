@@ -18,12 +18,16 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/internal/protoutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+var clock cw.Clock = cw.NewFakeClock()
 
 func TestParseName(t *testing.T) {
 	for _, tc := range []struct {
@@ -106,33 +110,39 @@ func TestToStorage(t *testing.T) {
 		{
 			name: "full",
 			in: &pb.Record{
-				Name: "foo/results/bar",
-				Id:   "a",
-				Data: protoutil.Any(t, data),
+				Name:        "foo/results/bar",
+				Id:          "a",
+				Data:        protoutil.Any(t, data),
+				CreatedTime: timestamppb.New(clock.Now()),
+				UpdatedTime: timestamppb.New(clock.Now()),
 				// These fields are ignored for now.
 				Etag: "tacocat",
 			},
 			want: &db.Record{
-				Parent:     "foo",
-				ResultID:   "1",
-				ResultName: "bar",
-				Name:       "baz",
-				ID:         "a",
-				Data:       protoutil.AnyBytes(t, data),
+				Parent:      "foo",
+				ResultID:    "1",
+				ResultName:  "bar",
+				Name:        "baz",
+				ID:          "a",
+				Data:        protoutil.AnyBytes(t, data),
+				CreatedTime: clock.Now(),
+				UpdatedTime: clock.Now(),
 			},
 		},
 		{
 			name: "missing data",
 			in: &pb.Record{
-				Name: "foo/results/bar",
-				Id:   "a",
+				Name:        "foo/results/bar",
+				Id:          "a",
+				CreatedTime: timestamppb.New(clock.Now()),
 			},
 			want: &db.Record{
-				Parent:     "foo",
-				ResultID:   "1",
-				ResultName: "bar",
-				Name:       "baz",
-				ID:         "a",
+				Parent:      "foo",
+				ResultID:    "1",
+				ResultName:  "bar",
+				Name:        "baz",
+				ID:          "a",
+				CreatedTime: clock.Now(),
 			},
 		},
 	} {
@@ -159,17 +169,19 @@ func TestToAPI(t *testing.T) {
 		{
 			name: "full",
 			in: &db.Record{
-				Parent:     "foo",
-				ResultID:   "1",
-				ResultName: "bar",
-				Name:       "baz",
-				ID:         "a",
-				Data:       protoutil.AnyBytes(t, data),
+				Parent:      "foo",
+				ResultID:    "1",
+				ResultName:  "bar",
+				Name:        "baz",
+				ID:          "a",
+				Data:        protoutil.AnyBytes(t, data),
+				CreatedTime: clock.Now(),
 			},
 			want: &pb.Record{
-				Name: "foo/results/bar/records/baz",
-				Id:   "a",
-				Data: protoutil.Any(t, data),
+				Name:        "foo/results/bar/records/baz",
+				Id:          "a",
+				Data:        protoutil.Any(t, data),
+				CreatedTime: timestamppb.New(clock.Now()),
 			},
 		},
 		{

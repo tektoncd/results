@@ -17,13 +17,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -33,20 +30,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-var (
-	// Used for deterministically increasing UUID generation.
-	lastID                 = uint32(0)
-	fakeClock cw.FakeClock = cw.NewFakeClock()
-)
-
-func TestMain(m *testing.M) {
-	uid = func() string {
-		return fmt.Sprint(atomic.AddUint32(&lastID, 1))
-	}
-	clock = fakeClock
-	os.Exit(m.Run())
-}
 
 func TestCreateResult(t *testing.T) {
 	srv, err := New(test.NewDB(t))

@@ -50,6 +50,9 @@ type Record struct {
 	ID   string `gorm:"primaryKey"`
 	Name string `gorm:"index:records_by_name,priority:3"`
 	Data []byte
+
+	CreatedTime time.Time
+	UpdatedTime time.Time
 }
 
 // Annotations is a custom-defined type of a gorm model field.

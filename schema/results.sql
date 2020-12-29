@@ -35,6 +35,9 @@ CREATE TABLE records (
 	name varchar(64),
 	data BLOB,
 
+	created_time timestamp default current_timestamp not null,
+	updated_time timestamp default current_timestamp not null,
+
 	PRIMARY KEY(parent, result_id, id),
 	FOREIGN KEY(parent, result_id) REFERENCES results(parent, id) ON DELETE CASCADE
 );

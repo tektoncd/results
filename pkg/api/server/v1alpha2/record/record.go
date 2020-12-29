@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -58,7 +59,7 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 	if err != nil {
 		return nil, err
 	}
-	return &db.Record{
+	dbr := &db.Record{
 		Parent:     parent,
 		ResultName: resultName,
 		ResultID:   resultID,
@@ -67,7 +68,14 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 		Name: name,
 
 		Data: data,
-	}, nil
+	}
+	if r.CreatedTime.IsValid() {
+		dbr.CreatedTime = r.CreatedTime.AsTime()
+	}
+	if r.UpdatedTime.IsValid() {
+		dbr.UpdatedTime = r.UpdatedTime.AsTime()
+	}
+	return dbr, nil
 }
 
 // ToAPI converts a database storage Record into its corresponding API
@@ -76,6 +84,13 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	out := &pb.Record{
 		Name: fmt.Sprintf("%s/results/%s/records/%s", r.Parent, r.ResultName, r.Name),
 		Id:   r.ID,
+	}
+
+	if !r.CreatedTime.IsZero() {
+		out.CreatedTime = timestamppb.New(r.CreatedTime)
+	}
+	if !r.UpdatedTime.IsZero() {
+		out.UpdatedTime = timestamppb.New(r.UpdatedTime)
 	}
 
 	// Check if data was stored before unmarshalling, to avoid returning `{}`.
