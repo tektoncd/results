@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )
 
@@ -56,6 +57,8 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	// Populate Result with server provided fields.
 	protoutil.ClearOutputOnly(r)
 	r.Id = uid()
+	r.CreatedTime = timestamppb.New(clock.Now())
+	r.UpdatedTime = timestamppb.New(clock.Now())
 
 	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord())
 	if err != nil {
@@ -233,6 +236,8 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		}
 		// TODO: field mask support.
 		proto.Merge(pb, in)
+
+		pb.UpdatedTime = timestamppb.New(clock.Now())
 
 		// Convert back to storage and store.
 		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb)

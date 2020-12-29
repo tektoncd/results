@@ -129,7 +129,7 @@ func TestUpsertRecord(t *testing.T) {
 					t.Fatalf("upsertRecord: %v", err)
 				}
 				want := crdToRecord(t, name, o)
-				opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(want, "id")}
+				opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(want, "id", "updated_time", "created_time")}
 				if diff := cmp.Diff(want, got, opts...); diff != "" {
 					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
 				}

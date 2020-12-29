@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
@@ -33,6 +34,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestCreateRecord(t *testing.T) {
@@ -66,6 +68,8 @@ func TestCreateRecord(t *testing.T) {
 		}
 		want := proto.Clone(req.GetRecord()).(*pb.Record)
 		want.Id = fmt.Sprint(lastID)
+		want.CreatedTime = timestamppb.New(clock.Now())
+		want.UpdatedTime = timestamppb.New(clock.Now())
 		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
 			t.Errorf("-want, +got: %s", diff)
 		}
@@ -517,15 +521,20 @@ func TestUpdateRecord(t *testing.T) {
 				}
 			}
 
+			fakeClock.Advance(time.Second)
+
 			got, err := srv.UpdateRecord(ctx, tc.req)
-			if status.Code(err) == tc.status {
-				return
-			}
-			if err != nil {
+			// if there is an error from UpdateRecord or expecting an error here,
+			// compare the two errors.
+			if err != nil || tc.status != codes.OK {
+				if status.Code(err) == tc.status {
+					return
+				}
 				t.Fatalf("UpdateRecord(%+v): %v", tc.req, err)
 			}
 
 			proto.Merge(r, tc.diff)
+			r.UpdatedTime = timestamppb.New(clock.Now())
 			if diff := cmp.Diff(r, got, protocmp.Transform()); diff != "" {
 				t.Error(diff)
 			}
