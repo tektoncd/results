@@ -28,9 +28,12 @@ type Result struct {
 	Parent      string `gorm:"primaryKey;index:results_by_name,priority:1"`
 	ID          string `gorm:"primaryKey"`
 	Name        string `gorm:"index:results_by_name,priority:2"`
+	Annotations Annotations
+
 	CreatedTime time.Time
 	UpdatedTime time.Time
-	Annotations Annotations
+
+	Etag string
 }
 
 func (r Result) String() string {
@@ -53,6 +56,8 @@ type Record struct {
 
 	CreatedTime time.Time
 	UpdatedTime time.Time
+
+	Etag string
 }
 
 // Annotations is a custom-defined type of a gorm model field.

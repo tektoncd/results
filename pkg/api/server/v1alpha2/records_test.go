@@ -70,6 +70,8 @@ func TestCreateRecord(t *testing.T) {
 		want.Id = fmt.Sprint(lastID)
 		want.CreatedTime = timestamppb.New(clock.Now())
 		want.UpdatedTime = timestamppb.New(clock.Now())
+		want.Etag = mockEtag(lastID, clock.Now().UnixNano())
+
 		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
 			t.Errorf("-want, +got: %s", diff)
 		}
@@ -464,6 +466,7 @@ func TestUpdateRecord(t *testing.T) {
 				Name: record.FormatName(result.GetName(), "a"),
 			},
 			req: &pb.UpdateRecordRequest{
+				Etag: mockEtag(lastID+1, clock.Now().UnixNano()),
 				Record: &pb.Record{
 					Name: record.FormatName(result.GetName(), "a"),
 					Data: protoutil.Any(t, tr),
@@ -506,6 +509,17 @@ func TestUpdateRecord(t *testing.T) {
 			},
 			status: codes.InvalidArgument,
 		},
+		{
+			name: "etag mismatch",
+			req: &pb.UpdateRecordRequest{
+				Etag: "invalid etag",
+				Record: &pb.Record{
+					Name: record.FormatName(result.GetName(), "a"),
+					Data: protoutil.Any(t, tr),
+				},
+			},
+			status: codes.FailedPrecondition,
+		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
@@ -535,6 +549,8 @@ func TestUpdateRecord(t *testing.T) {
 
 			proto.Merge(r, tc.diff)
 			r.UpdatedTime = timestamppb.New(clock.Now())
+			r.Etag = mockEtag(lastID, r.UpdatedTime.AsTime().UnixNano())
+
 			if diff := cmp.Diff(r, got, protocmp.Transform()); diff != "" {
 				t.Error(diff)
 			}

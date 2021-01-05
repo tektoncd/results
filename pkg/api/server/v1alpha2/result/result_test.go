@@ -104,9 +104,7 @@ func TestToStorage(t *testing.T) {
 		CreatedTime: timestamppb.New(clock.Now()),
 		UpdatedTime: timestamppb.New(clock.Now()),
 		Annotations: map[string]string{"a": "b"},
-
-		// These fields are ignored for now.
-		Etag: "tacocat",
+		Etag:        "tacocat",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +116,7 @@ func TestToStorage(t *testing.T) {
 		Annotations: map[string]string{"a": "b"},
 		CreatedTime: clock.Now(),
 		UpdatedTime: clock.Now(),
+		Etag:        "tacocat",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("-want,+got: %s", diff)
@@ -133,6 +132,7 @@ func TestToAPI(t *testing.T) {
 		CreatedTime: clock.Now(),
 		UpdatedTime: clock.Now(),
 		Annotations: ann,
+		Etag:        "etag",
 	})
 	want := &pb.Result{
 		Name:        "foo/results/bar",
@@ -140,6 +140,7 @@ func TestToAPI(t *testing.T) {
 		CreatedTime: timestamppb.New(clock.Now()),
 		UpdatedTime: timestamppb.New(clock.Now()),
 		Annotations: ann,
+		Etag:        "etag",
 	}
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("-want,+got: %s", diff)

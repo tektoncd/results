@@ -64,6 +64,9 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if err := record.UpdateEtag(store); err != nil {
+		return nil, err
+	}
 	q := s.db.WithContext(ctx).
 		Model(store).
 		Create(store).Error
@@ -227,7 +230,11 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 			return err
 		}
 
-		// TODO: etag validation.
+		// If the user provided the Etag field, then make sure the value of this field matches what saved in the database.
+		// See https://google.aip.dev/154 for more information.
+		if req.GetEtag() != "" && req.GetEtag() != r.Etag {
+			return status.Error(codes.FailedPrecondition, "the etag mismatches")
+		}
 
 		// Merge existing data with user request.
 		pb, err := record.ToAPI(r)
@@ -244,10 +251,14 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		if err != nil {
 			return err
 		}
+		if err := record.UpdateEtag(s); err != nil {
+			return err
+		}
 		if err := errors.Wrap(tx.Save(s).Error); err != nil {
 			return err
 		}
 
+		pb.Etag = s.Etag
 		out = pb
 		return nil
 	})

@@ -17,10 +17,12 @@ CREATE TABLE results (
 	id varchar(64),
 
 	name varchar(64),
+	annotations BLOB,
+
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,
 	
-	annotations BLOB,
+	etag varchar(128),
 
 	PRIMARY KEY(parent, id)
 );
@@ -37,6 +39,8 @@ CREATE TABLE records (
 
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,
+
+	etag varchar(128),
 
 	PRIMARY KEY(parent, result_id, id),
 	FOREIGN KEY(parent, result_id) REFERENCES results(parent, id) ON DELETE CASCADE
