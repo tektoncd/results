@@ -58,6 +58,8 @@ func TestCreateResult(t *testing.T) {
 		want.Id = fmt.Sprint(lastID)
 		want.CreatedTime = timestamppb.New(clock.Now())
 		want.UpdatedTime = timestamppb.New(clock.Now())
+		want.Etag = mockEtag(lastID, clock.Now().UnixNano())
+
 		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
 			t.Errorf("-want, +got: %s", diff)
 		}
@@ -110,7 +112,8 @@ func TestUpdateResult(t *testing.T) {
 
 	tt := []struct {
 		name        string
-		requestName string // the `Nam`e field of the `UpdateResultRequest`
+		requestName string // the `Name` field of the `UpdateResultRequest`
+		etag        string
 		update      *pb.Result
 		// `expect` is the expected result after an update request, it only contains two fields here: `Annotations` and `Etag`.
 		// the other fields will be set the same as the automatically created one.
@@ -120,6 +123,7 @@ func TestUpdateResult(t *testing.T) {
 		{
 			name:   "test success",
 			update: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+			etag:   mockEtag(lastID+1, clock.Now().UnixNano()),
 			expect: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
 		},
 		{
@@ -136,6 +140,11 @@ func TestUpdateResult(t *testing.T) {
 			name:        "test update a non-existent result",
 			requestName: "foo/results/bar-non-existent",
 			errcode:     codes.NotFound,
+		},
+		{
+			name:    "test update with invalid etag",
+			etag:    "invalid etag",
+			errcode: codes.FailedPrecondition,
 		},
 	}
 	for idx, tc := range tt {
@@ -154,7 +163,7 @@ func TestUpdateResult(t *testing.T) {
 			if tc.requestName == "" {
 				tc.requestName = created.GetName()
 			}
-			updated, err := srv.UpdateResult(ctx, &pb.UpdateResultRequest{Result: tc.update, Name: tc.requestName})
+			updated, err := srv.UpdateResult(ctx, &pb.UpdateResultRequest{Result: tc.update, Name: tc.requestName, Etag: tc.etag})
 			if err != nil || tc.errcode != codes.OK {
 				if status.Code(err) == tc.errcode {
 					return
@@ -164,6 +173,7 @@ func TestUpdateResult(t *testing.T) {
 
 			proto.Merge(tc.expect, created)
 			tc.expect.UpdatedTime = timestamppb.New(clock.Now())
+			tc.expect.Etag = mockEtag(lastID, clock.Now().UnixNano())
 
 			// test if the returned result is the same as the expected.
 			if diff := cmp.Diff(tc.expect, updated, protocmp.Transform()); diff != "" {
@@ -478,4 +488,8 @@ func pagetoken(t *testing.T, name, filter string) string {
 	} else {
 		return token
 	}
+}
+
+func mockEtag(id uint32, t int64) string {
+	return fmt.Sprintf("%v-%v", id, t)
 }

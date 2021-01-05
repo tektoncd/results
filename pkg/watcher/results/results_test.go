@@ -81,7 +81,7 @@ func TestEnsureResult(t *testing.T) {
 				want := &pb.Result{
 					Name: name,
 				}
-				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "created_time", "updated_time")); diff != "" {
+				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "created_time", "updated_time", "etag")); diff != "" {
 					t.Errorf("Result diff (-want, +got):\n%s", diff)
 				}
 			})
@@ -129,7 +129,7 @@ func TestUpsertRecord(t *testing.T) {
 					t.Fatalf("upsertRecord: %v", err)
 				}
 				want := crdToRecord(t, name, o)
-				opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(want, "id", "updated_time", "created_time")}
+				opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(want, "id", "updated_time", "created_time", "etag")}
 				if diff := cmp.Diff(want, got, opts...); diff != "" {
 					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
 				}

@@ -57,6 +57,11 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	if err := result.UpdateEtag(store); err != nil {
+		return nil, err
+	}
+
 	if err := errors.Wrap(s.db.WithContext(ctx).Create(store).Error); err != nil {
 		return nil, err
 	}
@@ -90,9 +95,18 @@ func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) 
 			return status.Errorf(codes.NotFound, "failed to find a result: %v", err)
 		}
 
+		// If the user provided the Etag field, then make sure the value of this field matches what saved in the database.
+		// See https://google.aip.dev/154 for more information.
+		if req.GetEtag() != "" && req.GetEtag() != prev.Etag {
+			return status.Error(codes.FailedPrecondition, "the etag mismatches")
+		}
+
 		prev.Annotations = req.GetResult().GetAnnotations()
 		prev.UpdatedTime = clock.Now()
-		// TODO update Etag
+
+		if err := result.UpdateEtag(prev); err != nil {
+			return err
+		}
 
 		// Write result back to database.
 		if err = errors.Wrap(tx.Save(&prev).Error); err != nil {

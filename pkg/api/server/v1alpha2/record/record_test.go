@@ -91,7 +91,6 @@ func TestParseName(t *testing.T) {
 			if tc.want == nil {
 				t.Fatalf("expected error, got: [%s, %s]", parent, name)
 			}
-
 			if parent != tc.want[0] || result != tc.want[1] || name != tc.want[2] {
 				t.Errorf("want: %v, got: [%s, %s, %s]", tc.want, parent, result, name)
 			}
@@ -115,8 +114,7 @@ func TestToStorage(t *testing.T) {
 				Data:        protoutil.Any(t, data),
 				CreatedTime: timestamppb.New(clock.Now()),
 				UpdatedTime: timestamppb.New(clock.Now()),
-				// These fields are ignored for now.
-				Etag: "tacocat",
+				Etag:        "tacocat",
 			},
 			want: &db.Record{
 				Parent:      "foo",
@@ -127,6 +125,7 @@ func TestToStorage(t *testing.T) {
 				Data:        protoutil.AnyBytes(t, data),
 				CreatedTime: clock.Now(),
 				UpdatedTime: clock.Now(),
+				Etag:        "tacocat",
 			},
 		},
 		{
@@ -176,15 +175,18 @@ func TestToAPI(t *testing.T) {
 				ID:          "a",
 				Data:        protoutil.AnyBytes(t, data),
 				CreatedTime: clock.Now(),
+				Etag:        "etag",
 			},
 			want: &pb.Record{
 				Name:        "foo/results/bar/records/baz",
 				Id:          "a",
 				Data:        protoutil.Any(t, data),
 				CreatedTime: timestamppb.New(clock.Now()),
+				Etag:        "etag",
 			},
 		},
 		{
+			name: "partial",
 			in: &db.Record{
 				Parent:     "foo",
 				ResultID:   "1",

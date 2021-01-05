@@ -68,6 +68,7 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 		Name: name,
 
 		Data: data,
+		Etag: r.Etag,
 	}
 	if r.CreatedTime.IsValid() {
 		dbr.CreatedTime = r.CreatedTime.AsTime()
@@ -84,6 +85,7 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	out := &pb.Record{
 		Name: fmt.Sprintf("%s/results/%s/records/%s", r.Parent, r.ResultName, r.Name),
 		Id:   r.ID,
+		Etag: r.Etag,
 	}
 
 	if !r.CreatedTime.IsZero() {
@@ -111,4 +113,17 @@ func Match(r *pb.Record, prg cel.Program) (bool, error) {
 		return false, nil
 	}
 	return resultscel.Match(prg, "record", r)
+}
+
+// UpdateEtag updates the etag field of a record according to its content.
+// The record should at least have its `Id` and `UpdatedTime` fields set.
+func UpdateEtag(r *db.Record) error {
+	if r.ID == "" {
+		return fmt.Errorf("the ID field must be set")
+	}
+	if r.UpdatedTime.IsZero() {
+		return status.Error(codes.Internal, "the UpdatedTime field must be set")
+	}
+	r.Etag = fmt.Sprintf("%s-%v", r.ID, r.UpdatedTime.UnixNano())
+	return nil
 }
