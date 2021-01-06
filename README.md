@@ -2,65 +2,46 @@
 
 This project supports a richly queryable API for Tekton execution history and results.
 
-The main components of this design are a **queryable indexed API server** backed
-by persistent storage, and an **in-cluster watcher** to report updates to the
-API server.
+The main components of this design are a **queryable API server** backed by
+persistent storage, and an **in-cluster watcher** to report updates to the API
+server.
 
-The full motivation and design are available in [TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
+The full motivation and design are available in
+[TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
 
-The API server interface is defined in `./proto/api.proto`, and a reference
-implementation backed by Sqlite will live in `./cmd/api`. A reference
-implementation of the in-cluster watcher will live in `./cmd/watcher`.
+See [proto/v1alpha2](proto/v1alpha2) for the latest Results API spec.
 
-## Development
+## Quickstart
 
-### Configure your database.
+Results does not have an official release at the moment. In the meantime, see
+the [DEVELOPMENT quickstart guide](DEVELOPMENT.md#quickstart) for installing
+from source.
 
-The reference implementation of the API Server requires a SQL database for
-result storage. The database schema can be found under
-[schema/results.sql](schema/results.sql). 
+## Data Model
 
-Initial one-time setup is required to configure the password and initial config:
+![results data model](docs/images/results.png)
 
-```sh
-kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
-kubectl create configmap mysql-initdb-config --from-file="schema/results.sql" --namespace="tekton-pipelines"
-```
+- Records are individual instances of data. These will commonly be execution
+  data (e.g. PipelineRun, TaskRuns), but could also reference additional data
+  about the event/execution. Records are intended to be flexible to support
+  arbitrary information tools want to provide around a CI event.
+- Results are aggregators of Records, allowing users to refer to groups of
+  Records as a single entity. For example, you might have a single Result that
+  groups the following Records:
+  - Source Event (e.g. pull request, push) that kicked off the action.
+  - The PipelineRun that occurred.
+  - The TaskRuns that occurred in response of the PipelineRun (one per Task).
+  - Receipt of Cloud Event delivery.
+  - Receipt of Source status update.
 
-### Deploying
+(Note: not all of these types of data are supported by the Watcher yet, but are
+examples of the data we intend to support).
 
-To build and deploy both components, use
-[`ko`](https://github.com/google/ko). Make sure you have a valid
-kubeconfig, and have set the `KO_DOCKER_REPO` env var.
+## Helpful links
 
-```
-ko apply -f config/
-```
+- [Roadmap](docs/roadmap.md)
 
-To only build and deploy one component:
+## Contact
 
-```
-ko apply -f config/watcher.yaml
-```
-
-### Regenerating protobuf-generated code
-
-1. Install protobuf compiler
-
-e.g., for macOS:
-
-```
-brew install protobuf
-```
-
-2. Install the protoc Go plugin
-
-```
-$ go get -u github.com/golang/protobuf/protoc-gen-go
-```
-
-3. Rebuild the generated Go code
-
-```
-$ go generate ./proto/
-```
+- [Tekton Community](https://github.com/tektoncd/community/blob/master/contact.md)
+- [#results - Tekton Slack](https://tektoncd.slack.com/archives/C01GCEH0FLK)
