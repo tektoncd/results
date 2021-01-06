@@ -3,9 +3,9 @@
 ## Quickstart
 
 ```sh
-$ ./setup.sh
-$ ./install.sh
-$ ./test.sh
+$ ./00-setup.sh
+$ ./01-install.sh
+$ ./02-test.sh
 ```
 
 ## Dependencies
@@ -20,7 +20,7 @@ $ ./test.sh
 
 This folder contains several scripts, useful for testing e2e workflows:
 
-### `setup.sh`
+### `00-setup.sh`
 
 Sets up a local kind cluster, and configures your local kubectl context to use
 this environment.
@@ -30,7 +30,7 @@ this environment.
 | KIND_CLUSTER_NAME    | KIND cluster name to use | tekton-results        |
 | KIND_IMAGE           | KIND node image to use   | kindest/node:v1.17.11 |
 
-### `install.sh`
+### `01-install.sh`
 
 Installs Tekton Pipelines and Results components. Results is always installed
 from the local repo.
@@ -46,6 +46,6 @@ made to Results components.
 | KO_DOCKER_REPO         | Docker repository to use for ko                                         | kind.local                                                                  |
 | TEKTON_PIPELINE_CONFIG | Tekton Pipelines config source (anything `kubectl apply -f` compatible) | https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml |
 
-### `test.sh`
+### `02-test.sh`
 
 Runs the test against the current kubectl context.
