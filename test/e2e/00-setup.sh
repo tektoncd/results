@@ -16,6 +16,7 @@
 set -e
 
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
+KIND_IMAGE="${KIND_IMAGE:-kindest/node:v1.19.1}"
 
 ROOT="$(git rev-parse --show-toplevel)"
 

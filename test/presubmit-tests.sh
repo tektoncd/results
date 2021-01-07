@@ -62,5 +62,9 @@ function unit_tests() {
   return ${failed}
 }
 
+function integration_tests() {
+    ./test/e2e/e2e.sh
+}
+
 # We use the default build, unit and integration test runners.
 main $@
