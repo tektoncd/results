@@ -10,8 +10,8 @@ The following is the roadmap for Tekton Results. Timelines may change based depe
 ## Q1 2021
 - [ ] Result API v0.1.0
     - [ ] Implement [v1alpha2 Result/Record CRUD API](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
-    - [ ] Basic TaskRun/PipelineRun filtering
-    - [ ] Pagination
+    - [x] Basic TaskRun/PipelineRun filtering
+    - [x] Pagination
     - [ ] Deprecate/remove proof-of-concept v1alpha1 API.
 - [ ] Result Watcher v0.1.0
     - [ ] TaskRun/PipelineRun result uploading
