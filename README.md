@@ -1,7 +1,6 @@
 # Tekton Results API
 
-This package contains the experimental code to support a richly queryable API for Tekton
-execution history and results.
+This project supports a richly queryable API for Tekton execution history and results.
 
 The main components of this design are a **queryable indexed API server** backed
 by persistent storage, and an **in-cluster watcher** to report updates to the
