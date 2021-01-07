@@ -33,6 +33,9 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/controller"
+
+	// Needed for informer injection.
+	_ "github.com/tektoncd/pipeline/test"
 )
 
 type env struct {
