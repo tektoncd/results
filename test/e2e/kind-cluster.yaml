@@ -1,5 +1,4 @@
-#!/bin/bash
-# Copyright 2020 The Tekton Authors
+# Copyright 2021 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-
-export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
-
-ROOT="$(git rev-parse --show-toplevel)"
-
-kind create cluster --loglevel=debug --config "${ROOT}/test/e2e/kind-cluster.yaml" --name=${KIND_CLUSTER_NAME} --wait=60s
-kind export kubeconfig
+# see: https://kind.sigs.k8s.io/docs/user/configuration/
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+- role: worker
