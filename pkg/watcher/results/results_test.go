@@ -9,6 +9,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/internal/test"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -39,6 +40,61 @@ func TestDefaultName(t *testing.T) {
 		t.Run(fmt.Sprintf("%T", o), func(t *testing.T) {
 			if got := client.defaultName(o); want != got {
 				t.Errorf("want %s, got %s", want, got)
+			}
+		})
+	}
+}
+
+func TestResultName(t *testing.T) {
+	// No need to create a full client - we're only testing a utility method.
+	client := &Client{kind: "test"}
+
+	for _, tc := range []struct {
+		name        string
+		annotations map[string]string
+		want        string
+	}{
+		{
+			name: "object name",
+			want: "test/results/test-object",
+		},
+		{
+			name: "pipeline run",
+			annotations: map[string]string{
+				"tekton.dev/pipelineRun": "pipelinerun",
+			},
+			want: "test/results/pipelinerun-pipelinerun",
+		},
+		{
+			name: "trigger event",
+			annotations: map[string]string{
+				"triggers.tekton.dev/triggers-eventid": "trigger",
+				"tekton.dev/pipelineRun":               "pipelinerun",
+			},
+			want: "test/results/trigger",
+		},
+		{
+			name: "result",
+			annotations: map[string]string{
+				annotation.Result:                      "result",
+				"triggers.tekton.dev/triggers-eventid": "trigger",
+				"tekton.dev/pipelineRun":               "pipelinerun",
+			},
+			// This is not modified, since we assume that results are referred
+			// to by the full name already.
+			want: "result",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &v1beta1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "object",
+					Namespace:   "test",
+					Annotations: tc.annotations,
+				},
+			}
+			if got := client.resultName(o); tc.want != got {
+				t.Errorf("want %s, got %s", tc.want, got)
 			}
 		})
 	}

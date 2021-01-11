@@ -73,7 +73,7 @@ func TestReconcile(t *testing.T) {
 			Kind:       "taskrun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "Tekton-TaskRun",
+			Name:        "taskrun",
 			Namespace:   "ns",
 			Annotations: map[string]string{"demo": "demo"},
 			UID:         "12345",

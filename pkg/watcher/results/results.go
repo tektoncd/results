@@ -61,10 +61,7 @@ func (c *Client) Put(ctx context.Context, o metav1.Object, opts ...grpc.CallOpti
 // ensureResult gets the Result corresponding to the Object, or creates a new
 // one.
 func (c *Client) ensureResult(ctx context.Context, o metav1.Object, opts ...grpc.CallOption) (*pb.Result, error) {
-	name, ok := o.GetAnnotations()[annotation.Result]
-	if !ok {
-		name = result.FormatName(o.GetNamespace(), c.defaultName(o))
-	}
+	name := c.resultName(o)
 	res, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", name, err)
@@ -81,6 +78,34 @@ func (c *Client) ensureResult(ctx context.Context, o metav1.Object, opts ...grpc
 		},
 	}
 	return c.ResultsClient.CreateResult(ctx, req, opts...)
+}
+
+// resultName gets the result name to use for the given object.
+// The name is derived from a known Tekton annotation if available, else
+// the object's name is used.
+func (c *Client) resultName(o metav1.Object) string {
+	a := o.GetAnnotations()
+	// Special case result annotations, since this should already be the
+	// full result identifier.
+	if v, ok := a[annotation.Result]; ok {
+		return v
+	}
+
+	var part string
+	if v, ok := a["triggers.tekton.dev/triggers-eventid"]; ok {
+		// Don't prefix trigger events. These are 1) not CRD types, 2) are
+		// intended to be unique identifiers already, and 3) should be applied
+		// to all objects created via trigger templates, so there's no need to
+		// prefix these to avoid collision.
+		part = v
+	} else if v, ok := a["tekton.dev/pipelineRun"]; ok {
+		// Prefix found pipelineruns with the kind to match the defaultName
+		// output for pipelineruns.
+		part = fmt.Sprintf("pipelinerun-%s", v)
+	} else {
+		part = c.defaultName(o)
+	}
+	return result.FormatName(o.GetNamespace(), part)
 }
 
 // upsertRecord updates or creates a record for the object
