@@ -23,9 +23,7 @@ import (
 	"net"
 	"os"
 
-	v1alpha1 "github.com/tektoncd/results/pkg/api/server/v1alpha1"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
-	v1alpha1pb "github.com/tektoncd/results/proto/v1alpha1/results_go_proto"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 
 	"google.golang.org/grpc"
@@ -51,13 +49,7 @@ func main() {
 
 	s := grpc.NewServer()
 
-	// Register API servers
-	v1a1, err := v1alpha1.New(db)
-	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
-	}
-	v1alpha1pb.RegisterResultsServer(s, v1a1)
-
+	// Register API server(s)
 	v1a2, err := v1alpha2.New(db)
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
