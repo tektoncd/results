@@ -62,6 +62,7 @@ func TestController(t *testing.T) {
 	t.Run("pipelinerun", func(t *testing.T) {
 		reconcilePipelineRun(ctx, t, pipeline)
 	})
+
 }
 
 func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset) {
@@ -71,10 +72,15 @@ func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset)
 			Kind:       "taskrun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "Tekton-TaskRun",
-			Namespace:   "ns",
-			Annotations: map[string]string{"demo": "demo"},
-			UID:         "12345",
+			Name:      "taskrun",
+			Namespace: "ns",
+			Annotations: map[string]string{
+				"demo": "demo",
+				// This TaskRun belongs to a PipelineRun, so the record should
+				// be associated with the PipelineRun result.
+				"tekton.dev/pipelineRun": "pr",
+			},
+			UID: "12345",
 		},
 	})
 	if err != nil {
@@ -83,14 +89,24 @@ func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset)
 
 	// Wait for Result annotations to show up on the reconciled object.
 	tick := time.NewTicker(1 * time.Second)
-	select {
-	case <-tick.C:
-		tr, err = client.TektonV1beta1().TaskRuns("ns").Get(tr.GetName(), metav1.GetOptions{})
-		if err == nil && tr.Annotations[annotation.Result] != "" {
-			break
+	for {
+		select {
+		case <-tick.C:
+			tr, err = client.TektonV1beta1().TaskRuns("ns").Get(tr.GetName(), metav1.GetOptions{})
+			if err != nil {
+				t.Log(err)
+			}
+			if got := tr.Annotations[annotation.Result]; err == nil && got != "" {
+				want := "ns/results/pipelinerun-pr"
+				if got != want {
+					t.Fatalf("want result ID %s, got %s", want, got)
+				}
+
+				return
+			}
+		case <-ctx.Done():
+			t.Fatalf("timed out. Last TaskRun: %+v", tr)
 		}
-	case <-ctx.Done():
-		t.Fatalf("timed out. Last TaskRun: %+v", tr)
 	}
 }
 
@@ -113,13 +129,25 @@ func reconcilePipelineRun(ctx context.Context, t *testing.T, client *fake.Client
 
 	// Wait for Result annotations to show up on the reconciled object.
 	tick := time.NewTicker(1 * time.Second)
-	select {
-	case <-tick.C:
-		pr, err = client.TektonV1beta1().PipelineRuns("ns").Get(pr.GetName(), metav1.GetOptions{})
-		if err == nil && pr.Annotations[annotation.Result] != "" {
-			break
+	for {
+		select {
+		case <-tick.C:
+			pr, err = client.TektonV1beta1().PipelineRuns("ns").Get(pr.GetName(), metav1.GetOptions{})
+			if err != nil {
+				t.Log(err)
+			}
+			if err == nil && pr.Annotations[annotation.Result] != "" {
+				if got := pr.Annotations[annotation.Result]; err == nil && got != "" {
+					want := "ns/results/pipelinerun-pr"
+					if got != want {
+						t.Fatalf("want result ID %s, got %s", want, got)
+					}
+
+					return
+				}
+			}
+		case <-ctx.Done():
+			t.Fatalf("timed out. Last PipelineRun: %+v", pr)
 		}
-	case <-ctx.Done():
-		t.Fatalf("timed out. Last PipelineRun: %+v", pr)
 	}
 }

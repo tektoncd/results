@@ -73,7 +73,7 @@ func TestReconcile(t *testing.T) {
 			Kind:       "pipelinerun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "Tekton-PipelineRun",
+			Name:        "pipelinerun",
 			Namespace:   "ns",
 			Annotations: map[string]string{"demo": "demo"},
 			UID:         "12345",
