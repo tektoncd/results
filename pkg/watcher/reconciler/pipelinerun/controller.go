@@ -19,6 +19,7 @@ import (
 
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
+	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"k8s.io/client-go/tools/cache"
@@ -26,14 +27,19 @@ import (
 	"knative.dev/pkg/logging"
 )
 
-// NewController creates a Controller with provided context and configmap
+// NewController creates a Controller for watching PipelineRuns.
 func NewController(ctx context.Context, client pb.ResultsClient) *controller.Impl {
+	return NewControllerWithConfig(ctx, client, &reconciler.Config{})
+}
+
+func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	logger := logging.FromContext(ctx)
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineclientset := pipelineclient.Get(ctx)
 	c := &Reconciler{
 		client:            results.NewClient(client, "pipelinerun"),
 		pipelineclientset: pipelineclientset,
+		cfg:               cfg,
 	}
 
 	impl := controller.NewImpl(c, logger, "PipelineRunResultsWatcher")

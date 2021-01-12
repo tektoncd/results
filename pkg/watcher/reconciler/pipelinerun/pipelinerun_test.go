@@ -25,6 +25,7 @@ import (
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/internal/test"
+	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -45,14 +46,14 @@ type env struct {
 	pipeline *fake.Clientset
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T, cfg *reconciler.Config) *env {
 	t.Helper()
 
 	// Configures fake tekton clients + informers.
 	ctx, _ := rtesting.SetupFakeContext(t)
 
 	results := test.NewResultsClient(t)
-	ctrl := NewController(ctx, results)
+	ctrl := NewControllerWithConfig(ctx, results, cfg)
 
 	pipeline := fakepipelineclient.Get(ctx)
 
@@ -64,10 +65,8 @@ func newEnv(t *testing.T) *env {
 	}
 }
 
-func TestReconcile(t *testing.T) {
-	env := newEnv(t)
-
-	pr, err := env.pipeline.TektonV1beta1().PipelineRuns("ns").Create(&v1beta1.PipelineRun{
+var (
+	pipelinerun = &v1beta1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1beta1",
 			Kind:       "pipelinerun",
@@ -103,7 +102,13 @@ func TestReconcile(t *testing.T) {
 				}},
 			},
 		},
-	})
+	}
+)
+
+func TestReconcile(t *testing.T) {
+	env := newEnv(t, nil)
+
+	pr, err := env.pipeline.TektonV1beta1().PipelineRuns("ns").Create(pipelinerun)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,4 +165,29 @@ func reconcile(t *testing.T, env *env, want *v1beta1.PipelineRun) *v1beta1.Pipel
 	}
 
 	return pr
+}
+
+func TestDisableCRDUpdate(t *testing.T) {
+	env := newEnv(t, &reconciler.Config{
+		DisableAnnotationUpdate: true,
+	})
+
+	pr, err := env.pipeline.TektonV1beta1().PipelineRuns("ns").Create(pipelinerun)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := env.ctrl.Reconciler.Reconcile(env.ctx, pr.GetNamespacedName().String()); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	// Since annotation updates are disabled, we do not expect any change to
+	// the on-cluster TaskRun.
+	got, err := env.pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Get(pr.GetName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Get(%s): %v", pr.Name, err)
+	}
+	if diff := cmp.Diff(pr, got); diff != "" {
+		t.Errorf("Did not expect change in PipelineRun (-want, +got):\n%s", diff)
+	}
 }
