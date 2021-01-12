@@ -21,33 +21,73 @@ These tools are recommended, but not required:
 
 ## Quickstart
 
-The easiest way to get started is to use the e2e testing scripts to bootstrap installation. These are configured to install real versions of Tekton Pipelines / Results, using [kind](https://kind.sigs.k8s.io) by default.
+The easiest way to get started is to use the e2e testing scripts to bootstrap
+installation. These are configured to install real versions of Tekton Pipelines
+/ Results, using [kind](https://kind.sigs.k8s.io) by default.
 
 ```sh
 $ ./test/e2e/00-setup.sh    # sets up kind cluster
 $ ./test/e2e/01-install.sh  # installs pipelines, configures db, installs results api/watcher.
 ```
 
-`01-install.sh` uses the default kubectl context, so this can be ran on both kind or real Kubernetes clusters. See [test/e2e/README.md](test/e2e/README.md) for configurable options for these scripts.
+`01-install.sh` uses the default kubectl context, so this can be ran on both
+kind or real Kubernetes clusters. See [test/e2e/README.md](test/e2e/README.md)
+for configurable options for these scripts.
 
 ### Deploying individual components
 
-You can redeploy individual components via ko. Just make sure to use [configure ko with kind](https://github.com/google/ko/blob/master/README.md#with-kind).
+You can redeploy individual components via ko. Just make sure to use
+[configure ko with kind](https://github.com/google/ko/blob/master/README.md#with-kind).
 
 ```sh
 $ export KO_DOCKER_REPO=kind.local
 $ ko apply -f config/watcher.yaml
 ```
 
-<!--- TODO: grpc_cli command instructions --->
+## Debugging
+
+The easiest way to make requests to the API Server for manual inspection is
+using
+[`kubectl port-forward`](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/) +
+[`grpc_cli`](https://github.com/grpc/grpc/blob/master/doc/command_line_tool.md).
+
+```sh
+# Proxies the remote Service to localhost.
+$ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051  # This will block, so run this in a separate shell or background the process.
+
+# Lists the available gRPC services.
+$ grpc_cli ls --channel_creds_type=insecure localhost:50051
+grpc.reflection.v1alpha.ServerReflection
+tekton.results.v1alpha2.Results
+
+# Makes a request to the Results service.
+$ grpc_cli call --channel_creds_type=insecure localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+connecting to localhost:50051
+results {
+  name: "default/results/taskrun-hello"
+  id: "948c645f-692f-4e1c-8ac7-b5720d9a7951"
+  created_time {
+    seconds: 1610473994
+  }
+  etag: "948c645f-692f-4e1c-8ac7-b5720d9a7951-1610473994386247754"
+  updated_time {
+    seconds: 1610473994
+  }
+}
+Rpc succeeded with OK status
+```
+
+NOTE: you can ignore `Unexpected service config health received` errors - this
+is because we do not have health checking set up yet.
 
 ## Conventions
 
 - Style Guides - [Go](https://github.com/golang/go/wiki/CodeReviewComments)
 - [API Design](https://aip.dev)
 - Formatting
-    1. Language recommended tools first (e.g. gofmt)
-    2. Default to `prettier` (recommended command: `prettier --write --prose-wrap always`)
+  1. Language recommended tools first (e.g. gofmt)
+  2. Default to `prettier` (recommended command:
+     `prettier --write --prose-wrap always`)
 
 ## Testing
 
