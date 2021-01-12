@@ -49,6 +49,16 @@ func TestParseName(t *testing.T) {
 			want: []string{"results", "results"},
 		},
 		{
+			name: "upper case",
+			in:   "A/results/B",
+			want: []string{"A", "B"},
+		},
+		{
+			name: "mIxEd case",
+			in:   "Ab/results/aB",
+			want: []string{"Ab", "aB"},
+		},
+		{
 			name: "missing name",
 			in:   "a/results/",
 		},
@@ -75,6 +85,10 @@ func TestParseName(t *testing.T) {
 		{
 			name: "invalid name",
 			in:   "a/results/b/c",
+		},
+		{
+			name: "invalid character",
+			in:   "🌮/results/🐱",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -30,7 +30,7 @@ import (
 
 var (
 	// NameRegex matches valid name specs for a Result.
-	NameRegex = regexp.MustCompile("(^[a-z0-9_-]{1,63})/results/([a-z0-9_-]{1,63}$)")
+	NameRegex = regexp.MustCompile("(^[a-zA-Z0-9_-]{1,63})/results/([a-zA-Z0-9_-]{1,63}$)")
 )
 
 // ParseName splits a full Result name into its individual (parent, name)
