@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 type Reconciler struct {
 	client            *results.Client
 	pipelineclientset versioned.Interface
+	cfg               *reconciler.Config
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
@@ -59,6 +61,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	if err != nil {
 		log.Errorf("error updating Record: %v", err)
 		return err
+	}
+
+	if r.cfg.GetDisableAnnotationUpdate() {
+		// Don't update any annotations - nothing else to do.
+		return nil
 	}
 
 	if a := tr.GetAnnotations(); result.GetName() == a[annotation.Result] && record.GetName() == a[annotation.Record] {
