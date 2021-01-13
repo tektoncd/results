@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/cel-go/cel"
 	celenv "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
@@ -263,4 +264,17 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		return nil
 	})
 	return out, err
+}
+
+// DeleteRecord deletes a given record.
+func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (*empty.Empty, error) {
+	// First get the current record. This ensures that we return NOT_FOUND if
+	// the entry is already deleted.
+	// This does not need to be done in the same transaction as the delete,
+	// since the identifiers are immutable.
+	r, err := getRecord(s.db, req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.Wrap(s.db.WithContext(ctx).Delete(&db.Record{}, r).Error)
 }

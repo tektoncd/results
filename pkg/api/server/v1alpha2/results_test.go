@@ -34,7 +34,7 @@ import (
 func TestCreateResult(t *testing.T) {
 	srv, err := New(test.NewDB(t))
 	if err != nil {
-		t.Fatalf("failed to create temp file for db: %v", err)
+		t.Fatalf("failed to create server: %v", err)
 	}
 
 	ctx := context.Background()
