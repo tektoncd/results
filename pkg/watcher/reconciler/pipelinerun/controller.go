@@ -37,7 +37,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineclientset := pipelineclient.Get(ctx)
 	c := &Reconciler{
-		client:            results.NewClient(client, "pipelinerun"),
+		client:            results.NewClient(client),
 		pipelineclientset: pipelineclientset,
 		cfg:               cfg,
 	}

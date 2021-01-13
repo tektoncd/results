@@ -16,19 +16,19 @@
 set -e
 
 ROOT="$(git rev-parse --show-toplevel)"
-TASKRUN="${ROOT}/test/e2e/taskrun.yaml"
+CONFIG="${ROOT}/test/e2e/pipelinerun.yaml"
 
-kubectl delete -f "${TASKRUN}" || true
-kubectl apply -f "${TASKRUN}"
-echo "Waiting for TaskRun to complete..."
-kubectl wait -f "${TASKRUN}" --for=condition=Succeeded
+kubectl delete -f "${CONFIG}" || true
+kubectl apply -f "${CONFIG}"
+echo "Waiting for runs to complete..."
+kubectl wait -f "${CONFIG}" --for=condition=Succeeded
 
 # Try a few times to get the result, since we might query before the reconciler
 # picks it up.
 for n in $(seq 10); do
-    result_id=$(kubectl get -f "${TASKRUN}" -o json | jq -r '.metadata.annotations."results.tekton.dev/result"')
+    result_id=$(kubectl get -f "${CONFIG}" -o json | jq -r '.metadata.annotations."results.tekton.dev/result"')
     if [[ "${result_id}" == "null" ]]; then
-        echo "Attempt #${n}: Could not find 'results.tekton.dev/result' for ${TASKRUN}"
+        echo "Attempt #${n}: Could not find 'results.tekton.dev/result' for ${CONFIG}"
         sleep 1
     fi
 done

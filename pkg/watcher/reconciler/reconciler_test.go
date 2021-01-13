@@ -80,7 +80,12 @@ func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset)
 				// be associated with the PipelineRun result.
 				"tekton.dev/pipelineRun": "pr",
 			},
-			UID: "12345",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "PipelineRun",
+				UID:        "pr-id",
+			}},
+			UID: "tr-id",
 		},
 	})
 	if err != nil {
@@ -97,7 +102,7 @@ func reconcileTaskRun(ctx context.Context, t *testing.T, client *fake.Clientset)
 				t.Log(err)
 			}
 			if got := tr.Annotations[annotation.Result]; err == nil && got != "" {
-				want := "ns/results/pipelinerun-pr"
+				want := "ns/results/pr-id"
 				if got != want {
 					t.Fatalf("want result ID %s, got %s", want, got)
 				}
@@ -120,7 +125,7 @@ func reconcilePipelineRun(ctx context.Context, t *testing.T, client *fake.Client
 			Name:        "pr",
 			Namespace:   "ns",
 			Annotations: map[string]string{"demo": "demo"},
-			UID:         "12345",
+			UID:         "pr-id",
 		},
 	})
 	if err != nil {
@@ -138,7 +143,7 @@ func reconcilePipelineRun(ctx context.Context, t *testing.T, client *fake.Client
 			}
 			if err == nil && pr.Annotations[annotation.Result] != "" {
 				if got := pr.Annotations[annotation.Result]; err == nil && got != "" {
-					want := "ns/results/pipelinerun-pr"
+					want := "ns/results/pr-id"
 					if got != want {
 						t.Fatalf("want result ID %s, got %s", want, got)
 					}

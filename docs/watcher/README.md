@@ -11,10 +11,10 @@ The Watcher currently supports the following types:
 
 ## Result Grouping
 
-The Watcher uses annotations to automatically detect and group related Records into the same Result. The following annotations are recognized (in order of precedence):
+The Watcher uses Object data to automatically detect and group related Records into the same Result. The following data is checked (listed in order of precedence):
 
-- `results.tekton.dev/result`
-- `triggers.tekton.dev/triggers-eventid`
-- `tekton.dev/pipelineRun`
+- `results.tekton.dev/result` annotation. This should correspond to the full `Result.name` identifier (e.g. `foo/results/bar`).
+- `triggers.tekton.dev/triggers-eventid` label (this is generated from Objects created via [Tekton Triggers](https://github.com/tektoncd/triggers))
+- An [OwnerReference](https://kubernetes.io/docs/concepts/workloads/controllers/garbage-collection/#owners-and-dependents) to a PipelineRun.
 
-If no annotation is detected, the Watcher will automatically generate a new Result name for the object.
+If no annotation is detected, the Watcher will automatically generate a new Result name for the Object.
