@@ -40,7 +40,7 @@ import (
 func TestCreateRecord(t *testing.T) {
 	srv, err := New(test.NewDB(t))
 	if err != nil {
-		t.Fatalf("failed to create temp file for db: %v", err)
+		t.Fatalf("failed to create server: %v", err)
 	}
 
 	ctx := context.Background()
@@ -166,7 +166,7 @@ func TestCreateRecord_ConcurrentDelete(t *testing.T) {
 func TestGetRecord(t *testing.T) {
 	srv, err := New(test.NewDB(t))
 	if err != nil {
-		t.Fatalf("failed to create temp file for db: %v", err)
+		t.Fatalf("failed to create server: %v", err)
 	}
 
 	ctx := context.Background()
@@ -556,4 +556,49 @@ func TestUpdateRecord(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDeleteRecord(t *testing.T) {
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "foo",
+		Result: &pb.Result{
+			Name: "foo/results/bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+	r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: result.GetName(),
+		Record: &pb.Record{
+			Name: recordutil.FormatName(result.GetName(), "baz"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord(): %v", err)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		// Delete inserted record
+		if _, err := srv.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: r.GetName()}); err != nil {
+			t.Fatalf("could not delete record: %v", err)
+		}
+		// Check if the the record is deleted
+		if r, err := srv.GetRecord(ctx, &pb.GetRecordRequest{Name: r.GetName()}); status.Code(err) != codes.NotFound {
+			t.Fatalf("expected record to be deleted, got: %+v, %v", r, err)
+		}
+	})
+
+	t.Run("already deleted", func(t *testing.T) {
+		// Check if a deleted record can be deleted again
+		if _, err := srv.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: r.GetName()}); status.Code(err) != codes.NotFound {
+			t.Fatalf("expected NOT_FOUND, got: %v", err)
+		}
+	})
 }
