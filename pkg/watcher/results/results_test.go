@@ -32,27 +32,27 @@ import (
 )
 
 func TestDefaultName(t *testing.T) {
-	// No need to create a full client - we're only testing a utility method.
-	client := &Client{kind: "test"}
-	want := "test-name"
+	want := "id"
 
 	objs := []metav1.Object{
 		&v1beta1.TaskRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name",
 				Namespace: "test",
+				UID:       "id",
 			},
 		},
 		&v1beta1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name",
 				Namespace: "test",
+				UID:       "id",
 			},
 		},
 	}
 	for _, o := range objs {
 		t.Run(fmt.Sprintf("%T", o), func(t *testing.T) {
-			if got := client.defaultName(o); want != got {
+			if got := defaultName(o); want != got {
 				t.Errorf("want %s, got %s", want, got)
 			}
 		})
@@ -60,39 +60,48 @@ func TestDefaultName(t *testing.T) {
 }
 
 func TestResultName(t *testing.T) {
-	// No need to create a full client - we're only testing a utility method.
-	client := &Client{kind: "test"}
+	ownerRef := []metav1.OwnerReference{{
+		Kind: "PipelineRun",
+		UID:  "pipelinerun",
+	}}
 
 	for _, tc := range []struct {
 		name        string
+		modify      func(o metav1.Object)
 		annotations map[string]string
 		want        string
 	}{
 		{
 			name: "object name",
-			want: "test/results/test-object",
+			want: "test/results/id",
 		},
 		{
 			name: "pipeline run",
-			annotations: map[string]string{
-				"tekton.dev/pipelineRun": "pipelinerun",
+			modify: func(o metav1.Object) {
+				o.SetOwnerReferences(ownerRef)
 			},
-			want: "test/results/pipelinerun-pipelinerun",
+			want: "test/results/pipelinerun",
 		},
 		{
 			name: "trigger event",
-			annotations: map[string]string{
-				"triggers.tekton.dev/triggers-eventid": "trigger",
-				"tekton.dev/pipelineRun":               "pipelinerun",
+			modify: func(o metav1.Object) {
+				o.SetOwnerReferences(ownerRef)
+				o.SetLabels(map[string]string{
+					"triggers.tekton.dev/triggers-eventid": "trigger",
+				})
 			},
 			want: "test/results/trigger",
 		},
 		{
 			name: "result",
-			annotations: map[string]string{
-				annotation.Result:                      "result",
-				"triggers.tekton.dev/triggers-eventid": "trigger",
-				"tekton.dev/pipelineRun":               "pipelinerun",
+			modify: func(o metav1.Object) {
+				o.SetOwnerReferences(ownerRef)
+				o.SetLabels(map[string]string{
+					"triggers.tekton.dev/triggers-eventid": "trigger",
+				})
+				o.SetAnnotations(map[string]string{
+					annotation.Result: "result",
+				})
 			},
 			// This is not modified, since we assume that results are referred
 			// to by the full name already.
@@ -102,12 +111,15 @@ func TestResultName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &v1beta1.TaskRun{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "object",
-					Namespace:   "test",
-					Annotations: tc.annotations,
+					Name:      "object",
+					Namespace: "test",
+					UID:       "id",
 				},
 			}
-			if got := client.resultName(o); tc.want != got {
+			if tc.modify != nil {
+				tc.modify(o)
+			}
+			if got := resultName(o); tc.want != got {
 				t.Errorf("want %s, got %s", tc.want, got)
 			}
 		})
@@ -123,17 +135,19 @@ func TestEnsureResult(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
+				UID:       "taskrun-id",
 			},
 		},
 		&v1beta1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
+				UID:       "pipelinerun-id",
 			},
 		},
 	}
 	for _, o := range objs {
-		name := fmt.Sprintf("test/results/test-%s", o.GetName())
+		name := fmt.Sprintf("test/results/%s", o.GetUID())
 
 		// Sanity check Result doesn't exist.
 		if r, err := client.GetResult(ctx, &pb.GetResultRequest{Name: name}); status.Code(err) != codes.NotFound {
@@ -168,12 +182,14 @@ func TestUpsertRecord(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
+				UID:       "taskrun-id",
 			},
 		},
 		&v1beta1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
+				UID:       "pipelinerun-id",
 			},
 		},
 	}
@@ -183,7 +199,7 @@ func TestUpsertRecord(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		name := fmt.Sprintf("%s/records/test-%s", result.GetName(), o.GetName())
+		name := fmt.Sprintf("%s/records/%s", result.GetName(), o.GetUID())
 
 		// Sanity check Record doesn't exist
 		if r, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name}); status.Code(err) != codes.NotFound {
@@ -226,12 +242,14 @@ func TestPut(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
+				UID:       "taskrun-id",
 			},
 		},
 		&v1beta1.PipelineRun{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
+				UID:       "pipelinerun-id",
 			},
 		},
 	}
@@ -240,25 +258,27 @@ func TestPut(t *testing.T) {
 		// simulate an update.
 		// This is less exhaustive than the other tests, since Put is a wrapper
 		// around ensureResult/upsertRecord.
-		for _, tc := range []string{"create", "update"} {
-			t.Run(tc, func(t *testing.T) {
-				if _, _, err := client.Put(ctx, o); err != nil {
-					t.Fatal(err)
-				}
-			})
-		}
+		t.Run(o.GetName(), func(t *testing.T) {
+			for _, tc := range []string{"create", "update"} {
+				t.Run(tc, func(t *testing.T) {
+					if _, _, err := client.Put(ctx, o); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
 
-		// Verify Result/Record exist.
-		if _, err := client.GetResult(ctx, &pb.GetResultRequest{
-			Name: fmt.Sprintf("test/results/test-%s", o.GetName()),
-		}); err != nil {
-			t.Fatalf("GetResult: %v", err)
-		}
-		if _, err := client.GetRecord(ctx, &pb.GetRecordRequest{
-			Name: fmt.Sprintf("test/results/test-%s/records/test-%s", o.GetName(), o.GetName()),
-		}); err != nil {
-			t.Fatalf("GetRecord: %v", err)
-		}
+			// Verify Result/Record exist.
+			if _, err := client.GetResult(ctx, &pb.GetResultRequest{
+				Name: fmt.Sprintf("test/results/%s", o.GetUID()),
+			}); err != nil {
+				t.Fatalf("GetResult: %v", err)
+			}
+			if _, err := client.GetRecord(ctx, &pb.GetRecordRequest{
+				Name: fmt.Sprintf("test/results/%s/records/%s", o.GetUID(), o.GetUID()),
+			}); err != nil {
+				t.Fatalf("GetRecord: %v", err)
+			}
+		})
 	}
 }
 
@@ -280,6 +300,5 @@ func client(t *testing.T) *Client {
 
 	return &Client{
 		ResultsClient: test.NewResultsClient(t),
-		kind:          "test",
 	}
 }

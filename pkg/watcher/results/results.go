@@ -16,7 +16,6 @@ package results
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -35,19 +34,12 @@ import (
 // operations.
 type Client struct {
 	pb.ResultsClient
-
-	// We need to know what kind of type we're working with, since this
-	// information is not returned back in Get requests.
-	// See https://github.com/kubernetes/kubernetes/issues/3030 for more details.
-	// We might be able to do something clever with schemes in the future.
-	kind string
 }
 
 // NewClient returns a new results client for the particular kind.
-func NewClient(client pb.ResultsClient, kind string) *Client {
+func NewClient(client pb.ResultsClient) *Client {
 	return &Client{
 		ResultsClient: client,
-		kind:          kind,
 	}
 }
 
@@ -75,7 +67,7 @@ func (c *Client) Put(ctx context.Context, o metav1.Object, opts ...grpc.CallOpti
 // ensureResult gets the Result corresponding to the Object, or creates a new
 // one.
 func (c *Client) ensureResult(ctx context.Context, o metav1.Object, opts ...grpc.CallOption) (*pb.Result, error) {
-	name := c.resultName(o)
+	name := resultName(o)
 	res, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", name, err)
@@ -97,27 +89,31 @@ func (c *Client) ensureResult(ctx context.Context, o metav1.Object, opts ...grpc
 // resultName gets the result name to use for the given object.
 // The name is derived from a known Tekton annotation if available, else
 // the object's name is used.
-func (c *Client) resultName(o metav1.Object) string {
-	a := o.GetAnnotations()
+func resultName(o metav1.Object) string {
 	// Special case result annotations, since this should already be the
 	// full result identifier.
-	if v, ok := a[annotation.Result]; ok {
+	if v, ok := o.GetAnnotations()[annotation.Result]; ok {
 		return v
 	}
 
 	var part string
-	if v, ok := a["triggers.tekton.dev/triggers-eventid"]; ok {
+	if v, ok := o.GetLabels()["triggers.tekton.dev/triggers-eventid"]; ok {
 		// Don't prefix trigger events. These are 1) not CRD types, 2) are
 		// intended to be unique identifiers already, and 3) should be applied
 		// to all objects created via trigger templates, so there's no need to
 		// prefix these to avoid collision.
 		part = v
-	} else if v, ok := a["tekton.dev/pipelineRun"]; ok {
-		// Prefix found pipelineruns with the kind to match the defaultName
-		// output for pipelineruns.
-		part = fmt.Sprintf("pipelinerun-%s", v)
-	} else {
-		part = c.defaultName(o)
+	} else if len(o.GetOwnerReferences()) > 0 {
+		for _, owner := range o.GetOwnerReferences() {
+			if strings.EqualFold(owner.Kind, "pipelinerun") {
+				part = string(owner.UID)
+				break
+			}
+		}
+	}
+
+	if part == "" {
+		part = defaultName(o)
 	}
 	return result.FormatName(o.GetNamespace(), part)
 }
@@ -126,7 +122,7 @@ func (c *Client) resultName(o metav1.Object) string {
 func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Object, opts ...grpc.CallOption) (*pb.Record, error) {
 	name, ok := o.GetAnnotations()[annotation.Record]
 	if !ok {
-		name = record.FormatName(parent, c.defaultName(o))
+		name = record.FormatName(parent, defaultName(o))
 	}
 
 	data, err := convert.ToProto(o)
@@ -159,6 +155,6 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Objec
 
 // defaultName is the default Result/Record name that should be used if one is
 // not already associated to the Object.
-func (c *Client) defaultName(o metav1.Object) string {
-	return strings.ToLower(fmt.Sprintf("%s-%s", c.kind, o.GetName()))
+func defaultName(o metav1.Object) string {
+	return string(o.GetUID())
 }

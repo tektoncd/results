@@ -37,7 +37,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 
 	pipelineclientset := pipelineclient.Get(ctx)
 	c := &Reconciler{
-		client:            results.NewClient(client, "taskrun"),
+		client:            results.NewClient(client),
 		pipelineclientset: pipelineclientset,
 		cfg:               cfg,
 	}
