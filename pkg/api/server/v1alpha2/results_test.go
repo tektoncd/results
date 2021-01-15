@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
+	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -276,6 +277,39 @@ func TestDeleteResult(t *testing.T) {
 			t.Fatalf("expected NOT_FOUND, got: %v", err)
 		}
 	})
+}
+
+func TestCascadeDelete(t *testing.T) {
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+	result, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "foo",
+		Result: &pb.Result{
+			Name: "foo/results/bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+	r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: result.GetName(),
+		Record: &pb.Record{
+			Name: recordutil.FormatName(result.GetName(), "baz"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord(): %v", err)
+	}
+	if _, err := srv.DeleteResult(ctx, &pb.DeleteResultRequest{Name: result.GetName()}); err != nil {
+		t.Fatalf("could not delete the result: %v", err)
+	}
+	if got, err := srv.GetRecord(ctx, &pb.GetRecordRequest{Name: r.GetName()}); status.Code(err) != codes.NotFound {
+		t.Fatalf("cascade delete failed - expected Record to be deleted, got: (%+v, %v)", got, err)
+	}
 }
 
 func TestListResults(t *testing.T) {
