@@ -1,0 +1,43 @@
+# Copyright 2021 The Tekton Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ko-publish
+spec:
+  description: >-
+    This Task is Golang task to publish ko projects.
+
+  params:
+    - name: package
+      description: package to publish
+    - name: repo
+      description: Docker repository to publish to.
+    - name: tag
+      default: latest
+  workspaces:
+    - name: source
+  steps:
+    - name: publish
+      image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:763e9474f0e722f00add5785a9cdccd9a001072978d86e962a52f45fccb46529
+      workingDir: $(workspaces.source.path)
+      script: |
+        gcloud auth list
+        gcloud auth configure-docker
+        gcloud auth print-access-token | ko login -u oauth2accesstoken --password-stdin us-docker.pkg.dev
+        ko publish $(params.package) -t $(params.tag)
+      env:
+        - name: KO_DOCKER_REPO
+          value: "$(params.repo)"
