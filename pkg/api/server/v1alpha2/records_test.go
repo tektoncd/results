@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -601,4 +602,54 @@ func TestDeleteRecord(t *testing.T) {
 			t.Fatalf("expected NOT_FOUND, got: %v", err)
 		}
 	})
+}
+
+// TestListRecords_multiresult tests listing records across multiple parents.
+func TestListRecords_multiresult(t *testing.T) {
+	// Create a temporary database
+	srv, err := New(test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to setup db: %v", err)
+	}
+	ctx := context.Background()
+
+	records := make([]*pb.Record, 0, 8)
+	for i := 0; i < 2; i++ {
+		for j := 0; j < 2; j++ {
+			result, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+				Parent: strconv.Itoa(i),
+				Result: &pb.Result{
+					Name: fmt.Sprintf("%d/results/%d", i, j),
+				},
+			})
+			if err != nil {
+				t.Fatalf("CreateResult(): %v", err)
+			}
+			for k := 0; k < 2; k++ {
+				r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+					Parent: result.GetName(),
+					Record: &pb.Record{
+						Name: recordutil.FormatName(result.GetName(), strconv.Itoa(k)),
+					},
+				})
+				if err != nil {
+					t.Fatalf("CreateRecord(): %v", err)
+				}
+				records = append(records, r)
+			}
+		}
+	}
+
+	got, err := srv.ListRecords(ctx, &pb.ListRecordsRequest{
+		Parent: "0/results/-",
+	})
+	if err != nil {
+		t.Fatalf("ListRecords(): %v", err)
+	}
+	want := &pb.ListRecordsResponse{
+		Records: records[:4],
+	}
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Error(diff)
+	}
 }

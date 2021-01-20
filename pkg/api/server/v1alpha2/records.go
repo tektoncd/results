@@ -178,10 +178,13 @@ func (s *Server) getFilteredPaginatedRecords(ctx context.Context, parent, start 
 	for len(out) < pageSize {
 		batchSize := batcher.Next()
 		dbrecords := make([]*db.Record, 0, batchSize)
-		q := s.db.WithContext(ctx).
-			Where("parent = ? AND result_name = ? AND id > ?", parent, result, start).
-			Limit(batchSize).
-			Find(&dbrecords)
+		q := s.db.WithContext(ctx).Where("parent = ? AND id > ?", parent, start)
+		// Specifying `-` allows users to read Records across Results.
+		// See https://google.aip.dev/159 for more details.
+		if result != "-" {
+			q = q.Where("result_name = ?", result)
+		}
+		q = q.Limit(batchSize).Find(&dbrecords)
 		if err := errors.Wrap(q.Error); err != nil {
 			return nil, err
 		}
