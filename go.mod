@@ -15,10 +15,8 @@ require (
 	github.com/onsi/ginkgo v1.14.1 // indirect
 	github.com/onsi/gomega v1.10.2 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
-	github.com/smartystreets/assertions v1.1.1 // indirect
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tektoncd/pipeline v0.17.1
-	go.chromium.org/luci v0.0.0-20200716065131-1f7c6da65cb2
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
 	golang.org/x/mod v0.4.0 // indirect
