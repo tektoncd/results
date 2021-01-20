@@ -27,6 +27,8 @@ import (
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -58,6 +60,11 @@ func main() {
 
 	// Allow service reflection - required for grpc_cli ls to work.
 	reflection.Register(s)
+
+	// Set up health checks.
+	hs := health.NewServer()
+	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(s, hs)
 
 	// Listen on port and serve.
 	port := os.Getenv("PORT")
