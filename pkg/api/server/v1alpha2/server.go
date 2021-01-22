@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	cw "github.com/jonboulle/clockwork"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
 )
@@ -34,19 +35,22 @@ var (
 	clock cw.Clock = cw.NewRealClock()
 )
 
+type getResultID func(ctx context.Context, parent, result string) (string, error)
+
 // Server with implementation of API server
 type Server struct {
 	pb.UnimplementedResultsServer
-	env *cel.Env
-	db  *gorm.DB
+	env  *cel.Env
+	db   *gorm.DB
+	auth auth.Checker
 
 	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
-	getResultID func(ctx context.Context, parent, result string) (string, error)
+	getResultID getResultID
 }
 
 // New set up environment for the api server
-func New(db *gorm.DB) (*Server, error) {
+func New(db *gorm.DB, opts ...Option) (*Server, error) {
 	env, err := resultscel.NewEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
@@ -54,10 +58,30 @@ func New(db *gorm.DB) (*Server, error) {
 	srv := &Server{
 		db:  db,
 		env: env,
-	}
 
+		// Default open auth for easier testing.
+		auth: auth.AllowAll{},
+	}
 	// Set default impls of overridable behavior
 	srv.getResultID = srv.getResultIDImpl
 
+	for _, o := range opts {
+		o(srv)
+	}
+
 	return srv, nil
+}
+
+type Option func(*Server)
+
+func WithAuth(c auth.Checker) Option {
+	return func(s *Server) {
+		s.auth = c
+	}
+}
+
+func withGetResultID(f getResultID) Option {
+	return func(s *Server) {
+		s.getResultID = f
+	}
 }

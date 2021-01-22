@@ -29,9 +29,9 @@ const (
 	port = ":0"
 )
 
-func NewResultsClient(t *testing.T) pb.ResultsClient {
+func NewResultsClient(t *testing.T, opts ...server.Option) pb.ResultsClient {
 	t.Helper()
-	srv, err := server.New(test.NewDB(t))
+	srv, err := server.New(test.NewDB(t), opts...)
 	if err != nil {
 		t.Fatalf("Failed to create fake server: %v", err)
 	}
