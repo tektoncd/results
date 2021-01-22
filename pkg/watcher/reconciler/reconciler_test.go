@@ -25,7 +25,7 @@ import (
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
-	"github.com/tektoncd/results/pkg/watcher/internal/test"
+	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"

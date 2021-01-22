@@ -26,6 +26,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/protoutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -45,6 +46,9 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 	}
 	if req.GetParent() != parent {
 		return nil, status.Error(codes.InvalidArgument, "requested parent does not match resource name")
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionCreate); err != nil {
+		return nil, err
 	}
 
 	// Populate Result with server provided fields.
@@ -74,6 +78,9 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionGet); err != nil {
+		return nil, err
+	}
 	store, err := getResultByParentName(s.db, parent, name)
 	if err != nil {
 		return nil, err
@@ -83,13 +90,17 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 
 // UpdateResult updates a Result in the database.
 func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) (*pb.Result, error) {
+	// Retrieve result from database by name
+	parent, name, err := result.ParseName(req.GetName())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionUpdate); err != nil {
+		return nil, err
+	}
+
 	var out *pb.Result
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Retrieve result from database by name
-		parent, name, err := result.ParseName(req.GetName())
-		if err != nil {
-			return status.Error(codes.InvalidArgument, err.Error())
-		}
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		prev, err := getResultByParentName(tx, parent, name)
 		if err != nil {
 			return status.Errorf(codes.NotFound, "failed to find a result: %v", err)
@@ -126,6 +137,9 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionDelete); err != nil {
+		return nil, err
+	}
 
 	// First get the current result. This ensures that we return NOT_FOUND if
 	// the entry is already deleted.
@@ -136,17 +150,20 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 		Where(&db.Result{Parent: parent, Name: name}).
 		First(r)
 	if err := errors.Wrap(get.Error); err != nil {
-		return nil, err
+		return &empty.Empty{}, err
 	}
 
 	// Delete the result.
 	delete := s.db.WithContext(ctx).Delete(&db.Result{}, r)
-	return nil, errors.Wrap(delete.Error)
+	return &empty.Empty{}, errors.Wrap(delete.Error)
 }
 
 func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*pb.ListResultsResponse, error) {
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
+	}
+	if err := s.auth.Check(ctx, req.GetParent(), auth.ResourceResults, auth.PermissionList); err != nil {
+		return nil, err
 	}
 
 	userPageSize, err := pageSize(int(req.GetPageSize()))

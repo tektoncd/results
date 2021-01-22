@@ -23,6 +23,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/protoutil"
@@ -44,6 +45,9 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	}
 	if req.GetParent() != result.FormatName(parent, resultName) {
 		return nil, status.Error(codes.InvalidArgument, "requested parent does not match resource name")
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceRecords, auth.PermissionCreate); err != nil {
+		return nil, err
 	}
 
 	// Look up the result ID from the name. This does not have to happen
@@ -99,18 +103,22 @@ func (s *Server) getResultIDImpl(ctx context.Context, parent, result string) (st
 
 // GetRecord returns a single Record.
 func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.Record, error) {
-	r, err := getRecord(s.db.WithContext(ctx), req.GetName())
+	parent, result, name, err := record.ParseName(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceRecords, auth.PermissionGet); err != nil {
+		return nil, err
+	}
+
+	r, err := getRecord(s.db.WithContext(ctx), parent, result, name)
 	if err != nil {
 		return nil, err
 	}
 	return record.ToAPI(r)
 }
 
-func getRecord(txn *gorm.DB, name string) (*db.Record, error) {
-	parent, result, name, err := record.ParseName(name)
-	if err != nil {
-		return nil, err
-	}
+func getRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error) {
 	store := &db.Record{}
 	q := txn.
 		Where(&db.Record{Result: db.Result{Parent: parent, Name: result}, Name: name}).
@@ -124,6 +132,9 @@ func getRecord(txn *gorm.DB, name string) (*db.Record, error) {
 func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
+	}
+	if err := s.auth.Check(ctx, req.GetParent(), auth.ResourceRecords, auth.PermissionList); err != nil {
+		return nil, err
 	}
 
 	userPageSize, err := pageSize(int(req.GetPageSize()))
@@ -225,11 +236,20 @@ func (s *Server) getFilteredPaginatedRecords(ctx context.Context, parent, start 
 // UpdateRecord updates a record in the database.
 func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) (*pb.Record, error) {
 	in := req.GetRecord()
+
+	parent, result, name, err := record.ParseName(in.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceRecords, auth.PermissionUpdate); err != nil {
+		return nil, err
+	}
+
 	protoutil.ClearOutputOnly(in)
 
 	var out *pb.Record
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		r, err := getRecord(tx, in.GetName())
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		r, err := getRecord(tx, parent, result, name)
 		if err != nil {
 			return err
 		}
@@ -271,13 +291,21 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 
 // DeleteRecord deletes a given record.
 func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (*empty.Empty, error) {
+	parent, result, name, err := record.ParseName(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceRecords, auth.PermissionDelete); err != nil {
+		return &empty.Empty{}, err
+	}
+
 	// First get the current record. This ensures that we return NOT_FOUND if
 	// the entry is already deleted.
 	// This does not need to be done in the same transaction as the delete,
 	// since the identifiers are immutable.
-	r, err := getRecord(s.db, req.GetName())
+	r, err := getRecord(s.db, parent, result, name)
 	if err != nil {
-		return nil, err
+		return &empty.Empty{}, err
 	}
-	return nil, errors.Wrap(s.db.WithContext(ctx).Delete(&db.Record{}, r).Error)
+	return &empty.Empty{}, errors.Wrap(s.db.WithContext(ctx).Delete(&db.Record{}, r).Error)
 }

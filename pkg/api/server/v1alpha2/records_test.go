@@ -144,11 +144,14 @@ func TestCreateRecord(t *testing.T) {
 // but fails when writing the Record due to foreign key constraints.
 func TestCreateRecord_ConcurrentDelete(t *testing.T) {
 	result := "deleted"
-	srv := &Server{
-		db: test.NewDB(t),
-		getResultID: func(context.Context, string, string) (string, error) {
+	srv, err := New(
+		test.NewDB(t),
+		withGetResultID(func(context.Context, string, string) (string, error) {
 			return result, nil
-		},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("error creating server: %v", err)
 	}
 
 	ctx := context.Background()

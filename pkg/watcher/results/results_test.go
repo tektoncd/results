@@ -21,8 +21,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/convert"
-	"github.com/tektoncd/results/pkg/watcher/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
