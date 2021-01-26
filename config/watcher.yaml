@@ -20,7 +20,7 @@ metadata:
   labels:
     app.kubernetes.io/name: tekton-results
     app.kubernetes.io/component: watcher
-    pipeline.tekton.dev/release: "devel"
+    results.tekton.dev/release: "devel"
     version: "devel"
 spec:
   replicas: 1
@@ -35,10 +35,10 @@ spec:
         app: tekton-results-watcher
         app.kubernetes.io/name: tekton-results
         app.kubernetes.io/component: watcher
-        pipeline.tekton.dev/release: "devel"
+        results.tekton.dev/release: "devel"
         version: "devel"
     spec:
-      serviceAccountName: tekton-pipelines-controller
+      serviceAccountName: tekton-results-watcher
       containers:
         - name: tekton-results-watcher
           image: ko://github.com/tektoncd/results/cmd/watcher
