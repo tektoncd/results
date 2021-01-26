@@ -22,10 +22,11 @@ Known types exposed to each RPC method are documented below.
 
 #### Cookbook
 
-| Filter Spec                                            | Description                                           |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| `record.name.startsWith("foo/results/bar")`            | Get all Records belonging to Result `foo/results/bar` |
-| `type(record.data) == tekton.pipeline.v1beta1.TaskRun` | Get all Records of type TaskRun                       |
+| Filter Spec                                                                                                                                                                               | Description                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `record.name.startsWith("foo/results/bar")`                                                                                                                                               | Get all Records belonging to Result `foo/results/bar`                                            |
+| `type(record.data) == tekton.pipeline.v1beta1.TaskRun`                                                                                                                                    | Get all Records of type TaskRun                                                                  |
+| `type(record.data) == tekton.pipeline.v1beta1.TaskRun && record.data.metadata.name.contains("release") && record.data.spec.task_spec.steps.exists(step, step.name.contains("fetch"))` | Get TasksRuns with a name that contains "release" and at least 1 step name that contains "fetch" |
 
 ## Reading Records across Results
 
