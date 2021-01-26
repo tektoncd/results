@@ -27,9 +27,6 @@ echo "Generating DB secret..."
 # Don't fail if the secret isn't created - this can happen if the secret already exists.
 kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20) || true
 
-echo "Generating DB init config..."
-kubectl create configmap mysql-initdb-config --from-file="${ROOT}/schema/results.sql" --namespace="tekton-pipelines" || true
-
 echo "Installing Tekton Results..."
 ko apply --filename="${ROOT}/config/"
 
