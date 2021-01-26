@@ -20,7 +20,7 @@ metadata:
   labels:
     app.kubernetes.io/name: tekton-results
     app.kubernetes.io/component: api
-    pipeline.tekton.dev/release: "devel"
+    results.tekton.dev/release: "devel"
     version: "devel"
 spec:
   replicas: 1
@@ -35,10 +35,10 @@ spec:
         app: tekton-results-api
         app.kubernetes.io/name: tekton-results
         app.kubernetes.io/component: api
-        pipeline.tekton.dev/release: "devel"
+        results.tekton.dev/release: "devel"
         version: "devel"
     spec:
-      serviceAccountName: tekton-pipelines-controller
+      serviceAccountName: tekton-results-api
       containers:
         - name: tekton-results-api
           image: ko://github.com/tektoncd/results/cmd/api

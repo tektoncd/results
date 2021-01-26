@@ -39,6 +39,7 @@ spec:
       labels:
         app: tekton-results-mysql
     spec:
+      serviceAccountName: tekton-results-api
       containers:
         - image: mysql:5.6
           name: mysql
