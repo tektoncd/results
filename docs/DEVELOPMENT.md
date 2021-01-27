@@ -31,7 +31,7 @@ $ ./test/e2e/01-install.sh  # installs pipelines, configures db, installs result
 ```
 
 `01-install.sh` uses the default kubectl context, so this can be ran on both
-kind or real Kubernetes clusters. See [test/e2e/README.md](test/e2e/README.md)
+kind or real Kubernetes clusters. See [test/e2e/README.md](/test/e2e/README.md)
 for configurable options for these scripts.
 
 ### Deploying individual components
@@ -99,7 +99,7 @@ $ go test ./...
 
 ### E2E Tests
 
-See [test/e2e/README.md](test/e2e/README.md)
+See [test/e2e/README.md](/test/e2e/README.md)
 
 ## Recommended Reading
 

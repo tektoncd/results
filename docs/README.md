@@ -12,7 +12,7 @@ server.
 The full motivation and design are available in
 [TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
 
-See [proto/v1alpha2](proto/v1alpha2) for the latest Results API spec.
+See [proto/v1alpha2](/proto/v1alpha2) for the latest Results API spec.
 
 ## Quickstart
 
@@ -22,7 +22,7 @@ from source.
 
 ## Data Model
 
-![results data model](docs/images/results.png)
+![results data model](images/results.png)
 
 - Records are individual instances of data. These will commonly be execution
   data (e.g. PipelineRun, TaskRuns), but could also reference additional data
@@ -42,7 +42,7 @@ examples of the data we intend to support).
 
 ## Helpful links
 
-- [Roadmap](docs/roadmap.md)
+- [Roadmap](roadmap.md)
 
 ## Contact
 
