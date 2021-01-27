@@ -1,4 +1,7 @@
-# Tekton Results API
+# Tekton Results
+
+[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/tektoncd/results)
+[![Go Report Card](https://goreportcard.com/badge/tektoncd/pipeline)](https://goreportcard.com/report/tektoncd/results)
 
 This project supports a richly queryable API for Tekton execution history and results.
 
