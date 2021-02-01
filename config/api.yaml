@@ -60,7 +60,14 @@ spec:
               value: tekton-results-mysql.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
               value: results
-
+          volumeMounts:
+            - name: tls
+              mountPath: "/etc/tls"
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: tekton-results-tls
 ---
 apiVersion: v1
 kind: Service

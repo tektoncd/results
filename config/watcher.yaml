@@ -47,5 +47,13 @@ spec:
               "-api_addr",
               "tekton-results-api-service.tekton-pipelines.svc.cluster.local:50051",
               "-auth_mode",
-              "insecure",
+              "token",
             ]
+          volumeMounts:
+            - name: tls
+              mountPath: "/etc/tls"
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: tekton-results-tls

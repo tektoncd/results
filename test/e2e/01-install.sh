@@ -27,6 +27,16 @@ echo "Generating DB secret..."
 # Don't fail if the secret isn't created - this can happen if the secret already exists.
 kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20) || true
 
+echo "Generating TLS key pair..."
+openssl req -x509 \
+   -newkey rsa:4096 \
+   -keyout "/tmp/tekton-results-key.pem" \
+   -out "/tmp/tekton-results-cert.pem" \
+   -days 365 \
+   -nodes \
+   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem"
+
 echo "Installing Tekton Results..."
 ko apply --filename="${ROOT}/config/"
 
