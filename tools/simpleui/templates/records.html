@@ -1,0 +1,24 @@
+<html>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <body>
+        <h1>Records</h1>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Data</th>
+                </tr>
+            </thead>
+            {{range .Records}}
+            <tr>
+                <td>{{.Name}}</td>
+                <td>{{.Data.TypeUrl}}</td>
+                <td>{{.CreatedTime.AsTime}}</td>
+                <td><span style="white-space: pre-wrap"><code>{{textproto .Data}}</code></span></td>
+            </tr>
+            {{end}}
+        </table>
+    </body>
+</html>
