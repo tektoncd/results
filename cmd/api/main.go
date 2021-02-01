@@ -24,14 +24,17 @@ import (
 	"os"
 
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func main() {
@@ -49,13 +52,28 @@ func main() {
 		log.Fatalf("failed to open the results.db: %v", err)
 	}
 
-	s := grpc.NewServer()
+	// Create k8s client
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatal("error getting kubernetes client config:", err)
+	}
+	k8s, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatal("error creating kubernetes clientset:", err)
+	}
+
+	// Load TLS cert
+	creds, err := credentials.NewServerTLSFromFile("/etc/tls/tls.crt", "/etc/tls/tls.key")
+	if err != nil {
+		log.Fatalf("error loading TLS key pair: %v", err)
+	}
 
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db)
+	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
 	}
+	s := grpc.NewServer(grpc.Creds(creds))
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
 
 	// Allow service reflection - required for grpc_cli ls to work.

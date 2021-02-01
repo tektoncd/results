@@ -24,11 +24,31 @@
    $ kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
    ```
 
+3. Generate cert/key pair. Note: Feel free to use any cert management software to do this!
+
+   Tekton Results expects the cert/key pair to be stored in a [TLS Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets).
+
+   ```sh
+   # Generate new self-signed cert.
+   $ openssl req -x509 \
+   -newkey rsa:4096 \
+   -keyout key.pem \
+   -out cert.pem \
+   -days 365 \
+   -nodes \
+   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+   # Create new TLS Secret from cert.
+   $ kubectl create secret tls -n tekton-pipelines tekton-results-tls \
+   --cert=cert.pem \
+   --key=key.pem
+   ```
+
 ## Installing Tekton Results on Kubernetes
 
 COMING SOON!
 
 ### Installing from source
 
-See [DEVELOPMENT.md](../DEVELOPMENT.md) for how to install Tekton Results from
+See [DEVELOPMENT.md](DEVELOPMENT.md) for how to install Tekton Results from
 source.
+

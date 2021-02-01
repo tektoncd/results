@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"log"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -51,12 +52,20 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	if !ok {
 		return status.Error(codes.Unauthenticated, "unable to get context metadata")
 	}
-	v := md.Get("token")
+	v := md.Get("authorization")
 	if len(v) == 0 {
 		return status.Error(codes.Unauthenticated, "unable to find token")
 	}
 
-	for _, t := range v {
+	for _, raw := range v {
+		// We expect tokens to be in the form "Bearer <token>". Parse the token out.
+		s := strings.SplitN(raw, " ", 2)
+		if len(s) < 2 {
+			log.Println("unknown auth token format")
+			continue
+		}
+		t := s[1]
+
 		// Authenticate the token by sending it to the API Server for review.
 		tr, err := r.authn.TokenReviews().Create(&authnv1.TokenReview{
 			Spec: authnv1.TokenReviewSpec{

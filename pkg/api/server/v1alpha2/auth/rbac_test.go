@@ -16,6 +16,7 @@ package auth_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
@@ -97,7 +98,10 @@ func TestRBAC(t *testing.T) {
 		},
 	} {
 		t.Run(tc.user, func(t *testing.T) {
-			ctx := metadata.AppendToOutgoingContext(ctx, "token", tc.token)
+			// Simulates a oauth.TokenSource. We avoid using the real
+			// oauth.TokenSource here since it requires a higher SecurityLevel
+			// + TLS.
+			ctx := metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", tc.token))
 			if _, err := client.CreateResult(ctx, &pb.CreateResultRequest{
 				Parent: "foo",
 				Result: &pb.Result{

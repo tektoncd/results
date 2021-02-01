@@ -16,7 +16,7 @@
 set -e
 
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
-KIND_IMAGE="${KIND_IMAGE:-kindest/node:v1.17.11}"
+KIND_IMAGE="${KIND_IMAGE:-kindest/node:v1.19.1}"
 
 kind create cluster --name="${KIND_CLUSTER_NAME}" --image="${KIND_IMAGE}" --wait=60s
 kubectl cluster-info --context "kind-${KIND_CLUSTER_NAME}"
