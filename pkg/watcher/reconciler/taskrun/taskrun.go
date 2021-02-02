@@ -80,7 +80,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		log.Errorf("error adding Result annotations: %v", err)
 		return err
 	}
-	if _, err := r.pipelineclientset.TektonV1beta1().TaskRuns(tr.GetNamespace()).Patch(tr.Name, types.JSONPatchType, patch); err != nil {
+	if _, err := r.pipelineclientset.TektonV1beta1().TaskRuns(tr.GetNamespace()).Patch(tr.Name, types.MergePatchType, patch); err != nil {
 		log.Errorf("TaskRun.Patch: %v", err)
 		return err
 	}
