@@ -24,7 +24,6 @@ require (
 	golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201202100533-7534955ac86b // indirect
-	gomodules.xyz/jsonpatch/v2 v2.1.0
 	google.golang.org/api v0.31.0
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20201019141844-1ed22bb0c154
