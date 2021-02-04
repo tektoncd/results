@@ -78,6 +78,11 @@ spec:
   selector:
     app: tekton-results-api
   ports:
-    - protocol: TCP
+    - name: grpc
+      protocol: TCP
       port: 50051
       targetPort: 50051
+    - name: prometheus
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

@@ -45,7 +45,8 @@ patterns:
 
 ### Troubleshooting
 
-The following command can be ran to query the cluster's permissions. This can be useful for debugging permission denied errors:
+The following command can be ran to query the cluster's permissions. This can be
+useful for debugging permission denied errors:
 
 ```sh
 $ kubectl create --as=system:serviceaccount:tekton-pipelines:tekton-results-watcher -n tekton-pipelines -f - -o yaml << EOF
@@ -118,3 +119,10 @@ Known types exposed to each RPC method are documented below.
 Records can be read across Results by specifying `-` as the Result name part
 (e.g. `default/results/-`). This can be used to read and filter matching Records
 without knowing the exact Result name.
+
+## Metrics
+
+The API Server includes an HTTP server for exposing gRPC server Prometheus metrics.
+By default, the Service exposes metrics on port `:8080`. For more
+details on the structure of the metrics, see
+https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics.
