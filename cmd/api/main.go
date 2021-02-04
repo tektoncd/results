@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -73,7 +76,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
 	}
-	s := grpc.NewServer(grpc.Creds(creds))
+	s := grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
 
 	// Allow service reflection - required for grpc_cli ls to work.
@@ -83,6 +90,15 @@ func main() {
 	hs := health.NewServer()
 	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(s, hs)
+
+	// Prometheus metrics
+	grpc_prometheus.Register(s)
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		if err := http.ListenAndServe(":8080", promhttp.Handler()); err != nil {
+			log.Fatalf("error running Prometheus HTTP handler: %v", err)
+		}
+	}()
 
 	// Listen on port and serve.
 	port := os.Getenv("PORT")

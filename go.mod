@@ -11,10 +11,12 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.4
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jonboulle/clockwork v0.1.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/onsi/ginkgo v1.14.1 // indirect
 	github.com/onsi/gomega v1.10.2 // indirect
+	github.com/prometheus/client_golang v1.6.0
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tektoncd/pipeline v0.17.1

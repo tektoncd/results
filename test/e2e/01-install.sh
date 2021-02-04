@@ -35,7 +35,7 @@ openssl req -x509 \
    -days 365 \
    -nodes \
    -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem"
+kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
 ko apply --filename="${ROOT}/config/"
