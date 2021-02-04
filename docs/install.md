@@ -24,11 +24,20 @@
    $ kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
    ```
 
-## Installing Tekton Results on Kubernetes
+## Installing latest release
 
-COMING SOON!
+```sh
+$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+```
 
-### Installing from source
+## Installing specific release
+
+```sh
+$ export RELEASE_VERSION="<desired release version here>"
+$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${RELEASE_VERSION}/release.yaml
+```
+
+## Installing from source
 
 See [DEVELOPMENT.md](../DEVELOPMENT.md) for how to install Tekton Results from
 source.
