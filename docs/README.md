@@ -3,27 +3,52 @@
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/tektoncd/results)
 [![Go Report Card](https://goreportcard.com/badge/tektoncd/pipeline)](https://goreportcard.com/report/tektoncd/results)
 
-This project supports a richly queryable API for Tekton execution history and
-results.
+Tekton Results aims to help users logically group CI/CD workload history and
+separate out long term result storage away from the Pipeline controller. This
+allows you to:
 
-The main components of this design are a **queryable API server** backed by
-persistent storage, and an **in-cluster watcher** to report updates to the API
-server.
+- Provide custom Result metadata about your CI/CD workflows not available in the
+  Tekton TaskRun/PipelineRun CRDs (for example: post-run actions)
+- Group related workloads together (e.g. bundle related TaskRuns and
+  PipelineRuns into a single unit)
+- Make long-term result history independent of the Pipeline CRD controller,
+  letting you free up etcd resources for Run execution.
 
-The full motivation and design are available in
+Additional background and design motivations can be found in
 [TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
 
-See [proto/v1alpha2](/proto/v1alpha2) for the latest Results API spec.
+## Overview
+
+Tekton Results is composed of 2 main components:
+
+- A [queryable gRPC API server](api/) backed by persistent storage (see
+  [proto/v1alpha2](/proto/v1alpha2) for the latest API spec).
+- A [controller to watch and report](watcher/) TaskRun and PipelineRun updates
+  to the API server.
+
+### Life of a Result
+
+![overview](images/overview.png)
+
+1. User creates a TaskRun or PipelineRun via the Kubernetes API as usual.
+2. Result Watcher listens for all TaskRun/PipelineRun changes.
+3. If a TaskRun/PipelineRun has changed, Watcher updates (or creates) a
+   corresponding `Record` (and `Result` if necessary using the Results API.
+
+- Watcher will also annotate the original TaskRun/PipelineRun with identifiers
+  as well.
+
+4. Users can get/query Result/Record data directly from the API. Once the
+   TaskRun/PipelineRun is complete and has been successfully stored in the
+   Result API, the original CRD object can be safely removed from the cluster.
 
 ## Quickstart
 
-Results does not have an official release at the moment. In the meantime, see
-the [DEVELOPMENT quickstart guide](DEVELOPMENT.md#quickstart) for installing
-from source.
+See [install.md](install.md) for latest installation instructions.
 
 ## Data Model
 
-![results data model](images/results.png)
+![results data model](images/datamodel.png)
 
 - Records are individual instances of data. These will commonly be execution
   data (e.g. PipelineRun, TaskRuns), but could also reference additional data
