@@ -123,6 +123,28 @@ Known types exposed to each RPC method are documented below.
 | `record.data.status.conditions.has(c, c.type=="Succeeded" && c.status=="False")`                                                                                                      | Get all TaskRuns and PipelineRuns that have failed.                                              |
 | `record.data.status.completion_time - record.data.status.start_time > duration("5m")`                                                                                                 | Get all TaskRuns and PipelineRuns that took more than 5 minutes to complete.                     |
 
+## Ordering
+
+The reference implementation of the Results API supports
+ordering result and record responses with an optional
+direction qualifier (either `asc` or `desc`).
+
+To request a list of objects with a specific order
+include an `order_by` query parameter in your request.
+Pass it the name of the field to be ordered on. Multiple fields
+can be specified with a comma-separated list. Examples:
+
+- `created_time`
+- `updated_time asc`
+- `created_time desc, updated_time asc`
+
+Fields supported in `order_by`:
+
+| Field Name |
+| ---------- |
+| `created_time` |
+| `updated_time` |
+
 ## Reading Records across Results
 
 Records can be read across Results by specifying `-` as the Result name part

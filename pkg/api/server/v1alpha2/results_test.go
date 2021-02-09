@@ -325,7 +325,9 @@ func TestListResults(t *testing.T) {
 
 	parent := "foo"
 	results := make([]*pb.Result, 0, 5)
+
 	for i := 1; i <= cap(results); i++ {
+		fakeClock.Advance(time.Second)
 		res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
 			Parent: "foo",
 			Result: &pb.Result{
@@ -338,6 +340,11 @@ func TestListResults(t *testing.T) {
 		}
 		t.Logf("Created name: %s, id: %s", res.GetName(), res.GetId())
 		results = append(results, res)
+	}
+
+	reversedResults := make([]*pb.Result, len(results))
+	for i := len(results); i > 0; i-- {
+		reversedResults[len(results)-i] = results[i-1]
 	}
 
 	tt := []struct {
@@ -495,6 +502,61 @@ func TestListResults(t *testing.T) {
 			req: &pb.ListResultsRequest{
 				Parent:   parent,
 				PageSize: -1,
+			},
+			status: codes.InvalidArgument,
+		},
+		// Order By
+		{
+			name: "with order by desc",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `created_time desc`,
+			},
+			want: &pb.ListResultsResponse{
+				Results: reversedResults,
+			},
+		},
+		{
+			name: "with order by asc",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `created_time asc`,
+			},
+			want: &pb.ListResultsResponse{
+				Results: results,
+			},
+		},
+		{
+			name: "with default order by direction",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `created_time`,
+			},
+			want: &pb.ListResultsResponse{
+				Results: results,
+			},
+		},
+		{
+			name: "with invalid order field name",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `name`,
+			},
+			status: codes.InvalidArgument,
+		},
+		{
+			name: "with invalid order clause",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `created_time asc foo`,
+			},
+			status: codes.InvalidArgument,
+		},
+		{
+			name: "with invalid order direction",
+			req: &pb.ListResultsRequest{
+				Parent:  parent,
+				OrderBy: `created_time foo`,
 			},
 			status: codes.InvalidArgument,
 		},

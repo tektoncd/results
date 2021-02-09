@@ -26,6 +26,7 @@ installation. These are configured to install real versions of Tekton Pipelines
 / Results, using [kind](https://kind.sigs.k8s.io) by default.
 
 ```sh
+export KO_DOCKER_REPO="kind.local"
 $ ./test/e2e/00-setup.sh    # sets up kind cluster
 $ ./test/e2e/01-install.sh  # installs pipelines, configures db, installs results api/watcher.
 ```
