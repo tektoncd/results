@@ -255,6 +255,7 @@ func TestListRecords(t *testing.T) {
 	records := make([]*pb.Record, 0, 6)
 	// Create 3 TaskRun records
 	for i := 0; i < 3; i++ {
+		fakeClock.Advance(time.Second)
 		r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 			Parent: result.GetName(),
 			Record: &pb.Record{
@@ -272,8 +273,10 @@ func TestListRecords(t *testing.T) {
 		t.Logf("Created record: %+v", r)
 		records = append(records, r)
 	}
+
 	// Create 3 PipelineRun records
 	for i := 3; i < 6; i++ {
+		fakeClock.Advance(time.Second)
 		r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 			Parent: result.GetName(),
 			Record: &pb.Record{
@@ -290,6 +293,11 @@ func TestListRecords(t *testing.T) {
 		}
 		t.Logf("Created record: %+v", r)
 		records = append(records, r)
+	}
+
+	reversedRecords := make([]*pb.Record, len(records))
+	for i := len(reversedRecords); i > 0; i-- {
+		reversedRecords[len(records)-i] = records[i-1]
 	}
 
 	tt := []struct {
@@ -379,6 +387,47 @@ func TestListRecords(t *testing.T) {
 				NextPageToken: pagetoken(t, records[1].GetId(), ""),
 			},
 		},
+		// Order By
+		{
+			name: "with order asc",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "created_time asc",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: records,
+			},
+		},
+		{
+			name: "with order desc",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "created_time desc",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: reversedRecords,
+			},
+		},
+		{
+			name: "with missing order",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: records,
+			},
+		},
+		{
+			name: "with default order",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "created_time",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: records,
+			},
+		},
 
 		// Errors
 		{
@@ -409,6 +458,22 @@ func TestListRecords(t *testing.T) {
 			name: "malformed parent",
 			req: &pb.ListRecordsRequest{
 				Parent: "unknown",
+			},
+			status: codes.InvalidArgument,
+		},
+		{
+			name: "invalid order by clause",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "created_time desc asc",
+			},
+			status: codes.InvalidArgument,
+		},
+		{
+			name: "invalid sort direction",
+			req: &pb.ListRecordsRequest{
+				Parent:  result.GetName(),
+				OrderBy: "created_time foo",
 			},
 			status: codes.InvalidArgument,
 		},

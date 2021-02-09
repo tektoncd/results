@@ -176,12 +176,17 @@ func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*
 		return nil, err
 	}
 
+	sortOrder, err := orderBy(req.GetOrderBy())
+	if err != nil {
+		return nil, err
+	}
+
 	prg, err := celenv.ParseFilter(s.env, req.GetFilter())
 	if err != nil {
 		return nil, err
 	}
 	// Fetch n+1 items to get the next token.
-	out, err := s.getFilteredPaginatedResults(ctx, req.GetParent(), start, userPageSize+1, prg)
+	out, err := s.getFilteredPaginatedSortedResults(ctx, req.GetParent(), start, userPageSize+1, prg, sortOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -205,18 +210,19 @@ func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*
 	}, nil
 }
 
-// getFilteredPaginatedResults returns the specified number of results that
+// getFilteredPaginatedSortedResults returns the specified number of results that
 // match the given CEL program.
-func (s *Server) getFilteredPaginatedResults(ctx context.Context, parent string, start string, pageSize int, prg cel.Program) ([]*pb.Result, error) {
+func (s *Server) getFilteredPaginatedSortedResults(ctx context.Context, parent string, start string, pageSize int, prg cel.Program, sortOrder string) ([]*pb.Result, error) {
 	out := make([]*pb.Result, 0, pageSize)
 	batcher := pagination.NewBatcher(pageSize, minPageSize, maxPageSize)
 	for len(out) < pageSize {
 		batchSize := batcher.Next()
 		dbresults := make([]*db.Result, 0, batchSize)
-		q := s.db.WithContext(ctx).
-			Where("parent = ? AND id > ?", parent, start).
-			Limit(batchSize).
-			Find(&dbresults)
+		q := s.db.WithContext(ctx).Where("parent = ? AND id > ?", parent, start)
+		if sortOrder != "" {
+			q.Order(sortOrder)
+		}
+		q.Limit(batchSize).Find(&dbresults)
 		if err := errors.Wrap(q.Error); err != nil {
 			return nil, err
 		}

@@ -124,6 +124,7 @@ message ListResultsRequest {
 
   int32 page_size = 3;
   string page_token = 4;
+  string order_by = 5;
 }
 
 message ListResultsResponse {
@@ -166,6 +167,7 @@ message ListRecordsRequest {
 
   int32 page_size = 3;
   string page_token = 4;
+  string order_by = 5;
 }
 
 message ListRecordsResponse {

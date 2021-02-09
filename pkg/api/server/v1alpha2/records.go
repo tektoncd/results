@@ -147,12 +147,17 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 		return nil, err
 	}
 
+	sortOrder, err := orderBy(req.GetOrderBy())
+	if err != nil {
+		return nil, err
+	}
+
 	prg, err := celenv.ParseFilter(s.env, req.GetFilter())
 	if err != nil {
 		return nil, err
 	}
 	// Fetch n+1 items to get the next token.
-	out, err := s.getFilteredPaginatedRecords(ctx, req.GetParent(), start, userPageSize+1, prg)
+	out, err := s.getFilteredPaginatedSortedRecords(ctx, req.GetParent(), start, userPageSize+1, prg, sortOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +183,7 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 
 // getFilteredPaginatedRecords returns the specified number of results that
 // match the given CEL program.
-func (s *Server) getFilteredPaginatedRecords(ctx context.Context, parent, start string, pageSize int, prg cel.Program) ([]*pb.Record, error) {
+func (s *Server) getFilteredPaginatedSortedRecords(ctx context.Context, parent, start string, pageSize int, prg cel.Program, sortOrder string) ([]*pb.Record, error) {
 	parent, result, err := result.ParseName(parent)
 	if err != nil {
 		return nil, err
@@ -194,6 +199,9 @@ func (s *Server) getFilteredPaginatedRecords(ctx context.Context, parent, start 
 		// See https://google.aip.dev/159 for more details.
 		if result != "-" {
 			q = q.Where("result_name = ?", result)
+		}
+		if sortOrder != "" {
+			q = q.Order(sortOrder)
 		}
 		q = q.Limit(batchSize).Find(&dbrecords)
 		if err := errors.Wrap(q.Error); err != nil {
