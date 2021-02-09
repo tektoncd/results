@@ -16,7 +16,9 @@ var (
 	resultTmpl = template.Must(template.New("results.html").ParseFiles("templates/results.html"))
 	recordTmpl = template.Must(template.New("records.html").
 			Funcs(template.FuncMap{
-			"textproto": textproto,
+			"textproto":  textproto,
+			"parent":     parent,
+			"trimprefix": strings.TrimPrefix,
 		}).
 		ParseFiles("templates/records.html"))
 )
@@ -40,15 +42,23 @@ func (u *ui) results(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *ui) records(w http.ResponseWriter, r *http.Request) {
-	res, err := u.client.ListRecords(r.Context(), &pb.ListRecordsRequest{
+	req := &pb.ListRecordsRequest{
 		Parent: strings.Trim(r.URL.Path, "/"),
-	})
+		Filter: r.FormValue("query"),
+	}
+	res, err := u.client.ListRecords(r.Context(), req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, err)
 		return
 	}
-	if err := recordTmpl.Execute(w, res); err != nil {
+	if err := recordTmpl.Execute(w, struct {
+		Request  *pb.ListRecordsRequest
+		Response *pb.ListRecordsResponse
+	}{
+		Request:  req,
+		Response: res,
+	}); err != nil {
 		return
 	}
 }

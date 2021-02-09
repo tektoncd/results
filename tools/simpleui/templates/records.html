@@ -2,19 +2,28 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
     <body>
         <h1>Records</h1>
+        <form>
+            <label for="query">Query:</label><br>
+            <textarea name="query" rows="4" cols="80">
+            {{- .Request.Filter -}}
+            </textarea><br>
+            <input type="submit" value="Submit">
+        </form>
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th scope="col">Name</th>
                     <th scope="col">Type</th>
+                    <th scope="col">Parent</th>
                     <th scope="col">Created</th>
                     <th scope="col">Data</th>
                 </tr>
             </thead>
-            {{range .Records}}
+            {{range .Response.Records}}
             <tr>
                 <td>{{.Name}}</td>
-                <td>{{.Data.TypeUrl}}</td>
+                <td>{{trimprefix .Data.TypeUrl "type.googleapis.com/"}}</td>
+                <td><a href="/{{parent .Name}}">{{parent .Name}}</a></td>
                 <td>{{.CreatedTime.AsTime}}</td>
                 <td><span style="white-space: pre-wrap"><code>{{textproto .Data}}</code></span></td>
             </tr>
