@@ -1,3 +1,10 @@
+<!--
+---
+title: "Results Watcher"
+linkTitle: "Results Watcher"
+weight: 2
+---
+-->
 # Result Watcher
 
 The Result Watcher is a Kubernetes Controller that watches for changes to certain Tekton types and automatically creates/updates their data in the Result API.
