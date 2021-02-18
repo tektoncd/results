@@ -120,6 +120,8 @@ Known types exposed to each RPC method are documented below.
 | `record.name.startsWith("foo/results/bar")`                                                                                                                                           | Get all Records belonging to Result `foo/results/bar`                                            |
 | `type(record.data) == tekton.pipeline.v1beta1.TaskRun`                                                                                                                                | Get all Records of type TaskRun                                                                  |
 | `type(record.data) == tekton.pipeline.v1beta1.TaskRun && record.data.metadata.name.contains("release") && record.data.spec.task_spec.steps.exists(step, step.name.contains("fetch"))` | Get TasksRuns with a name that contains "release" and at least 1 step name that contains "fetch" |
+| `record.data.status.conditions.has(c, c.type=="Succeeded" && c.status=="False")`                                                                                                      | Get all TaskRuns and PipelineRuns that have failed.                                              |
+| `record.data.status.completion_time - record.data.status.start_time > duration("5m")`                                                                                                 | Get all TaskRuns and PipelineRuns that took more than 5 minutes to complete.                     |
 
 ## Reading Records across Results
 
@@ -129,7 +131,7 @@ without knowing the exact Result name.
 
 ## Metrics
 
-The API Server includes an HTTP server for exposing gRPC server Prometheus metrics.
-By default, the Service exposes metrics on port `:8080`. For more
+The API Server includes an HTTP server for exposing gRPC server Prometheus
+metrics. By default, the Service exposes metrics on port `:8080`. For more
 details on the structure of the metrics, see
 https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics.
