@@ -1,7 +1,7 @@
 <!--
 ---
 title: "Results"
-linkTitle: "Results
+linkTitle: "Results"
 weight: 2
 description: >
   Result storage for Tekton CI/CD data.
