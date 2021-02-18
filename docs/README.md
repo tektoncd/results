@@ -42,9 +42,13 @@ Tekton Results is composed of 2 main components:
    TaskRun/PipelineRun is complete and has been successfully stored in the
    Result API, the original CRD object can be safely removed from the cluster.
 
-## Quickstart
+## Getting Started
 
-See [install.md](install.md) for latest installation instructions.
+1. [Installation](install.md)
+2. [Results API](api/README.md): Learn how to connect to the API and make
+   queries.
+3. [Watcher](watcher/README.md): Learn what types the Watcher supports and how
+   it determines Result groupings.
 
 ## Data Model
 
@@ -69,6 +73,7 @@ examples of the data we intend to support).
 ## Helpful links
 
 - [Roadmap](roadmap.md)
+- [Results API Query Cookbook](api/README.md#cookbook)
 
 ## Contact
 
