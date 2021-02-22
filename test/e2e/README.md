@@ -46,6 +46,10 @@ made to Results components.
 | KO_DOCKER_REPO         | Docker repository to use for ko                                         | kind.local                                                                  |
 | TEKTON_PIPELINE_CONFIG | Tekton Pipelines config source (anything `kubectl apply -f` compatible) | https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml |
 
-### `02-test.sh`
+## Running the tests
 
-Runs the test against the current kubectl context.
+Once you have configured your local client, you can run the tests by running:
+
+```sh
+$ go test --tags=e2e .
+```
