@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  name: hello
-spec:
-  pipelineSpec:
-    tasks:
-      - name: hello
-        taskSpec:
-          steps:
-            - name: hello
-              image: ubuntu
-              script: "echo hello world!"
+resources:
+- 100-api-serviceaccount.yaml
+- 100-mysql-init.yaml
+- 100-watcher-serviceaccount.yaml
+- 200-mysql-pv.yaml
+- 201-mysql-deployment.yaml
+- api.yaml
+- default-clusterroles.yaml
+- watcher.yaml

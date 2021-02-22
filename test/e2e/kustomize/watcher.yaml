@@ -12,16 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  name: hello
-spec:
-  pipelineSpec:
-    tasks:
-      - name: hello
-        taskSpec:
-          steps:
-            - name: hello
-              image: ubuntu
-              script: "echo hello world!"
+# This is effectively a no-op, but exists as an example of how to perform
+# overlays.
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "-disable_crd_update"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "false"
