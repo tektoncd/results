@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is effectively a no-op, but exists as an example of how to perform
-# overlays.
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
-  value: "-disable_crd_update"
+  value: "-completed_run_grace_period"
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
-  value: "false"
+  value: "10s"

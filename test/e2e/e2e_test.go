@@ -23,6 +23,7 @@ import (
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,25 +49,42 @@ func TestTaskRun(t *testing.T) {
 	// Best effort delete existing Run in case one already exists.
 	_ = c.TaskRuns(ns).Delete(tr.GetName(), metav1.NewDeleteOptions(0))
 
-	if _, err = c.TaskRuns(ns).Create(tr); err != nil {
+	tr, err = c.TaskRuns(ns).Create(tr)
+	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	t.Logf("Created TaskRun %s", tr.GetName())
 
 	// Wait for Result ID to show up.
-	if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
-		tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
-		if err != nil {
-			t.Logf("Get: %v", err)
+	t.Run("Result ID", func(t *testing.T) {
+		if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
+			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
+			t.Logf("Get: %+v %v", tr.GetName(), err)
+			if err != nil {
+				return false, nil
+			}
+			if r, ok := tr.GetAnnotations()["results.tekton.dev/result"]; ok {
+				t.Logf("Found Result: %s", r)
+				return true, nil
+			}
 			return false, nil
+		}); err != nil {
+			t.Fatalf("error waiting for Result ID: %v", err)
 		}
-		if r, ok := tr.GetAnnotations()["results.tekton.dev/result"]; ok {
-			t.Logf("Found Result: %s", r)
-			return true, nil
+	})
+
+	t.Run("Run Cleanup", func(t *testing.T) {
+		if err := wait.PollImmediate(1*time.Second, 30*time.Second, func() (done bool, err error) {
+			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return true, nil
+			}
+			t.Logf("Get: %+v, %v", tr.GetName(), err)
+			return false, nil
+		}); err != nil {
+			t.Fatalf("error waiting TaskRun to be deleted: %v", err)
 		}
-		return false, nil
-	}); err != nil {
-		t.Fatalf("error waiting for Result ID: %v", err)
-	}
+	})
 }
 
 func TestPipelineRun(t *testing.T) {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -118,7 +120,8 @@ func resultName(o metav1.Object) string {
 	return result.FormatName(o.GetNamespace(), part)
 }
 
-// upsertRecord updates or creates a record for the object
+// upsertRecord updates or creates a record for the object. If there has been
+// no change in the Record data, the existing Record is returned.
 func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Object, opts ...grpc.CallOption) (*pb.Record, error) {
 	name, ok := o.GetAnnotations()[annotation.Record]
 	if !ok {
@@ -135,7 +138,13 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Objec
 		return nil, err
 	}
 	if curr != nil {
-		// Data already exists for the Record - update it.
+		// Data already exists for the Record - update it iff there is a diff.
+		if cmp.Equal(curr.Data, data, protocmp.Transform()) {
+			// The record data already matches what's stored. Don't update
+			// since this will rev update times which throws off resource
+			// cleanup checks.
+			return curr, nil
+		}
 		curr.Data = data
 		return c.UpdateRecord(ctx, &pb.UpdateRecordRequest{
 			Record: curr,

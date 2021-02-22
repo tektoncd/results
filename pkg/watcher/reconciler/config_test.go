@@ -14,7 +14,10 @@
 
 package reconciler
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestGetDisableAnnotationUpdate(t *testing.T) {
 	for _, tc := range []struct {
@@ -37,6 +40,30 @@ func TestGetDisableAnnotationUpdate(t *testing.T) {
 		got := tc.cfg.GetDisableAnnotationUpdate()
 		if got != tc.want {
 			t.Errorf("Config %+v: want %t, got %t", tc.cfg, tc.want, got)
+		}
+	}
+}
+
+func TestCompletedResourceGracePeriod(t *testing.T) {
+	for _, tc := range []struct {
+		cfg  *Config
+		want time.Duration
+	}{
+		{
+			cfg:  &Config{CompletedResourceGracePeriod: 0},
+			want: time.Duration(0),
+		},
+		{
+			cfg:  &Config{CompletedResourceGracePeriod: -1},
+			want: time.Duration(-1),
+		},
+		{
+			cfg:  &Config{CompletedResourceGracePeriod: 1},
+			want: time.Duration(1),
+		},
+	} {
+		if got := tc.cfg.GetCompletedResourceGracePeriod(); got != tc.want {
+			t.Errorf("Config %+v: Duration want %v, got %v", tc.cfg, got, tc.want)
 		}
 	}
 }

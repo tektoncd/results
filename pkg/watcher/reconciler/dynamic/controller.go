@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -26,6 +27,10 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
+)
+
+var (
+	clock = clockwork.NewRealClock()
 )
 
 // NewController creates a Controller for watching TaskRuns.
@@ -43,6 +48,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, gvr s
 		gvr:       gvr,
 	}
 	impl := controller.NewImpl(c, logger, fmt.Sprintf("DynamicResultsWatcher_%s", gvr.String()))
+	c.enqueue = impl.EnqueueAfter
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,

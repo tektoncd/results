@@ -16,6 +16,8 @@ package dynamic
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
@@ -23,10 +25,13 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/apis"
+	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/logging"
 )
 
@@ -35,6 +40,7 @@ type Reconciler struct {
 	gvr       schema.GroupVersionResource
 	clientset dynamic.Interface
 	cfg       *reconciler.Config
+	enqueue   func(interface{}, time.Duration)
 }
 
 type Object interface {
@@ -52,9 +58,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		log.Errorf("invalid resource key: %s", key)
 		return nil
 	}
+	k8sclient := r.clientset.Resource(r.gvr).Namespace(namespace)
 
 	// Lookup current Object.
-	o, err := r.clientset.Resource(r.gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+	o, err := k8sclient.Get(name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Warnf("resource not found: %v", err)
 		return err
@@ -71,26 +78,59 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return err
 	}
 
-	if r.cfg.GetDisableAnnotationUpdate() {
-		// Don't update any annotations - nothing else to do.
-		return nil
+	if a := o.GetAnnotations(); !r.cfg.GetDisableAnnotationUpdate() && (result.GetName() != a[annotation.Result] || record.GetName() != a[annotation.Record]) {
+		// Update object with Result Annotations.
+		patch, err := annotation.Add(result.GetName(), record.GetName())
+		if err != nil {
+			log.Errorf("error adding Result annotations: %v", err)
+			return err
+		}
+		if _, err := k8sclient.Patch(o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+			log.Errorf("Patch: %v", err)
+			return err
+		}
+	} else {
+		log.Debugf("skipping CRD patch - annotation patching disabled [%t] or annotations already match", r.cfg.GetDisableAnnotationUpdate())
 	}
 
-	if a := o.GetAnnotations(); result.GetName() == a[annotation.Result] && record.GetName() == a[annotation.Record] {
-		// Result annotations are already present in the Object.
-		// Nothing else to do.
-		return nil
-	}
-
-	// Update Object with Result Annotations.
-	patch, err := annotation.Add(result.GetName(), record.GetName())
+	// If the Object is complete and not yet marked for deletion, cleanup the run resource from the cluster.
+	done, err := isDone(o)
 	if err != nil {
-		log.Errorf("error adding Result annotations: %v", err)
+		log.Warnf("unable to determine done status: %v", err)
 		return err
 	}
-	if _, err := r.clientset.Resource(r.gvr).Namespace(namespace).Patch(o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-		log.Errorf("Patch: %v", err)
-		return err
+	if done && r.cfg.GetCompletedResourceGracePeriod() != 0 {
+		if o := o.GetOwnerReferences(); len(o) > 0 {
+			log.Debugf("resource is owned by another object, defering deletion to parent resource(s): %v", o)
+			return nil
+		}
+
+		// We haven't hit the grace period yet - reenqueue the key for processing later.
+		if s := clock.Since(record.GetUpdatedTime().AsTime()); s < r.cfg.GetCompletedResourceGracePeriod() {
+			log.Debugf("object is not ready for deletion - grace period: %v, time since completion: %v", r.cfg.GetCompletedResourceGracePeriod(), s)
+			r.enqueue(o, r.cfg.GetCompletedResourceGracePeriod())
+			return nil
+		}
+		log.Infof("deleting PipelineRun UID %s", o.GetUID())
+		if err := k8sclient.Delete(o.GetName(), &metav1.DeleteOptions{
+			Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
+		}); err != nil && !errors.IsNotFound(err) {
+			log.Errorf("PipelineRun.Delete: %v", err)
+			return err
+		}
 	}
+
 	return nil
+}
+
+func isDone(o *unstructured.Unstructured) (bool, error) {
+	b, err := json.Marshal(o.Object["status"])
+	if err != nil {
+		return false, err
+	}
+	s := new(duckv1beta1.Status)
+	if err := json.Unmarshal(b, s); err != nil {
+		return false, err
+	}
+	return s.GetCondition(apis.ConditionSucceeded).IsTrue(), nil
 }
