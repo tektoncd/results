@@ -14,11 +14,17 @@
 
 package reconciler
 
+import "time"
+
 // Config defines shared reconciler configuration options.
 type Config struct {
 	// Configures whether Tekton CRD objects should be updated with Result
 	// annotations during reconcile. Useful to enable for dry run modes.
 	DisableAnnotationUpdate bool
+
+	// CompletedResourceGracePeriod is the time to wait before deleting completed resources.
+	// 0 implies the duration
+	CompletedResourceGracePeriod time.Duration
 }
 
 // GetDisableAnnotationupdate returns whether annotation updates should be
@@ -28,4 +34,17 @@ func (c *Config) GetDisableAnnotationUpdate() bool {
 		return false
 	}
 	return c.DisableAnnotationUpdate
+}
+
+// GetCompletedResourceGracePeriod returns the grace period to wait for
+// deleting Run objects.
+// If value < 0, objects will be deleted immediately.
+// If value = 0 (or not explicitly set), then objects will not be deleted.
+// If value > 0, objects will be deleted with a grace period option of the
+// duration.
+func (c *Config) GetCompletedResourceGracePeriod() time.Duration {
+	if c == nil {
+		return 0
+	}
+	return c.CompletedResourceGracePeriod
 }

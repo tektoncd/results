@@ -51,10 +51,11 @@ const (
 )
 
 var (
-	apiAddr          = flag.String("api_addr", "localhost:50051", "Address of API server to report to")
-	authMode         = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
-	disableCRDUpdate = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
-	authToken        = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
+	apiAddr                 = flag.String("api_addr", "localhost:50051", "Address of API server to report to")
+	authMode                = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
+	disableCRDUpdate        = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
+	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
+	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
 )
 
 func main() {
@@ -70,7 +71,8 @@ func main() {
 	results := v1alpha2pb.NewResultsClient(conn)
 
 	cfg := &reconciler.Config{
-		DisableAnnotationUpdate: *disableCRDUpdate,
+		DisableAnnotationUpdate:      *disableCRDUpdate,
+		CompletedResourceGracePeriod: *completedRunGracePeriod,
 	}
 
 	restCfg := sharedmain.ParseAndGetConfigOrDie()

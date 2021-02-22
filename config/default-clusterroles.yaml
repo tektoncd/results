@@ -37,4 +37,4 @@ metadata:
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records"]
-    verbs: ["create", "update", "get", "list", "admin"]
+    verbs: ["create", "update", "get", "list", "delete"]

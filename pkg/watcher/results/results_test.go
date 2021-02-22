@@ -188,6 +188,7 @@ func TestEnsureResult(t *testing.T) {
 				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "created_time", "updated_time", "etag")); diff != "" {
 					t.Errorf("Result diff (-want, +got):\n%s", diff)
 				}
+
 			})
 		}
 	}
@@ -227,37 +228,62 @@ func TestUpsertRecord(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		name := fmt.Sprintf("%s/records/%s", result.GetName(), o.GetUID())
-
 		// Sanity check Record doesn't exist
+		name := fmt.Sprintf("%s/records/%s", result.GetName(), o.GetUID())
 		if r, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name}); status.Code(err) != codes.NotFound {
 			t.Fatalf("Record already exists: %+v", r)
 		}
 
-		// Run each test 2x - once for the initial Record creation, another to
-		// update the existing Record.
-		for _, tc := range []string{"create", "update"} {
-			t.Run(tc, func(t *testing.T) {
-				got, err := client.upsertRecord(ctx, result.GetName(), o)
-				if err != nil {
-					t.Fatalf("upsertRecord: %v", err)
-				}
-				want := crdToRecord(t, name, o)
-				opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(want, "id", "updated_time", "created_time", "etag")}
-				if diff := cmp.Diff(want, got, opts...); diff != "" {
-					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
-				}
+		// Ignore server generated fields.
+		opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(&pb.Record{}, "id", "updated_time", "created_time", "etag")}
 
-				// Verify upstream Record matches.
-				got, err = client.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
-				if err != nil {
-					t.Fatalf("GetRecord: %v", err)
-				}
-				if diff := cmp.Diff(want, got, opts...); diff != "" {
-					t.Errorf("GetRecord diff (-want, +got):\n%s", diff)
-				}
+		var record *pb.Record
+		// Start from scratch and create a new record.
+		t.Run("create", func(t *testing.T) {
+			record, err = client.upsertRecord(ctx, result.GetName(), o)
+			if err != nil {
+				t.Fatalf("upsertRecord: %v", err)
+			}
+			want := crdToRecord(t, name, o)
+			if diff := cmp.Diff(want, record, opts...); diff != "" {
+				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+			}
+			// Verify upstream Record matches.
+			got, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
+			if err != nil {
+				t.Fatalf("GetRecord: %v", err)
+			}
+			if diff := cmp.Diff(want, got, opts...); diff != "" {
+				t.Errorf("GetRecord diff (-want, +got):\n%s", diff)
+			}
+		})
+
+		// Attempt to update the record as-is. Since there is no diff there
+		// should not be an update - we should get the same object back.
+		t.Run("no-op", func(t *testing.T) {
+			got, err := client.upsertRecord(ctx, result.GetName(), o)
+			if err != nil {
+				t.Fatalf("upsertRecord: %v", err)
+			}
+
+			if diff := cmp.Diff(record, got, protocmp.Transform()); diff != "" {
+				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+			}
+		})
+
+		// Modify object to cause a diff + actual update.
+		t.Run("update", func(t *testing.T) {
+			o.SetAnnotations(map[string]string{
+				"a": "b",
 			})
-		}
+			got, err := client.upsertRecord(ctx, result.GetName(), o)
+			if err != nil {
+				t.Fatalf("upsertRecord: %v", err)
+			}
+			if diff := cmp.Diff(crdToRecord(t, name, o), got, opts...); diff != "" {
+				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+			}
+		})
 	}
 }
 

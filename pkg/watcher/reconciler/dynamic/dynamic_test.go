@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
@@ -31,10 +33,12 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	dynamicclient "k8s.io/client-go/dynamic/fake"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
@@ -95,7 +99,7 @@ var (
 				Conditions: duckv1beta1.Conditions{
 					apis.Condition{
 						Type:   apis.ConditionSucceeded,
-						Status: corev1.ConditionFalse,
+						Status: corev1.ConditionTrue,
 					},
 				},
 			},
@@ -126,7 +130,7 @@ var (
 				Conditions: duckv1beta1.Conditions{
 					apis.Condition{
 						Type:   apis.ConditionSucceeded,
-						Status: corev1.ConditionFalse,
+						Status: corev1.ConditionTrue,
 					},
 				},
 			},
@@ -256,5 +260,94 @@ func TestDisableCRDUpdate(t *testing.T) {
 	}
 	if diff := cmp.Diff(u, got); diff != "" {
 		t.Errorf("Did not expect change in TaskRun (-want, +got):\n%s", diff)
+	}
+}
+
+func TestRunCleanup(t *testing.T) {
+	for _, o := range []interface {
+		metav1.Object
+		schema.ObjectKind
+		GetNamespacedName() types.NamespacedName
+	}{taskrun, pipelinerun} {
+		gvr := apis.KindToResource(o.GroupVersionKind())
+
+		t.Run(gvr.String(), func(t *testing.T) {
+			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
+			if err != nil {
+				t.Fatalf("ToUnstructured: %v", err)
+			}
+			u := &unstructured.Unstructured{Object: data}
+			u.SetOwnerReferences([]metav1.OwnerReference{{Name: "parent"}})
+
+			for _, tc := range []struct {
+				gracePeriod time.Duration
+				wantDelete  bool
+			}{
+				{
+					gracePeriod: -1 * time.Second,
+					wantDelete:  true,
+				},
+				{
+					gracePeriod: 0,
+					wantDelete:  false,
+				},
+				{
+					gracePeriod: 1 * time.Second,
+					wantDelete:  true,
+				},
+			} {
+				t.Run(fmt.Sprintf("GracePeriod_%v", tc.gracePeriod), func(t *testing.T) {
+					env := newEnv(t, gvr, &reconciler.Config{
+						CompletedResourceGracePeriod: tc.gracePeriod,
+					})
+					fakeClock := clockwork.NewFakeClockAt(time.Now())
+					clock = fakeClock
+
+					client := env.dynamic.Resource(gvr).Namespace(o.GetNamespace())
+
+					u, err := client.Create(u, metav1.CreateOptions{})
+					if err != nil {
+						t.Fatalf("Create: %v", err)
+					}
+
+					t.Run("noop-OwnerReference", func(t *testing.T) {
+						if err := env.ctrl.Reconciler.Reconcile(env.ctx, o.GetNamespacedName().String()); err != nil {
+							t.Fatalf("Reconcile: %v", err)
+						}
+
+						// First run should be a no-op because of the OwnerReference.
+						if _, err := client.Get(o.GetName(), metav1.GetOptions{}); err != nil {
+							t.Fatalf("Get(%s): %v", o.GetName(), err)
+						}
+					})
+
+					t.Run("delete", func(t *testing.T) {
+						// Clear out OwnerRefs to make the object eligible for deletion.
+						u.SetOwnerReferences(nil)
+						if _, err := client.Update(u, metav1.UpdateOptions{}); err != nil {
+							t.Fatalf("Update: %v", err)
+						}
+						// Force the wall clock forward (with some extra buffer) to
+						// simulate the progression of time past the configured grace
+						// period.
+						fakeClock.Advance(-1*time.Since(time.Now()) + tc.gracePeriod + time.Minute)
+
+						if err := env.ctrl.Reconciler.Reconcile(env.ctx, o.GetNamespacedName().String()); err != nil {
+							t.Fatalf("Reconcile: %v", err)
+						}
+
+						// Run should be deleted after reconcile. Unfortunately client-go does not
+						// provide fine-grain inspection of requests, so we can't verify the
+						// request beyond "has this been deleted".
+						// See https://github.com/kubernetes/client-go/issues/693
+						_, err := client.Get(o.GetName(), metav1.GetOptions{})
+						if (tc.wantDelete && !errors.IsNotFound(err)) || (!tc.wantDelete && err != nil) {
+							t.Fatalf("Get(%s), wantDelete: %t: %v", o.GetName(), tc.wantDelete, err)
+						}
+					})
+				})
+			}
+
+		})
 	}
 }
