@@ -63,7 +63,7 @@ set -e
 kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
-ko apply --filename="${ROOT}/config/"
+kustomize build "${ROOT}/test/e2e/kustomize" | ko apply -f -
 
 echo "Waiting for deployments to be ready..."
 kubectl wait deployment "tekton-results-mysql" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"

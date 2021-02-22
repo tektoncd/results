@@ -12,16 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  name: hello
-spec:
-  pipelineSpec:
-    tasks:
-      - name: hello
-        taskSpec:
-          steps:
-            - name: hello
-              image: ubuntu
-              script: "echo hello world!"
+bases:
+- ../../../config/
+patchesJson6902:
+- target:
+    group: apps
+    version: v1 # apiVersion
+    kind: Deployment
+    name: tekton-results-watcher
+    namespace: tekton-pipelines
+  path: watcher.yaml
