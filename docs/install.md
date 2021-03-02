@@ -38,7 +38,8 @@
    -out cert.pem \
    -days 365 \
    -nodes \
-   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
+   -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
    # Create new TLS Secret from cert.
    $ kubectl create secret tls -n tekton-pipelines tekton-results-tls \
    --cert=cert.pem \
