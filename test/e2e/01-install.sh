@@ -34,7 +34,8 @@ openssl req -x509 \
    -out "/tmp/tekton-results-cert.pem" \
    -days 365 \
    -nodes \
-   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
+   -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
 kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
