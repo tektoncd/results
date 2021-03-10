@@ -36,12 +36,22 @@ for configurable options for these scripts.
 
 ### Deploying individual components
 
-You can redeploy individual components via ko. Just make sure to use
+You can redeploy individual components via ko. Just make sure to
 [configure ko with kind](https://github.com/google/ko/blob/master/README.md#with-kind).
 
 ```sh
 $ export KO_DOCKER_REPO=kind.local
 $ ko apply -f config/watcher.yaml
+```
+
+### Re-deploying all Results components
+
+You can redeploy all components with kubectl and ko. Just make sure to
+[configure ko with kind](https://github.com/google/ko/blob/master/README.md#with-kind).
+
+```sh
+$ export KO_DOCKER_REPO=kind.local
+$ kubectl kustomize ./config | ko apply -f -
 ```
 
 ## Debugging
