@@ -17,14 +17,12 @@ package taskrun
 import (
 	"context"
 
-	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
-	"github.com/tektoncd/results/pkg/watcher/results"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
 )
 
 // NewController creates a Controller for watching TaskRuns.
@@ -33,21 +31,6 @@ func NewController(ctx context.Context, client pb.ResultsClient) *controller.Imp
 }
 
 func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
-	logger := logging.FromContext(ctx)
-
-	pipelineclientset := pipelineclient.Get(ctx)
-	c := &Reconciler{
-		client:            results.NewClient(client),
-		pipelineclientset: pipelineclientset,
-		cfg:               cfg,
-	}
-	impl := controller.NewImpl(c, logger, "TaskRunResultsWatcher")
-
-	taskRunInformer := taskruninformer.Get(ctx)
-	taskRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-	})
-
-	return impl
+	informer := taskruninformer.Get(ctx).Informer()
+	return dynamic.NewController(ctx, client, v1beta1.SchemeGroupVersion.WithResource("taskruns"), informer)
 }

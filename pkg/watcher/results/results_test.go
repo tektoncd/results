@@ -36,6 +36,10 @@ func TestDefaultName(t *testing.T) {
 
 	objs := []metav1.Object{
 		&v1beta1.TaskRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "TaskRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name",
 				Namespace: "test",
@@ -43,6 +47,10 @@ func TestDefaultName(t *testing.T) {
 			},
 		},
 		&v1beta1.PipelineRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "PipelineRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name",
 				Namespace: "test",
@@ -110,6 +118,10 @@ func TestResultName(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &v1beta1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1beta1",
+					Kind:       "TaskRun",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "object",
 					Namespace: "test",
@@ -132,6 +144,10 @@ func TestEnsureResult(t *testing.T) {
 
 	objs := []metav1.Object{
 		&v1beta1.TaskRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "TaskRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
@@ -139,6 +155,10 @@ func TestEnsureResult(t *testing.T) {
 			},
 		},
 		&v1beta1.PipelineRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "PipelineRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
@@ -179,6 +199,10 @@ func TestUpsertRecord(t *testing.T) {
 
 	objs := []metav1.Object{
 		&v1beta1.TaskRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "TaskRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
@@ -186,6 +210,10 @@ func TestUpsertRecord(t *testing.T) {
 			},
 		},
 		&v1beta1.PipelineRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "PipelineRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
@@ -239,6 +267,10 @@ func TestPut(t *testing.T) {
 
 	objs := []metav1.Object{
 		&v1beta1.TaskRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "TaskRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "taskrun",
 				Namespace: "test",
@@ -246,6 +278,10 @@ func TestPut(t *testing.T) {
 			},
 		},
 		&v1beta1.PipelineRun{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "tekton.dev/v1beta1",
+				Kind:       "PipelineRun",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pipelinerun",
 				Namespace: "test",
