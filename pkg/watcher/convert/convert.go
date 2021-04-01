@@ -27,7 +27,11 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoiface"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func ToProto(in interface{}) (*anypb.Any, error) {
@@ -37,9 +41,18 @@ func ToProto(in interface{}) (*anypb.Any, error) {
 	)
 	switch i := in.(type) {
 	case *v1beta1.TaskRun:
-		m, err = ToTaskRunProto(i)
+		m, err = toTaskRunProto(i)
 	case *v1beta1.PipelineRun:
-		m, err = ToPipelineRunProto(i)
+		m, err = toPipelineRunProto(i)
+	case *unstructured.Unstructured:
+		switch {
+		case matchGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("TaskRun"), i.GroupVersionKind()):
+			m, err = toTaskRunProto(i)
+		case matchGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("PipelineRun"), i.GroupVersionKind()):
+			m, err = toPipelineRunProto(i)
+		default:
+			return nil, fmt.Errorf("unsupported type %s", i.GroupVersionKind().String())
+		}
 	default:
 		return nil, fmt.Errorf("unsupported type %T", i)
 	}
@@ -50,36 +63,36 @@ func ToProto(in interface{}) (*anypb.Any, error) {
 	return anypb.New(m)
 }
 
-// ToTaskRunProto converts a v1beta1.TaskRun object to the equivalent Results API
+// toTaskRunProto converts a v1beta1.TaskRun object to the equivalent Results API
 // proto message.
-func ToTaskRunProto(tr *v1beta1.TaskRun) (*pb.TaskRun, error) {
-	b, err := json.Marshal(tr)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling TaskRun: %v", err)
-	}
-	out := new(pb.TaskRun)
-	m := jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-	}
-	if err := m.Unmarshal(bytes.NewBuffer(b), out); err != nil {
-		return nil, fmt.Errorf("error converting TaskRun to proto: %v", err)
-	}
-	return out, nil
+func toTaskRunProto(i runtime.Object) (*pb.TaskRun, error) {
+	pb := new(pb.TaskRun)
+	err := unmarshal(i, pb)
+	return pb, err
 }
 
 // ToPipelineRunProto converts a v1beta1.PipelineRun object to the equivalent
 // Results API proto message.o
-func ToPipelineRunProto(pr *v1beta1.PipelineRun) (*pb.PipelineRun, error) {
-	b, err := json.Marshal(pr)
+func toPipelineRunProto(i runtime.Object) (*pb.PipelineRun, error) {
+	pb := new(pb.PipelineRun)
+	err := unmarshal(i, pb)
+	return pb, err
+}
+
+func unmarshal(in interface{}, out protoiface.MessageV1) error {
+	b, err := json.Marshal(in)
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling PipelineRun: %v", err)
+		return fmt.Errorf("error marshalling %T: %v", in, err)
 	}
-	out := new(pb.PipelineRun)
 	m := jsonpb.Unmarshaler{
 		AllowUnknownFields: true,
 	}
 	if err := m.Unmarshal(bytes.NewBuffer(b), out); err != nil {
-		return nil, fmt.Errorf("error converting PipelineRun to proto: %v", err)
+		return fmt.Errorf("error converting %T to %T proto: %v", in, out, err)
 	}
-	return out, nil
+	return nil
+}
+
+func matchGroupVersionKind(a, b schema.GroupVersionKind) bool {
+	return a.Group == b.Group && a.Version == b.Version && a.Kind == b.Kind
 }

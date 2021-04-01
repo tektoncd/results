@@ -26,26 +26,28 @@ import (
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/results/pkg/internal/protoutil"
 	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
 
-func TestToTaskRunProto(t *testing.T) {
-	n := time.Now()
-	nextTime := func() metav1.Time {
-		n = n.Add(time.Hour)
-		return metav1.Time{Time: n}
-	}
-	create, delete, start, finish := nextTime(), nextTime(), nextTime(), nextTime()
+var (
+	create = metav1.Time{Time: time.Unix(1, 0)}
+	delete = metav1.Time{Time: time.Unix(2, 0)}
+	start  = metav1.Time{Time: time.Unix(3, 0)}
+	finish = metav1.Time{Time: time.Unix(4, 0)}
 
-	got, err := ToTaskRunProto(&v1beta1.TaskRun{
+	taskrun = &v1beta1.TaskRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "api-version",
-			Kind:       "kind",
+			APIVersion: "tekton.dev/v1beta1",
+			Kind:       "TaskRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "name",
@@ -149,14 +151,11 @@ func TestToTaskRunProto(t *testing.T) {
 				}},
 			},
 		},
-	})
-	if err != nil {
-		t.Fatalf("ToTaskRunProto: %v", err)
 	}
 
-	want := &pb.TaskRun{
-		ApiVersion: "api-version",
-		Kind:       "kind",
+	taskrunpb = &pb.TaskRun{
+		ApiVersion: "tekton.dev/v1beta1",
+		Kind:       "TaskRun",
 		Metadata: &pb.ObjectMeta{
 			Name:              "name",
 			GenerateName:      "generate-name",
@@ -253,28 +252,10 @@ func TestToTaskRunProto(t *testing.T) {
 		},
 	}
 
-	if d := cmp.Diff(want, got, protocmp.Transform()); d != "" {
-		t.Errorf("Diff(-want,+got): %s", d)
-	}
-}
-
-func TestToPipelineRunProto(t *testing.T) {
-	n := time.Now()
-	nextTime := func() metav1.Time {
-		n = n.Add(time.Hour)
-		return metav1.Time{Time: n}
-	}
-	create, delete := nextTime(), nextTime()
-
-	gotPipelineRunTaskRunStatus := make(map[string]*v1beta1.PipelineRunTaskRunStatus)
-	gotPipelineRunTaskRunStatus["task"] = &v1beta1.PipelineRunTaskRunStatus{
-		PipelineTaskName: "pipelineTaskName",
-		Status:           &v1beta1.TaskRunStatus{},
-	}
-	got, err := ToPipelineRunProto(&v1beta1.PipelineRun{
+	pipelinerun = &v1beta1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "api-version",
-			Kind:       "kind",
+			APIVersion: "tekton.dev/v1beta1",
+			Kind:       "PipelineRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test-pipeline",
@@ -365,23 +346,20 @@ func TestToPipelineRunProto(t *testing.T) {
 				},
 			},
 			PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
-				TaskRuns:     gotPipelineRunTaskRunStatus,
+				TaskRuns: map[string]*v1beta1.PipelineRunTaskRunStatus{
+					"task": {
+						PipelineTaskName: "pipelineTaskName",
+						Status:           &v1beta1.TaskRunStatus{},
+					},
+				},
 				PipelineSpec: &v1beta1.PipelineSpec{},
 			},
 		},
-	})
-	if err != nil {
-		t.Fatalf("ToPipelineRunProto: %v", err)
 	}
 
-	wantPipelineRunTaskRunStatus := make(map[string]*pb.PipelineRunTaskRunStatus)
-	wantPipelineRunTaskRunStatus["task"] = &pb.PipelineRunTaskRunStatus{
-		PipelineTaskName: "pipelineTaskName",
-		Status:           &pb.TaskRunStatus{},
-	}
-	want := &pb.PipelineRun{
-		ApiVersion: "api-version",
-		Kind:       "kind",
+	pipelinerunpb = &pb.PipelineRun{
+		ApiVersion: "tekton.dev/v1beta1",
+		Kind:       "PipelineRun",
 		Spec: &pb.PipelineRunSpec{
 			Timeout: &durpb.Duration{Seconds: 3600},
 			PipelineSpec: &pb.PipelineSpec{
@@ -449,7 +427,12 @@ func TestToPipelineRunProto(t *testing.T) {
 			Annotations: map[string]string{
 				"ann-one": "one",
 			},
-			TaskRuns:     wantPipelineRunTaskRunStatus,
+			TaskRuns: map[string]*pb.PipelineRunTaskRunStatus{
+				"task": {
+					PipelineTaskName: "pipelineTaskName",
+					Status:           &pb.TaskRunStatus{},
+				},
+			},
 			PipelineSpec: &pb.PipelineSpec{},
 		},
 		Metadata: &pb.ObjectMeta{
@@ -468,37 +451,74 @@ func TestToPipelineRunProto(t *testing.T) {
 			},
 		},
 	}
+)
 
-	if d := cmp.Diff(want, got, protocmp.Transform()); d != "" {
+func TestToTaskRunProto(t *testing.T) {
+	got, err := toTaskRunProto(taskrun)
+	if err != nil {
+		t.Fatalf("toTaskRunProto: %v", err)
+	}
+	if d := cmp.Diff(taskrunpb, got, protocmp.Transform()); d != "" {
+		t.Errorf("Diff(-want,+got): %s", d)
+	}
+}
+
+func TestToPipelineRunProto(t *testing.T) {
+	got, err := toPipelineRunProto(pipelinerun)
+	if err != nil {
+		t.Fatalf("toPipelineRunProto: %v", err)
+	}
+	if d := cmp.Diff(pipelinerunpb, got, protocmp.Transform()); d != "" {
 		t.Errorf("Diff(-want,+got): %s", d)
 	}
 }
 
 func TestToProto(t *testing.T) {
 	for _, tc := range []struct {
-		in interface{}
-		ok bool
+		in   interface{}
+		want proto.Message
 	}{
 		{
-			in: &v1beta1.TaskRun{},
-			ok: true,
+			in:   taskrun,
+			want: taskrunpb,
 		},
 		{
-			in: &v1beta1.PipelineRun{},
-			ok: true,
-		},
-		{
-			in: metav1.ObjectMeta{},
-			ok: false,
-		},
-		{
-			in: nil,
-			ok: false,
+			in:   pipelinerun,
+			want: pipelinerunpb,
 		},
 	} {
-		t.Run(fmt.Sprintf("%T", tc.in), func(t *testing.T) {
-			if _, err := ToProto(tc.in); (err == nil) != tc.ok {
-				t.Error(err)
+		t.Run(fmt.Sprintf("%T", tc), func(t *testing.T) {
+			// Generate unstructured variant to make sure we can handle both types.
+			u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tc.in)
+			if err != nil {
+				t.Fatalf("ToUnstructured: %v", err)
+			}
+
+			for _, o := range []interface{}{
+				tc.in,
+				&unstructured.Unstructured{Object: u},
+			} {
+				t.Run(fmt.Sprintf("%T", o), func(t *testing.T) {
+					got, err := ToProto(o)
+					if err != nil {
+						t.Fatalf("ToProto: %v", err)
+					}
+
+					if d := cmp.Diff(protoutil.Any(t, tc.want), got, protocmp.Transform()); d != "" {
+						t.Errorf("Diff(-want,+got): %s", d)
+					}
+				})
+			}
+		})
+	}
+
+	for _, tc := range []interface{}{
+		metav1.ObjectMeta{},
+		nil,
+	} {
+		t.Run(fmt.Sprintf("Error_%T", tc), func(t *testing.T) {
+			if got, err := ToProto(tc); err == nil {
+				t.Errorf("expected error, got %v", got)
 			}
 		})
 	}
