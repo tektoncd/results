@@ -19,8 +19,6 @@ metadata:
   name: results-release
 spec:
   params:
-    - name: package
-      description: package to release
     - name: repo
       description: Repo URL to clone.
       default: https://github.com/tektoncd/results
@@ -29,6 +27,11 @@ spec:
       default: main
     - name: docker_repo
       default: "ko.local"
+    - name: bucket
+      description: "GCS bucket/folder to upload configs"
+    - name: version
+      description: "Version label to use for published images / configs"
+      default: "dev"
   workspaces:
     - name: ws
   tasks:
@@ -49,19 +52,44 @@ spec:
         name: golang-test
       params:
         - name: package
-          value: $(params.package)
+          value: $(workspaces.source.path)/...
       workspaces:
         - name: source
           workspace: ws
-    - name: build
+    - name: publish-image
       runAfter: [unit-tests]
       taskRef:
         name: ko-publish
       params:
-        - name: package
-          value: $(params.package)
         - name: repo
           value: $(params.docker_repo)
+        - name: tag
+          value: $(params.version)
+      workspaces:
+        - name: source
+          workspace: ws
+    - name: publish-config
+      runAfter: [publish-image]
+      # Inline spec since we're relying on Workload Identity and can't use the
+      # catalog GCS tasks, this allows us to provide our own behavior without
+      # creating a new on-cluster task.
+      taskSpec:
+        params:
+          - name: version
+          - name: bucket
+        workspaces:
+          - name: source
+        steps:
+          - name: upload
+            image: gcr.io/google.com/cloudsdktool/cloud-sdk:310.0.0@sha256:cb03669fcdb9191d55a6200f2911fff3baec0b8c39b156d95b68aabe975ac506 #tag: 310.0.0
+            script:
+              gsutil cp $(workspaces.source.path)/release.yaml
+              $(params.bucket)/results/previous/$(params.version)/release.yaml
+      params:
+        - name: version
+          value: $(params.version)
+        - name: bucket
+          value: $(params.bucket)
       workspaces:
         - name: source
           workspace: ws

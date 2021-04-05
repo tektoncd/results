@@ -16,18 +16,20 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: results-release-watcher-
+  generateName: results-release-api-
 spec:
-  serviceAccountName: tekton-releaser
+  serviceAccountName: release-right-meow
   pipelineRef:
     name: results-release
   params:
     - name: revision
       value: main
-    - name: package
-      value: github.com/tektoncd/results/cmd/watcher
     - name: docker_repo
-      value: ko.local
+      value: gcr.io/tekton-releases
+    - name: bucket
+      value: gs://tekton-releases
+    - name: version
+      value: "dev" # Replace this
   workspaces:
     - name: ws
       volumeClaimTemplate:
