@@ -19,10 +19,7 @@ metadata:
 spec:
   description: >-
     This Task is Golang task to publish ko projects.
-
   params:
-    - name: package
-      description: package to publish
     - name: repo
       description: Docker repository to publish to.
     - name: tag
@@ -35,9 +32,8 @@ spec:
       workingDir: $(workspaces.source.path)
       script: |
         gcloud auth list
-        gcloud auth configure-docker
-        gcloud auth print-access-token | ko login -u oauth2accesstoken --password-stdin us-docker.pkg.dev
-        ko publish $(params.package) -t $(params.tag)
+        gcloud auth configure-docker gcr.io,us-docker.pkg.dev
+        kubectl kustomize $(workspaces.source.path)/config | ko resolve -P -f - -t $(params.tag) > $(workspaces.source.path)/release.yaml
       env:
         - name: KO_DOCKER_REPO
           value: "$(params.repo)"
