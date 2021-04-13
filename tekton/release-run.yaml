@@ -18,7 +18,7 @@ kind: PipelineRun
 metadata:
   generateName: results-release-api-
 spec:
-  serviceAccountName: release-right-meow
+  serviceAccountName: results-release
   pipelineRef:
     name: results-release
   params:
