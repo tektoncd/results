@@ -58,8 +58,25 @@ spec:
           workspace: ws
     - name: publish-image
       runAfter: [unit-tests]
-      taskRef:
-        name: ko-publish
+      taskSpec:
+        params:
+          - name: repo
+            description: Docker repository to publish to.
+          - name: tag
+            default: latest
+        workspaces:
+          - name: source
+        steps:
+          - name: publish
+            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:763e9474f0e722f00add5785a9cdccd9a001072978d86e962a52f45fccb46529
+            workingDir: $(workspaces.source.path)
+            script: |
+              gcloud auth list
+              gcloud auth configure-docker gcr.io,us-docker.pkg.dev
+              kubectl kustomize $(workspaces.source.path)/config | ko resolve -P -f - -t $(params.tag) > $(workspaces.source.path)/release.yaml
+            env:
+              - name: KO_DOCKER_REPO
+                value: "$(params.repo)"
       params:
         - name: repo
           value: $(params.docker_repo)
