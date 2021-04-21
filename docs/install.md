@@ -49,7 +49,7 @@
 ## Installing latest release
 
 ```sh
-$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/v0.2.0/release.yaml
 ```
 
 ## Installing specific release
