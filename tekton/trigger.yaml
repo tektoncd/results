@@ -1,0 +1,49 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: Trigger
+metadata:
+  name: results-ci
+spec:
+  interceptors:
+    - ref:
+        name: "github-simple"
+      params:
+        - name: config
+          value:
+            pull_request:
+              comment:
+                approvers:  # yamllint disable-line rule:empty-values
+  bindings:
+    - ref: git
+      kind: ClusterTriggerBinding
+    - ref: github
+      kind: ClusterTriggerBinding
+  template:
+    spec:
+      params:
+        - name: owner
+        - name: repo
+        - name: revision
+      resourcetemplates:
+        - apiVersion: tekton.dev/v1beta1
+          kind: PipelineRun
+          metadata:
+            generateName: results-ci-
+            annotations:
+              github.integrations.tekton.dev/owner: "$(tt.params.owner)"
+              github.integrations.tekton.dev/repo: "$(tt.params.repo)"
+              github.integrations.tekton.dev/commit: "$(tt.params.revision)"
+          spec:
+            pipelineRef:
+              name: results-ci
+            params:
+              - name: revision
+                value: $(tt.params.revision)
+            workspaces:
+            - name: ws
+              volumeClaimTemplate:
+                spec:
+                  accessModes:
+                    - ReadWriteOnce
+                  resources:
+                    requests:
+                      storage: 1Gi
