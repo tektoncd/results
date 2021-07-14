@@ -62,3 +62,10 @@ spec:
       workspaces:
         - name: source
           workspace: ws
+    - name: e2e-tests
+      runAfter: [checkout]
+      taskRef:
+        name: results-e2e-kind
+      workspaces:
+        - name: source
+          workspace: ws
