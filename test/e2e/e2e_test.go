@@ -57,7 +57,7 @@ func TestTaskRun(t *testing.T) {
 
 	// Wait for Result ID to show up.
 	t.Run("Result ID", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
 			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
 			t.Logf("Get: %+v %v", tr.GetName(), err)
 			if err != nil {
@@ -74,7 +74,7 @@ func TestTaskRun(t *testing.T) {
 	})
 
 	t.Run("Run Cleanup", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 30*time.Second, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
 			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true, nil
@@ -107,7 +107,7 @@ func TestPipelineRun(t *testing.T) {
 	}
 
 	// Wait for Result ID to show up.
-	if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
+	if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
 		pr, err := c.PipelineRuns(ns).Get(pr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Get: %v", err)
