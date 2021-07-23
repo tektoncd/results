@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -47,10 +47,11 @@ func main() {
 	if user == "" || pass == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
-	// Connect to the MySQL database.
-	// DSN derived from https://github.com/go-sql-driver/mysql#dsn-data-source-name
-	dbURI := fmt.Sprintf("%s:%s@%s(%s)/%s?parseTime=true", user, pass, os.Getenv("DB_PROTOCOL"), os.Getenv("DB_ADDR"), os.Getenv("DB_NAME"))
-	db, err := gorm.Open(mysql.Open(dbURI), &gorm.Config{})
+	// Connect to the database.
+	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
+
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432", os.Getenv("DB_ADDR"), user, pass, os.Getenv("DB_NAME"))
+	db, err := gorm.Open(postgres.Open(dbURI), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to open the results.db: %v", err)
 	}

@@ -87,7 +87,9 @@ func Match(r *pb.Result, prg cel.Program) (bool, error) {
 	if r == nil {
 		return false, nil
 	}
-	return resultscel.Match(prg, "result", r)
+	return resultscel.Match(prg, map[string]interface{}{
+		"result": r,
+	})
 }
 
 // UpdateEtag updates the etag field of a result according to its content.

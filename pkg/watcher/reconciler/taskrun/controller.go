@@ -32,5 +32,5 @@ func NewController(ctx context.Context, client pb.ResultsClient) *controller.Imp
 
 func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	informer := taskruninformer.Get(ctx).Informer()
-	return dynamic.NewController(ctx, client, v1beta1.SchemeGroupVersion.WithResource("taskruns"), informer)
+	return dynamic.NewControllerWithConfig(ctx, client, v1beta1.SchemeGroupVersion.WithResource("taskruns"), informer, cfg)
 }

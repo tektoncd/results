@@ -52,6 +52,8 @@ type Record struct {
 
 	ID   string `gorm:"primaryKey"`
 	Name string `gorm:"index:records_by_name,priority:3"`
+
+	Type string
 	Data []byte
 
 	CreatedTime time.Time

@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker/decls"
 	celenv "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
@@ -152,7 +153,11 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 		return nil, err
 	}
 
-	prg, err := celenv.ParseFilter(s.env, req.GetFilter())
+	env, err := recordCEL()
+	if err != nil {
+		return nil, err
+	}
+	prg, err := celenv.ParseFilter(env, req.GetFilter())
 	if err != nil {
 		return nil, err
 	}
@@ -316,4 +321,16 @@ func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) 
 		return &empty.Empty{}, err
 	}
 	return &empty.Empty{}, errors.Wrap(s.db.WithContext(ctx).Delete(&db.Record{}, r).Error)
+}
+
+// recordCEL defines the CEL environment for querying Record data.
+// Fields are broken up explicitly in order to support dynamic handling of the
+// data field as a key-value document.
+func recordCEL() (*cel.Env, error) {
+	return cel.NewEnv(
+		cel.Types(&pb.Record{}),
+		cel.Declarations(decls.NewVar("name", decls.String)),
+		cel.Declarations(decls.NewVar("data_type", decls.String)),
+		cel.Declarations(decls.NewVar("data", decls.Dyn)),
+	)
 }

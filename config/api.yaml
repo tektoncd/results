@@ -47,19 +47,19 @@ spec:
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: tekton-results-mysql
-                  key: user
+                  name: tekton-results-postgres
+                  key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: tekton-results-mysql
-                  key: password
+                  name: tekton-results-postgres
+                  key: POSTGRES_PASSWORD
             - name: DB_PROTOCOL
               value: tcp
             - name: DB_ADDR
-              value: tekton-results-mysql.tekton-pipelines.svc.cluster.local
+              value: postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
-              value: results
+              value: tekton-results
           volumeMounts:
             - name: tls
               mountPath: "/etc/tls"

@@ -186,6 +186,7 @@ func TestReconcile(t *testing.T) {
 			})
 
 			t.Run("update", func(t *testing.T) {
+				u.SetGeneration(u.GetGeneration() + 1)
 				u, err = client.Update(u, metav1.UpdateOptions{})
 				if err != nil {
 					t.Fatalf("Update: %v", err)

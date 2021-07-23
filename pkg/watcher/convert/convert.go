@@ -19,80 +19,32 @@ limitations under the License.
 package convert
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/runtime/protoiface"
-	"google.golang.org/protobuf/types/known/anypb"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func ToProto(in interface{}) (*anypb.Any, error) {
-	var (
-		m   proto.Message
-		err error
-	)
-	switch i := in.(type) {
-	case *v1beta1.TaskRun:
-		m, err = toTaskRunProto(i)
-	case *v1beta1.PipelineRun:
-		m, err = toPipelineRunProto(i)
-	case *unstructured.Unstructured:
-		switch {
-		case matchGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("TaskRun"), i.GroupVersionKind()):
-			m, err = toTaskRunProto(i)
-		case matchGroupVersionKind(v1beta1.SchemeGroupVersion.WithKind("PipelineRun"), i.GroupVersionKind()):
-			m, err = toPipelineRunProto(i)
-		default:
-			return nil, fmt.Errorf("unsupported type %s", i.GroupVersionKind().String())
-		}
-	default:
-		return nil, fmt.Errorf("unsupported type %T", i)
+func ToProto(in runtime.Object) (*rpb.Any, error) {
+	if in == nil {
+		return nil, nil
 	}
+
+	b, err := json.Marshal(in)
 	if err != nil {
 		return nil, err
 	}
 
-	return anypb.New(m)
-}
-
-// toTaskRunProto converts a v1beta1.TaskRun object to the equivalent Results API
-// proto message.
-func toTaskRunProto(i runtime.Object) (*pb.TaskRun, error) {
-	pb := new(pb.TaskRun)
-	err := unmarshal(i, pb)
-	return pb, err
-}
-
-// ToPipelineRunProto converts a v1beta1.PipelineRun object to the equivalent
-// Results API proto message.o
-func toPipelineRunProto(i runtime.Object) (*pb.PipelineRun, error) {
-	pb := new(pb.PipelineRun)
-	err := unmarshal(i, pb)
-	return pb, err
-}
-
-func unmarshal(in interface{}, out protoiface.MessageV1) error {
-	b, err := json.Marshal(in)
-	if err != nil {
-		return fmt.Errorf("error marshalling %T: %v", in, err)
-	}
-	m := jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-	}
-	if err := m.Unmarshal(bytes.NewBuffer(b), out); err != nil {
-		return fmt.Errorf("error converting %T to %T proto: %v", in, out, err)
-	}
-	return nil
-}
-
-func matchGroupVersionKind(a, b schema.GroupVersionKind) bool {
-	return a.Group == b.Group && a.Version == b.Version && a.Kind == b.Kind
+	// We do not know of any formalized spec for identifying objects across API
+	// versions. Standard GVK string formatting does not produce something that's
+	// payload friendly (includes spaces).
+	// To get around this we append API Version + Kind
+	// (e.g. tekton.dev/v1beta1.TaskRun).
+	v, k := in.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	return &rpb.Any{
+		Type:  fmt.Sprintf("%s.%s", v, k),
+		Value: b,
+	}, nil
 }

@@ -50,6 +50,7 @@ type Object interface {
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	log := logging.FromContext(ctx)
+
 	log.With(zap.String("resource", r.gvr.String()))
 	log.With(zap.String("key", key))
 
@@ -90,7 +91,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			return err
 		}
 	} else {
-		log.Debugf("skipping CRD patch - annotation patching disabled [%t] or annotations already match", r.cfg.GetDisableAnnotationUpdate())
+		log.Infof("skipping CRD patch - annotation patching disabled [%t] or annotations already match", r.cfg.GetDisableAnnotationUpdate())
 	}
 
 	// If the Object is complete and not yet marked for deletion, cleanup the run resource from the cluster.
@@ -99,15 +100,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		log.Warnf("unable to determine done status: %v", err)
 		return err
 	}
+	log.Infof("should skipping resource deletion?  - done: %t, delete enabled: %t", done, r.cfg.GetCompletedResourceGracePeriod() != 0)
 	if done && r.cfg.GetCompletedResourceGracePeriod() != 0 {
 		if o := o.GetOwnerReferences(); len(o) > 0 {
-			log.Debugf("resource is owned by another object, defering deletion to parent resource(s): %v", o)
+			log.Infof("resource is owned by another object, defering deletion to parent resource(s): %v", o)
 			return nil
 		}
 
 		// We haven't hit the grace period yet - reenqueue the key for processing later.
 		if s := clock.Since(record.GetUpdatedTime().AsTime()); s < r.cfg.GetCompletedResourceGracePeriod() {
-			log.Debugf("object is not ready for deletion - grace period: %v, time since completion: %v", r.cfg.GetCompletedResourceGracePeriod(), s)
+			log.Infof("object is not ready for deletion - grace period: %v, time since completion: %v", r.cfg.GetCompletedResourceGracePeriod(), s)
 			r.enqueue(o, r.cfg.GetCompletedResourceGracePeriod())
 			return nil
 		}
@@ -118,6 +120,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			log.Errorf("PipelineRun.Delete: %v", err)
 			return err
 		}
+	} else {
+		log.Infof("skipping resource deletion - done: %t, delete enabled: %t, %v", done, r.cfg.GetCompletedResourceGracePeriod() != 0, r.cfg.GetCompletedResourceGracePeriod())
 	}
 
 	return nil

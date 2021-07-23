@@ -17,4 +17,4 @@
   value: "-completed_run_grace_period"
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
-  value: "10s"
+  value: "5s"

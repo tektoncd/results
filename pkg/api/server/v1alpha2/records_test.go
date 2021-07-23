@@ -22,13 +22,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	resultutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
-	"github.com/tektoncd/results/pkg/internal/protoutil"
+	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
@@ -36,6 +37,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCreateRecord(t *testing.T) {
@@ -59,7 +61,10 @@ func TestCreateRecord(t *testing.T) {
 		Parent: result.GetName(),
 		Record: &pb.Record{
 			Name: recordutil.FormatName(result.GetName(), "baz"),
-			Data: protoutil.Any(t, &ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}),
+			Data: &pb.Any{
+				Type:  "TaskRun",
+				Value: jsonutil.AnyBytes(t, &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}),
+			},
 		},
 	}
 	t.Run("success", func(t *testing.T) {
@@ -260,11 +265,12 @@ func TestListRecords(t *testing.T) {
 			Parent: result.GetName(),
 			Record: &pb.Record{
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
-				Data: protoutil.Any(t, &ppb.TaskRun{
-					Metadata: &ppb.ObjectMeta{
+				Data: &pb.Any{
+					Type: "TaskRun",
+					Value: jsonutil.AnyBytes(t, &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
-					},
-				}),
+					}}),
+				},
 			},
 		})
 		if err != nil {
@@ -281,11 +287,12 @@ func TestListRecords(t *testing.T) {
 			Parent: result.GetName(),
 			Record: &pb.Record{
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
-				Data: protoutil.Any(t, &ppb.PipelineRun{
-					Metadata: &ppb.ObjectMeta{
+				Data: &pb.Any{
+					Type: "PipelineRun",
+					Value: jsonutil.AnyBytes(t, &v1beta1.PipelineRun{ObjectMeta: v1.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
-					},
-				}),
+					}}),
+				},
 			},
 		})
 		if err != nil {
@@ -327,7 +334,7 @@ func TestListRecords(t *testing.T) {
 			name: "filter by record property",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: `record.name == "foo/results/bar/records/0"`,
+				Filter: `name == "foo/results/bar/records/0"`,
 			},
 			want: &pb.ListRecordsResponse{
 				Records: records[:1],
@@ -337,7 +344,7 @@ func TestListRecords(t *testing.T) {
 			name: "filter by record data",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: `record.data.metadata.name == "0"`,
+				Filter: `data.metadata.name == "0"`,
 			},
 			want: &pb.ListRecordsResponse{
 				Records: records[:1],
@@ -347,7 +354,7 @@ func TestListRecords(t *testing.T) {
 			name: "filter by record type",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: `type(record.data) == tekton.pipeline.v1beta1.TaskRun`,
+				Filter: `data_type == "TaskRun"`,
 			},
 			want: &pb.ListRecordsResponse{
 				Records: records[:3],
@@ -357,7 +364,7 @@ func TestListRecords(t *testing.T) {
 			name: "filter by parent",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: fmt.Sprintf(`record.name.startsWith("%s")`, result.GetName()),
+				Filter: fmt.Sprintf(`name.startsWith("%s")`, result.GetName()),
 			},
 			want: &pb.ListRecordsResponse{
 				Records: records,
@@ -368,12 +375,12 @@ func TestListRecords(t *testing.T) {
 			name: "filter and page size",
 			req: &pb.ListRecordsRequest{
 				Parent:   result.GetName(),
-				Filter:   "type(record.data) == tekton.pipeline.v1beta1.TaskRun",
+				Filter:   `data_type == "TaskRun"`,
 				PageSize: 1,
 			},
 			want: &pb.ListRecordsResponse{
 				Records:       records[:1],
-				NextPageToken: pagetoken(t, records[1].GetId(), "type(record.data) == tekton.pipeline.v1beta1.TaskRun"),
+				NextPageToken: pagetoken(t, records[1].GetId(), `data_type == "TaskRun"`),
 			},
 		},
 		{
@@ -538,11 +545,15 @@ func TestUpdateRecord(t *testing.T) {
 				Etag: mockEtag(lastID+1, clock.Now().UnixNano()),
 				Record: &pb.Record{
 					Name: record.FormatName(result.GetName(), "a"),
-					Data: protoutil.Any(t, tr),
+					Data: &pb.Any{
+						Value: jsonutil.AnyBytes(t, tr),
+					},
 				},
 			},
 			diff: &pb.Record{
-				Data: protoutil.Any(t, tr),
+				Data: &pb.Any{
+					Value: jsonutil.AnyBytes(t, tr),
+				},
 			},
 		},
 		{
@@ -563,7 +574,9 @@ func TestUpdateRecord(t *testing.T) {
 			req: &pb.UpdateRecordRequest{
 				Record: &pb.Record{
 					Name: record.FormatName(result.GetName(), "doesnotexist"),
-					Data: protoutil.Any(t, tr),
+					Data: &pb.Any{
+						Value: jsonutil.AnyBytes(t, tr),
+					},
 				},
 			},
 			status: codes.NotFound,
@@ -573,7 +586,9 @@ func TestUpdateRecord(t *testing.T) {
 			req: &pb.UpdateRecordRequest{
 				Record: &pb.Record{
 					Name: "tacocat",
-					Data: protoutil.Any(t, tr),
+					Data: &pb.Any{
+						Value: jsonutil.AnyBytes(t, tr),
+					},
 				},
 			},
 			status: codes.InvalidArgument,
@@ -584,7 +599,9 @@ func TestUpdateRecord(t *testing.T) {
 				Etag: "invalid etag",
 				Record: &pb.Record{
 					Name: record.FormatName(result.GetName(), "a"),
-					Data: protoutil.Any(t, tr),
+					Data: &pb.Any{
+						Value: jsonutil.AnyBytes(t, tr),
+					},
 				},
 			},
 			status: codes.FailedPrecondition,

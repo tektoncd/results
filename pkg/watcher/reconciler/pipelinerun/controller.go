@@ -32,5 +32,5 @@ func NewController(ctx context.Context, client pb.ResultsClient) *controller.Imp
 
 func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	informer := pipelineruninformer.Get(ctx).Informer()
-	return dynamic.NewController(ctx, client, v1beta1.SchemeGroupVersion.WithResource("pipelineruns"), informer)
+	return dynamic.NewControllerWithConfig(ctx, client, v1beta1.SchemeGroupVersion.WithResource("pipelineruns"), informer, cfg)
 }

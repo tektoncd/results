@@ -1,10 +1,11 @@
-<!--
+## <!--
+
+title: "Results API" linkTitle: "Results API" weight: 2
+
 ---
-title: "Results API"
-linkTitle: "Results API"
-weight: 2
----
+
 -->
+
 # Results API
 
 ## Authentication/Authorization
@@ -99,40 +100,33 @@ The reference implementation of the Results API uses
 [CEL](https://github.com/google/cel-spec/blob/master/doc/langdef.md) as a
 filtering spec. Filter specs expect a boolean result value.
 
-Known types exposed to each RPC method are documented below.
+### Filter Fields
 
-### ListResults
+#### Records
 
-| Known Types | Description                                      |
-| ----------- | ------------------------------------------------ |
-| `result`    | [Result Object](/proto/v1alpha2/resources.proto) |
+| Name      | Description                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name      | Record name                                                                                                                                              |
+| data_type | Type identifier of the Record data (corresponds to [Any.type](/proto/v1alpha2/resources.proto))                                                          |
+| data      | Record data (see [JSON Data Conversion](https://github.com/google/cel-spec/blob/master/doc/langdef.md#json-data-conversion) for how CEL represents this) |
 
-### ListRecords
+### Cookbook
 
-| Known Types | Description                                      |
-| ----------- | ------------------------------------------------ |
-| `record`    | [Record Object](/proto/v1alpha2/resources.proto) |
-
-#### Cookbook
-
-| Filter Spec                                                                                                                                                                           | Description                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `record.name.startsWith("foo/results/bar")`                                                                                                                                           | Get all Records belonging to Result `foo/results/bar`                                            |
-| `type(record.data) == tekton.pipeline.v1beta1.TaskRun`                                                                                                                                | Get all Records of type TaskRun                                                                  |
-| `type(record.data) == tekton.pipeline.v1beta1.TaskRun && record.data.metadata.name.contains("release") && record.data.spec.task_spec.steps.exists(step, step.name.contains("fetch"))` | Get TasksRuns with a name that contains "release" and at least 1 step name that contains "fetch" |
-| `record.data.status.conditions.has(c, c.type=="Succeeded" && c.status=="False")`                                                                                                      | Get all TaskRuns and PipelineRuns that have failed.                                              |
-| `record.data.status.completion_time - record.data.status.start_time > duration("5m")`                                                                                                 | Get all TaskRuns and PipelineRuns that took more than 5 minutes to complete.                     |
+| Filter Spec                                                                    | Description                                                                  |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `name.startsWith("foo/results/bar")`                                           | Get all Records belonging to Result `foo/results/bar`                        |
+| `data_type == "tekton.dev/v1beta1.TaskRun"`                                    | Get all Records of type TaskRun                                              |
+| `data.status.conditions.has(c, c.type=="Succeeded" && c.status=="False")`      | Get all TaskRuns and PipelineRuns that have failed.                          |
+| `data.status.completion_time - record.data.status.start_time > duration("5m")` | Get all TaskRuns and PipelineRuns that took more than 5 minutes to complete. |
 
 ## Ordering
 
-The reference implementation of the Results API supports
-ordering result and record responses with an optional
-direction qualifier (either `asc` or `desc`).
+The reference implementation of the Results API supports ordering result and
+record responses with an optional direction qualifier (either `asc` or `desc`).
 
-To request a list of objects with a specific order
-include an `order_by` query parameter in your request.
-Pass it the name of the field to be ordered on. Multiple fields
-can be specified with a comma-separated list. Examples:
+To request a list of objects with a specific order include an `order_by` query
+parameter in your request. Pass it the name of the field to be ordered on.
+Multiple fields can be specified with a comma-separated list. Examples:
 
 - `created_time`
 - `updated_time asc`
@@ -140,8 +134,8 @@ can be specified with a comma-separated list. Examples:
 
 Fields supported in `order_by`:
 
-| Field Name |
-| ---------- |
+| Field Name     |
+| -------------- |
 | `created_time` |
 | `updated_time` |
 
