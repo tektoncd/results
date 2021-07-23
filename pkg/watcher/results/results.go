@@ -16,9 +16,10 @@ package results
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -27,8 +28,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // Client is a wrapper around a Results client that provides helpful utilities
@@ -45,12 +47,21 @@ func NewClient(client pb.ResultsClient) *Client {
 	}
 }
 
+// Object is a union type of different base k8s Object interfaces.
+// This is similar in spirit to
+// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.4/pkg/client#Object,
+// but is defined as its own type to avoid an extra dependency.
+type Object interface {
+	metav1.Object
+	runtime.Object
+}
+
 // Put adds the given Object to the Results API.
 // If the parent result is missing or the object is not yet associated with a
 // result, one is created automatically.
 // If the Object is already associated with a Record, the existing Record is
 // updated - otherwise a new Record is created.
-func (c *Client) Put(ctx context.Context, o metav1.Object, opts ...grpc.CallOption) (*pb.Result, *pb.Record, error) {
+func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, *pb.Record, error) {
 	// Make sure parent Result exists (or create one)
 	result, err := c.ensureResult(ctx, o, opts...)
 	if err != nil {
@@ -122,12 +133,11 @@ func resultName(o metav1.Object) string {
 
 // upsertRecord updates or creates a record for the object. If there has been
 // no change in the Record data, the existing Record is returned.
-func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Object, opts ...grpc.CallOption) (*pb.Record, error) {
+func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts ...grpc.CallOption) (*pb.Record, error) {
 	name, ok := o.GetAnnotations()[annotation.Record]
 	if !ok {
 		name = record.FormatName(parent, defaultName(o))
 	}
-
 	data, err := convert.ToProto(o)
 	if err != nil {
 		return nil, err
@@ -139,7 +149,22 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o metav1.Objec
 	}
 	if curr != nil {
 		// Data already exists for the Record - update it iff there is a diff.
-		if cmp.Equal(curr.Data, data, protocmp.Transform()) {
+
+		// Dump the current record into an unstructured object so we can poke
+		// at ObjectMeta fields.
+		u := &unstructured.Unstructured{}
+		if err := json.Unmarshal(curr.GetData().GetValue(), u); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal existing record: %w", err)
+		}
+
+		// Use the generation number as an approximation to see if data
+		// has changed. We do this because we can't guarantee stable ordering
+		// for JSON marshalling, and full object diffs in a generic way is
+		// tricky (though we may do this in the future if this is not
+		// sufficient).
+		// See https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
+		// for field details.
+		if o.GetGeneration() != 0 && o.GetGeneration() == u.GetGeneration() {
 			// The record data already matches what's stored. Don't update
 			// since this will rev update times which throws off resource
 			// cleanup checks.

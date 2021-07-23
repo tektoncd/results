@@ -200,7 +200,7 @@ func TestMatch(t *testing.T) {
 		{
 			name:   "wrong resource type",
 			result: r,
-			filter: "taskrun",
+			filter: "record",
 			status: codes.InvalidArgument,
 		},
 	} {

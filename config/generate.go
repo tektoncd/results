@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate bash -c "kubectl create configmap mysql-initdb-config --from-file=\"../schema/results.sql\" --namespace=\"tekton-pipelines\" --dry-run -o yaml > 100-mysql-init.yaml"
+//go:generate bash -c "kubectl create configmap sql-initdb-config --from-file=\"../schema/results.sql\" --namespace=\"tekton-pipelines\" --dry-run -o yaml > 100-sql-init.yaml"
 
 package config

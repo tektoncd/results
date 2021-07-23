@@ -26,7 +26,7 @@ kubectl apply --filename ${TEKTON_PIPELINE_CONFIG}
 
 echo "Generating DB secret..."
 # Don't fail if the secret isn't created - this can happen if the secret already exists.
-kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20) || true
+kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20) || true
 
 echo "Generating TLS key pair..."
 set +e
@@ -66,6 +66,5 @@ echo "Installing Tekton Results..."
 kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply -f -
 
 echo "Waiting for deployments to be ready..."
-kubectl wait deployment "tekton-results-mysql" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"
 kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"
 kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"

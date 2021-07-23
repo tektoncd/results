@@ -19,12 +19,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	cw "github.com/jonboulle/clockwork"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/db"
-	"github.com/tektoncd/results/pkg/internal/protoutil"
+	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var clock cw.Clock = cw.NewFakeClock()
@@ -109,9 +111,11 @@ func TestToStorage(t *testing.T) {
 		{
 			name: "full",
 			in: &pb.Record{
-				Name:        "foo/results/bar",
-				Id:          "a",
-				Data:        protoutil.Any(t, data),
+				Name: "foo/results/bar",
+				Id:   "a",
+				Data: &pb.Any{
+					Value: jsonutil.AnyBytes(t, data),
+				},
 				CreatedTime: timestamppb.New(clock.Now()),
 				UpdatedTime: timestamppb.New(clock.Now()),
 				Etag:        "tacocat",
@@ -122,7 +126,7 @@ func TestToStorage(t *testing.T) {
 				ResultName:  "bar",
 				Name:        "baz",
 				ID:          "a",
-				Data:        protoutil.AnyBytes(t, data),
+				Data:        jsonutil.AnyBytes(t, data),
 				CreatedTime: clock.Now(),
 				UpdatedTime: clock.Now(),
 				Etag:        "tacocat",
@@ -159,7 +163,7 @@ func TestToStorage(t *testing.T) {
 }
 
 func TestToAPI(t *testing.T) {
-	data := &ppb.TaskRun{Metadata: &ppb.ObjectMeta{Name: "tacocat"}}
+	data := &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}
 	for _, tc := range []struct {
 		name string
 		in   *db.Record
@@ -173,16 +177,17 @@ func TestToAPI(t *testing.T) {
 				ResultName:  "bar",
 				Name:        "baz",
 				ID:          "a",
-				Data:        protoutil.AnyBytes(t, data),
+				Data:        jsonutil.AnyBytes(t, data),
 				CreatedTime: clock.Now(),
 				Etag:        "etag",
 			},
 			want: &pb.Record{
-				Name:        "foo/results/bar/records/baz",
-				Id:          "a",
-				Data:        protoutil.Any(t, data),
-				CreatedTime: timestamppb.New(clock.Now()),
-				Etag:        "etag",
+				Name: "foo/results/bar/records/baz",
+				Id:   "a",
+				Data: &pb.Any{
+					Value: jsonutil.AnyBytes(t, data),
+				}, CreatedTime: timestamppb.New(clock.Now()),
+				Etag: "etag",
 			},
 		},
 		{

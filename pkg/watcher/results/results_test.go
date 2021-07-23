@@ -198,16 +198,17 @@ func TestUpsertRecord(t *testing.T) {
 	ctx := context.Background()
 	client := client(t)
 
-	objs := []metav1.Object{
+	objs := []Object{
 		&v1beta1.TaskRun{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "tekton.dev/v1beta1",
 				Kind:       "TaskRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "taskrun",
-				Namespace: "test",
-				UID:       "taskrun-id",
+				Name:       "taskrun",
+				Namespace:  "test",
+				UID:        "taskrun-id",
+				Generation: 1,
 			},
 		},
 		&v1beta1.PipelineRun{
@@ -216,73 +217,74 @@ func TestUpsertRecord(t *testing.T) {
 				Kind:       "PipelineRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pipelinerun",
-				Namespace: "test",
-				UID:       "pipelinerun-id",
+				Name:       "pipelinerun",
+				Namespace:  "test",
+				UID:        "pipelinerun-id",
+				Generation: 1,
 			},
 		},
 	}
 	for _, o := range objs {
-		result, err := client.ensureResult(ctx, o)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Sanity check Record doesn't exist
-		name := fmt.Sprintf("%s/records/%s", result.GetName(), o.GetUID())
-		if r, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name}); status.Code(err) != codes.NotFound {
-			t.Fatalf("Record already exists: %+v", r)
-		}
-
-		// Ignore server generated fields.
-		opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(&pb.Record{}, "id", "updated_time", "created_time", "etag")}
-
-		var record *pb.Record
-		// Start from scratch and create a new record.
-		t.Run("create", func(t *testing.T) {
-			record, err = client.upsertRecord(ctx, result.GetName(), o)
+		t.Run(o.GetName(), func(t *testing.T) {
+			result, err := client.ensureResult(ctx, o)
 			if err != nil {
-				t.Fatalf("upsertRecord: %v", err)
-			}
-			want := crdToRecord(t, name, o)
-			if diff := cmp.Diff(want, record, opts...); diff != "" {
-				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
-			}
-			// Verify upstream Record matches.
-			got, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
-			if err != nil {
-				t.Fatalf("GetRecord: %v", err)
-			}
-			if diff := cmp.Diff(want, got, opts...); diff != "" {
-				t.Errorf("GetRecord diff (-want, +got):\n%s", diff)
-			}
-		})
-
-		// Attempt to update the record as-is. Since there is no diff there
-		// should not be an update - we should get the same object back.
-		t.Run("no-op", func(t *testing.T) {
-			got, err := client.upsertRecord(ctx, result.GetName(), o)
-			if err != nil {
-				t.Fatalf("upsertRecord: %v", err)
+				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff(record, got, protocmp.Transform()); diff != "" {
-				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+			// Sanity check Record doesn't exist
+			name := fmt.Sprintf("%s/records/%s", result.GetName(), o.GetUID())
+			if r, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name}); status.Code(err) != codes.NotFound {
+				t.Fatalf("Record already exists: %+v", r)
 			}
-		})
 
-		// Modify object to cause a diff + actual update.
-		t.Run("update", func(t *testing.T) {
-			o.SetAnnotations(map[string]string{
-				"a": "b",
+			// Ignore server generated fields.
+			opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(&pb.Record{}, "id", "updated_time", "created_time", "etag")}
+
+			var record *pb.Record
+			// Start from scratch and create a new record.
+			t.Run("create", func(t *testing.T) {
+				record, err = client.upsertRecord(ctx, result.GetName(), o)
+				if err != nil {
+					t.Fatalf("upsertRecord: %v", err)
+				}
+				want := crdToRecord(t, name, o)
+				if diff := cmp.Diff(want, record, opts...); diff != "" {
+					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+				}
+				// Verify upstream Record matches.
+				got, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
+				if err != nil {
+					t.Fatalf("GetRecord: %v", err)
+				}
+				if diff := cmp.Diff(want, got, opts...); diff != "" {
+					t.Errorf("GetRecord diff (-want, +got):\n%s", diff)
+				}
 			})
-			got, err := client.upsertRecord(ctx, result.GetName(), o)
-			if err != nil {
-				t.Fatalf("upsertRecord: %v", err)
-			}
-			if diff := cmp.Diff(crdToRecord(t, name, o), got, opts...); diff != "" {
-				t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
-			}
+
+			// Attempt to update the record as-is. Since there is no diff there
+			// should not be an update - we should get the same object back.
+			t.Run("no-op", func(t *testing.T) {
+				got, err := client.upsertRecord(ctx, result.GetName(), o)
+				if err != nil {
+					t.Fatalf("upsertRecord: %v", err)
+				}
+
+				if diff := cmp.Diff(record, got, protocmp.Transform()); diff != "" {
+					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+				}
+			})
+
+			// Modify object to cause a diff + actual update.
+			t.Run("update", func(t *testing.T) {
+				o.SetGeneration(o.GetGeneration() + 1)
+				got, err := client.upsertRecord(ctx, result.GetName(), o)
+				if err != nil {
+					t.Fatalf("upsertRecord: %v", err)
+				}
+				if diff := cmp.Diff(crdToRecord(t, name, o), got, opts...); diff != "" {
+					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+				}
+			})
 		})
 	}
 }
@@ -291,7 +293,7 @@ func TestPut(t *testing.T) {
 	ctx := context.Background()
 	client := client(t)
 
-	objs := []metav1.Object{
+	objs := []Object{
 		&v1beta1.TaskRun{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "tekton.dev/v1beta1",
@@ -344,7 +346,7 @@ func TestPut(t *testing.T) {
 	}
 }
 
-func crdToRecord(t *testing.T, name string, o metav1.Object) *pb.Record {
+func crdToRecord(t *testing.T, name string, o Object) *pb.Record {
 	t.Helper()
 
 	m, err := convert.ToProto(o)

@@ -17,7 +17,7 @@ CREATE TABLE results (
 	id varchar(64),
 
 	name varchar(64),
-	annotations BLOB,
+	annotations jsonb,
 
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,
@@ -35,7 +35,9 @@ CREATE TABLE records (
 
 	result_name varchar(64),
 	name varchar(64),
-	data BLOB,
+
+	type varchar(128),
+	data jsonb,
 
 	created_time timestamp default current_timestamp not null,
 	updated_time timestamp default current_timestamp not null,

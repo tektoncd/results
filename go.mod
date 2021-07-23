@@ -21,7 +21,6 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/tektoncd/pipeline v0.17.1
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 // indirect
 	golang.org/x/mod v0.4.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3 // indirect
@@ -35,8 +34,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	gorm.io/driver/mysql v1.0.3
+	gorm.io/driver/postgres v1.1.0
 	gorm.io/driver/sqlite v1.1.4
-	gorm.io/gorm v1.20.7
+	gorm.io/gorm v1.21.9
 	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
 	k8s.io/api v0.19.3
 	k8s.io/apiextensions-apiserver v0.18.6 // indirect

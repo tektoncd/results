@@ -17,17 +17,14 @@ limitations under the License.
 package convert
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	durpb "github.com/golang/protobuf/ptypes/duration"
-	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	"github.com/tektoncd/results/pkg/internal/protoutil"
-	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
@@ -153,105 +150,6 @@ var (
 		},
 	}
 
-	taskrunpb = &pb.TaskRun{
-		ApiVersion: "tekton.dev/v1beta1",
-		Kind:       "TaskRun",
-		Metadata: &pb.ObjectMeta{
-			Name:              "name",
-			GenerateName:      "generate-name",
-			Namespace:         "namespace",
-			Uid:               "uid",
-			Generation:        12345,
-			CreationTimestamp: timestamp(&create),
-			DeletionTimestamp: timestamp(&delete),
-			Labels: map[string]string{
-				"label-one": "one",
-				"label-two": "two",
-			},
-			Annotations: map[string]string{
-				"annotation-one": "one",
-				"annotation-two": "two",
-			},
-		},
-		Spec: &pb.TaskRunSpec{
-			Timeout: &durpb.Duration{Seconds: 3600},
-			TaskSpec: &pb.TaskSpec{
-				Steps: []*pb.Step{{
-					Script:     "script",
-					Name:       "name",
-					Image:      "image",
-					Command:    []string{"cmd1", "cmd2"},
-					Args:       []string{"arg1", "arg2"},
-					WorkingDir: "workingdir",
-					Env: []*pb.EnvVar{{
-						Name:  "env1",
-						Value: "ENV1",
-					}, {
-						Name:  "env2",
-						Value: "ENV2",
-					}},
-					VolumeMounts: []*pb.VolumeMount{{
-						Name:      "vm1",
-						MountPath: "path1",
-						ReadOnly:  false,
-						SubPath:   "subpath1",
-					}, {
-						Name:      "vm2",
-						MountPath: "path2",
-						ReadOnly:  true,
-						SubPath:   "subpath2",
-					}},
-				}, {
-					Name: "step2",
-				}},
-				Sidecars: []*pb.Step{{
-					Name: "sidecar1",
-				}, {
-					Name: "sidecar2",
-				}},
-				Volumes: []*pb.Volume{{
-					Name:   "volname1",
-					Source: &pb.Volume_EmptyDir{EmptyDir: &pb.EmptyDir{}},
-				}, {
-					Name:   "volname2",
-					Source: &pb.Volume_EmptyDir{EmptyDir: &pb.EmptyDir{}},
-				}},
-			},
-		},
-		Status: &pb.TaskRunStatus{
-			Conditions: []*pb.Condition{{
-				Type:               "type",
-				Status:             "status",
-				Severity:           "omgbad",
-				LastTransitionTime: timestamp(&finish),
-				Reason:             "reason",
-				Message:            "message",
-			}, {
-				Type: "another condition",
-			}},
-			ObservedGeneration: 23456,
-			PodName:            "podname",
-			StartTime:          timestamp(&start),
-			CompletionTime:     timestamp(&finish),
-			Steps: []*pb.StepState{{
-				Status: &pb.StepState_Terminated{Terminated: &pb.ContainerStateTerminated{
-					ExitCode:    123,
-					Signal:      456,
-					Reason:      "reason",
-					Message:     "message",
-					StartedAt:   timestamp(&start),
-					FinishedAt:  timestamp(&finish),
-					ContainerId: "containerid",
-				}},
-				Name:          "name",
-				ContainerName: "containername",
-				ImageId:       "imageid",
-			}, {
-				Name: "another state",
-			}},
-		},
-	}
-
 	pipelinerun = &v1beta1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "tekton.dev/v1beta1",
@@ -356,145 +254,33 @@ var (
 			},
 		},
 	}
-
-	pipelinerunpb = &pb.PipelineRun{
-		ApiVersion: "tekton.dev/v1beta1",
-		Kind:       "PipelineRun",
-		Spec: &pb.PipelineRunSpec{
-			Timeout: &durpb.Duration{Seconds: 3600},
-			PipelineSpec: &pb.PipelineSpec{
-				Tasks: []*pb.PipelineTask{{
-					Name: "ptask",
-					TaskRef: &pb.TaskRef{
-						Name:       "ptask",
-						Kind:       "kind",
-						ApiVersion: "api_version",
-					},
-					TaskSpec: &pb.EmbeddedTask{
-						Metadata: &pb.PipelineTaskMetadata{
-							Labels: map[string]string{
-								"label-one": "one",
-							},
-							Annotations: map[string]string{
-								"ann-one": "one",
-							},
-						},
-						Steps: []*pb.Step{{
-							Script:     "script",
-							Name:       "name",
-							Image:      "image",
-							Command:    []string{"cmd1", "cmd2"},
-							Args:       []string{"arg1", "arg2"},
-							WorkingDir: "workingdir",
-							Env: []*pb.EnvVar{{
-								Name:  "env1",
-								Value: "ENV1",
-							}, {
-								Name:  "env2",
-								Value: "ENV2",
-							}},
-							VolumeMounts: []*pb.VolumeMount{{
-								Name:      "vm1",
-								MountPath: "path1",
-								ReadOnly:  false,
-								SubPath:   "subpath1",
-							}, {
-								Name:      "vm2",
-								MountPath: "path2",
-								ReadOnly:  true,
-								SubPath:   "subpath2",
-							}},
-						}},
-						Sidecars: []*pb.Step{{}},
-						Volumes: []*pb.Volume{{
-							Name:   "volname1",
-							Source: &pb.Volume_EmptyDir{EmptyDir: &pb.EmptyDir{}},
-						}},
-					},
-					Timeout: &durpb.Duration{Seconds: 3600},
-				}},
-				Results: []*pb.PipelineResult{{
-					Name:        "result",
-					Description: "desc",
-					Value:       "value",
-				}},
-				Finally: []*pb.PipelineTask{{}},
-			},
-		},
-		Status: &pb.PipelineRunStatus{
-			ObservedGeneration: 12345,
-			Conditions:         []*pb.Condition{{}},
-			Annotations: map[string]string{
-				"ann-one": "one",
-			},
-			TaskRuns: map[string]*pb.PipelineRunTaskRunStatus{
-				"task": {
-					PipelineTaskName: "pipelineTaskName",
-					Status:           &pb.TaskRunStatus{},
-				},
-			},
-			PipelineSpec: &pb.PipelineSpec{},
-		},
-		Metadata: &pb.ObjectMeta{
-			Name:              "test-pipeline",
-			GenerateName:      "test-pipeline-",
-			Namespace:         "namespace",
-			Uid:               "uid",
-			Generation:        12345,
-			CreationTimestamp: timestamp(&create),
-			DeletionTimestamp: timestamp(&delete),
-			Labels: map[string]string{
-				"label-one": "one",
-			},
-			Annotations: map[string]string{
-				"ann-one": "one",
-			},
-		},
-	}
 )
-
-func TestToTaskRunProto(t *testing.T) {
-	got, err := toTaskRunProto(taskrun)
-	if err != nil {
-		t.Fatalf("toTaskRunProto: %v", err)
-	}
-	if d := cmp.Diff(taskrunpb, got, protocmp.Transform()); d != "" {
-		t.Errorf("Diff(-want,+got): %s", d)
-	}
-}
-
-func TestToPipelineRunProto(t *testing.T) {
-	got, err := toPipelineRunProto(pipelinerun)
-	if err != nil {
-		t.Fatalf("toPipelineRunProto: %v", err)
-	}
-	if d := cmp.Diff(pipelinerunpb, got, protocmp.Transform()); d != "" {
-		t.Errorf("Diff(-want,+got): %s", d)
-	}
-}
 
 func TestToProto(t *testing.T) {
 	for _, tc := range []struct {
-		in   interface{}
-		want proto.Message
+		in       runtime.Object
+		want     proto.Message
+		wantType string
 	}{
 		{
-			in:   taskrun,
-			want: taskrunpb,
+			in: taskrun,
+			//want:     taskrunpb,
+			wantType: "tekton.dev/v1beta1.TaskRun",
 		},
 		{
-			in:   pipelinerun,
-			want: pipelinerunpb,
+			in: pipelinerun,
+			//want:     pipelinerunpb,
+			wantType: "tekton.dev/v1beta1.PipelineRun",
 		},
 	} {
-		t.Run(fmt.Sprintf("%T", tc), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%T", tc.wantType), func(t *testing.T) {
 			// Generate unstructured variant to make sure we can handle both types.
 			u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tc.in)
 			if err != nil {
 				t.Fatalf("ToUnstructured: %v", err)
 			}
 
-			for _, o := range []interface{}{
+			for _, o := range []runtime.Object{
 				tc.in,
 				&unstructured.Unstructured{Object: u},
 			} {
@@ -504,7 +290,11 @@ func TestToProto(t *testing.T) {
 						t.Fatalf("ToProto: %v", err)
 					}
 
-					if d := cmp.Diff(protoutil.Any(t, tc.want), got, protocmp.Transform()); d != "" {
+					want := &rpb.Any{
+						Type:  tc.wantType,
+						Value: toJSON(o),
+					}
+					if d := cmp.Diff(want, got, protocmp.Transform()); d != "" {
 						t.Errorf("Diff(-want,+got): %s", d)
 					}
 				})
@@ -512,28 +302,22 @@ func TestToProto(t *testing.T) {
 		})
 	}
 
-	for _, tc := range []interface{}{
-		metav1.ObjectMeta{},
-		nil,
-	} {
-		t.Run(fmt.Sprintf("Error_%T", tc), func(t *testing.T) {
-			if got, err := ToProto(tc); err == nil {
-				t.Errorf("expected error, got %v", got)
-			}
-		})
-	}
+	t.Run("nil", func(t *testing.T) {
+		got, err := ToProto(nil)
+		if err != nil {
+			t.Fatalf("ToProto: %v", err)
+		}
+		if got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
 }
 
-func timestamp(t *metav1.Time) *tspb.Timestamp {
-	if t == nil {
-		return nil
-	}
-	if t.Time.IsZero() {
-		return nil
-	}
-	p, err := ptypes.TimestampProto(t.Time.Truncate(time.Second))
+func toJSON(i interface{}) []byte {
+	b, err := json.Marshal(i)
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Sprintf("error marshalling json: %v", err))
 	}
-	return p
+	return b
 }

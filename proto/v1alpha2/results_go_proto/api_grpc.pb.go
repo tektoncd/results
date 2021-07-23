@@ -12,7 +12,6 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // ResultsClient is the client API for Results service.
@@ -190,7 +189,7 @@ type UnsafeResultsServer interface {
 }
 
 func RegisterResultsServer(s grpc.ServiceRegistrar, srv ResultsServer) {
-	s.RegisterService(&Results_ServiceDesc, srv)
+	s.RegisterService(&_Results_serviceDesc, srv)
 }
 
 func _Results_CreateResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -373,10 +372,7 @@ func _Results_DeleteRecord_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-// Results_ServiceDesc is the grpc.ServiceDesc for Results service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var Results_ServiceDesc = grpc.ServiceDesc{
+var _Results_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "tekton.results.v1alpha2.Results",
 	HandlerType: (*ResultsServer)(nil),
 	Methods: []grpc.MethodDesc{

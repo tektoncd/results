@@ -16,17 +16,17 @@
 package record
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 
 	"github.com/google/cel-go/cel"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -55,10 +55,10 @@ func FormatName(parent, name string) string {
 // equivalent.
 // parent,result,name should be the name parts (e.g. not containing "/results/" or "/records/").
 func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Record, error) {
-	data, err := proto.Marshal(r.Data)
-	if err != nil {
+	if err := validateData(r.GetData()); err != nil {
 		return nil, err
 	}
+
 	dbr := &db.Record{
 		Parent:     parent,
 		ResultName: resultName,
@@ -67,7 +67,9 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 		ID:   r.GetId(),
 		Name: name,
 
-		Data: data,
+		Type: r.GetData().GetType(),
+		Data: r.GetData().GetValue(),
+
 		Etag: r.Etag,
 	}
 	if r.CreatedTime.IsValid() {
@@ -95,13 +97,11 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 		out.UpdatedTime = timestamppb.New(r.UpdatedTime)
 	}
 
-	// Check if data was stored before unmarshalling, to avoid returning `{}`.
 	if r.Data != nil {
-		any := new(anypb.Any)
-		if err := proto.Unmarshal(r.Data, any); err != nil {
-			return nil, err
+		out.Data = &pb.Any{
+			Type:  r.Type,
+			Value: r.Data,
 		}
-		out.Data = any
 	}
 
 	return out, nil
@@ -112,7 +112,19 @@ func Match(r *pb.Record, prg cel.Program) (bool, error) {
 	if r == nil {
 		return false, nil
 	}
-	return resultscel.Match(prg, "record", r)
+
+	var m map[string]interface{}
+	if d := r.GetData().GetValue(); d != nil {
+		if err := json.Unmarshal(r.GetData().GetValue(), &m); err != nil {
+			return false, err
+		}
+	}
+
+	return resultscel.Match(prg, map[string]interface{}{
+		"name":      r.GetName(),
+		"data_type": r.GetData().GetType(),
+		"data":      m,
+	})
 }
 
 // UpdateEtag updates the etag field of a record according to its content.
@@ -126,4 +138,19 @@ func UpdateEtag(r *db.Record) error {
 	}
 	r.Etag = fmt.Sprintf("%s-%v", r.ID, r.UpdatedTime.UnixNano())
 	return nil
+}
+
+func validateData(m *pb.Any) error {
+	if m == nil {
+		return nil
+	}
+	switch m.GetType() {
+	case "pipeline.tekton.dev/TaskRun":
+		return json.Unmarshal(m.GetValue(), &v1beta1.TaskRun{})
+	case "pipeline.tekton.dev/PipelineRun":
+		return json.Unmarshal(m.GetValue(), &v1beta1.PipelineRun{})
+	default:
+		// If it's not a well known type, just check that the message is a valid JSON document.
+		return json.Unmarshal(m.GetValue(), &json.RawMessage{})
+	}
 }

@@ -30,12 +30,10 @@ func TestParseFilter(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		for _, s := range []string{
 			"",
-			"taskrun",
-			"pipelinerun",
 			"result",
 			"result.id",
 			`result.id == "1"`,
-			`result.id == "1" || taskrun.api_version == "2"`,
+			`result.id == "1" || result.name == "2"`,
 			`result.id.startsWith("tacocat")`,
 		} {
 			t.Run(s, func(t *testing.T) {
