@@ -1,0 +1,4 @@
+resources:
+  - postgres.yaml
+  - mysql.yaml
+namespace: tekton-results-e2e

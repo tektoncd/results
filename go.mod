@@ -5,6 +5,7 @@ go 1.13
 require (
 	cloud.google.com/go v0.66.0 // indirect
 	github.com/evanphx/json-patch v4.9.0+incompatible // indirect
+	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/cel-go v0.5.1
 	github.com/google/go-cmp v0.5.4
@@ -12,7 +13,9 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.7.4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/jackc/pgconn v1.8.1 // indirect
 	github.com/jonboulle/clockwork v0.2.2
+	github.com/lib/pq v1.10.2 // indirect
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/onsi/ginkgo v1.14.1 // indirect
 	github.com/onsi/gomega v1.10.2 // indirect
