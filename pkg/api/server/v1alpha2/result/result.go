@@ -57,15 +57,31 @@ func ToStorage(r *pb.Result) (*db.Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	id := r.GetUid()
+	if id == "" {
+		id = r.GetId()
+	}
 	result := &db.Result{
 		Parent:      parent,
-		ID:          r.GetId(),
+		ID:          id,
 		Name:        name,
-		UpdatedTime: r.UpdatedTime.AsTime(),
-		CreatedTime: r.CreatedTime.AsTime(),
 		Annotations: r.Annotations,
 		Etag:        r.Etag,
 	}
+
+	if r.CreatedTime.IsValid() {
+		result.CreatedTime = r.CreatedTime.AsTime()
+	}
+	if r.CreateTime.IsValid() {
+		result.CreatedTime = r.CreateTime.AsTime()
+	}
+	if r.UpdatedTime.IsValid() {
+		result.UpdatedTime = r.UpdatedTime.AsTime()
+	}
+	if r.UpdateTime.IsValid() {
+		result.UpdatedTime = r.UpdateTime.AsTime()
+	}
+
 	return result, nil
 }
 
@@ -75,8 +91,11 @@ func ToAPI(r *db.Result) *pb.Result {
 	return &pb.Result{
 		Name:        FormatName(r.Parent, r.Name),
 		Id:          r.ID,
+		Uid:         r.ID,
 		CreatedTime: timestamppb.New(r.CreatedTime),
+		CreateTime:  timestamppb.New(r.CreatedTime),
 		UpdatedTime: timestamppb.New(r.UpdatedTime),
+		UpdateTime:  timestamppb.New(r.UpdatedTime),
 		Annotations: r.Annotations,
 		Etag:        r.Etag,
 	}

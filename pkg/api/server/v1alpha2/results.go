@@ -53,9 +53,14 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 
 	// Populate Result with server provided fields.
 	protoutil.ClearOutputOnly(r)
-	r.Id = uid()
-	r.CreatedTime = timestamppb.New(clock.Now())
-	r.UpdatedTime = timestamppb.New(clock.Now())
+	id := uid()
+	r.Id = id
+	r.Uid = id
+	ts := timestamppb.New(clock.Now())
+	r.CreatedTime = ts
+	r.CreateTime = ts
+	r.UpdatedTime = ts
+	r.UpdateTime = ts
 
 	store, err := result.ToStorage(r)
 	if err != nil {

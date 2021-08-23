@@ -74,11 +74,14 @@ func TestCreateRecord(t *testing.T) {
 		}
 		want := proto.Clone(req.GetRecord()).(*pb.Record)
 		want.Id = fmt.Sprint(lastID)
+		want.Uid = fmt.Sprint(lastID)
 		want.CreatedTime = timestamppb.New(clock.Now())
+		want.CreateTime = timestamppb.New(clock.Now())
 		want.UpdatedTime = timestamppb.New(clock.Now())
+		want.UpdateTime = timestamppb.New(clock.Now())
 		want.Etag = mockEtag(lastID, clock.Now().UnixNano())
 
-		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
+		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 			t.Errorf("-want, +got: %s", diff)
 		}
 	})
@@ -635,6 +638,7 @@ func TestUpdateRecord(t *testing.T) {
 
 			proto.Merge(r, tc.diff)
 			r.UpdatedTime = timestamppb.New(clock.Now())
+			r.UpdateTime = timestamppb.New(clock.Now())
 			r.Etag = mockEtag(lastID, r.UpdatedTime.AsTime().UnixNano())
 
 			if diff := cmp.Diff(r, got, protocmp.Transform()); diff != "" {

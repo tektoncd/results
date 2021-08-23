@@ -185,7 +185,7 @@ func TestEnsureResult(t *testing.T) {
 				want := &pb.Result{
 					Name: name,
 				}
-				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "created_time", "updated_time", "etag")); diff != "" {
+				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "uid", "created_time", "create_time", "updated_time", "update_time", "etag")); diff != "" {
 					t.Errorf("Result diff (-want, +got):\n%s", diff)
 				}
 
@@ -238,7 +238,7 @@ func TestUpsertRecord(t *testing.T) {
 			}
 
 			// Ignore server generated fields.
-			opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(&pb.Record{}, "id", "updated_time", "created_time", "etag")}
+			opts := []cmp.Option{protocmp.Transform(), protocmp.IgnoreFields(&pb.Record{}, "id", "uid", "updated_time", "update_time", "create_time", "created_time", "etag")}
 
 			var record *pb.Record
 			// Start from scratch and create a new record.
