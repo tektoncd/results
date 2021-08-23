@@ -1,0 +1,6 @@
+bases:
+  - ../config
+commonLabels:
+  # Leave this field as an environment variable - this is templated out during
+  # the release process to label all resources with the proper version.
+  app.kubernetes.io/version: ${RELEASE_VERSION}
