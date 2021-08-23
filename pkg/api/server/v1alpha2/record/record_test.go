@@ -16,6 +16,7 @@ package record
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	cw "github.com/jonboulle/clockwork"
@@ -148,6 +149,33 @@ func TestToStorage(t *testing.T) {
 				CreatedTime: clock.Now(),
 			},
 		},
+		{
+			name: "deprecated fields", // If deprecated fields do not match their non-deprecated counterparts, prefer non-deprecated.
+			in: &pb.Record{
+				Name: "foo/results/bar",
+				Uid:  "a",
+				Id:   "b",
+				Data: &pb.Any{
+					Value: jsonutil.AnyBytes(t, data),
+				},
+				CreatedTime: timestamppb.New(clock.Now().Add(1 * time.Minute)),
+				CreateTime:  timestamppb.New(clock.Now()),
+				UpdatedTime: timestamppb.New(clock.Now().Add(1 * time.Minute)),
+				UpdateTime:  timestamppb.New(clock.Now()),
+				Etag:        "tacocat",
+			},
+			want: &db.Record{
+				Parent:      "foo",
+				ResultID:    "1",
+				ResultName:  "bar",
+				Name:        "baz",
+				ID:          "a",
+				Data:        jsonutil.AnyBytes(t, data),
+				CreatedTime: clock.Now(),
+				UpdatedTime: clock.Now(),
+				Etag:        "tacocat",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
@@ -184,10 +212,13 @@ func TestToAPI(t *testing.T) {
 			want: &pb.Record{
 				Name: "foo/results/bar/records/baz",
 				Id:   "a",
+				Uid:  "a",
 				Data: &pb.Any{
 					Value: jsonutil.AnyBytes(t, data),
-				}, CreatedTime: timestamppb.New(clock.Now()),
-				Etag: "etag",
+				},
+				CreatedTime: timestamppb.New(clock.Now()),
+				CreateTime:  timestamppb.New(clock.Now()),
+				Etag:        "etag",
 			},
 		},
 		{
@@ -202,6 +233,7 @@ func TestToAPI(t *testing.T) {
 			want: &pb.Record{
 				Name: "foo/results/bar/records/baz",
 				Id:   "a",
+				Uid:  "a",
 			},
 		},
 	} {

@@ -174,6 +174,7 @@ func TestUpdateResult(t *testing.T) {
 
 			proto.Merge(tc.expect, created)
 			tc.expect.UpdatedTime = timestamppb.New(clock.Now())
+			tc.expect.UpdateTime = timestamppb.New(clock.Now())
 			tc.expect.Etag = mockEtag(lastID, clock.Now().UnixNano())
 
 			// test if the returned result is the same as the expected.

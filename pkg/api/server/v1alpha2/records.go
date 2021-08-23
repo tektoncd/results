@@ -63,8 +63,11 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	// Populate Result with server provided fields.
 	protoutil.ClearOutputOnly(r)
 	r.Id = uid()
-	r.CreatedTime = timestamppb.New(clock.Now())
-	r.UpdatedTime = timestamppb.New(clock.Now())
+	ts := timestamppb.New(clock.Now())
+	r.CreatedTime = ts
+	r.CreateTime = ts
+	r.UpdatedTime = ts
+	r.UpdateTime = ts
 
 	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord())
 	if err != nil {
@@ -281,7 +284,9 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		// TODO: field mask support.
 		proto.Merge(pb, in)
 
-		pb.UpdatedTime = timestamppb.New(clock.Now())
+		updateTime := timestamppb.New(clock.Now())
+		pb.UpdatedTime = updateTime
+		pb.UpdateTime = updateTime
 
 		// Convert back to storage and store.
 		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb)

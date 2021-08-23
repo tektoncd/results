@@ -59,12 +59,17 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 		return nil, err
 	}
 
+	id := r.GetUid()
+	if id == "" {
+		id = r.GetId()
+	}
+
 	dbr := &db.Record{
 		Parent:     parent,
 		ResultName: resultName,
 		ResultID:   resultID,
 
-		ID:   r.GetId(),
+		ID:   id,
 		Name: name,
 
 		Type: r.GetData().GetType(),
@@ -72,12 +77,20 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 
 		Etag: r.Etag,
 	}
+
 	if r.CreatedTime.IsValid() {
 		dbr.CreatedTime = r.CreatedTime.AsTime()
+	}
+	if r.CreateTime.IsValid() {
+		dbr.CreatedTime = r.CreateTime.AsTime()
 	}
 	if r.UpdatedTime.IsValid() {
 		dbr.UpdatedTime = r.UpdatedTime.AsTime()
 	}
+	if r.UpdateTime.IsValid() {
+		dbr.UpdatedTime = r.UpdateTime.AsTime()
+	}
+
 	return dbr, nil
 }
 
@@ -87,14 +100,17 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	out := &pb.Record{
 		Name: fmt.Sprintf("%s/results/%s/records/%s", r.Parent, r.ResultName, r.Name),
 		Id:   r.ID,
+		Uid:  r.ID,
 		Etag: r.Etag,
 	}
 
 	if !r.CreatedTime.IsZero() {
 		out.CreatedTime = timestamppb.New(r.CreatedTime)
+		out.CreateTime = timestamppb.New(r.CreatedTime)
 	}
 	if !r.UpdatedTime.IsZero() {
 		out.UpdatedTime = timestamppb.New(r.UpdatedTime)
+		out.UpdateTime = timestamppb.New(r.UpdatedTime)
 	}
 
 	if r.Data != nil {

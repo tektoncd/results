@@ -34,14 +34,25 @@ message Result {
   }];
 
   // Server assigned identifier of the Result.
-  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // DEPRECATED: use uid instead.
+  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned identifier of the Result.
+  string uid = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // Server assigned timestamp for when the result was created.
+  // DEPRECATED: use create_time instead.
   google.protobuf.Timestamp created_time = 3
+      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+      // Server assigned timestamp for when the result was created.
+  google.protobuf.Timestamp create_time = 8
       [(google.api.field_behavior) = OUTPUT_ONLY];
   
   // Server assigned timestamp for when the results was updated.
+  // DEPRECATED: use update_time instead.
   google.protobuf.Timestamp updated_time = 6
+      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the results was updated.
+  google.protobuf.Timestamp update_time = 9
       [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // Arbitrary user provided labels for the result.
@@ -51,6 +62,8 @@ message Result {
   // If this is provided on update, it must match the server's etag.
   string etag = 5
       [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // next id: 10
 }
 
 // Record belonging to a Result. Typically will be Tekton
@@ -64,7 +77,10 @@ message Record {
   }];
   
   // Server assigned identifier of the Result.
-  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY];
+  // DEPRECATED: use uid instead.
+  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned identifier of the Result.
+  string uid = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   Any data = 3;
   
@@ -73,12 +89,22 @@ message Record {
   string etag = 4;
 
   // Server assigned timestamp for when the result was created.
+  // DEPRECATED: use create_time instead.
   google.protobuf.Timestamp created_time = 5
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the result was created.
+  google.protobuf.Timestamp create_time = 8
   [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // Server assigned timestamp for when the results was updated.
+  // DEPRECATED: use update_time instead.
   google.protobuf.Timestamp updated_time = 6
+      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the results was updated.
+  google.protobuf.Timestamp update_time = 9
       [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // next id: 10
 }
 
 // Any represents loosely typed data to be stored within a Record.

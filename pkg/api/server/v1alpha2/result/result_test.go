@@ -16,6 +16,7 @@ package result
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -98,28 +99,62 @@ func TestParseName(t *testing.T) {
 }
 
 func TestToStorage(t *testing.T) {
-	got, err := ToStorage(&pb.Result{
-		Name:        "foo/results/bar",
-		Id:          "a",
-		CreatedTime: timestamppb.New(clock.Now()),
-		UpdatedTime: timestamppb.New(clock.Now()),
-		Annotations: map[string]string{"a": "b"},
-		Etag:        "tacocat",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := &db.Result{
-		Parent:      "foo",
-		Name:        "bar",
-		ID:          "a",
-		Annotations: map[string]string{"a": "b"},
-		CreatedTime: clock.Now(),
-		UpdatedTime: clock.Now(),
-		Etag:        "tacocat",
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("-want,+got: %s", diff)
+	for _, tc := range []struct {
+		name string
+		in   *pb.Result
+		want *db.Result
+	}{
+		{
+			name: "all",
+			in: &pb.Result{
+				Name:        "foo/results/bar",
+				Id:          "a",
+				CreatedTime: timestamppb.New(clock.Now()),
+				UpdatedTime: timestamppb.New(clock.Now()),
+				Annotations: map[string]string{"a": "b"},
+				Etag:        "tacocat",
+			},
+			want: &db.Result{
+				Parent:      "foo",
+				Name:        "bar",
+				ID:          "a",
+				Annotations: map[string]string{"a": "b"},
+				CreatedTime: clock.Now(),
+				UpdatedTime: clock.Now(),
+				Etag:        "tacocat",
+			},
+		},
+		{
+			name: "deprecated fields",
+			in: &pb.Result{
+				Name:        "foo/results/bar",
+				Uid:         "a",
+				Id:          "b",
+				CreatedTime: timestamppb.New(clock.Now().Add(time.Minute)),
+				CreateTime:  timestamppb.New(clock.Now()),
+				UpdatedTime: timestamppb.New(clock.Now().Add(time.Minute)),
+				UpdateTime:  timestamppb.New(clock.Now()),
+				Annotations: map[string]string{"a": "b"},
+				Etag:        "tacocat",
+			},
+			want: &db.Result{
+				Parent:      "foo",
+				Name:        "bar",
+				ID:          "a",
+				Annotations: map[string]string{"a": "b"},
+				CreatedTime: clock.Now(),
+				UpdatedTime: clock.Now(),
+				Etag:        "tacocat",
+			},
+		},
+	} {
+		got, err := ToStorage(tc.in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(tc.want, got); diff != "" {
+			t.Errorf("-want,+got: %s", diff)
+		}
 	}
 }
 
@@ -137,8 +172,11 @@ func TestToAPI(t *testing.T) {
 	want := &pb.Result{
 		Name:        "foo/results/bar",
 		Id:          "a",
+		Uid:         "a",
 		CreatedTime: timestamppb.New(clock.Now()),
+		CreateTime:  timestamppb.New(clock.Now()),
 		UpdatedTime: timestamppb.New(clock.Now()),
+		UpdateTime:  timestamppb.New(clock.Now()),
 		Annotations: ann,
 		Etag:        "etag",
 	}
