@@ -21,7 +21,7 @@
    command will generate a random password for you:
 
    ```sh
-   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
+   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
    ```
 
 3. Generate cert/key pair. Note: Feel free to use any cert management software
