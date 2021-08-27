@@ -26,19 +26,20 @@ depending on number of developers working on the project.
 
 ## Q2 2021
 
-- [ ] Result API v0.2.0
-  - [ ] Authentication / Authorization
-  - [ ] Trigger Event filtering
-  - [ ] Notification filtering
+- [x] Result API v0.2.0
+  - [x] Authentication / Authorization
+  - [x] Non-Pipeline Record types (e.g. Trigger events, notifications)
 - [ ] Result Watcher v0.2.0
-  - [ ] Task/PipelineRun Cleanup
+  - [x] Task/PipelineRun Cleanup
   - [ ] Trigger Events
   - [ ] Notifications
-- [ ] Release Automation
+- [x] Release Automation
 
 ## Q3 2021
 
-- [ ] Component integrations - CLI, Dashboard
+- [ ] Component integrations -
+  - [x] CLI
+  - [ ] Dashboard
 
 ## Q4 2021
 

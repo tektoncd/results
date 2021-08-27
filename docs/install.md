@@ -12,7 +12,7 @@
    the following properties:
 
    - namespace: `tekton-pipelines`
-   - name: `tekton-results-mysql`
+   - name: `tekton-results-postgres`
    - contains the fields:
      - `user=root`
      - `password=<your password>`
@@ -21,7 +21,7 @@
    command will generate a random password for you:
 
    ```sh
-   $ kubectl create secret generic tekton-results-mysql --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
+   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=user=root --from-literal=password=$(openssl rand -base64 20)
    ```
 
 3. Generate cert/key pair. Note: Feel free to use any cert management software
@@ -49,7 +49,7 @@
 ## Installing latest release
 
 ```sh
-$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/v0.2.0/release.yaml
+$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/v0.3.0/release.yaml
 ```
 
 ## Installing specific release
