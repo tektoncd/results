@@ -15,32 +15,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tekton-results-api
+  name: api
   namespace: tekton-pipelines
   labels:
-    app.kubernetes.io/name: tekton-results
-    app.kubernetes.io/component: api
-    results.tekton.dev/release: "devel"
-    version: "devel"
+    app.kubernetes.io/name: tekton-results-api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tekton-results-api
+      app.kubernetes.io/name: tekton-results-api
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
-        app: tekton-results-api
-        app.kubernetes.io/name: tekton-results
-        app.kubernetes.io/component: api
-        results.tekton.dev/release: "devel"
-        version: "devel"
+        app.kubernetes.io/name: tekton-results-api
     spec:
-      serviceAccountName: tekton-results-api
+      serviceAccountName: api
       containers:
-        - name: tekton-results-api
+        - name: api
           image: ko://github.com/tektoncd/results/cmd/api
           env:
             # See cmd/api/README.md for documentation of these vars.
@@ -57,7 +50,7 @@ spec:
             - name: DB_PROTOCOL
               value: tcp
             - name: DB_ADDR
-              value: postgres-service.tekton-pipelines.svc.cluster.local
+              value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
               value: tekton-results
           volumeMounts:
@@ -72,11 +65,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tekton-results-api-service
+  name: api-service
   namespace: tekton-pipelines
 spec:
   selector:
-    app: tekton-results-api
+    app.kubernetes.io/name: tekton-results-api
   ports:
     - name: grpc
       protocol: TCP

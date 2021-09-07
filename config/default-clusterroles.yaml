@@ -15,7 +15,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tekton-results-readonly
+  name: readonly
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records"]
@@ -24,7 +24,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tekton-results-readwrite
+  name: readwrite
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records"]
@@ -33,7 +33,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tekton-results-admin
+  name: admin
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records"]

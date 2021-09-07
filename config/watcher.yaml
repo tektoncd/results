@@ -15,32 +15,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tekton-results-watcher
+  name: watcher
   namespace: tekton-pipelines
   labels:
-    app.kubernetes.io/name: tekton-results
-    app.kubernetes.io/component: watcher
-    results.tekton.dev/release: "devel"
-    version: "devel"
+    app.kubernetes.io/name: tekton-results-watcher
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tekton-results-watcher
+      app.kubernetes.io/name: tekton-results-watcher
   template:
     metadata:
       annotations:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
-        app: tekton-results-watcher
-        app.kubernetes.io/name: tekton-results
-        app.kubernetes.io/component: watcher
-        results.tekton.dev/release: "devel"
-        version: "devel"
+        app.kubernetes.io/name: tekton-results-watcher
     spec:
-      serviceAccountName: tekton-results-watcher
+      serviceAccountName: watcher
       containers:
-        - name: tekton-results-watcher
+        - name: watcher
           image: ko://github.com/tektoncd/results/cmd/watcher
           args:
             [
