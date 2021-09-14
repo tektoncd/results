@@ -14,8 +14,8 @@
    - namespace: `tekton-pipelines`
    - name: `tekton-results-postgres`
    - contains the fields:
-     - `user=root`
-     - `password=<your password>`
+     - `POSTGRES_USER=postgres`
+     - `POSTGRES_PASSWORD=<your password>`
 
    If you are not using a particular password management strategy, the following
    command will generate a random password for you:
