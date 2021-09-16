@@ -11,7 +11,9 @@ import (
 
 var (
 	resultListCmd = &cobra.Command{
-		Use:   "list",
+		Use: `list [flags] <parent>
+
+  <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents.`,
 		Short: "List Results",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
