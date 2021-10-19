@@ -28,7 +28,7 @@
    to do this!
 
    Tekton Results expects the cert/key pair to be stored in a
-   [TLS Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets).
+   [TLS Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets) named `tekton-results-tls`.
 
    ```sh
    # Generate new self-signed cert.
