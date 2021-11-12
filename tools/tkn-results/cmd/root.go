@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/tools/tkn-results/internal/config"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -25,15 +25,10 @@ import (
 )
 
 var (
-	addr      *string = flag.StringP("addr", "a", "localhost:50051", "Result API server address")
-	authToken *string = flag.StringP("authtoken", "t", "", "authorization bearer token to use for authenticated requests")
-
 	RootCmd = &cobra.Command{
 		Use:   "tkn-results",
 		Short: "tkn CLI plugin for Tekton Results API",
-		Long: `Environment Variables:
-		TKN_RESULTS_SSL_ROOTS_FILE_PATH: Path to local SSL cert to use.
-		TKN_RESULTS_SSL_SERVER_NAME_OVERRIDE: SSL server name override (useful if using with a proxy such as kubectl port-forward)`,
+		Long:  config.EnvVarHelp(),
 	}
 )
 
@@ -44,11 +39,16 @@ func Execute() error {
 
 // TODO: Refactor this with watcher client code?
 func client(ctx context.Context) (pb.ResultsClient, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	certs, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err
 	}
-	if path := os.Getenv("TKN_RESULTS_SSL_ROOTS_FILE_PATH"); path != "" {
+	if path := cfg.SSL.RootsFilePath; path != "" {
 		f, err := os.Open(path)
 		if err != nil {
 			return nil, err
@@ -64,10 +64,10 @@ func client(ctx context.Context) (pb.ResultsClient, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, *addr, grpc.WithBlock(),
-		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(certs, os.Getenv("TKN_RESULTS_SSL_SERVER_NAME_OVERRIDE"))),
+	conn, err := grpc.DialContext(ctx, cfg.Address, grpc.WithBlock(),
+		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(certs, cfg.SSL.ServerNameOverride)),
 		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
-			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: *authToken}),
+			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: cfg.Token}),
 		})),
 	)
 	if err != nil {
