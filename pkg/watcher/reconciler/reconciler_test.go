@@ -92,14 +92,14 @@ func TestController(t *testing.T) {
 		// These fake clients store objects independently, so we create the
 		// object in each client to make sure the data is populated in both
 		// places.
-		if _, err := pipeline.TektonV1beta1().TaskRuns(tr.GetNamespace()).Create(tr); err != nil {
+		if _, err := pipeline.TektonV1beta1().TaskRuns(tr.GetNamespace()).Create(ctx, tr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tr)
 		if err != nil {
 			t.Fatalf("ToUnstructured: %v", err)
 		}
-		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(tr.GroupVersionKind())).Namespace(tr.GetNamespace()).Create(&unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(tr.GroupVersionKind())).Namespace(tr.GetNamespace()).Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Create: %v", err)
 		}
@@ -122,14 +122,14 @@ func TestController(t *testing.T) {
 		}
 
 		// Same create hack as taskrun (see above).
-		if _, err := pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Create(pr); err != nil {
+		if _, err := pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pr)
 		if err != nil {
 			t.Fatalf("ToUnstructured: %v", err)
 		}
-		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(pr.GroupVersionKind())).Namespace(pr.GetNamespace()).Create(&unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(pr.GroupVersionKind())).Namespace(pr.GetNamespace()).Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Create: %v", err)
 		}
@@ -148,7 +148,7 @@ func wait(ctx context.Context, t *testing.T, o dynamic.Object, want string) {
 	for {
 		select {
 		case <-tick.C:
-			u, err := client.Get(o.GetName(), metav1.GetOptions{})
+			u, err := client.Get(ctx, o.GetName(), metav1.GetOptions{})
 			t.Logf("Get (%v, %v)", u, err)
 			if err != nil {
 				t.Log(err)

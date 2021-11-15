@@ -62,7 +62,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	k8sclient := r.clientset.Resource(r.gvr).Namespace(namespace)
 
 	// Lookup current Object.
-	o, err := k8sclient.Get(name, metav1.GetOptions{})
+	o, err := k8sclient.Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		log.Warnf("resource not found: %v", err)
 		return err
@@ -86,7 +86,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			log.Errorf("error adding Result annotations: %v", err)
 			return err
 		}
-		if _, err := k8sclient.Patch(o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		if _, err := k8sclient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			log.Errorf("Patch: %v", err)
 			return err
 		}
@@ -114,7 +114,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			return nil
 		}
 		log.Infof("deleting PipelineRun UID %s", o.GetUID())
-		if err := k8sclient.Delete(o.GetName(), &metav1.DeleteOptions{
+		if err := k8sclient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
 			Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
 		}); err != nil && !errors.IsNotFound(err) {
 			log.Errorf("PipelineRun.Delete: %v", err)

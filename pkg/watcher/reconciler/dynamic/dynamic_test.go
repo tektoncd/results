@@ -141,7 +141,7 @@ var (
 				Tasks: []v1beta1.PipelineTask{{
 					Name: "task",
 					TaskSpec: &v1beta1.EmbeddedTask{
-						TaskSpec: &v1beta1.TaskSpec{
+						TaskSpec: v1beta1.TaskSpec{
 							Steps: []v1beta1.Step{{
 								Script: "echo hello world!",
 							}},
@@ -154,6 +154,7 @@ var (
 )
 
 func TestReconcile(t *testing.T) {
+	ctx := context.Background()
 	for _, o := range []interface {
 		metav1.Object
 		schema.ObjectKind
@@ -167,11 +168,11 @@ func TestReconcile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ToUnstructured: %v", err)
 			}
-			u, err := client.Create(&unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+			u, err := client.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
-			u, err = client.Get(o.GetName(), metav1.GetOptions{})
+			u, err = client.Get(ctx, o.GetName(), metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -187,7 +188,7 @@ func TestReconcile(t *testing.T) {
 
 			t.Run("update", func(t *testing.T) {
 				u.SetGeneration(u.GetGeneration() + 1)
-				u, err = client.Update(u, metav1.UpdateOptions{})
+				u, err = client.Update(ctx, u, metav1.UpdateOptions{})
 				if err != nil {
 					t.Fatalf("Update: %v", err)
 				}
@@ -205,7 +206,7 @@ func reconcile(t *testing.T, env *env, want *unstructured.Unstructured) *unstruc
 	}
 
 	// Verify that the TaskRun now has a Result annotation associated with it.
-	u, err := env.dynamic.Resource(apis.KindToResource(want.GroupVersionKind())).Namespace(want.GetNamespace()).Get(want.GetName(), metav1.GetOptions{})
+	u, err := env.dynamic.Resource(apis.KindToResource(want.GroupVersionKind())).Namespace(want.GetNamespace()).Get(env.ctx, want.GetName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("TaskRun.Get(%s): %v", want.GetName(), err)
 	}
@@ -234,6 +235,7 @@ func reconcile(t *testing.T, env *env, want *unstructured.Unstructured) *unstruc
 }
 
 func TestDisableCRDUpdate(t *testing.T) {
+	ctx := context.Background()
 	gvr := apis.KindToResource(taskrun.GroupVersionKind())
 	env := newEnv(t, gvr, &reconciler.Config{
 		DisableAnnotationUpdate: true,
@@ -244,7 +246,7 @@ func TestDisableCRDUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToUnstructured: %v", err)
 	}
-	u, err := client.Create(&unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
+	u, err := client.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +257,7 @@ func TestDisableCRDUpdate(t *testing.T) {
 
 	// Since annotation updates are disabled, we do not expect any change to
 	// the on-cluster TaskRun.
-	got, err := client.Get(taskrun.GetName(), metav1.GetOptions{})
+	got, err := client.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("TaskRun.Get(%s): %v", taskrun.GetName(), err)
 	}
@@ -265,6 +267,7 @@ func TestDisableCRDUpdate(t *testing.T) {
 }
 
 func TestRunCleanup(t *testing.T) {
+	ctx := context.Background()
 	for _, o := range []interface {
 		metav1.Object
 		schema.ObjectKind
@@ -306,7 +309,7 @@ func TestRunCleanup(t *testing.T) {
 
 					client := env.dynamic.Resource(gvr).Namespace(o.GetNamespace())
 
-					u, err := client.Create(u, metav1.CreateOptions{})
+					u, err := client.Create(ctx, u, metav1.CreateOptions{})
 					if err != nil {
 						t.Fatalf("Create: %v", err)
 					}
@@ -317,7 +320,7 @@ func TestRunCleanup(t *testing.T) {
 						}
 
 						// First run should be a no-op because of the OwnerReference.
-						if _, err := client.Get(o.GetName(), metav1.GetOptions{}); err != nil {
+						if _, err := client.Get(ctx, o.GetName(), metav1.GetOptions{}); err != nil {
 							t.Fatalf("Get(%s): %v", o.GetName(), err)
 						}
 					})
@@ -325,7 +328,7 @@ func TestRunCleanup(t *testing.T) {
 					t.Run("delete", func(t *testing.T) {
 						// Clear out OwnerRefs to make the object eligible for deletion.
 						u.SetOwnerReferences(nil)
-						if _, err := client.Update(u, metav1.UpdateOptions{}); err != nil {
+						if _, err := client.Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 							t.Fatalf("Update: %v", err)
 						}
 						// Force the wall clock forward (with some extra buffer) to
@@ -341,7 +344,7 @@ func TestRunCleanup(t *testing.T) {
 						// provide fine-grain inspection of requests, so we can't verify the
 						// request beyond "has this been deleted".
 						// See https://github.com/kubernetes/client-go/issues/693
-						_, err := client.Get(o.GetName(), metav1.GetOptions{})
+						_, err := client.Get(ctx, o.GetName(), metav1.GetOptions{})
 						if (tc.wantDelete && !errors.IsNotFound(err)) || (!tc.wantDelete && err != nil) {
 							t.Fatalf("Get(%s), wantDelete: %t: %v", o.GetName(), tc.wantDelete, err)
 						}

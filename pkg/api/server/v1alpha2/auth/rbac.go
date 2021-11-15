@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	authnv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	authnclient "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authzclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
@@ -67,11 +68,11 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		t := s[1]
 
 		// Authenticate the token by sending it to the API Server for review.
-		tr, err := r.authn.TokenReviews().Create(&authnv1.TokenReview{
+		tr, err := r.authn.TokenReviews().Create(ctx, &authnv1.TokenReview{
 			Spec: authnv1.TokenReviewSpec{
 				Token: t,
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			log.Println(err)
 			continue
@@ -81,7 +82,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		}
 
 		// Authorize the request by checking the RBAC permissions for the resource.
-		sar, err := r.authz.SubjectAccessReviews().Create(&authzv1.SubjectAccessReview{
+		sar, err := r.authz.SubjectAccessReviews().Create(ctx, &authzv1.SubjectAccessReview{
 			Spec: authzv1.SubjectAccessReviewSpec{
 				User:   tr.Status.User.Username,
 				Groups: []string{"tekton.dev"},
@@ -92,7 +93,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 					Verb:      verb,
 				},
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			log.Println(err)
 			continue
