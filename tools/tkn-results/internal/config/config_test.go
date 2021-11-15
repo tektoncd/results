@@ -17,6 +17,10 @@ func TestParseFileConfig(t *testing.T) {
 			RootsFilePath:      "c",
 			ServerNameOverride: "d",
 		},
+		ServiceAccount: &ServiceAccount{
+			Namespace: "e",
+			Name:      "f",
+		},
 	})
 }
 
@@ -45,6 +49,10 @@ func TestFlagConfig(t *testing.T) {
 		SSL: SSLConfig{
 			RootsFilePath:      "c",
 			ServerNameOverride: "d",
+		},
+		ServiceAccount: &ServiceAccount{
+			Namespace: "e",
+			Name:      "f",
 		},
 	})
 }
