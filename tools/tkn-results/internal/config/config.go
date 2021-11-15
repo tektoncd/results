@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -28,15 +27,28 @@ var (
 )
 
 type Config struct {
+	// Address is the server address to connect to.
 	Address string
-	Token   string
 
+	// Token is the bearer token to use for authentication. Takes priority over ServiceAccount.
+	Token string
+	// ServiceAccount is the Kubernetes Service Account to use to authenticate with the Results API.
+	// When specified, the client will fetch a bearer token from the Kubernetes API and use that token
+	// for all Results API requests.
+	ServiceAccount *ServiceAccount `mapstructure:"service_account"`
+
+	// SSL contains SSL configuration information.
 	SSL SSLConfig
 }
 
 type SSLConfig struct {
 	RootsFilePath      string `mapstructure:"roots_file_path"`
 	ServerNameOverride string `mapstructure:"server_name_override"`
+}
+
+type ServiceAccount struct {
+	Namespace string
+	Name      string
 }
 
 func init() {
@@ -88,13 +100,4 @@ func GetConfig() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func EnvVarHelp() string {
-	b := new(strings.Builder)
-	fmt.Println("Environment Variables:")
-	for k, v := range env {
-		fmt.Fprintf(b, "\t%s: %s\n", k, v)
-	}
-	return b.String()
 }
