@@ -267,7 +267,7 @@ var (
 								"ann-one": "one",
 							},
 						},
-						TaskSpec: &v1beta1.TaskSpec{
+						TaskSpec: v1beta1.TaskSpec{
 							Steps: []v1beta1.Step{{
 								Script: "script",
 								Container: corev1.Container{

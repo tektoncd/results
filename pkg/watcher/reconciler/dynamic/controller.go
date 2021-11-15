@@ -47,7 +47,11 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, gvr s
 		cfg:       cfg,
 		gvr:       gvr,
 	}
-	impl := controller.NewImpl(c, logger, fmt.Sprintf("DynamicResultsWatcher_%s", gvr.String()))
+
+	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
+		Logger:        logger,
+		WorkQueueName: fmt.Sprintf("DynamicResultsWatcher_%s", gvr.String()),
+	})
 	c.enqueue = impl.EnqueueAfter
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{

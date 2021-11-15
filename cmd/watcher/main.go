@@ -75,8 +75,7 @@ func main() {
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
 	}
 
-	restCfg := sharedmain.ParseAndGetConfigOrDie()
-	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, ""), "watcher", restCfg,
+	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, ""), "watcher",
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return pipelinerun.NewControllerWithConfig(ctx, results, cfg)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
