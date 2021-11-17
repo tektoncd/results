@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -77,13 +79,37 @@ func client(ctx context.Context) (pb.ResultsClient, error) {
 	return pb.NewResultsClient(conn), nil
 }
 
-func printproto(w io.Writer, pb proto.Message, format string) error {
+func printproto(w io.Writer, m proto.Message, format string) error {
 	switch format {
+	case "tab":
+		tw := tabwriter.NewWriter(w, 40, 2, 2, ' ', 0)
+		switch t := m.(type) {
+		case *pb.ListResultsResponse:
+			fmt.Fprintln(tw, strings.Join([]string{"Name", "Start", "Update"}, "\t"))
+			for _, r := range t.GetResults() {
+				fmt.Fprintln(tw, strings.Join([]string{
+					r.GetName(),
+					r.GetCreatedTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetUpdatedTime().AsTime().Truncate(time.Second).Local().String(),
+				}, "\t"))
+			}
+		case *pb.ListRecordsResponse:
+			fmt.Fprintln(tw, strings.Join([]string{"Name", "Type", "Start", "Update"}, "\t"))
+			for _, r := range t.GetRecords() {
+				fmt.Fprintln(tw, strings.Join([]string{
+					r.GetName(),
+					r.GetData().GetTypeUrl(),
+					r.GetCreatedTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetUpdatedTime().AsTime().Truncate(time.Second).Local().String(),
+				}, "\t"))
+			}
+		}
+		tw.Flush()
 	case "textproto":
 		opts := prototext.MarshalOptions{
 			Multiline: true,
 		}
-		b, err := opts.Marshal(pb)
+		b, err := opts.Marshal(m)
 		if err != nil {
 			return err
 		}
@@ -94,7 +120,7 @@ func printproto(w io.Writer, pb proto.Message, format string) error {
 		opts := protojson.MarshalOptions{
 			Multiline: true,
 		}
-		b, err := opts.Marshal(pb)
+		b, err := opts.Marshal(m)
 		if err != nil {
 			return err
 		}
