@@ -1,6 +1,6 @@
 <!--
+
 ---
-title: "Results"
 linkTitle: "Results"
 weight: 2
 description: >
@@ -8,7 +8,9 @@ description: >
 cascade:
   github_project_repo: https://github.com/tektoncd/results
 ---
+
 -->
+
 # Tekton Results
 
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/tektoncd/results)
@@ -39,7 +41,7 @@ Tekton Results is composed of 2 main components:
 
 ### Life of a Result
 
-![overview](images/overview.png)
+![overview](overview.png)
 
 1. User creates a TaskRun or PipelineRun via the Kubernetes API as usual.
 2. Result Watcher listens for all TaskRun/PipelineRun changes.
@@ -63,7 +65,7 @@ Tekton Results is composed of 2 main components:
 
 ## Data Model
 
-![results data model](images/datamodel.png)
+![results data model](datamodel.png)
 
 - Records are individual instances of data. These will commonly be execution
   data (e.g. PipelineRun, TaskRuns), but could also reference additional data
