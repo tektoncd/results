@@ -48,6 +48,9 @@ spec:
               name: tekton-results-postgres
           - secretRef:
               name: tekton-results-postgres
+        env:
+          - name: PGDATA
+            value: /var/data/postgres
         ports:
         - containerPort: 5432
           name: postgredb
