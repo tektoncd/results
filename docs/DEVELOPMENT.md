@@ -63,6 +63,12 @@ using
 [`grpc_cli`](https://github.com/grpc/grpc/blob/master/doc/command_line_tool.md).
 
 ```sh
+# Prepare a custom Service Account that will be used for debugging purposes
+$ kubectl create sa tekton-results-debug -n tekton-pipelines
+
+# Grant required privileges to the Service Account
+$ kubectl create clusterrolebinding tekton-results-debug --clusterrole=tekton-results-readonly --serviceaccount=tekton-pipelines:tekton-results-debug
+
 # Proxies the remote Service to localhost.
 $ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051  # This will block, so run this in a separate shell or background the process.
 
@@ -77,7 +83,7 @@ grpc.reflection.v1alpha.ServerReflection
 tekton.results.v1alpha2.Results
 
 # Makes a request to the Results service.
-$ grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$(kubectl get secrets -n tekton-pipelines -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='tekton-results-watcher')].data.token}"|base64 --decode) localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+$ grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$(kubectl get secrets -n tekton-pipelines -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='tekton-results-debug')].data.token}"|base64 --decode) localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
 connecting to localhost:50051
 results {
   name: "default/results/9b7714d0-cbd3-40c6-87ec-bcbd9f199985"
