@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	_ "embed"
 
 	"github.com/spf13/cobra"
@@ -47,9 +46,4 @@ func Root() *cobra.Command {
 	cmd.AddCommand(ListCommand(params), records.Command(params))
 
 	return cmd
-}
-
-// Execute executes the root command.
-func Execute() error {
-	return Root().ExecuteContext(context.Background())
 }
