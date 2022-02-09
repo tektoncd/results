@@ -16,7 +16,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -76,8 +75,8 @@ func TestPrintProto_Tab(t *testing.T) {
 					Name:        "a",
 					CreatedTime: timestamppb.New(ts),
 					UpdatedTime: timestamppb.New(ts),
-					Data: &anypb.Any{
-						TypeUrl: "tacocat",
+					Data: &pb.Any{
+						Type: "tacocat",
 					},
 				}},
 			},
