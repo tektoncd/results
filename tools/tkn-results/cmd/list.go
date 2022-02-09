@@ -1,43 +1,41 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/tools/tkn-results/internal/flags"
+	"github.com/tektoncd/results/tools/tkn-results/internal/format"
 )
 
-var (
-	resultListCmd = &cobra.Command{
+func ListCommand(params *flags.Params) *cobra.Command {
+	opts := &flags.ListOptions{}
+
+	cmd := &cobra.Command{
 		Use: `list [flags] <parent>
 
   <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents.`,
 		Short: "List Results",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
-			client, err := client(ctx)
-			if err != nil {
-				return err
-			}
-			resp, err := client.ListResults(ctx, &pb.ListResultsRequest{
+
+			resp, err := params.Client.ListResults(cmd.Context(), &pb.ListResultsRequest{
 				Parent:    args[0],
-				Filter:    filter,
-				PageSize:  limit,
-				PageToken: pageToken,
+				Filter:    opts.Filter,
+				PageSize:  opts.Limit,
+				PageToken: opts.PageToken,
 			})
 			if err != nil {
 				fmt.Printf("ListResults: %v\n", err)
 				return err
 			}
-			return printproto(os.Stdout, resp, format)
+			return format.PrintProto(os.Stdout, resp, opts.Format)
 		},
 		Args: cobra.ExactArgs(1),
 	}
-)
 
-func init() {
-	listFlags(resultListCmd.Flags())
-	RootCmd.AddCommand(resultListCmd)
+	flags.AddListFlags(opts, cmd)
+
+	return cmd
 }

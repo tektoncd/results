@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/tools/tkn-results/internal/format"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -33,7 +34,7 @@ func testPrintProto(t *testing.T, kind string, unmarshal func([]byte, protorefle
 	t.Run(fmt.Sprintf("%T_%s", in, kind), func(t *testing.T) {
 		// Print out message to buffer.
 		b := new(bytes.Buffer)
-		if err := printproto(b, in, kind); err != nil {
+		if err := format.PrintProto(b, in, kind); err != nil {
 			t.Fatalf("printproto: %v", err)
 		}
 
@@ -89,7 +90,7 @@ func TestPrintProto_Tab(t *testing.T) {
 		t.Run(fmt.Sprintf("%T", tc.m), func(t *testing.T) {
 			// Dump output to buffer
 			b := new(bytes.Buffer)
-			if err := printproto(b, tc.m, "tab"); err != nil {
+			if err := format.PrintProto(b, tc.m, "tab"); err != nil {
 				t.Fatal(err)
 			}
 
