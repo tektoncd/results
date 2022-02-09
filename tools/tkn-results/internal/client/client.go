@@ -77,6 +77,22 @@ func (f *ClientFactory) Client(ctx context.Context) (pb.ResultsClient, error) {
 	return pb.NewResultsClient(conn), nil
 }
 
+func DefaultClient(ctx context.Context) (pb.ResultsClient, error) {
+	f, err := NewDefaultFactory()
+
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := f.Client(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 func (f *ClientFactory) certs() (*x509.CertPool, error) {
 	certs, err := x509.SystemCertPool()
 	if err != nil {
