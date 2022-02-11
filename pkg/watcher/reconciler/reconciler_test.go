@@ -26,15 +26,11 @@ import (
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
-	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
+	"github.com/tektoncd/results/pkg/watcher/results"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
-	dynamicinject "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
 	// Needed for informer injection.
 	_ "github.com/tektoncd/pipeline/test"
@@ -50,10 +46,10 @@ func TestController(t *testing.T) {
 	defer cancel()
 
 	// Create reconcilers, start controller.
-	results := test.NewResultsClient(t)
+	resultClient := test.NewResultsClient(t)
 
-	trctrl := taskrun.NewController(ctx, results)
-	prctrl := pipelinerun.NewController(ctx, results)
+	trctrl := taskrun.NewController(ctx, resultClient)
+	prctrl := pipelinerun.NewController(ctx, resultClient)
 	go controller.StartAll(ctx, trctrl, prctrl)
 
 	// Start informers - this notifies the controller of new events.
@@ -84,27 +80,14 @@ func TestController(t *testing.T) {
 				UID: "tr-id",
 			},
 		}
-
-		// The following is a hack to make the fake clients play nice with
-		// each other. While the controller uses the typed informer that uses
-		// the fake pipeline client to receive events, the controller uses the
-		// fake dynamic client to fetch and update objects during reconcile.
-		// These fake clients store objects independently, so we create the
-		// object in each client to make sure the data is populated in both
-		// places.
 		if _, err := pipeline.TektonV1beta1().TaskRuns(tr.GetNamespace()).Create(ctx, tr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tr)
-		if err != nil {
-			t.Fatalf("ToUnstructured: %v", err)
-		}
-		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(tr.GroupVersionKind())).Namespace(tr.GetNamespace()).Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Create: %v", err)
-		}
 
-		wait(ctx, t, tr, "ns/results/pr-id")
+		get := func(context.Context) (results.Object, error) {
+			return pipeline.TektonV1beta1().TaskRuns(tr.GetNamespace()).Get(ctx, tr.GetName(), metav1.GetOptions{})
+		}
+		wait(ctx, t, get, tr, "ns/results/pr-id")
 	})
 
 	t.Run("pipelinerun", func(t *testing.T) {
@@ -120,35 +103,28 @@ func TestController(t *testing.T) {
 				UID:         "pr-id",
 			},
 		}
-
-		// Same create hack as taskrun (see above).
 		if _, err := pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(pr)
-		if err != nil {
-			t.Fatalf("ToUnstructured: %v", err)
-		}
-		_, err = dynamicinject.Get(ctx).Resource(apis.KindToResource(pr.GroupVersionKind())).Namespace(pr.GetNamespace()).Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
-		if err != nil {
-			t.Fatalf("Create: %v", err)
-		}
 
-		wait(ctx, t, pr, "ns/results/pr-id")
+		get := func(context.Context) (results.Object, error) {
+			return pipeline.TektonV1beta1().PipelineRuns(pr.GetNamespace()).Get(ctx, pr.GetName(), metav1.GetOptions{})
+		}
+		wait(ctx, t, get, pr, "ns/results/pr-id")
 	})
 }
 
-func wait(ctx context.Context, t *testing.T, o dynamic.Object, want string) {
-	gvr := apis.KindToResource(o.GroupVersionKind())
-	client := dynamicinject.Get(ctx).Resource(gvr).Namespace(o.GetNamespace())
+type getFn func(ctx context.Context) (results.Object, error)
 
+func wait(ctx context.Context, t *testing.T, get getFn, o results.Object, want string) {
 	// Wait for Result annotations to show up on the reconciled object.
-	var u *unstructured.Unstructured
+	var u results.Object
 	tick := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-tick.C:
-			u, err := client.Get(ctx, o.GetName(), metav1.GetOptions{})
+			var err error
+			u, err = get(ctx)
 			t.Logf("Get (%v, %v)", u, err)
 			if err != nil {
 				t.Log(err)
