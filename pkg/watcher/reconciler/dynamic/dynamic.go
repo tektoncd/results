@@ -16,64 +16,50 @@ package dynamic
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
-	"go.uber.org/zap"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/logging"
 )
 
+var (
+	clock = clockwork.NewRealClock()
+)
+
+// Reconciler implements common reconciler behavior across different Tekton Run
+// Object types.
 type Reconciler struct {
-	client    *results.Client
-	gvr       schema.GroupVersionResource
-	clientset dynamic.Interface
-	cfg       *reconciler.Config
-	enqueue   func(interface{}, time.Duration)
+	resultsClient *results.Client
+	objectClient  ObjectClient
+	cfg           *reconciler.Config
+	enqueue       func(interface{}, time.Duration)
 }
 
-type Object interface {
-	metav1.Object
-	schema.ObjectKind
+// NewDynamicReconciler creates a new dynamic Reconciler.
+func NewDynamicReconciler(rc pb.ResultsClient, oc ObjectClient, cfg *reconciler.Config, enqueue func(interface{}, time.Duration)) *Reconciler {
+	return &Reconciler{
+		resultsClient: &results.Client{ResultsClient: rc},
+		objectClient:  oc,
+		cfg:           cfg,
+		enqueue:       enqueue,
+	}
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
+// Reconcile handles result/record uploading for the given Run object.
+// If enabled, the object may be deleted upon successful result upload.
+func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	log := logging.FromContext(ctx)
 
-	log.With(zap.String("resource", r.gvr.String()))
-	log.With(zap.String("key", key))
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		log.Errorf("invalid resource key: %s", key)
-		return nil
-	}
-	k8sclient := r.clientset.Resource(r.gvr).Namespace(namespace)
-
-	// Lookup current Object.
-	o, err := k8sclient.Get(ctx, name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		log.Warnf("resource not found: %v", err)
-		return err
-	}
-	if err != nil {
-		log.Errorf("Get: %v", err)
-		return err
-	}
-
 	// Update record.
-	result, record, err := r.client.Put(ctx, o)
+	result, record, err := r.resultsClient.Put(ctx, o)
 	if err != nil {
 		log.Errorf("error updating Record: %v", err)
 		return err
@@ -86,7 +72,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			log.Errorf("error adding Result annotations: %v", err)
 			return err
 		}
-		if _, err := k8sclient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			log.Errorf("Patch: %v", err)
 			return err
 		}
@@ -95,11 +81,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	// If the Object is complete and not yet marked for deletion, cleanup the run resource from the cluster.
-	done, err := isDone(o)
-	if err != nil {
-		log.Warnf("unable to determine done status: %v", err)
-		return err
-	}
+	done := isDone(o)
 	log.Infof("should skipping resource deletion?  - done: %t, delete enabled: %t", done, r.cfg.GetCompletedResourceGracePeriod() != 0)
 	if done && r.cfg.GetCompletedResourceGracePeriod() != 0 {
 		if o := o.GetOwnerReferences(); len(o) > 0 {
@@ -114,7 +96,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 			return nil
 		}
 		log.Infof("deleting PipelineRun UID %s", o.GetUID())
-		if err := k8sclient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
+		if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
 			Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
 		}); err != nil && !errors.IsNotFound(err) {
 			log.Errorf("PipelineRun.Delete: %v", err)
@@ -127,14 +109,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	return nil
 }
 
-func isDone(o *unstructured.Unstructured) (bool, error) {
-	b, err := json.Marshal(o.Object["status"])
-	if err != nil {
-		return false, err
-	}
-	s := new(duckv1beta1.Status)
-	if err := json.Unmarshal(b, s); err != nil {
-		return false, err
-	}
-	return s.GetCondition(apis.ConditionSucceeded).IsTrue(), nil
+func isDone(o results.Object) bool {
+	return o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
 }

@@ -16,34 +16,26 @@ package dynamic
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
-	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
+	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/test"
-	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	dynamicclient "k8s.io/client-go/dynamic/fake"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/controller"
-	dynamicinject "knative.dev/pkg/injection/clients/dynamicclient/fake"
 
 	// Needed for informer injection.
 	_ "github.com/tektoncd/pipeline/test"
@@ -54,32 +46,6 @@ type env struct {
 	ctrl    *controller.Impl
 	results pb.ResultsClient
 	dynamic *dynamicclient.FakeDynamicClient
-}
-
-func newEnv(t *testing.T, gvr schema.GroupVersionResource, cfg *reconciler.Config) *env {
-	t.Helper()
-
-	// Configures fake tekton clients + informers.
-	ctx, _ := rtesting.SetupFakeContext(t)
-
-	results := test.NewResultsClient(t)
-
-	var ctrl *controller.Impl
-	switch gvr.String() {
-	case apis.KindToResource(taskrun.GroupVersionKind()).String():
-		ctrl = NewControllerWithConfig(ctx, results, gvr, taskruninformer.Get(ctx).Informer(), cfg)
-	case apis.KindToResource(pipelinerun.GroupVersionKind()).String():
-		ctrl = NewControllerWithConfig(ctx, results, gvr, pipelineruninformer.Get(ctx).Informer(), cfg)
-	default:
-		t.Fatalf("unknown GroupVersionResource: %v", gvr)
-	}
-
-	return &env{
-		ctx:     ctx,
-		ctrl:    ctrl,
-		results: results,
-		dynamic: dynamicinject.Get(ctx),
-	}
 }
 
 var (
@@ -153,205 +119,137 @@ var (
 	}
 )
 
-func TestReconcile(t *testing.T) {
-	ctx := context.Background()
-	for _, o := range []interface {
-		metav1.Object
-		schema.ObjectKind
-	}{taskrun, pipelinerun} {
-		t.Run(o.GroupVersionKind().String(), func(t *testing.T) {
-			gvr := apis.KindToResource(o.GroupVersionKind())
-			env := newEnv(t, gvr, nil)
-			client := env.dynamic.Resource(gvr).Namespace(o.GetNamespace())
+func TestReconcile_TaskRun(t *testing.T) {
+	// Configures fake tekton clients + informers.
+	ctx, _ := rtesting.SetupFakeContext(t)
+	results := test.NewResultsClient(t)
 
-			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-			if err != nil {
-				t.Fatalf("ToUnstructured: %v", err)
-			}
-			u, err := client.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			u, err = client.Get(ctx, o.GetName(), metav1.GetOptions{})
-			if err != nil {
-				t.Fatal(err)
-			}
+	fakeclock := clockwork.NewFakeClockAt(time.Now())
+	clock = fakeclock
 
-			t.Run("create", func(t *testing.T) {
-				u = reconcile(t, env, u)
-			})
-
-			t.Run("nop", func(t *testing.T) {
-				// This is treated like an update, even though there is no change.
-				reconcile(t, env, u)
-			})
-
-			t.Run("update", func(t *testing.T) {
-				u.SetGeneration(u.GetGeneration() + 1)
-				u, err = client.Update(ctx, u, metav1.UpdateOptions{})
-				if err != nil {
-					t.Fatalf("Update: %v", err)
-				}
-				reconcile(t, env, u)
-			})
-		})
-	}
-}
-
-// reconcile forces a reconcile for the given TaskRun, and returns the newest
-// TaskRun post-reconcile.
-func reconcile(t *testing.T, env *env, want *unstructured.Unstructured) *unstructured.Unstructured {
-	if err := env.ctrl.Reconciler.Reconcile(env.ctx, fmt.Sprintf("%s/%s", want.GetNamespace(), want.GetName())); err != nil {
-		t.Fatalf("Reconcile: %v", err)
+	trclient := &TaskRunClient{TaskRunInterface: pipelineclient.Get(ctx).TektonV1beta1().TaskRuns(taskrun.GetNamespace())}
+	if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
 	}
 
-	// Verify that the TaskRun now has a Result annotation associated with it.
-	u, err := env.dynamic.Resource(apis.KindToResource(want.GroupVersionKind())).Namespace(want.GetNamespace()).Get(env.ctx, want.GetName(), metav1.GetOptions{})
+	cfg := &reconciler.Config{
+		DisableAnnotationUpdate: true,
+	}
+
+	r := NewDynamicReconciler(results, trclient, cfg, nil)
+	if err := r.Reconcile(ctx, taskrun); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("DisabledAnnotations", func(t *testing.T) {
+		resultName := result.FormatName(taskrun.GetNamespace(), string(taskrun.GetUID()))
+		if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: resultName}); err != nil {
+			t.Fatalf("GetResult: %v", err)
+		}
+		recordName := record.FormatName(resultName, string(taskrun.GetUID()))
+		if _, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: recordName}); err != nil {
+			t.Fatalf("GetRecord: %v", err)
+		}
+	})
+
+	// Enable Annotation Updates, re-reconcile
+	cfg.DisableAnnotationUpdate = false
+	if err := r.Reconcile(ctx, taskrun); err != nil {
+		t.Fatal(err)
+	}
+
+	tr, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("TaskRun.Get(%s): %v", want.GetName(), err)
+		t.Fatal(err)
 	}
 	for _, a := range []string{annotation.Result, annotation.Record} {
-		if _, ok := u.GetAnnotations()[a]; !ok {
+		if _, ok := tr.GetAnnotations()[a]; !ok {
 			t.Errorf("annotation %s missing", a)
 		}
 	}
 
-	// Verify Result data matches TaskRun.
-	got, err := env.results.GetRecord(env.ctx, &pb.GetRecordRequest{Name: u.GetAnnotations()[annotation.Record]})
-	if err != nil {
+	if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: tr.GetAnnotations()[annotation.Result]}); err != nil {
+		t.Fatalf("GetResult: %v", err)
+	}
+	if _, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: tr.GetAnnotations()[annotation.Record]}); err != nil {
 		t.Fatalf("GetRecord: %v", err)
 	}
-	// We diff the base since we're storing the current state. We don't include
-	// the result annotations since that's part of the "next" state.
-	wantpb, err := convert.ToProto(want)
-	if err != nil {
-		t.Fatalf("convert.ToProto: %v", err)
-	}
-	if diff := cmp.Diff(wantpb, got.GetData(), protocmp.Transform()); diff != "" {
-		t.Errorf("Result diff (-want, +got):\n%s", diff)
-	}
 
-	return u
+	t.Run("DeleteObject", func(t *testing.T) {
+		// Enable object deletion, re-reconcile
+		cfg.CompletedResourceGracePeriod = 1 * time.Second
+
+		reenqueued := false
+		r.enqueue = func(i interface{}, d time.Duration) {
+			reenqueued = true
+		}
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		if !reenqueued {
+			t.Fatal("expected object to be reenqueued")
+		}
+
+		fakeclock.Advance(1 * time.Minute)
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
+		if !errors.IsNotFound(err) {
+			t.Fatalf("wanted NotFound, got %v", err)
+		}
+	})
 }
 
-func TestDisableCRDUpdate(t *testing.T) {
-	ctx := context.Background()
-	gvr := apis.KindToResource(taskrun.GroupVersionKind())
-	env := newEnv(t, gvr, &reconciler.Config{
-		DisableAnnotationUpdate: true,
-	})
-	client := env.dynamic.Resource(gvr).Namespace(taskrun.GetNamespace())
+// This is a simpler test than TaskRun, since most of this behavior is
+// generalized within the Dynamic clients - the primary thing we're testing
+// here is that the Pipeline clients can be wired up properly.
+func TestReconcile_PipelineRun(t *testing.T) {
+	// Configures fake tekton clients + informers.
+	ctx, _ := rtesting.SetupFakeContext(t)
+	results := test.NewResultsClient(t)
 
-	data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(taskrun)
-	if err != nil {
-		t.Fatalf("ToUnstructured: %v", err)
-	}
-	u, err := client.Create(ctx, &unstructured.Unstructured{Object: data}, metav1.CreateOptions{})
-	if err != nil {
+	fakeclock := clockwork.NewFakeClockAt(time.Now())
+	clock = fakeclock
+
+	prclient := &PipelineRunClient{PipelineRunInterface: pipelineclient.Get(ctx).TektonV1beta1().PipelineRuns(pipelinerun.GetNamespace())}
+	if _, err := prclient.Create(ctx, pipelinerun, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := env.ctrl.Reconciler.Reconcile(env.ctx, taskrun.GetNamespacedName().String()); err != nil {
-		t.Fatalf("Reconcile: %v", err)
+	r := NewDynamicReconciler(results, prclient, nil, nil)
+	if err := r.Reconcile(ctx, pipelinerun); err != nil {
+		t.Fatal(err)
 	}
 
-	// Since annotation updates are disabled, we do not expect any change to
-	// the on-cluster TaskRun.
-	got, err := client.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
+	pr, err := prclient.Get(ctx, pipelinerun.GetName(), metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("TaskRun.Get(%s): %v", taskrun.GetName(), err)
+		t.Fatal(err)
 	}
-	if diff := cmp.Diff(u, got); diff != "" {
-		t.Errorf("Did not expect change in TaskRun (-want, +got):\n%s", diff)
+	for _, a := range []string{annotation.Result, annotation.Record} {
+		if _, ok := pr.GetAnnotations()[a]; !ok {
+			t.Errorf("annotation %s missing", a)
+		}
 	}
-}
 
-func TestRunCleanup(t *testing.T) {
-	ctx := context.Background()
-	for _, o := range []interface {
-		metav1.Object
-		schema.ObjectKind
-		GetNamespacedName() types.NamespacedName
-	}{taskrun, pipelinerun} {
-		gvr := apis.KindToResource(o.GroupVersionKind())
+	t.Run("Result", func(t *testing.T) {
+		name := pr.GetAnnotations()[annotation.Result]
+		if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: name}); err != nil {
+			t.Fatalf("GetResult: %v", err)
+		}
+	})
 
-		t.Run(gvr.String(), func(t *testing.T) {
-			data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-			if err != nil {
-				t.Fatalf("ToUnstructured: %v", err)
-			}
-			u := &unstructured.Unstructured{Object: data}
-			u.SetOwnerReferences([]metav1.OwnerReference{{Name: "parent"}})
+	t.Run("Record", func(t *testing.T) {
+		name := pr.GetAnnotations()[annotation.Record]
+		_, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
+		if err != nil {
+			t.Fatalf("GetRecord: %v", err)
+		}
+	})
 
-			for _, tc := range []struct {
-				gracePeriod time.Duration
-				wantDelete  bool
-			}{
-				{
-					gracePeriod: -1 * time.Second,
-					wantDelete:  true,
-				},
-				{
-					gracePeriod: 0,
-					wantDelete:  false,
-				},
-				{
-					gracePeriod: 1 * time.Second,
-					wantDelete:  true,
-				},
-			} {
-				t.Run(fmt.Sprintf("GracePeriod_%v", tc.gracePeriod), func(t *testing.T) {
-					env := newEnv(t, gvr, &reconciler.Config{
-						CompletedResourceGracePeriod: tc.gracePeriod,
-					})
-					fakeClock := clockwork.NewFakeClockAt(time.Now())
-					clock = fakeClock
-
-					client := env.dynamic.Resource(gvr).Namespace(o.GetNamespace())
-
-					u, err := client.Create(ctx, u, metav1.CreateOptions{})
-					if err != nil {
-						t.Fatalf("Create: %v", err)
-					}
-
-					t.Run("noop-OwnerReference", func(t *testing.T) {
-						if err := env.ctrl.Reconciler.Reconcile(env.ctx, o.GetNamespacedName().String()); err != nil {
-							t.Fatalf("Reconcile: %v", err)
-						}
-
-						// First run should be a no-op because of the OwnerReference.
-						if _, err := client.Get(ctx, o.GetName(), metav1.GetOptions{}); err != nil {
-							t.Fatalf("Get(%s): %v", o.GetName(), err)
-						}
-					})
-
-					t.Run("delete", func(t *testing.T) {
-						// Clear out OwnerRefs to make the object eligible for deletion.
-						u.SetOwnerReferences(nil)
-						if _, err := client.Update(ctx, u, metav1.UpdateOptions{}); err != nil {
-							t.Fatalf("Update: %v", err)
-						}
-						// Force the wall clock forward (with some extra buffer) to
-						// simulate the progression of time past the configured grace
-						// period.
-						fakeClock.Advance(-1*time.Since(time.Now()) + tc.gracePeriod + time.Minute)
-
-						if err := env.ctrl.Reconciler.Reconcile(env.ctx, o.GetNamespacedName().String()); err != nil {
-							t.Fatalf("Reconcile: %v", err)
-						}
-
-						// Run should be deleted after reconcile. Unfortunately client-go does not
-						// provide fine-grain inspection of requests, so we can't verify the
-						// request beyond "has this been deleted".
-						// See https://github.com/kubernetes/client-go/issues/693
-						_, err := client.Get(ctx, o.GetName(), metav1.GetOptions{})
-						if (tc.wantDelete && !errors.IsNotFound(err)) || (!tc.wantDelete && err != nil) {
-							t.Fatalf("Get(%s), wantDelete: %t: %v", o.GetName(), tc.wantDelete, err)
-						}
-					})
-				})
-			}
-
-		})
-	}
+	// We don't do the same exhaustive feature testing as TaskRuns here -
+	// since everything is handled as a generic object testing TaskRuns should
+	// be sufficient coverage.
 }

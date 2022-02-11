@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/apis"
 )
 
 // Client is a wrapper around a Results client that provides helpful utilities
@@ -54,6 +55,11 @@ func NewClient(client pb.ResultsClient) *Client {
 type Object interface {
 	metav1.Object
 	runtime.Object
+	StatusConditionGetter
+}
+
+type StatusConditionGetter interface {
+	GetStatusCondition() apis.ConditionAccessor
 }
 
 // Put adds the given Object to the Results API.
