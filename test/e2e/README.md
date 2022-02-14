@@ -5,7 +5,7 @@
 ```sh
 $ ./00-setup.sh
 $ ./01-install.sh
-$ ./02-test.sh
+$ go test --tags=e2e .
 ```
 
 ## Dependencies

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build e2e
 // +build e2e
 
 package e2e
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -35,6 +37,7 @@ const (
 )
 
 func TestTaskRun(t *testing.T) {
+	ctx := context.Background()
 	tr := new(v1beta1.TaskRun)
 	b, err := ioutil.ReadFile("testdata/taskrun.yaml")
 	if err != nil {
@@ -47,9 +50,9 @@ func TestTaskRun(t *testing.T) {
 	c := client(t)
 
 	// Best effort delete existing Run in case one already exists.
-	_ = c.TaskRuns(ns).Delete(tr.GetName(), metav1.NewDeleteOptions(0))
+	_ = c.TaskRuns(ns).Delete(ctx, tr.GetName(), metav1.DeleteOptions{})
 
-	tr, err = c.TaskRuns(ns).Create(tr)
+	tr, err = c.TaskRuns(ns).Create(ctx, tr, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -58,7 +61,7 @@ func TestTaskRun(t *testing.T) {
 	// Wait for Result ID to show up.
 	t.Run("Result ID", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
+			tr, err := c.TaskRuns(ns).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			t.Logf("Get: %+v %v", tr.GetName(), err)
 			if err != nil {
 				return false, nil
@@ -75,7 +78,7 @@ func TestTaskRun(t *testing.T) {
 
 	t.Run("Run Cleanup", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			tr, err := c.TaskRuns(ns).Get(tr.GetName(), metav1.GetOptions{})
+			tr, err := c.TaskRuns(ns).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true, nil
 			}
@@ -88,6 +91,7 @@ func TestTaskRun(t *testing.T) {
 }
 
 func TestPipelineRun(t *testing.T) {
+	ctx := context.Background()
 	pr := new(v1beta1.PipelineRun)
 	b, err := ioutil.ReadFile("testdata/pipelinerun.yaml")
 	if err != nil {
@@ -100,15 +104,15 @@ func TestPipelineRun(t *testing.T) {
 	c := client(t)
 
 	// Best effort delete existing Run in case one already exists.
-	_ = c.PipelineRuns(ns).Delete(pr.GetName(), metav1.NewDeleteOptions(0))
+	_ = c.PipelineRuns(ns).Delete(ctx, pr.GetName(), metav1.DeleteOptions{})
 
-	if _, err = c.PipelineRuns(ns).Create(pr); err != nil {
+	if _, err = c.PipelineRuns(ns).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
 	// Wait for Result ID to show up.
 	if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-		pr, err := c.PipelineRuns(ns).Get(pr.GetName(), metav1.GetOptions{})
+		pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			t.Logf("Get: %v", err)
 			return false, nil
