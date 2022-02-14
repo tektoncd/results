@@ -8,7 +8,7 @@ The following tools are used by the project:
 - [go](https://golang.org/doc/install)
 - [kind](https://kind.sigs.k8s.io)
 - [ko](https://github.com/google/ko)
-- [kubectl](https://github.com/google/ko)
+- [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
 - [openssl](https://www.openssl.org/)
 - [protoc with gRPC Go plugins](https://grpc.io/docs/languages/go/quickstart/)
 
