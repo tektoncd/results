@@ -24,6 +24,14 @@ import (
 	"net/http"
 	"os"
 
+	// Go runtime is unaware of CPU quota which means it will set GOMAXPROCS
+	// to underlying host vm node. This high value means that GO runtime
+	// scheduler assumes that it has more threads and does context switching
+	// when it might work with fewer threads.
+	// This doesn't happen# with our other controllers and services because
+	// sharedmain already import this package for them.
+	_ "go.uber.org/automaxprocs"
+
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
