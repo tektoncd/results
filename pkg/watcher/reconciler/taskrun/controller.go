@@ -38,6 +38,7 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 		client:    client,
 		lister:    informer.Lister(),
 		k8sclient: pipelineclient.Get(ctx),
+		cfg:       cfg,
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
