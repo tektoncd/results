@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	cw "github.com/jonboulle/clockwork"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
+	model "github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
@@ -51,6 +52,9 @@ type Server struct {
 
 // New set up environment for the api server
 func New(db *gorm.DB, opts ...Option) (*Server, error) {
+	if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
+		return nil, fmt.Errorf("error automigrating DB: %w", err)
+	}
 	env, err := resultscel.NewEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)

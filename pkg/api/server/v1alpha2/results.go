@@ -117,20 +117,34 @@ func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) 
 			return status.Error(codes.FailedPrecondition, "the etag mismatches")
 		}
 
-		prev.Annotations = req.GetResult().GetAnnotations()
-		prev.UpdatedTime = clock.Now()
+		newpb := result.ToAPI(prev)
+		reqpb := req.GetResult()
+		protoutil.ClearOutputOnly(reqpb)
+		// Merge requested Result with previous Result to apply updates,
+		// making sure to filter out any OUTPUT_ONLY fields, and only
+		// updatable fields.
+		// We can't use proto.Merge, since empty fields in the req should take
+		// precedence, so set each updatable field here.
+		newpb.Annotations = reqpb.GetAnnotations()
+		newpb.Summary = reqpb.GetSummary()
+		toDB, err := result.ToStorage(newpb)
+		if err != nil {
+			return err
+		}
 
-		if err := result.UpdateEtag(prev); err != nil {
+		// Set server-side provided fields
+		toDB.UpdatedTime = clock.Now()
+		if err := result.UpdateEtag(toDB); err != nil {
 			return err
 		}
 
 		// Write result back to database.
-		if err = errors.Wrap(tx.Save(&prev).Error); err != nil {
+		if err = errors.Wrap(tx.Save(toDB).Error); err != nil {
 			log.Printf("failed to save result into database: %v", err)
 			return err
 		}
+		out = result.ToAPI(toDB)
 
-		out = result.ToAPI(prev)
 		return nil
 	})
 	return out, err

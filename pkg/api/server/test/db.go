@@ -72,6 +72,8 @@ func NewDB(t *testing.T) *gorm.DB {
 			LogLevel: logger.Info,
 			Colorful: true,
 		}),
+		// Constraints not implemented on sqlite
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		t.Fatalf("failed to open the results.db: %v", err)

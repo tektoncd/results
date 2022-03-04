@@ -122,10 +122,22 @@ func TestUpdateResult(t *testing.T) {
 		errcode codes.Code
 	}{
 		{
-			name:   "test success",
-			update: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
-			etag:   mockEtag(lastID+1, clock.Now().UnixNano()),
-			expect: &pb.Result{Annotations: map[string]string{"foo": "bar"}},
+			name: "test success",
+			update: &pb.Result{
+				Annotations: map[string]string{"foo": "bar"},
+				Summary: &pb.RecordSummary{
+					Record: "foo",
+					Type:   "bar",
+				},
+			},
+			etag: mockEtag(lastID+1, clock.Now().UnixNano()),
+			expect: &pb.Result{
+				Annotations: map[string]string{"foo": "bar"},
+				Summary: &pb.RecordSummary{
+					Record: "foo",
+					Type:   "bar",
+				},
+			},
 		},
 		{
 			name:   "test update with empty result",
@@ -146,6 +158,11 @@ func TestUpdateResult(t *testing.T) {
 			name:    "test update with invalid etag",
 			etag:    "invalid etag",
 			errcode: codes.FailedPrecondition,
+		},
+		{
+			name:    "result summary with no record/type",
+			update:  &pb.Result{Summary: &pb.RecordSummary{}},
+			errcode: codes.InvalidArgument,
 		},
 	}
 	for idx, tc := range tt {

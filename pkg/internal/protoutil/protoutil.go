@@ -18,9 +18,12 @@ package protoutil
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	fbpb "google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -58,4 +61,13 @@ func ClearOutputOnly(pb proto.Message) {
 		}
 		return true
 	})
+}
+
+// IgnoreResultOutputOnly ignores all fields marked OUTPUT_ONLY during cmp
+// comparisions.
+func IgnoreResultOutputOnly() cmp.Option {
+	// We might be able to something fancy with protocmp / cmp to filter
+	// by the actual extension value, but for now this is straightforward
+	// and works.
+	return protocmp.IgnoreFields(&pb.Result{}, "update_time", "updated_time", "etag", "uid", "id", "create_time", "created_time")
 }

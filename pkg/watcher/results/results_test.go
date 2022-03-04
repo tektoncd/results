@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/results/pkg/internal/protoutil"
 	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
@@ -29,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logtest "knative.dev/pkg/logging/testing"
 )
 
 func TestDefaultName(t *testing.T) {
@@ -139,10 +141,10 @@ func TestResultName(t *testing.T) {
 }
 
 func TestEnsureResult(t *testing.T) {
-	ctx := context.Background()
+	ctx := logtest.TestContextWithLogger(t)
 	client := client(t)
 
-	objs := []metav1.Object{
+	objs := []Object{
 		&v1beta1.TaskRun{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "tekton.dev/v1beta1",
@@ -176,21 +178,79 @@ func TestEnsureResult(t *testing.T) {
 
 		// Run each test 2x - once for the initial Result creation, another to
 		// get the existing Result.
-		for _, tc := range []string{"create", "get"} {
-			t.Run(tc, func(t *testing.T) {
-				got, err := client.ensureResult(ctx, o)
-				if err != nil {
-					t.Fatal(err)
-				}
-				want := &pb.Result{
-					Name: name,
-				}
-				if diff := cmp.Diff(want, got, protocmp.Transform(), protocmp.IgnoreFields(want, "id", "uid", "created_time", "create_time", "updated_time", "update_time", "etag")); diff != "" {
-					t.Errorf("Result diff (-want, +got):\n%s", diff)
-				}
+		t.Run(o.GetName(), func(t *testing.T) {
+			create, err := client.ensureResult(ctx, o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := &pb.Result{
+				Name: name,
+				Summary: &pb.RecordSummary{
+					Record: recordName(name, o),
+					Type:   convert.TypeName(o),
+				},
+			}
+			if diff := cmp.Diff(want, create, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
+				t.Errorf("Create Result diff (-want, +got):\n%s", diff)
+			}
 
-			})
-		}
+			get, err := client.ensureResult(ctx, o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Don't ignore the OUTPUT_ONLY fields this time - the object
+			// should be identical to the Result created before.
+			if diff := cmp.Diff(create, get, protocmp.Transform()); diff != "" {
+				t.Errorf("Get Result diff (-want, +got):\n%s", diff)
+			}
+
+		})
+	}
+}
+
+func TestEnsureResult_RecordSummaryUpdate(t *testing.T) {
+	ctx := logtest.TestContextWithLogger(t)
+	client := client(t)
+
+	pr := &v1beta1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			UID:       "1",
+		},
+	}
+	tr := &v1beta1.TaskRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       pr.Namespace,
+			UID:             "2",
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(pr, pr.GetGroupVersionKind())},
+		},
+	}
+
+	// Create TaskRun first - this will create a Result for the PipelineRun,
+	// but will *not* populate the RecordSummary.
+	got, err := client.ensureResult(ctx, tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := &pb.Result{Name: resultName(pr)}
+	if diff := cmp.Diff(got, want, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
+		t.Fatal(diff)
+	}
+
+	// Create the PipelineRun - this will update the Result with the Summary.
+	got, err = client.ensureResult(ctx, pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = &pb.Result{
+		Name: resultName(pr),
+		Summary: &pb.RecordSummary{
+			Record: recordName(resultName(pr), pr),
+			Type:   convert.TypeName(pr),
+		},
+	}
+	if diff := cmp.Diff(got, want, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
+		t.Fatal(diff)
 	}
 }
 

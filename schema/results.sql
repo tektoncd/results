@@ -24,6 +24,13 @@ CREATE TABLE results (
 	
 	etag varchar(128),
 
+	recordsummary_record varchar(128),
+	recordsummary_type varchar(128),
+	recordsummary_start_time timestamp,
+	recordsummary_end_time timestamp,
+	recordsummary_status int,
+	recordsummary_annotations jsonb,
+
 	PRIMARY KEY(parent, id)
 );
 CREATE UNIQUE INDEX results_by_name ON results(parent, name);

@@ -33,7 +33,19 @@ type Result struct {
 	CreatedTime time.Time
 	UpdatedTime time.Time
 
+	Summary RecordSummary `gorm:"embedded;embeddedPrefix:recordsummary_"`
+
 	Etag string
+}
+
+// RecordSummary is the database model of a Result.RecordSummary.
+type RecordSummary struct {
+	Record      string
+	Type        string
+	StartTime   *time.Time
+	EndTime     *time.Time
+	Status      int32
+	Annotations Annotations
 }
 
 func (r Result) String() string {

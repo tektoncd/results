@@ -23,14 +23,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/pod"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 )
@@ -259,17 +261,14 @@ var (
 func TestToProto(t *testing.T) {
 	for _, tc := range []struct {
 		in       runtime.Object
-		want     proto.Message
 		wantType string
 	}{
 		{
-			in: taskrun,
-			//want:     taskrunpb,
+			in:       taskrun,
 			wantType: "tekton.dev/v1beta1.TaskRun",
 		},
 		{
-			in: pipelinerun,
-			//want:     pipelinerunpb,
+			in:       pipelinerun,
 			wantType: "tekton.dev/v1beta1.PipelineRun",
 		},
 	} {
@@ -320,4 +319,166 @@ func toJSON(i interface{}) []byte {
 		panic(fmt.Sprintf("error marshalling json: %v", err))
 	}
 	return b
+}
+
+func TestTypeName(t *testing.T) {
+	for _, tc := range []struct {
+		i    runtime.Object
+		want string
+	}{
+		{
+			i:    &v1beta1.TaskRun{},
+			want: "tekton.dev/v1beta1.TaskRun",
+		},
+		{
+			i:    &v1beta1.PipelineRun{},
+			want: "tekton.dev/v1beta1.PipelineRun",
+		},
+		{
+			i:    &v1alpha1.TaskRun{},
+			want: "tekton.dev/v1alpha1.TaskRun",
+		},
+		{
+			// This shouldn't really happen, but serves as an example of what
+			// happens if clients manually override the TypeMeta in the object.
+			i: &v1beta1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "foo",
+					Kind:       "bar",
+				},
+			},
+			want: "foo.bar",
+		},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			if got := TypeName(tc.i); got != tc.want {
+				t.Errorf("want %s, got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestInferGVK(t *testing.T) {
+	for _, tc := range []struct {
+		o       runtime.Object
+		want    schema.GroupVersionKind
+		wantErr bool
+	}{
+		{
+			o:    &v1beta1.TaskRun{},
+			want: schema.FromAPIVersionAndKind("tekton.dev/v1beta1", "TaskRun"),
+		},
+		{
+			o:    &v1beta1.PipelineRun{},
+			want: schema.FromAPIVersionAndKind("tekton.dev/v1beta1", "PipelineRun"),
+		},
+		{
+			o:    &v1alpha1.PipelineRun{},
+			want: schema.FromAPIVersionAndKind("tekton.dev/v1alpha1", "PipelineRun"),
+		},
+		// We only load in the Tekton type scheme, so other Objects won't be recognized.
+		{
+			o:       &unstructured.Unstructured{},
+			wantErr: true,
+		},
+	} {
+		got, err := InferGVK(tc.o)
+		if err != nil {
+			if tc.wantErr {
+				return
+			}
+			t.Fatal(err)
+		}
+		if !cmp.Equal(tc.want, got) {
+			t.Errorf("want %s, got %s", tc.want.String(), got.String())
+		}
+	}
+}
+
+func TestStatus(t *testing.T) {
+	for _, tc := range []struct {
+		cond *apis.Condition
+		want rpb.RecordSummary_Status
+	}{
+		// We are not testing an exhaustive list of statuses here,
+		// since there's no way to iterate through the set of all possible
+		// statuses.
+		// Mapping every case 1:1 would effectively be a
+		// reimplementation of the code we are trying to test, which isn't
+		// particularly useful. Instead, we focus on testing 1 status for
+		// each type + any edge cases.
+		{
+			cond: &apis.Condition{
+				Type:    apis.ConditionSucceeded,
+				Reason:  string(v1beta1.TaskRunReasonSuccessful),
+				Message: "TaskRun Success",
+			},
+			want: rpb.RecordSummary_SUCCESS,
+		},
+		{
+			cond: &apis.Condition{
+				Type:    apis.ConditionSucceeded,
+				Reason:  string(v1beta1.PipelineRunReasonTimedOut),
+				Message: "PipelineRun Timeout",
+			},
+			want: rpb.RecordSummary_TIMEOUT,
+		},
+		{
+			cond: &apis.Condition{
+				Type:    apis.ConditionSucceeded,
+				Reason:  string(pod.ReasonCouldntGetTask),
+				Message: "Pod Failure",
+			},
+			want: rpb.RecordSummary_FAILURE,
+		},
+		{
+			// Statuses only work on ConditionSucceeded, since this is what
+			// tells us the final state of the Run.
+			cond: &apis.Condition{
+				Type:    apis.ConditionReady,
+				Reason:  string(v1beta1.TaskRunReasonSuccessful),
+				Message: "Ready Condition",
+			},
+			want: rpb.RecordSummary_UNKNOWN,
+		},
+		{
+			cond: &apis.Condition{
+				Type:    apis.ConditionSucceeded,
+				Reason:  "foo",
+				Message: "Unknown reason",
+			},
+			want: rpb.RecordSummary_UNKNOWN,
+		},
+		{
+			cond: nil,
+			want: rpb.RecordSummary_UNKNOWN,
+		},
+	} {
+		t.Run(tc.cond.GetMessage(), func(t *testing.T) {
+			got := Status(newConditionAccessor(tc.cond))
+			if tc.want != got {
+				t.Errorf("want %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+// conditionAccessor is a simple impl of the apis.ConditionAccessor interface.
+type conditionAccessor struct {
+	m map[apis.ConditionType]*apis.Condition
+}
+
+func newConditionAccessor(conds ...*apis.Condition) conditionAccessor {
+	m := map[apis.ConditionType]*apis.Condition{}
+	for _, c := range conds {
+		if c == nil {
+			continue
+		}
+		m[c.Type] = c
+	}
+	return conditionAccessor{m: m}
+}
+
+func (ca conditionAccessor) GetCondition(t apis.ConditionType) *apis.Condition {
+	return ca.m[t]
 }
