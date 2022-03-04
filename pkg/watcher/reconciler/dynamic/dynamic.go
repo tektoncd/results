@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
@@ -57,6 +58,15 @@ func NewDynamicReconciler(rc pb.ResultsClient, oc ObjectClient, cfg *reconciler.
 // If enabled, the object may be deleted upon successful result upload.
 func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	log := logging.FromContext(ctx)
+
+	if o.GetObjectKind().GroupVersionKind().Empty() {
+		gvk, err := convert.InferGVK(o)
+		if err != nil {
+			return err
+		}
+		o.GetObjectKind().SetGroupVersionKind(gvk)
+		log.Infof("Post-GVK Object: %v", o)
+	}
 
 	// Update record.
 	result, record, err := r.resultsClient.Put(ctx, o)

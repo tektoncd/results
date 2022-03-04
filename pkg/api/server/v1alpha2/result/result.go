@@ -18,6 +18,7 @@ package result
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"knative.dev/pkg/ptr"
 )
 
 var (
@@ -82,12 +84,43 @@ func ToStorage(r *pb.Result) (*db.Result, error) {
 		result.UpdatedTime = r.UpdateTime.AsTime()
 	}
 
+	if s := r.GetSummary(); s != nil {
+		if s.GetRecord() == "" || s.GetType() == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "record and type fields required for RecordSummary")
+		}
+		summary := db.RecordSummary{
+			Record:      s.GetRecord(),
+			Type:        s.GetType(),
+			Status:      int32(s.GetStatus()),
+			Annotations: s.Annotations,
+		}
+		if s.StartTime.IsValid() {
+			summary.StartTime = ptr.Time(s.StartTime.AsTime())
+		}
+		if s.EndTime.IsValid() {
+			summary.EndTime = ptr.Time(s.EndTime.AsTime())
+		}
+		result.Summary = summary
+	}
+
 	return result, nil
 }
 
 // ToAPI converts a database storage Result into its corresponding API
 // equivalent.
 func ToAPI(r *db.Result) *pb.Result {
+	var summary *pb.RecordSummary
+	if r.Summary.Record != "" {
+		summary = &pb.RecordSummary{
+			Record:      r.Summary.Record,
+			Type:        r.Summary.Type,
+			StartTime:   newTS(r.Summary.StartTime),
+			EndTime:     newTS(r.Summary.EndTime),
+			Status:      pb.RecordSummary_Status(r.Summary.Status),
+			Annotations: r.Summary.Annotations,
+		}
+	}
+
 	return &pb.Result{
 		Name:        FormatName(r.Parent, r.Name),
 		Id:          r.ID,
@@ -98,7 +131,15 @@ func ToAPI(r *db.Result) *pb.Result {
 		UpdateTime:  timestamppb.New(r.UpdatedTime),
 		Annotations: r.Annotations,
 		Etag:        r.Etag,
+		Summary:     summary,
 	}
+}
+
+func newTS(t *time.Time) *timestamppb.Timestamp {
+	if t == nil {
+		return nil
+	}
+	return timestamppb.New(*t)
 }
 
 // Match determines whether the given CEL filter matches the result.

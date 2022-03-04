@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -28,6 +29,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,26 +86,69 @@ func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*p
 	return result, record, nil
 }
 
-// ensureResult gets the Result corresponding to the Object, or creates a new
-// one.
-func (c *Client) ensureResult(ctx context.Context, o metav1.Object, opts ...grpc.CallOption) (*pb.Result, error) {
+// ensureResult gets the Result corresponding to the Object, creates a new
+// one, or updates the existing Result with new Object details if necessary.
+func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, error) {
 	name := resultName(o)
-	res, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}, opts...)
+	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", name, err)
 	}
-	if err == nil {
-		return res, nil
+
+	new := &pb.Result{
+		Name: name,
+	}
+	topLevel := isTopLevelRecord(o)
+	if topLevel {
+		// If the object corresponds to a top level record  - include a RecordSummary.
+		new.Summary = &pb.RecordSummary{
+			Record:    recordName(name, o),
+			Type:      convert.TypeName(o),
+			Status:    convert.Status(o.GetStatusCondition()),
+			StartTime: getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionReady)),
+			EndTime:   getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionSucceeded)),
+		}
 	}
 
-	// Result doesn't exist yet - create.
-	req := &pb.CreateResultRequest{
-		Parent: o.GetNamespace(),
-		Result: &pb.Result{
-			Name: name,
-		},
+	// Regardless of whether the object is a top level record or not,
+	// if the Result doesn't exist yet just create it and return.
+	if status.Code(err) == codes.NotFound {
+		// Result doesn't exist yet - create.
+		req := &pb.CreateResultRequest{
+			Parent: o.GetNamespace(),
+			Result: new,
+		}
+		return c.ResultsClient.CreateResult(ctx, req, opts...)
 	}
-	return c.ResultsClient.CreateResult(ctx, req, opts...)
+
+	// From here on, we're checking to see if there are any updates that need
+	// to be made to the Record.
+
+	if !topLevel {
+		// If the object is top level there's nothing else to do because we
+		// won't be modifying the RecordSummary.
+		return curr, nil
+	}
+
+	// If this object is a top level record, only update if there's been a
+	// change to the RecordSummary (only looking at the summary also helps us
+	// avoid OUTPUT_ONLY fields in the Result))
+	if cmp.Equal(curr.GetSummary(), new.GetSummary(), protocmp.Transform()) {
+		// No differences, nothing to do.
+		return curr, nil
+	}
+	req := &pb.UpdateResultRequest{
+		Name:   name,
+		Result: new,
+	}
+	return c.ResultsClient.UpdateResult(ctx, req, opts...)
+}
+
+func getTimestamp(c *apis.Condition) *timestamppb.Timestamp {
+	if c == nil || c.IsFalse() {
+		return nil
+	}
+	return timestamppb.New(c.LastTransitionTime.Inner.Time)
 }
 
 // resultName gets the result name to use for the given object.
@@ -135,6 +181,14 @@ func resultName(o metav1.Object) string {
 		part = defaultName(o)
 	}
 	return result.FormatName(o.GetNamespace(), part)
+}
+
+func recordName(parent string, o Object) string {
+	name, ok := o.GetAnnotations()[annotation.Record]
+	if ok {
+		return name
+	}
+	return record.FormatName(parent, defaultName(o))
 }
 
 // upsertRecord updates or creates a record for the object. If there has been
@@ -197,4 +251,13 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 // not already associated to the Object.
 func defaultName(o metav1.Object) string {
 	return string(o.GetUID())
+}
+
+// isTopLevelRecord determines whether an Object is a top level Record - e.g. a
+// Record that should be considered the primary record for the result for purposes
+// of timing, status, etc. For example, if a Result contains records for a PipelineRun
+// and TaskRun, the PipelineRun should take precendence.
+// We define an Object to be top level if it does not have any OwnerReferences.
+func isTopLevelRecord(o Object) bool {
+	return len(o.GetOwnerReferences()) == 0
 }

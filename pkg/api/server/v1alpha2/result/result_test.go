@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"knative.dev/pkg/ptr"
 
 	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/results/pkg/api/server/cel"
@@ -113,6 +114,14 @@ func TestToStorage(t *testing.T) {
 				UpdatedTime: timestamppb.New(clock.Now()),
 				Annotations: map[string]string{"a": "b"},
 				Etag:        "tacocat",
+				Summary: &pb.RecordSummary{
+					Record:      "foo",
+					Type:        "bar",
+					StartTime:   timestamppb.New(clock.Now()),
+					EndTime:     timestamppb.New(clock.Now()),
+					Status:      pb.RecordSummary_SUCCESS,
+					Annotations: map[string]string{"c": "d"},
+				},
 			},
 			want: &db.Result{
 				Parent:      "foo",
@@ -122,6 +131,14 @@ func TestToStorage(t *testing.T) {
 				CreatedTime: clock.Now(),
 				UpdatedTime: clock.Now(),
 				Etag:        "tacocat",
+				Summary: db.RecordSummary{
+					Record:      "foo",
+					Type:        "bar",
+					StartTime:   ptr.Time(clock.Now()),
+					EndTime:     ptr.Time(clock.Now()),
+					Status:      1,
+					Annotations: map[string]string{"c": "d"},
+				},
 			},
 		},
 		{
