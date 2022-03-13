@@ -20,6 +20,7 @@ resources:
 - api.yaml
 - default-clusterroles.yaml
 - watcher.yaml
+- config-info.yaml
 labels:
   - pairs:
       app.kubernetes.io/part-of: tekton-results

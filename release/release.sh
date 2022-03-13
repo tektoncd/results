@@ -10,7 +10,8 @@ export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"ko.local"}
 
 RELEASE_DIR="${ROOT}/release"
 # Apply templated values from environment.
-sed -i "s/devel$/${RELEASE_VERSION}/g" ${RELEASE_DIR}/kustomization.yaml  
+sed -i "s/devel$/${RELEASE_VERSION}/g" ${RELEASE_DIR}/kustomization.yaml
+sed -i "s/devel$/${RELEASE_VERSION}/g" ${ROOT}/config/config-info.yaml  
 
 # Apply kustomiation + build images + generate yaml
 kubectl kustomize ${RELEASE_DIR} | ko resolve -P -f - -t ${RELEASE_VERSION} > ${RELEASE_DIR}/release.yaml
