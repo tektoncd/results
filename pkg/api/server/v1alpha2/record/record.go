@@ -30,6 +30,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	typeSize = 768
+)
+
 var (
 	// NameRegex matches valid name specs for a Result.
 	NameRegex = regexp.MustCompile("(^[a-z0-9_-]{1,63})/results/([a-z0-9_-]{1,63})/records/([a-z0-9_-]{1,63}$)")
@@ -56,7 +60,7 @@ func FormatName(parent, name string) string {
 // parent,result,name should be the name parts (e.g. not containing "/results/" or "/records/").
 func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Record, error) {
 	if err := validateData(r.GetData()); err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	id := r.GetUid()
@@ -157,6 +161,10 @@ func UpdateEtag(r *db.Record) error {
 }
 
 func validateData(m *pb.Any) error {
+	if err := ValidateType(m.GetType()); err != nil {
+		return err
+	}
+
 	if m == nil {
 		return nil
 	}
@@ -169,4 +177,13 @@ func validateData(m *pb.Any) error {
 		// If it's not a well known type, just check that the message is a valid JSON document.
 		return json.Unmarshal(m.GetValue(), &json.RawMessage{})
 	}
+}
+
+func ValidateType(t string) error {
+	// Certain DBs like sqlite will massage CHAR types to TEXT, so enforce
+	// this in our code for consistency.
+	if len(t) > typeSize {
+		return status.Errorf(codes.InvalidArgument, "type must not exceed %d characters", typeSize)
+	}
+	return nil
 }

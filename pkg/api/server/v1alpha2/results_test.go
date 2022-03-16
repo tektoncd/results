@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +96,30 @@ func TestCreateResult(t *testing.T) {
 			req:  req,
 			want: codes.AlreadyExists,
 		},
+		{
+			name: "large name",
+			req: &pb.CreateResultRequest{
+				Parent: "foo",
+				Result: &pb.Result{
+					Name: "foo/results/" + strings.Repeat("a", 256),
+				},
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			name: "large result summary type",
+			req: &pb.CreateResultRequest{
+				Parent: "foo",
+				Result: &pb.Result{
+					Name: "foo/results/bar",
+					Summary: &pb.RecordSummary{
+						Record: "foo/results/bar/records/baz",
+						Type:   strings.Repeat("a", 1024),
+					},
+				},
+			},
+			want: codes.InvalidArgument,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := srv.CreateResult(ctx, tc.req); status.Code(err) != tc.want {
@@ -122,11 +147,11 @@ func TestUpdateResult(t *testing.T) {
 		errcode codes.Code
 	}{
 		{
-			name: "test success",
+			name: "success",
 			update: &pb.Result{
 				Annotations: map[string]string{"foo": "bar"},
 				Summary: &pb.RecordSummary{
-					Record: "foo",
+					Record: "foo/results/bar/records/baz",
 					Type:   "bar",
 				},
 			},
@@ -134,7 +159,7 @@ func TestUpdateResult(t *testing.T) {
 			expect: &pb.Result{
 				Annotations: map[string]string{"foo": "bar"},
 				Summary: &pb.RecordSummary{
-					Record: "foo",
+					Record: "foo/results/bar/records/baz",
 					Type:   "bar",
 				},
 			},

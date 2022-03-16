@@ -15,6 +15,7 @@
 package result
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -115,7 +116,7 @@ func TestToStorage(t *testing.T) {
 				Annotations: map[string]string{"a": "b"},
 				Etag:        "tacocat",
 				Summary: &pb.RecordSummary{
-					Record:      "foo",
+					Record:      "foo/results/bar/records/baz",
 					Type:        "bar",
 					StartTime:   timestamppb.New(clock.Now()),
 					EndTime:     timestamppb.New(clock.Now()),
@@ -132,7 +133,7 @@ func TestToStorage(t *testing.T) {
 				UpdatedTime: clock.Now(),
 				Etag:        "tacocat",
 				Summary: db.RecordSummary{
-					Record:      "foo",
+					Record:      "foo/results/bar/records/baz",
 					Type:        "bar",
 					StartTime:   ptr.Time(clock.Now()),
 					EndTime:     ptr.Time(clock.Now()),
@@ -165,13 +166,53 @@ func TestToStorage(t *testing.T) {
 			},
 		},
 	} {
-		got, err := ToStorage(tc.in)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if diff := cmp.Diff(tc.want, got); diff != "" {
-			t.Errorf("-want,+got: %s", diff)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToStorage(tc.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("-want,+got: %s", diff)
+			}
+		})
+	}
+
+	// errors
+	for _, tc := range []struct {
+		name string
+		in   *pb.Result
+		want codes.Code
+	}{
+		{
+			name: "invalid summary record name",
+			in: &pb.Result{
+				Name: "foo/results/bar",
+				Id:   "a",
+				Summary: &pb.RecordSummary{
+					Record: "foo",
+				},
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			name: "invalid summary type",
+			in: &pb.Result{
+				Name: "foo/results/bar",
+				Id:   "a",
+				Summary: &pb.RecordSummary{
+					Record: "foo/results/bar/records/baz",
+					Type:   strings.Repeat("a", 1024),
+				},
+			},
+			want: codes.InvalidArgument,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToStorage(tc.in)
+			if status.Code(err) != tc.want {
+				t.Fatalf("expected %v, got (%v, %v)", tc.want, got, err)
+			}
+		})
 	}
 }
 

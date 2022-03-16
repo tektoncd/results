@@ -24,8 +24,8 @@ CREATE TABLE results (
 	
 	etag varchar(128),
 
-	recordsummary_record varchar(128),
-	recordsummary_type varchar(128),
+	recordsummary_record varchar(256),
+	recordsummary_type varchar(768),
 	recordsummary_start_time timestamp,
 	recordsummary_end_time timestamp,
 	recordsummary_status int,

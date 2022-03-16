@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/cel"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -88,6 +89,13 @@ func ToStorage(r *pb.Result) (*db.Result, error) {
 		if s.GetRecord() == "" || s.GetType() == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "record and type fields required for RecordSummary")
 		}
+		if !record.NameRegex.MatchString(s.GetRecord()) {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid record format")
+		}
+		if err := record.ValidateType(s.GetType()); err != nil {
+			return nil, err
+		}
+
 		summary := db.RecordSummary{
 			Record:      s.GetRecord(),
 			Type:        s.GetType(),
