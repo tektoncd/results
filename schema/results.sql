@@ -43,7 +43,8 @@ CREATE TABLE records (
 	result_name varchar(64),
 	name varchar(64),
 
-	type varchar(128),
+	-- Napkin Math (with a bit of buffer): 256 (DNS Subdomain) * 3 (Group + Version + Kind)
+	type varchar(768),
 	data jsonb,
 
 	created_time timestamp default current_timestamp not null,
