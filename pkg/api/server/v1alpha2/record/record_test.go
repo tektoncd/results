@@ -15,6 +15,7 @@
 package record
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,8 @@ import (
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,6 +191,40 @@ func TestToStorage(t *testing.T) {
 		})
 	}
 
+	// errors
+	for _, tc := range []struct {
+		name string
+		in   *pb.Record
+		want codes.Code
+	}{
+		{
+			name: "invalid type",
+			in: &pb.Record{
+				Name: "foo/results/bar",
+				Id:   "a",
+				Data: &pb.Any{
+					Type: strings.Repeat("a", typeSize+1),
+				},
+			},
+			want: codes.InvalidArgument,
+		},
+		{
+			name: "invalid data",
+			in: &pb.Record{
+				Name: "foo/results/bar",
+				Id:   "a",
+				Data: &pb.Any{},
+			},
+			want: codes.InvalidArgument,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			if status.Code(err) != tc.want {
+				t.Fatalf("expected %v, got (%v, %v)", tc.want, got, err)
+			}
+		})
+	}
 }
 
 func TestToAPI(t *testing.T) {
@@ -256,4 +293,18 @@ func TestFormatName(t *testing.T) {
 	if want != got {
 		t.Errorf("want %s, got %s", want, got)
 	}
+}
+
+func TestValidateType(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		if err := ValidateType("foo"); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		if err := ValidateType(strings.Repeat("a", typeSize+1)); err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
 }
