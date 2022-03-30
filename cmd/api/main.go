@@ -64,27 +64,39 @@ func main() {
 		log.Fatalf("failed to open the results.db: %v", err)
 	}
 
-	// Create k8s client
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatal("error getting kubernetes client config:", err)
-	}
-	k8s, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal("error creating kubernetes clientset:", err)
-	}
-
 	// Load TLS cert
 	creds, err := credentials.NewServerTLSFromFile("/etc/tls/tls.crt", "/etc/tls/tls.key")
 	if err != nil {
 		log.Fatalf("error loading TLS key pair: %v", err)
 	}
 
-	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
-	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
+	// Select Auth method
+	var v1a2 *v1alpha2.Server
+	switch os.Getenv("AUTHENTICATION") {
+	// No Authentication
+	case "nop":
+		v1a2, err = v1alpha2.New(db)
+		if err != nil {
+			log.Fatalf("failed to create server: %v", err)
+		}
+	// Default RBAC
+	default:
+		// Create k8s client
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Fatal("error getting kubernetes client config:", err)
+		}
+		k8s, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Fatal("error creating kubernetes clientset:", err)
+		}
+
+		v1a2, err = v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
+		if err != nil {
+			log.Fatalf("failed to create server: %v", err)
+		}
 	}
+
 	s := grpc.NewServer(
 		grpc.Creds(creds),
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
