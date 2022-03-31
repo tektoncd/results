@@ -58,7 +58,6 @@ func init() {
 }
 
 func GetConfig() (*Config, error) {
-	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
 		return nil, err
 	}
