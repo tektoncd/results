@@ -2,8 +2,10 @@ package cmd
 
 import (
 	_ "embed"
+	"flag"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tektoncd/results/tools/tkn-results/cmd/records"
 	"github.com/tektoncd/results/tools/tkn-results/internal/client"
@@ -41,9 +43,10 @@ func Root() *cobra.Command {
 	cmd.PersistentFlags().StringP("addr", "a", "", "Result API server address")
 	cmd.PersistentFlags().StringP("authtoken", "t", "", "authorization bearer token to use for authenticated requests")
 
-	viper.BindPFlags(cmd.PersistentFlags())
-
 	cmd.AddCommand(ListCommand(params), records.Command(params))
+
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	viper.BindPFlags(cmd.PersistentFlags())
 
 	return cmd
 }
