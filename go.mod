@@ -16,17 +16,17 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/prometheus/client_golang v1.11.0
 	github.com/tektoncd/pipeline v0.29.0
-	go.uber.org/automaxprocs v1.4.0 // indirect
+	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/oauth2 v0.0.0-20211028175245-ba495a64dcb5
 	google.golang.org/api v0.60.0
 	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
-	gorm.io/driver/mysql v1.0.3
+	gorm.io/driver/mysql v1.3.2
 	gorm.io/driver/postgres v1.1.0
 	gorm.io/driver/sqlite v1.1.4
-	gorm.io/gorm v1.21.9
+	gorm.io/gorm v1.23.1
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
 	k8s.io/client-go v0.21.4
