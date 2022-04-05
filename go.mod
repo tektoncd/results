@@ -10,9 +10,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/jackc/pgconn v1.8.1
+	github.com/jackc/pgconn v1.11.0
 	github.com/jonboulle/clockwork v0.2.3
-	github.com/lib/pq v1.10.2 // indirect
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/prometheus/client_golang v1.11.0
 	github.com/tektoncd/pipeline v0.29.0
@@ -24,9 +23,9 @@ require (
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.28.0
 	gorm.io/driver/mysql v1.0.3
-	gorm.io/driver/postgres v1.1.0
+	gorm.io/driver/postgres v1.3.3
 	gorm.io/driver/sqlite v1.1.4
-	gorm.io/gorm v1.21.9
+	gorm.io/gorm v1.23.1
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
 	k8s.io/client-go v0.21.4
