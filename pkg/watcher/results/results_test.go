@@ -270,6 +270,16 @@ func TestUpsertRecord(t *testing.T) {
 				UID:        "taskrun-id",
 				Generation: 1,
 			},
+			Status: v1beta1.TaskRunStatus{
+				TaskRunStatusFields: v1beta1.TaskRunStatusFields{
+					TaskRunResults: []v1beta1.TaskRunResult{
+						{
+							Name:  "result1",
+							Value: "value1",
+						},
+					},
+				},
+			},
 		},
 		&v1beta1.PipelineRun{
 			TypeMeta: metav1.TypeMeta{
@@ -281,6 +291,16 @@ func TestUpsertRecord(t *testing.T) {
 				Namespace:  "test",
 				UID:        "pipelinerun-id",
 				Generation: 1,
+			},
+			Status: v1beta1.PipelineRunStatus{
+				PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
+					PipelineResults: []v1beta1.PipelineRunResult{
+						{
+							Name:  "result1",
+							Value: "value1",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -336,13 +356,66 @@ func TestUpsertRecord(t *testing.T) {
 
 			// Modify object to cause a diff + actual update.
 			t.Run("update", func(t *testing.T) {
-				o.SetGeneration(o.GetGeneration() + 1)
-				got, err := client.upsertRecord(ctx, result.GetName(), o)
+				// Update the result on each TaskRun and PipelineRun.
+				var updated Object
+				if o.GetName() == "taskrun" {
+					updated = &v1beta1.TaskRun{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "tekton.dev/v1beta1",
+							Kind:       "TaskRun",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "taskrun",
+							Namespace:  "test",
+							UID:        "taskrun-id",
+							Generation: 1,
+						},
+						Status: v1beta1.TaskRunStatus{
+							TaskRunStatusFields: v1beta1.TaskRunStatusFields{
+								TaskRunResults: []v1beta1.TaskRunResult{
+									{
+										Name:  "result1",
+										Value: "value1-updated",
+									},
+								},
+							},
+						},
+					}
+				} else if o.GetName() == "pipelinerun" {
+					updated = &v1beta1.PipelineRun{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "tekton.dev/v1beta1",
+							Kind:       "PipelineRun",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "pipelinerun",
+							Namespace:  "test",
+							UID:        "pipelinerun-id",
+							Generation: 1,
+						},
+						Status: v1beta1.PipelineRunStatus{
+							PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
+								PipelineResults: []v1beta1.PipelineRunResult{
+									{
+										Name:  "result1",
+										Value: "value1-updated",
+									},
+								},
+							},
+						},
+					}
+				} else {
+					t.Fatalf("upsertRecord: PipelineRun or TaskRun unsupported %v", o.GetName())
+				}
+				got, err := client.upsertRecord(ctx, result.GetName(), updated)
 				if err != nil {
 					t.Fatalf("upsertRecord: %v", err)
 				}
-				if diff := cmp.Diff(crdToRecord(t, name, o), got, opts...); diff != "" {
-					t.Errorf("upsertRecord diff (-want, +got):\n%s", diff)
+				if cmp.Equal(crdToRecord(t, name, o).GetData(), got.GetData(), protocmp.Transform()) {
+					t.Errorf(
+						"upsertRecord diff (-want, +got):%s\n\n%s",
+						crdToRecord(t, name, updated).GetData(), got.GetData(),
+					)
 				}
 			})
 		})

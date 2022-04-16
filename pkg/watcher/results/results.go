@@ -16,8 +16,6 @@ package results
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -32,7 +30,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 )
@@ -208,28 +205,11 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 		return nil, err
 	}
 	if curr != nil {
-		// Data already exists for the Record - update it iff there is a diff.
-
-		// Dump the current record into an unstructured object so we can poke
-		// at ObjectMeta fields.
-		u := &unstructured.Unstructured{}
-		if err := json.Unmarshal(curr.GetData().GetValue(), u); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal existing record: %w", err)
-		}
-
-		// Use the generation number as an approximation to see if data
-		// has changed. We do this because we can't guarantee stable ordering
-		// for JSON marshalling, and full object diffs in a generic way is
-		// tricky (though we may do this in the future if this is not
-		// sufficient).
-		// See https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
-		// for field details.
-		if o.GetGeneration() != 0 && o.GetGeneration() == u.GetGeneration() {
-			// The record data already matches what's stored. Don't update
-			// since this will rev update times which throws off resource
-			// cleanup checks.
+		// Data already exists for the Record - update it iff there is a diff of Data.
+		if cmp.Equal(data, curr.GetData(), protocmp.Transform()) {
 			return curr, nil
 		}
+
 		curr.Data = data
 		return c.UpdateRecord(ctx, &pb.UpdateRecordRequest{
 			Record: curr,
