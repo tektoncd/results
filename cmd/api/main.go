@@ -58,7 +58,12 @@ func main() {
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432", os.Getenv("DB_ADDR"), user, pass, os.Getenv("DB_NAME"))
+	sslmode := os.Getenv("DB_SSLMODE")
+	if sslmode == "" {
+		sslmode = "disable"
+	}
+
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=%s", os.Getenv("DB_ADDR"), user, pass, os.Getenv("DB_NAME"), os.Getenv("DB_SSLMODE"))
 	db, err := gorm.Open(postgres.Open(dbURI), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to open the results.db: %v", err)
