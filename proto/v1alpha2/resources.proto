@@ -153,3 +153,8 @@ message RecordSummary {
 
    // next id: 7
 }
+
+// LogChunk is a chunk of a log from a TaskRun.
+message LogChunk {
+  bytes data = 1;
+}

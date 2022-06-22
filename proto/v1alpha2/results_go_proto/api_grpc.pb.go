@@ -33,6 +33,7 @@ type ResultsClient interface {
 	GetRecord(ctx context.Context, in *GetRecordRequest, opts ...grpc.CallOption) (*Record, error)
 	ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error)
 	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetLog(ctx context.Context, in *GetLogRequest, opts ...grpc.CallOption) (Results_GetLogClient, error)
 }
 
 type resultsClient struct {
@@ -133,6 +134,38 @@ func (c *resultsClient) DeleteRecord(ctx context.Context, in *DeleteRecordReques
 	return out, nil
 }
 
+func (c *resultsClient) GetLog(ctx context.Context, in *GetLogRequest, opts ...grpc.CallOption) (Results_GetLogClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Results_ServiceDesc.Streams[0], "/tekton.results.v1alpha2.Results/GetLog", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &resultsGetLogClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Results_GetLogClient interface {
+	Recv() (*LogChunk, error)
+	grpc.ClientStream
+}
+
+type resultsGetLogClient struct {
+	grpc.ClientStream
+}
+
+func (x *resultsGetLogClient) Recv() (*LogChunk, error) {
+	m := new(LogChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ResultsServer is the server API for Results service.
 // All implementations must embed UnimplementedResultsServer
 // for forward compatibility
@@ -147,6 +180,7 @@ type ResultsServer interface {
 	GetRecord(context.Context, *GetRecordRequest) (*Record, error)
 	ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error)
 	DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error)
+	GetLog(*GetLogRequest, Results_GetLogServer) error
 	mustEmbedUnimplementedResultsServer()
 }
 
@@ -183,6 +217,9 @@ func (UnimplementedResultsServer) ListRecords(context.Context, *ListRecordsReque
 }
 func (UnimplementedResultsServer) DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRecord not implemented")
+}
+func (UnimplementedResultsServer) GetLog(*GetLogRequest, Results_GetLogServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetLog not implemented")
 }
 func (UnimplementedResultsServer) mustEmbedUnimplementedResultsServer() {}
 
@@ -377,6 +414,27 @@ func _Results_DeleteRecord_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Results_GetLog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetLogRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ResultsServer).GetLog(m, &resultsGetLogServer{stream})
+}
+
+type Results_GetLogServer interface {
+	Send(*LogChunk) error
+	grpc.ServerStream
+}
+
+type resultsGetLogServer struct {
+	grpc.ServerStream
+}
+
+func (x *resultsGetLogServer) Send(m *LogChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Results_ServiceDesc is the grpc.ServiceDesc for Results service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -425,6 +483,12 @@ var Results_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Results_DeleteRecord_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetLog",
+			Handler:       _Results_GetLog_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "api.proto",
 }

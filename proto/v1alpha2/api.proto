@@ -90,6 +90,12 @@ service Results {
       delete: "/v1alpha2/{name=*/results/*/records/*}"
     };
   }
+
+  rpc GetLog(GetLogRequest) returns (stream LogChunk) {
+    option (google.api.http) = {
+      get: "/v1alpha2/{name=*/results/*/logs/*}"
+    };
+  }
 }
 
 message CreateResultRequest {
@@ -173,4 +179,8 @@ message ListRecordsRequest {
 message ListRecordsResponse {
   repeated Record records = 1;
   string next_page_token = 2;
+}
+
+message GetLogRequest {
+  string name = 1;
 }

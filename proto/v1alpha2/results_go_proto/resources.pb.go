@@ -531,6 +531,54 @@ func (x *RecordSummary) GetAnnotations() map[string]string {
 	return nil
 }
 
+// LogChunk is a chunk of a log from a TaskRun.
+type LogChunk struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (x *LogChunk) Reset() {
+	*x = LogChunk{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_resources_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *LogChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogChunk) ProtoMessage() {}
+
+func (x *LogChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_resources_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogChunk.ProtoReflect.Descriptor instead.
+func (*LogChunk) Descriptor() ([]byte, []int) {
+	return file_resources_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *LogChunk) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_resources_proto protoreflect.FileDescriptor
 
 var file_resources_proto_rawDesc = []byte{
@@ -645,6 +693,8 @@ var file_resources_proto_rawDesc = []byte{
 	0x43, 0x43, 0x45, 0x53, 0x53, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x46, 0x41, 0x49, 0x4c, 0x55,
 	0x52, 0x45, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x54, 0x49, 0x4d, 0x45, 0x4f, 0x55, 0x54, 0x10,
 	0x03, 0x12, 0x0d, 0x0a, 0x09, 0x43, 0x41, 0x4e, 0x43, 0x45, 0x4c, 0x4c, 0x45, 0x44, 0x10, 0x04,
+	0x22, 0x1e, 0x0a, 0x08, 0x4c, 0x6f, 0x67, 0x43, 0x68, 0x75, 0x6e, 0x6b, 0x12, 0x12, 0x0a, 0x04,
+	0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61,
 	0x42, 0x3d, 0x5a, 0x3b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74,
 	0x65, 0x6b, 0x74, 0x6f, 0x6e, 0x63, 0x64, 0x2f, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x2f,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x32, 0x2f, 0x72,
@@ -665,33 +715,34 @@ func file_resources_proto_rawDescGZIP() []byte {
 }
 
 var file_resources_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_resources_proto_goTypes = []interface{}{
 	(RecordSummary_Status)(0),     // 0: tekton.results.v1alpha2.RecordSummary.Status
 	(*Result)(nil),                // 1: tekton.results.v1alpha2.Result
 	(*Record)(nil),                // 2: tekton.results.v1alpha2.Record
 	(*Any)(nil),                   // 3: tekton.results.v1alpha2.Any
 	(*RecordSummary)(nil),         // 4: tekton.results.v1alpha2.RecordSummary
-	nil,                           // 5: tekton.results.v1alpha2.Result.AnnotationsEntry
-	nil,                           // 6: tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
-	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
+	(*LogChunk)(nil),              // 5: tekton.results.v1alpha2.LogChunk
+	nil,                           // 6: tekton.results.v1alpha2.Result.AnnotationsEntry
+	nil,                           // 7: tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
 }
 var file_resources_proto_depIdxs = []int32{
-	7,  // 0: tekton.results.v1alpha2.Result.created_time:type_name -> google.protobuf.Timestamp
-	7,  // 1: tekton.results.v1alpha2.Result.create_time:type_name -> google.protobuf.Timestamp
-	7,  // 2: tekton.results.v1alpha2.Result.updated_time:type_name -> google.protobuf.Timestamp
-	7,  // 3: tekton.results.v1alpha2.Result.update_time:type_name -> google.protobuf.Timestamp
-	5,  // 4: tekton.results.v1alpha2.Result.annotations:type_name -> tekton.results.v1alpha2.Result.AnnotationsEntry
+	8,  // 0: tekton.results.v1alpha2.Result.created_time:type_name -> google.protobuf.Timestamp
+	8,  // 1: tekton.results.v1alpha2.Result.create_time:type_name -> google.protobuf.Timestamp
+	8,  // 2: tekton.results.v1alpha2.Result.updated_time:type_name -> google.protobuf.Timestamp
+	8,  // 3: tekton.results.v1alpha2.Result.update_time:type_name -> google.protobuf.Timestamp
+	6,  // 4: tekton.results.v1alpha2.Result.annotations:type_name -> tekton.results.v1alpha2.Result.AnnotationsEntry
 	4,  // 5: tekton.results.v1alpha2.Result.summary:type_name -> tekton.results.v1alpha2.RecordSummary
 	3,  // 6: tekton.results.v1alpha2.Record.data:type_name -> tekton.results.v1alpha2.Any
-	7,  // 7: tekton.results.v1alpha2.Record.created_time:type_name -> google.protobuf.Timestamp
-	7,  // 8: tekton.results.v1alpha2.Record.create_time:type_name -> google.protobuf.Timestamp
-	7,  // 9: tekton.results.v1alpha2.Record.updated_time:type_name -> google.protobuf.Timestamp
-	7,  // 10: tekton.results.v1alpha2.Record.update_time:type_name -> google.protobuf.Timestamp
-	7,  // 11: tekton.results.v1alpha2.RecordSummary.start_time:type_name -> google.protobuf.Timestamp
-	7,  // 12: tekton.results.v1alpha2.RecordSummary.end_time:type_name -> google.protobuf.Timestamp
+	8,  // 7: tekton.results.v1alpha2.Record.created_time:type_name -> google.protobuf.Timestamp
+	8,  // 8: tekton.results.v1alpha2.Record.create_time:type_name -> google.protobuf.Timestamp
+	8,  // 9: tekton.results.v1alpha2.Record.updated_time:type_name -> google.protobuf.Timestamp
+	8,  // 10: tekton.results.v1alpha2.Record.update_time:type_name -> google.protobuf.Timestamp
+	8,  // 11: tekton.results.v1alpha2.RecordSummary.start_time:type_name -> google.protobuf.Timestamp
+	8,  // 12: tekton.results.v1alpha2.RecordSummary.end_time:type_name -> google.protobuf.Timestamp
 	0,  // 13: tekton.results.v1alpha2.RecordSummary.status:type_name -> tekton.results.v1alpha2.RecordSummary.Status
-	6,  // 14: tekton.results.v1alpha2.RecordSummary.annotations:type_name -> tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
+	7,  // 14: tekton.results.v1alpha2.RecordSummary.annotations:type_name -> tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
 	15, // [15:15] is the sub-list for method output_type
 	15, // [15:15] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
@@ -753,6 +804,18 @@ func file_resources_proto_init() {
 				return nil
 			}
 		}
+		file_resources_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*LogChunk); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -760,7 +823,7 @@ func file_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_resources_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
