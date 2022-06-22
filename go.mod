@@ -8,6 +8,7 @@ require (
 	github.com/google/cel-go v0.5.1
 	github.com/google/go-cmp v0.5.7
 	github.com/google/uuid v1.3.0
+	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jackc/pgconn v1.11.0
