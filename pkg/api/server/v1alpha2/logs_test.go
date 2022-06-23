@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/tektoncd/results/pkg/api/server/test"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 
 	"google.golang.org/grpc"
@@ -70,6 +72,15 @@ func TestGetLog(t *testing.T) {
 		Parent: result.GetName(),
 		Record: &pb.Record{
 			Name: recordutil.FormatName(result.GetName(), "baz-log"),
+			Data: &pb.Any{
+				Type: "results.tekton.dev/TaskRunLog",
+				Value: jsonutil.AnyBytes(t, &log.TaskRunLog{
+					Type: log.FileLogType,
+					File: &log.FileLogTypeSpec{
+						Path: logFile.Name(),
+					},
+				}),
+			},
 		},
 	})
 	if err != nil {

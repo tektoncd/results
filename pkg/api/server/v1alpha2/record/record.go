@@ -24,6 +24,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -125,6 +126,18 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	}
 
 	return out, nil
+}
+
+func ToLogStreamer(r *db.Record) (log.LogStreamer, error) {
+	if r.Type != "results.tekton.dev/TaskRunLog" {
+		return nil, fmt.Errorf("record type %s cannot stream logs", r.Type)
+	}
+	logData := &log.TaskRunLog{}
+	err := json.Unmarshal(r.Data, logData)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode TaskRunLog record: %v", err)
+	}
+	return log.NewLogStreamer(logData)
 }
 
 // Match determines whether the given CEL filter matches the result.
