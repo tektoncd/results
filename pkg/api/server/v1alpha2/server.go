@@ -25,6 +25,7 @@ import (
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	model "github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
 )
@@ -41,9 +42,10 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 // Server with implementation of API server
 type Server struct {
 	pb.UnimplementedResultsServer
-	env  *cel.Env
-	db   *gorm.DB
-	auth auth.Checker
+	env          *cel.Env
+	db           *gorm.DB
+	auth         auth.Checker
+	logChunkSize int
 
 	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
@@ -65,6 +67,8 @@ func New(db *gorm.DB, opts ...Option) (*Server, error) {
 
 		// Default open auth for easier testing.
 		auth: auth.AllowAll{},
+		// Default log chunking to maximum log chunk size
+		logChunkSize: log.MaxLogChunkSize,
 	}
 	// Set default impls of overridable behavior
 	srv.getResultID = srv.getResultIDImpl
@@ -81,6 +85,12 @@ type Option func(*Server)
 func WithAuth(c auth.Checker) Option {
 	return func(s *Server) {
 		s.auth = c
+	}
+}
+
+func WithLogChunkSize(size int) Option {
+	return func(s *Server) {
+		s.logChunkSize = size
 	}
 }
 

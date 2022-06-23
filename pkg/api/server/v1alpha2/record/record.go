@@ -128,7 +128,7 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	return out, nil
 }
 
-func ToLogStreamer(r *db.Record) (log.LogStreamer, error) {
+func ToLogStreamer(r *db.Record, bufSize int) (log.LogStreamer, error) {
 	if r.Type != "results.tekton.dev/TaskRunLog" {
 		return nil, fmt.Errorf("record type %s cannot stream logs", r.Type)
 	}
@@ -137,7 +137,7 @@ func ToLogStreamer(r *db.Record) (log.LogStreamer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not decode TaskRunLog record: %v", err)
 	}
-	return log.NewLogStreamer(logData)
+	return log.NewLogStreamer(logData, bufSize)
 }
 
 // Match determines whether the given CEL filter matches the result.

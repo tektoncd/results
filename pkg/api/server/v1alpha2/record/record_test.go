@@ -356,7 +356,7 @@ func TestToLogStreamer(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			streamer, err := ToLogStreamer(tc.in)
+			streamer, err := ToLogStreamer(tc.in, 1024)
 			if err != nil {
 				if !tc.expectErr {
 					t.Errorf("unexpected error: %v", err)

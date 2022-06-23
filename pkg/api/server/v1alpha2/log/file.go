@@ -8,16 +8,18 @@ import (
 )
 
 type fileLogStreamer struct {
-	path string
+	path    string
+	bufSize int
 }
 
 // NewFileLogStreamer returns a LogStreamer that streams directly from a log file on local disk.
-func NewFileLogStreamer(trl *TaskRunLog) (LogStreamer, error) {
+func NewFileLogStreamer(trl *TaskRunLog, bufSize int) (LogStreamer, error) {
 	if trl.File == nil {
 		return nil, fmt.Errorf("file to stream is not specified")
 	}
 	return &fileLogStreamer{
-		path: trl.File.Path,
+		path:    trl.File.Path,
+		bufSize: bufSize,
 	}, nil
 }
 
@@ -41,7 +43,7 @@ func (f *fileLogStreamer) WriteTo(w io.Writer) (n int64, err error) {
 		}
 	}()
 	// Use the bufferred reader to ensure file contents are not read entirely into memory
-	reader := bufio.NewReader(file)
+	reader := bufio.NewReaderSize(file, f.bufSize)
 	n, err = reader.WriteTo(w)
 	return
 }

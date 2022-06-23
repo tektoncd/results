@@ -38,7 +38,7 @@ func TestFileLogStreamer(t *testing.T) {
 			Path: tmp.Name(),
 		},
 	}
-	streamer, err := NewFileLogStreamer(trl)
+	streamer, err := NewFileLogStreamer(trl, 1024)
 	if err != nil {
 		t.Fatalf("failed to create file log streamer: %v", err)
 	}
