@@ -47,9 +47,7 @@ spec:
                 secretKeyRef:
                   name: tekton-results-postgres
                   key: POSTGRES_PASSWORD
-            - name: DB_PROTOCOL
-              value: tcp
-            - name: DB_ADDR
+            - name: DB_HOST
               value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
               value: tekton-results
@@ -75,7 +73,11 @@ spec:
       protocol: TCP
       port: 50051
       targetPort: 50051
-    - name: prometheus
+    - name: rest
       protocol: TCP
       port: 8080
       targetPort: 8080
+    - name: prometheus
+      protocol: TCP
+      port: 9090
+      targetPort: 9090

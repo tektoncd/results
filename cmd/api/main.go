@@ -17,26 +17,23 @@ limitations under the License.
 package main
 
 import (
-	"flag"
+	"context"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
+	_ "go.uber.org/automaxprocs"
+	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"log"
 	"net"
 	"net/http"
-	"os"
+	"path"
 
-	// Go runtime is unaware of CPU quota which means it will set GOMAXPROCS
-	// to underlying host vm node. This high value means that GO runtime
-	// scheduler assumes that it has more threads and does context switching
-	// when it might work with fewer threads.
-	// This doesn't happen# with our other controllers and services because
-	// sharedmain already import this package for them.
-	_ "go.uber.org/automaxprocs"
-
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -45,17 +42,20 @@ import (
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ConfigFile struct {
-	DB_USER     string `mapstructure:"DB_USER"`
-	DB_PASSWORD string `mapstructure:"DB_PASSWORD"`
-	DB_PROTOCOL string `mapstructure:"DB_PROTOCOL"`
-	DB_ADDR     string `mapstructure:"DB_ADDR"`
-	DB_NAME     string `mapstructure:"DB_NAME"`
-	DB_SSLMODE  string `mapstructure:"DB_SSLMODE"`
+	DB_USER               string `mapstructure:"DB_USER"`
+	DB_PASSWORD           string `mapstructure:"DB_PASSWORD"`
+	DB_HOST               string `mapstructure:"DB_HOST"`
+	DB_PORT               string `mapstructure:"DB_PORT"`
+	DB_NAME               string `mapstructure:"DB_NAME"`
+	DB_SSLMODE            string `mapstructure:"DB_SSLMODE"`
+	GRPC_PORT             string `mapstructure:"GRPC_PORT"`
+	REST_PORT             string `mapstructure:"REST_PORT"`
+	PROMETHEUS_PORT       string `mapstructure:"PROMETHEUS_PORT"`
+	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
+	TLS_PATH              string `mapstructure:"TLS_PATH"`
 }
 
 func main() {
@@ -75,54 +75,49 @@ func main() {
 	err = viper.Unmarshal(&configFile)
 
 	if err != nil {
-		log.Fatal("cannot load config:", err)
+		log.Fatal("Cannot load config:", err)
 	}
 
-	flag.Parse()
-
-	user, pass := configFile.DB_USER, configFile.DB_PASSWORD
-	if user == "" || pass == "" {
+	if configFile.DB_USER == "" || configFile.DB_PASSWORD == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
-	sslmode := configFile.DB_SSLMODE
-	if sslmode == "" {
-		sslmode = "disable"
-	}
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", configFile.DB_HOST, configFile.DB_USER, configFile.DB_PASSWORD, configFile.DB_NAME, configFile.DB_PORT, configFile.DB_SSLMODE)
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=%s", configFile.DB_ADDR, user, pass, configFile.DB_NAME, configFile.DB_SSLMODE)
 	db, err := gorm.Open(postgres.Open(dbURI), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("failed to open the results.db: %v", err)
+		log.Fatalf("Failed to open the results.db: %v", err)
 	}
 
 	// Create k8s client
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal("error getting kubernetes client config:", err)
+		log.Fatal("Error getting kubernetes client config:", err)
 	}
 	k8s, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatal("error creating kubernetes clientset:", err)
+		log.Fatal("Error creating kubernetes clientset:", err)
 	}
 
-	// Load TLS cert
-	creds, err := credentials.NewServerTLSFromFile("/etc/tls/tls.crt", "/etc/tls/tls.key")
-	if err != nil {
-		log.Fatalf("error loading TLS key pair: %v", err)
+	// Load TLS cert for server
+	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
+	if tlsError != nil {
+		log.Printf("Error loading TLS key pair for server: %v", tlsError)
+		log.Println("Creating server without TLS")
+		creds = insecure.NewCredentials()
 	}
 
 	// Register API server(s)
 	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
 	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
+		log.Fatalf("Failed to create server: %v", err)
 	}
 	s := grpc.NewServer(
 		grpc.Creds(creds),
-		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+		grpc.StreamInterceptor(prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(prometheus.UnaryServerInterceptor),
 	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
 
@@ -134,25 +129,52 @@ func main() {
 	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
 	healthpb.RegisterHealthServer(s, hs)
 
-	// Prometheus metrics
-	grpc_prometheus.Register(s)
+	// Start prometheus metrics server
+	prometheus.Register(s)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		if err := http.ListenAndServe(":8080", promhttp.Handler()); err != nil {
-			log.Fatalf("error running Prometheus HTTP handler: %v", err)
+		log.Printf("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
+		if err := http.ListenAndServe(":"+configFile.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
+			log.Fatalf("Error running Prometheus HTTP handler: %v", err)
 		}
 	}()
 
-	// Listen on port and serve.
-	port := os.Getenv("PORT")
-	if port == "" {
-		// Default gRPC server port to this value from tutorials (e.g., https://grpc.io/docs/guides/auth/#go)
-		port = "50051"
-	}
-	lis, err := net.Listen("tcp", ":"+port)
+	// Start gRPC server
+	lis, err := net.Listen("tcp", ":"+configFile.GRPC_PORT)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("Failed to listen: %v", err)
 	}
-	log.Printf("Listening on :%s...", port)
-	log.Fatal(s.Serve(lis))
+	go func() {
+		log.Printf("gRPC server listening on: %s", configFile.GRPC_PORT)
+		log.Fatal(s.Serve(lis))
+	}()
+
+	// Load REST client TLS cert to connect to the gRPC server
+	if tlsError == nil {
+		creds, err = credentials.NewClientTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), configFile.TLS_HOSTNAME_OVERRIDE)
+		if err != nil {
+			log.Fatalf("Error loading TLS certificate for REST: %v", err)
+		}
+	}
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+
+	// Register gRPC server endpoint for gRPC gateway
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	mux := runtime.NewServeMux()
+	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
+	if err != nil {
+		log.Fatal("Error registering gRPC server endpoint: ", err)
+	}
+
+	// Start REST proxy server
+	log.Printf("REST server Listening on: %s", configFile.REST_PORT)
+	if tlsError != nil {
+		log.Fatal(http.ListenAndServe(":"+configFile.REST_PORT, mux))
+	} else {
+		log.Fatal(http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux))
+	}
+
 }

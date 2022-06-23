@@ -1,2 +1,8 @@
-results.db
+# IDE
 .vscode
+.idea
+
+# Testing
+temp
+bin
+results.db

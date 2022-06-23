@@ -2,18 +2,21 @@
 
 ## Variables
 
-| Environment Variable | Description                     | Example                                      |
-|----------------------|---------------------------------|----------------------------------------------|
-| DB_USER              | MySQL Database user             | user                                         |
-| DB_PASSWORD          | MySQL Database Password         | hunter2                                      |
-| DB_PROTOCOL          | MySQL Database Network Protocol | unix                                         |
-| DB_ADDR              | MySQL Database address          | /cloudsql/my-project:us-east1:tekton-results |
-| DB_NAME              | MySQL Database name             | tekton_results                               |
-| DB_SSLMODE           | Database SSL mode               | verify-full                                  |
+| Environment Variable | Description                | Example                                      |
+|----------------------|----------------------------|----------------------------------------------|
+| DB_USER              | Postgres Database user     | user                                         |
+| DB_PASSWORD          | Postgres Database Password | hunter2                                      |
+| DB_HOST              | Postgres Database host     | /cloudsql/my-project:us-east1:tekton-results |
+| DB_NAME              | Postgres Database name     | tekton_results                               |
+| DB_SSLMODE           | Database SSL mode          | verify-full                                  |
+| GRPC_PORT            | gRPC Server Port           | 50051 (default)                              |
+| REST_PORT            | REST proxy Port            | 8080  (default)                              |
+| PROMETHEUS_PORT      | Prometheus Port            | 9090  (default)                              |
+| TLS_HOSTNAME_OVERRIDE| Override the hostname used to serve TLS. This should not be set (or set to the empty string) in production environments.     | results.tekton.dev                           |
+| TLS_PATH             | Path to TLS files          | /etc/tls                                     |
 
 These values can also be set in the config file located in the `env/config` directory.
 
-Values derived from MySQL DSN (see
-https://github.com/go-sql-driver/mysql#dsn-data-source-name)
+Values derived from Postgres DSN
 
-If you use the default MySQL server we provide, the `DB_ADDR` can be set as `tekton-results-mysql.tekton-pipelines`.
+If you use the default postgres database we provide, the `DB_HOST` can be set as `tekton-results-postgres-service.tekton-pipelines`.
