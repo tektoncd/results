@@ -298,6 +298,10 @@ func (s *mockLogStreamer) WriteTo(io.Writer) (int64, error) {
 	return 0, fmt.Errorf("not implemented!")
 }
 
+func (s *mockLogStreamer) ReadFrom(io.Reader) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
+
 func (s *mockLogStreamer) Type() string {
 	return s.streamerType
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 type fileLogStreamer struct {
@@ -45,5 +46,34 @@ func (f *fileLogStreamer) WriteTo(w io.Writer) (n int64, err error) {
 	// Use the bufferred reader to ensure file contents are not read entirely into memory
 	reader := bufio.NewReaderSize(file, f.bufSize)
 	n, err = reader.WriteTo(w)
+	return
+}
+
+func (f *fileLogStreamer) ReadFrom(r io.Reader) (n int64, err error) {
+	// Ensure that the directories in the path already exist
+	dir := filepath.Dir(f.path)
+	err = os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create directory %s, %v", dir, err)
+	}
+	// Open the file with Append + Create + WriteOnly modes.
+	// This ensures the file is created if it does not exist.
+	// If the file does exist, data is appended instead of overwritten/truncated
+	file, err := os.OpenFile(f.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file %s: %v", f.path, err)
+	}
+	defer func() {
+		closeErr := file.Close()
+		if err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+	writer := bufio.NewWriterSize(file, f.bufSize)
+	n, err = writer.ReadFrom(r)
+	if err != nil {
+		return
+	}
+	err = writer.Flush()
 	return
 }

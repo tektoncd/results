@@ -156,5 +156,19 @@ message RecordSummary {
 
 // LogChunk is a chunk of a log from a TaskRun.
 message LogChunk {
-  bytes data = 1;
+  // Resource name, must be rooted in parent result.
+  string name = 1 [(google.api.resource_reference) = {
+      child_type: "tekton.results.v1alpha2/Record"
+  }];
+
+  bytes data = 2;
+}
+
+message PutLogSummary {
+  // The name of the Record this summary represents.
+  string record = 1  [
+   (google.api.resource_reference).type = "results.tekton.dev/Record"
+  ];
+
+  int64 bytesReceived = 2;
 }

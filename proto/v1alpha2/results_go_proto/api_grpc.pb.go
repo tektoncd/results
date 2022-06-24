@@ -34,6 +34,7 @@ type ResultsClient interface {
 	ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error)
 	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetLog(ctx context.Context, in *GetLogRequest, opts ...grpc.CallOption) (Results_GetLogClient, error)
+	PutLog(ctx context.Context, opts ...grpc.CallOption) (Results_PutLogClient, error)
 }
 
 type resultsClient struct {
@@ -166,6 +167,40 @@ func (x *resultsGetLogClient) Recv() (*LogChunk, error) {
 	return m, nil
 }
 
+func (c *resultsClient) PutLog(ctx context.Context, opts ...grpc.CallOption) (Results_PutLogClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Results_ServiceDesc.Streams[1], "/tekton.results.v1alpha2.Results/PutLog", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &resultsPutLogClient{stream}
+	return x, nil
+}
+
+type Results_PutLogClient interface {
+	Send(*LogChunk) error
+	CloseAndRecv() (*PutLogSummary, error)
+	grpc.ClientStream
+}
+
+type resultsPutLogClient struct {
+	grpc.ClientStream
+}
+
+func (x *resultsPutLogClient) Send(m *LogChunk) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *resultsPutLogClient) CloseAndRecv() (*PutLogSummary, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(PutLogSummary)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ResultsServer is the server API for Results service.
 // All implementations must embed UnimplementedResultsServer
 // for forward compatibility
@@ -181,6 +216,7 @@ type ResultsServer interface {
 	ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error)
 	DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error)
 	GetLog(*GetLogRequest, Results_GetLogServer) error
+	PutLog(Results_PutLogServer) error
 	mustEmbedUnimplementedResultsServer()
 }
 
@@ -220,6 +256,9 @@ func (UnimplementedResultsServer) DeleteRecord(context.Context, *DeleteRecordReq
 }
 func (UnimplementedResultsServer) GetLog(*GetLogRequest, Results_GetLogServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetLog not implemented")
+}
+func (UnimplementedResultsServer) PutLog(Results_PutLogServer) error {
+	return status.Errorf(codes.Unimplemented, "method PutLog not implemented")
 }
 func (UnimplementedResultsServer) mustEmbedUnimplementedResultsServer() {}
 
@@ -435,6 +474,32 @@ func (x *resultsGetLogServer) Send(m *LogChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Results_PutLog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ResultsServer).PutLog(&resultsPutLogServer{stream})
+}
+
+type Results_PutLogServer interface {
+	SendAndClose(*PutLogSummary) error
+	Recv() (*LogChunk, error)
+	grpc.ServerStream
+}
+
+type resultsPutLogServer struct {
+	grpc.ServerStream
+}
+
+func (x *resultsPutLogServer) SendAndClose(m *PutLogSummary) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *resultsPutLogServer) Recv() (*LogChunk, error) {
+	m := new(LogChunk)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Results_ServiceDesc is the grpc.ServiceDesc for Results service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -488,6 +553,11 @@ var Results_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "GetLog",
 			Handler:       _Results_GetLog_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "PutLog",
+			Handler:       _Results_PutLog_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "api.proto",

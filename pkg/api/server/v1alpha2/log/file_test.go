@@ -27,11 +27,7 @@ func TestFileLogStreamer(t *testing.T) {
 			t.Fatalf("failed to remove directory %s: %v", dir, err)
 		}
 	})
-	expected := "Hello World!"
-	_, err = tmp.WriteString("Hello World!")
-	if err != nil {
-		t.Fatalf("failed to write test message: %v", err)
-	}
+
 	trl := &TaskRunLog{
 		Type: FileLogType,
 		File: &FileLogTypeSpec{
@@ -42,6 +38,19 @@ func TestFileLogStreamer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create file log streamer: %v", err)
 	}
+
+	expected := "Hello World!"
+	buffer := &bytes.Buffer{}
+	buffer.WriteString(expected)
+
+	n, err := streamer.ReadFrom(buffer)
+	if err != nil {
+		t.Fatalf("ReadFrom: failed to read from buffer and write to storage: %v", err)
+	}
+	if n != int64(len(expected)) {
+		t.Errorf("expected %d bytes to be read, got %d", len(expected), n)
+	}
+
 	outBuf := &bytes.Buffer{}
 	_, err = streamer.WriteTo(outBuf)
 	if err != nil {

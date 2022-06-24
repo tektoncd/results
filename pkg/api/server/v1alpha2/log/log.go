@@ -15,6 +15,7 @@ const (
 )
 
 type LogStreamer interface {
+	io.ReaderFrom
 	io.WriterTo
 	Type() string
 }
@@ -35,7 +36,13 @@ type FileLogTypeSpec struct {
 }
 
 // NewLogStreamer returns a LogStreamer for the given TaskRunLog.
-// LogStreamers write log data from their respective source to an io.Writer interface.
+// LogStreamers do the following:
+//
+// 1. Write log data from their respective source to an io.Writer interface.
+// 2. Read log data from a source, and store it in the respective backend if that behavior is supported.
+//
+// All LogStreamers support writing log data to an io.Writer from the provided source.
+// LogStreamers do not need to receive and store data from the provided source.
 func NewLogStreamer(trl *TaskRunLog, bufSize int) (LogStreamer, error) {
 	switch trl.Type {
 	case FileLogType:

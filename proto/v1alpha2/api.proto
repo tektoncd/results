@@ -96,6 +96,10 @@ service Results {
       get: "/v1alpha2/{name=*/results/*/logs/*}"
     };
   }
+
+  rpc PutLog(stream LogChunk) returns (PutLogSummary) {
+
+  }
 }
 
 message CreateResultRequest {
