@@ -35,10 +35,10 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 	informer := taskruninformer.Get(ctx)
 
 	c := &Reconciler{
-		client:    client,
-		lister:    informer.Lister(),
-		k8sclient: pipelineclient.Get(ctx),
-		cfg:       cfg,
+		client:         client,
+		lister:         informer.Lister(),
+		pipelineClient: pipelineclient.Get(ctx),
+		cfg:            cfg,
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{

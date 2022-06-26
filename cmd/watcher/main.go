@@ -35,7 +35,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -70,9 +72,21 @@ func main() {
 	defer conn.Close()
 	results := v1alpha2pb.NewResultsClient(conn)
 
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatalf("failed to load in cluster kubeconfig: %v", err)
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("failed to create kubernetes client: %v", err)
+	}
+
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate:      *disableCRDUpdate,
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
+		KubeClient:                   clientset,
 	}
 
 	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, ""), "watcher",

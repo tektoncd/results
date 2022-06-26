@@ -14,7 +14,11 @@
 
 package reconciler
 
-import "time"
+import (
+	"time"
+
+	"k8s.io/client-go/kubernetes"
+)
 
 // Config defines shared reconciler configuration options.
 type Config struct {
@@ -25,6 +29,8 @@ type Config struct {
 	// CompletedResourceGracePeriod is the time to wait before deleting completed resources.
 	// 0 implies the duration
 	CompletedResourceGracePeriod time.Duration
+
+	KubeClient kubernetes.Interface
 }
 
 // GetDisableAnnotationupdate returns whether annotation updates should be
