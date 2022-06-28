@@ -7,8 +7,8 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/logwriter"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
@@ -33,7 +33,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Results_GetLogServer) erro
 		return err
 	}
 	// Step 5: Stream log via gRPC Send calls.
-	_, err = streamer.WriteTo(log.NewLogChunkWriter(srv, s.logChunkSize))
+	_, err = streamer.WriteTo(logwriter.NewLogChunkWriter(srv, name, s.logChunkSize))
 	return err
 }
 

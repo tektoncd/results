@@ -1,15 +1,13 @@
-package log
+package logwriter
 
 import (
 	"bytes"
 	"testing"
 
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"google.golang.org/grpc"
 )
 
 type mockGetLogServer struct {
-	grpc.ServerStream
 	receivedData *bytes.Buffer
 }
 
@@ -26,7 +24,7 @@ func TestLogChunkWriter(t *testing.T) {
 		receivedData: &bytes.Buffer{},
 	}
 	// Test with a very low chunk size, to ensure we test recursion
-	writer := NewLogChunkWriter(server, 4)
+	writer := NewLogChunkWriter(server, "test-result", 4)
 	expected := "Hello World! This is a log message!"
 	n, err := writer.Write([]byte(expected))
 	if err != nil {
