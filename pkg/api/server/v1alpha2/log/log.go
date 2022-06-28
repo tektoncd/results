@@ -3,6 +3,8 @@ package log
 import (
 	"fmt"
 	"io"
+
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 )
 
 const (
@@ -18,21 +20,6 @@ type LogStreamer interface {
 	Type() string
 }
 
-type TaskRunLogType string
-
-const (
-	FileLogType TaskRunLogType = "File"
-)
-
-type TaskRunLog struct {
-	Type TaskRunLogType   `json:"type"`
-	File *FileLogTypeSpec `json:"file,omitempty"`
-}
-
-type FileLogTypeSpec struct {
-	Path string `json:"path"`
-}
-
 // NewLogStreamer returns a LogStreamer for the given TaskRunLog.
 // LogStreamers do the following:
 //
@@ -41,9 +28,9 @@ type FileLogTypeSpec struct {
 //
 // All LogStreamers support writing log data to an io.Writer from the provided source.
 // LogStreamers do not need to receive and store data from the provided source.
-func NewLogStreamer(trl *TaskRunLog, bufSize int) (LogStreamer, error) {
+func NewLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int) (LogStreamer, error) {
 	switch trl.Type {
-	case FileLogType:
+	case v1alpha2.FileLogType:
 		return NewFileLogStreamer(trl, bufSize)
 	}
 	return nil, fmt.Errorf("log streamer type %s is not supported", trl.Type)

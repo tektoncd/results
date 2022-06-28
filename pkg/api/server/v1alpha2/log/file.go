@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 )
 
 type fileLogStreamer struct {
@@ -14,7 +16,7 @@ type fileLogStreamer struct {
 }
 
 // NewFileLogStreamer returns a LogStreamer that streams directly from a log file on local disk.
-func NewFileLogStreamer(trl *TaskRunLog, bufSize int) (LogStreamer, error) {
+func NewFileLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int) (LogStreamer, error) {
 	if trl.File == nil {
 		return nil, fmt.Errorf("file to stream is not specified")
 	}
@@ -25,7 +27,7 @@ func NewFileLogStreamer(trl *TaskRunLog, bufSize int) (LogStreamer, error) {
 }
 
 func (*fileLogStreamer) Type() string {
-	return string(FileLogType)
+	return string(v1alpha2.FileLogType)
 }
 
 func (f *fileLogStreamer) WriteTo(w io.Writer) (n int64, err error) {

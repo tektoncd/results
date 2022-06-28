@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 )
 
 func TestFileLogStreamer(t *testing.T) {
@@ -28,9 +30,9 @@ func TestFileLogStreamer(t *testing.T) {
 		}
 	})
 
-	trl := &TaskRunLog{
-		Type: FileLogType,
-		File: &FileLogTypeSpec{
+	trl := &v1alpha2.TaskRunLog{
+		Type: v1alpha2.FileLogType,
+		File: &v1alpha2.FileLogTypeSpec{
 			Path: tmp.Name(),
 		},
 	}
