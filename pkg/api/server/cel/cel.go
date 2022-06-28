@@ -16,6 +16,7 @@
 package cel
 
 import (
+	"context"
 	"log"
 
 	"github.com/google/cel-go/cel"
@@ -60,6 +61,10 @@ func ParseFilter(env *cel.Env, filter string) (cel.Program, error) {
 type allowAll struct{}
 
 func (allowAll) Eval(interface{}) (ref.Val, *cel.EvalDetails, error) {
+	return types.Bool(true), nil, nil
+}
+
+func (allowAll) ContextEval(context.Context, interface{}) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
 
