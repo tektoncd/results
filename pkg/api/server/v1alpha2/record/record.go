@@ -25,6 +25,7 @@ import (
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -129,10 +130,10 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 }
 
 func ToLogStreamer(r *db.Record, bufSize int) (log.LogStreamer, error) {
-	if r.Type != "results.tekton.dev/TaskRunLog" {
+	if r.Type != v1alpha2.TaskRunLogRecordType {
 		return nil, fmt.Errorf("record type %s cannot stream logs", r.Type)
 	}
-	logData := &log.TaskRunLog{}
+	logData := &v1alpha2.TaskRunLog{}
 	err := json.Unmarshal(r.Data, logData)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode TaskRunLog record: %v", err)

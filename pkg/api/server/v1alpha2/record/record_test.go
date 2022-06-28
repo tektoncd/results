@@ -26,6 +26,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -321,16 +322,16 @@ func TestToLogStreamer(t *testing.T) {
 				ResultName: "push-main",
 				Name:       "taskrun-compile-log",
 				ID:         "a",
-				Type:       "results.tekton.dev/TaskRunLog",
-				Data: jsonutil.AnyBytes(t, &log.TaskRunLog{
-					Type: log.FileLogType,
-					File: &log.FileLogTypeSpec{
+				Type:       v1alpha2.TaskRunLogRecordType,
+				Data: jsonutil.AnyBytes(t, &v1alpha2.TaskRunLog{
+					Type: v1alpha2.FileLogType,
+					File: &v1alpha2.FileLogTypeSpec{
 						Path: "app/results/push-main/records/taskrun-compile-log/a.log",
 					},
 				}),
 			},
 			want: &mockLogStreamer{
-				streamerType: string(log.FileLogType),
+				streamerType: string(v1alpha2.FileLogType),
 			},
 		},
 		{
