@@ -324,9 +324,12 @@ func TestToLogStreamer(t *testing.T) {
 				ID:         "a",
 				Type:       v1alpha2.TaskRunLogRecordType,
 				Data: jsonutil.AnyBytes(t, &v1alpha2.TaskRunLog{
-					Type: v1alpha2.FileLogType,
-					File: &v1alpha2.FileLogTypeSpec{
-						Path: "app/results/push-main/records/taskrun-compile-log/a.log",
+					Spec: v1alpha2.TaskRunLogSpec{
+						Type: v1alpha2.FileLogType,
+						Ref: v1alpha2.TaskRunRef{
+							Namespace: "app",
+							Name:      "taskrun-compile",
+						},
 					},
 				}),
 			},
@@ -361,7 +364,7 @@ func TestToLogStreamer(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			streamer, err := ToLogStreamer(tc.in, 1024)
+			streamer, err := ToLogStreamer(tc.in, 1024, "")
 			if err != nil {
 				if !tc.expectErr {
 					t.Errorf("unexpected error: %v", err)

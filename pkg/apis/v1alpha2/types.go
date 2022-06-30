@@ -1,12 +1,27 @@
 package v1alpha2
 
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 const (
 	TaskRunLogRecordType = "results.tekton.dev/v1alpha2.TaskRunLog"
 )
 
 type TaskRunLog struct {
-	Type TaskRunLogType   `json:"type"`
-	File *FileLogTypeSpec `json:"file,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   TaskRunLogSpec   `json:"spec"`
+	Status TaskRunLogStatus `json:"status,omitempty"`
+}
+
+type TaskRunLogSpec struct {
+	Ref  TaskRunRef     `json:"ref"`
+	Type TaskRunLogType `json:"type"`
+}
+
+type TaskRunRef struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
 }
 
 type TaskRunLogType string
@@ -15,6 +30,15 @@ const (
 	FileLogType TaskRunLogType = "File"
 )
 
-type FileLogTypeSpec struct {
+type TaskRunLogStatus struct {
+	File *FileLogTypeStatus `json:"file,omitempty"`
+}
+
+type FileLogTypeStatus struct {
 	Path string `json:"path"`
+}
+
+func (t *TaskRunLog) Default() {
+	t.TypeMeta.Kind = "TaskRunLog"
+	t.TypeMeta.APIVersion = "results.tekton.dev/v1alpha2"
 }

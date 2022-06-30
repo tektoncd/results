@@ -28,10 +28,13 @@ type LogStreamer interface {
 //
 // All LogStreamers support writing log data to an io.Writer from the provided source.
 // LogStreamers do not need to receive and store data from the provided source.
-func NewLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int) (LogStreamer, error) {
-	switch trl.Type {
+//
+// NewLogStreamer may mutate the TaskRunLog object's status, to provide implementation information
+// for reading and writing files.
+func NewLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int, logDataDir string) (LogStreamer, error) {
+	switch trl.Spec.Type {
 	case v1alpha2.FileLogType:
-		return NewFileLogStreamer(trl, bufSize)
+		return NewFileLogStreamer(trl, bufSize, logDataDir)
 	}
-	return nil, fmt.Errorf("log streamer type %s is not supported", trl.Type)
+	return nil, fmt.Errorf("log streamer type %s is not supported", trl.Spec.Type)
 }

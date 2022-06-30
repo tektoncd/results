@@ -46,6 +46,7 @@ type Server struct {
 	db           *gorm.DB
 	auth         auth.Checker
 	logChunkSize int
+	logDataDir   string
 
 	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
@@ -91,6 +92,12 @@ func WithAuth(c auth.Checker) Option {
 func WithLogChunkSize(size int) Option {
 	return func(s *Server) {
 		s.logChunkSize = size
+	}
+}
+
+func WithLogDataDir(dir string) Option {
+	return func(s *Server) {
+		s.logDataDir = dir
 	}
 }
 

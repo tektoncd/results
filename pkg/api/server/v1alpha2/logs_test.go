@@ -106,9 +106,18 @@ func TestGetLog(t *testing.T) {
 			Data: &pb.Any{
 				Type: v1alpha2.TaskRunLogRecordType,
 				Value: jsonutil.AnyBytes(t, &v1alpha2.TaskRunLog{
-					Type: v1alpha2.FileLogType,
-					File: &v1alpha2.FileLogTypeSpec{
-						Path: logFile.Name(),
+					Spec: v1alpha2.TaskRunLogSpec{
+						Ref: v1alpha2.TaskRunRef{
+							Namespace: "foo",
+							Name:      "baz",
+						},
+						Type: v1alpha2.FileLogType,
+					},
+					// To avoid defaulting behavior, explicitly set the file path in status
+					Status: v1alpha2.TaskRunLogStatus{
+						File: &v1alpha2.FileLogTypeStatus{
+							Path: logFile.Name(),
+						},
 					},
 				}),
 			},
@@ -163,9 +172,18 @@ func TestPutLog(t *testing.T) {
 			Data: &pb.Any{
 				Type: v1alpha2.TaskRunLogRecordType,
 				Value: jsonutil.AnyBytes(t, &v1alpha2.TaskRunLog{
-					Type: v1alpha2.FileLogType,
-					File: &v1alpha2.FileLogTypeSpec{
-						Path: path,
+					Spec: v1alpha2.TaskRunLogSpec{
+						Ref: v1alpha2.TaskRunRef{
+							Namespace: "foo",
+							Name:      "baz",
+						},
+						Type: v1alpha2.FileLogType,
+					},
+					// To avoid defaulting behavior, explicitly set the file path in status
+					Status: v1alpha2.TaskRunLogStatus{
+						File: &v1alpha2.FileLogTypeStatus{
+							Path: path,
+						},
 					},
 				}),
 			},

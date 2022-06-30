@@ -16,14 +16,20 @@ type fileLogStreamer struct {
 }
 
 // NewFileLogStreamer returns a LogStreamer that streams directly from a log file on local disk.
-func NewFileLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int) (LogStreamer, error) {
-	if trl.File == nil {
-		return nil, fmt.Errorf("file to stream is not specified")
+func NewFileLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int, logDataDir string) (LogStreamer, error) {
+	if trl.Status.File == nil {
+		trl.Status.File = &v1alpha2.FileLogTypeStatus{
+			Path: defaultFilePath(trl),
+		}
 	}
 	return &fileLogStreamer{
-		path:    trl.File.Path,
+		path:    filepath.Join(logDataDir, trl.Status.File.Path),
 		bufSize: bufSize,
 	}, nil
+}
+
+func defaultFilePath(trl *v1alpha2.TaskRunLog) string {
+	return filepath.Join(trl.Spec.Ref.Namespace, "taskruns", trl.Spec.Ref.Name, "taskrun.log")
 }
 
 func (*fileLogStreamer) Type() string {

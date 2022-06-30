@@ -14,16 +14,11 @@ func TestFileLogStreamer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
-	tmp, err := ioutil.TempFile(dir, "temp-file-*.log")
 	if err != nil {
 		t.Fatalf("failed to create test log file: %v", err)
 	}
-	t.Logf("test log file: %s", tmp.Name())
+	t.Logf("test log directory: %s", dir)
 	t.Cleanup(func() {
-		err := tmp.Close()
-		if err != nil {
-			t.Fatalf("failed to close test log file: %v", err)
-		}
 		err = os.RemoveAll(dir)
 		if err != nil {
 			t.Fatalf("failed to remove directory %s: %v", dir, err)
@@ -31,14 +26,25 @@ func TestFileLogStreamer(t *testing.T) {
 	})
 
 	trl := &v1alpha2.TaskRunLog{
-		Type: v1alpha2.FileLogType,
-		File: &v1alpha2.FileLogTypeSpec{
-			Path: tmp.Name(),
+		Spec: v1alpha2.TaskRunLogSpec{
+			Type: v1alpha2.FileLogType,
+			Ref: v1alpha2.TaskRunRef{
+				Namespace: "filelogstream",
+				Name:      "build-file",
+			},
 		},
 	}
-	streamer, err := NewFileLogStreamer(trl, 1024)
+	streamer, err := NewFileLogStreamer(trl, 1024, dir)
 	if err != nil {
 		t.Fatalf("failed to create file log streamer: %v", err)
+	}
+	// Verify that the taskRunLog has the right path
+	if trl.Status.File == nil {
+		t.Error("expected TaskRunLog record to have a file path in its status.")
+	} else {
+		if len(trl.Status.File.Path) == 0 {
+			t.Error("expected TaskRunLog record to have a file path in its status.")
+		}
 	}
 
 	expected := "Hello World!"

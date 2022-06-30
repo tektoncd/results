@@ -28,7 +28,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Results_GetLogServer) erro
 		return err
 	}
 	// Step 4: Transform record into LogStreamer
-	streamer, err := record.ToLogStreamer(dbRecord, s.logChunkSize)
+	streamer, err := record.ToLogStreamer(dbRecord, s.logChunkSize, s.logDataDir)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
 			}
 		}
 		// Step 4: Transform record into LogStreamer
-		streamer, err := record.ToLogStreamer(dbRecord, s.logChunkSize)
+		streamer, err := record.ToLogStreamer(dbRecord, s.logChunkSize, s.logDataDir)
 		if err != nil {
 			return err
 		}

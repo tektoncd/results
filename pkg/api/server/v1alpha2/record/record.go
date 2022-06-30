@@ -129,7 +129,7 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 	return out, nil
 }
 
-func ToLogStreamer(r *db.Record, bufSize int) (log.LogStreamer, error) {
+func ToLogStreamer(r *db.Record, bufSize int, dataDir string) (log.LogStreamer, error) {
 	if r.Type != v1alpha2.TaskRunLogRecordType {
 		return nil, fmt.Errorf("record type %s cannot stream logs", r.Type)
 	}
@@ -138,7 +138,7 @@ func ToLogStreamer(r *db.Record, bufSize int) (log.LogStreamer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not decode TaskRunLog record: %v", err)
 	}
-	return log.NewLogStreamer(logData, bufSize)
+	return log.NewLogStreamer(logData, bufSize, dataDir)
 }
 
 // Match determines whether the given CEL filter matches the result.
