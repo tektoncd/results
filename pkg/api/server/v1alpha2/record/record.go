@@ -97,7 +97,31 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 		dbr.UpdatedTime = r.UpdateTime.AsTime()
 	}
 
+	if r.GetData().GetType() == v1alpha2.TaskRunLogRecordType {
+		data, err := toTaskRunLogStorage(parent, resultName, name, r)
+		if err != nil {
+			return nil, err
+		}
+		dbr.Data = data
+	}
+
 	return dbr, nil
+}
+
+func toTaskRunLogStorage(parent, resultName, name string, r *pb.Record) ([]byte, error) {
+	trl := &v1alpha2.TaskRunLog{}
+	if len(r.GetData().Value) > 0 {
+		err := json.Unmarshal(r.GetData().Value, trl)
+		if err != nil {
+			return nil, err
+		}
+	}
+	trl.Default()
+	// TODO: Make this configurable in the apiserver.
+	if trl.Spec.Type == "" {
+		trl.Spec.Type = v1alpha2.FileLogType
+	}
+	return json.Marshal(trl)
 }
 
 // ToAPI converts a database storage Record into its corresponding API
