@@ -50,7 +50,7 @@ spec:
             - name: DB_PROTOCOL
               value: tcp
             - name: DB_ADDR
-              value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
+              value: tekton-results-postgres-service
             - name: DB_NAME
               value: tekton-results
           volumeMounts:
