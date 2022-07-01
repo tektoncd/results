@@ -26,6 +26,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/pod"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
@@ -481,4 +482,47 @@ func newConditionAccessor(conds ...*apis.Condition) conditionAccessor {
 
 func (ca conditionAccessor) GetCondition(t apis.ConditionType) *apis.Condition {
 	return ca.m[t]
+}
+
+func TestToLogProto(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   metav1.Object
+		want *v1alpha2.TaskRunLog
+	}{
+		{
+			name: "TaskRun",
+			in:   taskrun,
+			want: &v1alpha2.TaskRunLog{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "TaskRunLog",
+					APIVersion: "results.tekton.dev/v1alpha2",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: taskrun.Namespace,
+					Name:      fmt.Sprintf("%s-log", taskrun.Name),
+				},
+				Spec: v1alpha2.TaskRunLogSpec{
+					Ref: v1alpha2.TaskRunRef{
+						Namespace: taskrun.Namespace,
+						Name:      taskrun.Name,
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToLogProto(tc.in)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			wantData := &rpb.Any{
+				Type:  v1alpha2.TaskRunLogRecordType,
+				Value: toJSON(tc.want),
+			}
+			if d := cmp.Diff(wantData, got, protocmp.Transform()); d != "" {
+				t.Errorf("Diff(-want,+got): %s", d)
+			}
+		})
+	}
 }

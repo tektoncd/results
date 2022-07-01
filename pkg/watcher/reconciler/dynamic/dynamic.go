@@ -15,10 +15,20 @@
 package dynamic
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jonboulle/clockwork"
+	"github.com/tektoncd/cli/pkg/cli"
+	tknlog "github.com/tektoncd/cli/pkg/log"
+	tknopts "github.com/tektoncd/cli/pkg/options"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/logwriter"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
@@ -42,6 +52,11 @@ type Reconciler struct {
 	objectClient  ObjectClient
 	cfg           *reconciler.Config
 	enqueue       func(interface{}, time.Duration)
+}
+
+func init() {
+	// Disable colorized output from the tkn CLI.
+	color.NoColor = true
 }
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
@@ -75,9 +90,39 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		return err
 	}
 
+	var logRecord *pb.Record
+
+	if hasLog(o) {
+		// Create a log record if the object has/supports logs
+		// For now this is just TaskRuns.
+		logResult, logRecord, err := r.resultsClient.PutLogRecord(ctx, o)
+		if err != nil {
+			log.Errorf("error creating TaskRun log Record: %v", err)
+			return err
+		}
+		needsStream, err := needsLogsStreamed(logRecord)
+		if err != nil {
+			log.Errorf("error determining if logs need to be streamed: %v", err)
+			return err
+		}
+		if needsStream {
+			log.Infof("streaming logs for TaskRun %s/%s", o.GetNamespace(), o.GetName())
+			err = r.streamLogs(ctx, logResult, logRecord, o)
+			if err != nil {
+				log.Errorf("error streaming logs: %v", err)
+				return err
+			}
+			log.Infof("finished streaming logs for TaskRun %s/%s", o.GetNamespace(), o.GetName())
+		}
+	}
+
 	if a := o.GetAnnotations(); !r.cfg.GetDisableAnnotationUpdate() && (result.GetName() != a[annotation.Result] || record.GetName() != a[annotation.Record]) {
+		logRecordName := ""
+		if logRecord != nil {
+			logRecordName = logRecord.GetName()
+		}
 		// Update object with Result Annotations.
-		patch, err := annotation.Add(result.GetName(), record.GetName())
+		patch, err := annotation.Add(result.GetName(), record.GetName(), logRecordName)
 		if err != nil {
 			log.Errorf("error adding Result annotations: %v", err)
 			return err
@@ -119,6 +164,74 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	return nil
 }
 
+func (r *Reconciler) streamLogs(ctx context.Context, res *pb.Result, rec *pb.Record, o metav1.Object) error {
+	tknParams := &cli.TektonParams{}
+	tknParams.SetNamespace(o.GetNamespace())
+	// TODO: Set TaskrunName or PipelinerunName based on object type
+	reader, err := tknlog.NewReader(tknlog.LogTypeTask, &tknopts.LogOptions{
+		AllSteps:    true,
+		Params:      tknParams,
+		TaskrunName: o.GetName(),
+	})
+	if err != nil {
+		return err
+	}
+	logChan, errChan, err := reader.Read()
+	if err != nil {
+		return err
+	}
+	putLogClient, err := r.resultsClient.PutLog(ctx)
+	if err != nil {
+		return err
+	}
+	writer := logwriter.NewLogChunkWriter(putLogClient, record.FormatName(res.GetName(), rec.GetName()), logwriter.DefaultMaxLogChunkSize)
+	errWriter := &errorWriter{
+		errBuf: &bytes.Buffer{},
+	}
+	// TODO: Set writer type based on the object type
+	tknlog.NewWriter(tknlog.LogTypeTask, true).Write(&cli.Stream{
+		Out: writer,
+		Err: errWriter,
+	}, logChan, errChan)
+	return errWriter.Error()
+}
+
 func isDone(o results.Object) bool {
 	return o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
+}
+
+func hasLog(o results.Object) bool {
+	return !o.GetObjectKind().GroupVersionKind().Empty() && o.GetObjectKind().GroupVersionKind().Kind == "TaskRun"
+}
+
+func needsLogsStreamed(rec *pb.Record) (bool, error) {
+	if rec.GetData().Type != v1alpha2.TaskRunLogRecordType {
+		return false, nil
+	}
+	trl := &v1alpha2.TaskRunLog{}
+	err := json.Unmarshal(rec.GetData().GetValue(), trl)
+	if err != nil {
+		return false, err
+	}
+	needsStream := trl.Spec.Type == v1alpha2.FileLogType
+	if trl.Status.File != nil {
+		needsStream = needsStream && trl.Status.File.Size <= 0
+	}
+	return needsStream, nil
+}
+
+type errorWriter struct {
+	errBuf *bytes.Buffer
+}
+
+func (e *errorWriter) Write(p []byte) (n int, err error) {
+	n, err = e.errBuf.Write(p)
+	return
+}
+
+func (e *errorWriter) Error() error {
+	if e.errBuf.Len() == 0 {
+		return nil
+	}
+	return fmt.Errorf("log streaming failed: %s", e.errBuf.String())
 }

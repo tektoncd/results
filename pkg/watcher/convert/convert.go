@@ -25,7 +25,9 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
 	"github.com/tektoncd/pipeline/pkg/pod"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
@@ -45,6 +47,35 @@ func ToProto(in runtime.Object) (*rpb.Any, error) {
 		Type:  TypeName(in),
 		Value: b,
 	}, nil
+}
+
+func ToLogProto(in metav1.Object) (*rpb.Any, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	trl := &v1alpha2.TaskRunLog{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: in.GetNamespace(),
+			Name:      fmt.Sprintf("%s-log", in.GetName()),
+		},
+		Spec: v1alpha2.TaskRunLogSpec{
+			Ref: v1alpha2.TaskRunRef{
+				Namespace: in.GetNamespace(),
+				Name:      in.GetName(),
+			},
+		},
+	}
+	trl.Default()
+	b, err := json.Marshal(trl)
+	if err != nil {
+		return nil, err
+	}
+	return &rpb.Any{
+		Type:  v1alpha2.TaskRunLogRecordType,
+		Value: b,
+	}, nil
+
 }
 
 // TypeName returns a string representation of type Object type.

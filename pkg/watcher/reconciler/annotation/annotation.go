@@ -19,19 +19,24 @@ import (
 )
 
 const (
-	Result = "results.tekton.dev/result"
-	Record = "results.tekton.dev/record"
+	Result    = "results.tekton.dev/result"
+	Record    = "results.tekton.dev/record"
+	LogRecord = "results.tekton.dev/log-record"
 )
 
 // Add creates a jsonpatch path used for adding result / record identifiers
 // an object's annotations field.
-func Add(result, record string) ([]byte, error) {
+func Add(result, record, logRecord string) ([]byte, error) {
+	annotations := map[string]string{
+		Result: result,
+		Record: record,
+	}
+	if len(logRecord) > 0 {
+		annotations[LogRecord] = logRecord
+	}
 	data := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"annotations": map[string]string{
-				Result: result,
-				Record: record,
-			},
+			"annotations": annotations,
 		},
 	}
 	return json.Marshal(data)

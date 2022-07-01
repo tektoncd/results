@@ -86,6 +86,18 @@ func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*p
 	return result, record, nil
 }
 
+func (c *Client) PutLogRecord(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, *pb.Record, error) {
+	result, err := c.ensureResult(ctx, o, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	logRecord, err := c.createLogRecord(ctx, result.GetName(), o, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, logRecord, nil
+}
+
 // ensureResult gets the Result corresponding to the Object, creates a new
 // one, or updates the existing Result with new Object details if necessary.
 func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, error) {
@@ -191,6 +203,14 @@ func recordName(parent string, o Object) string {
 	return record.FormatName(parent, defaultName(o))
 }
 
+func logRecordName(parent string, o Object) string {
+	name, ok := o.GetAnnotations()[annotation.LogRecord]
+	if ok {
+		return name
+	}
+	return record.FormatName(parent, defaultLogName(o))
+}
+
 // upsertRecord updates or creates a record for the object. If there has been
 // no change in the Record data, the existing Record is returned.
 func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts ...grpc.CallOption) (*pb.Record, error) {
@@ -251,6 +271,35 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 // not already associated to the Object.
 func defaultName(o metav1.Object) string {
 	return string(o.GetUID())
+}
+
+func (c *Client) createLogRecord(ctx context.Context, parent string, o Object, opts ...grpc.CallOption) (*pb.Record, error) {
+	name := logRecordName(parent, o)
+	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: name}, opts...)
+	if err != nil && status.Code(err) != codes.NotFound {
+		return nil, err
+	}
+	if curr != nil {
+		return curr, nil
+	}
+	data, err := convert.ToLogProto(o)
+	if err != nil {
+		return nil, err
+	}
+	return c.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: parent,
+		Record: &pb.Record{
+			Name: name,
+			Data: data,
+		},
+	})
+
+}
+
+// defaultLogName is the default Record name that should be used for a log record if one is not
+// already associated to the Object
+func defaultLogName(o metav1.Object) string {
+	return fmt.Sprintf("%s-log", o.GetUID())
 }
 
 // isTopLevelRecord determines whether an Object is a top level Record - e.g. a

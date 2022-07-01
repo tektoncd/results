@@ -35,7 +35,8 @@ type TaskRunLogStatus struct {
 }
 
 type FileLogTypeStatus struct {
-	Path string `json:"path"`
+	Path string `json:"path,omitempty"`
+	Size int64  `json:"size"`
 }
 
 func (t *TaskRunLog) Default() {
