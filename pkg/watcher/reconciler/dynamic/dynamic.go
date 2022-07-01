@@ -15,7 +15,6 @@
 package dynamic
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -165,35 +164,44 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 }
 
 func (r *Reconciler) streamLogs(ctx context.Context, res *pb.Result, rec *pb.Record, o metav1.Object) error {
+	putLogClient, err := r.resultsClient.PutLog(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create PutLog client: %v", err)
+	}
+	writer := logwriter.NewLogChunkWriter(putLogClient, record.FormatName(res.GetName(), rec.GetName()), logwriter.DefaultMaxLogChunkSize)
+
 	tknParams := &cli.TektonParams{}
 	tknParams.SetNamespace(o.GetNamespace())
+	// KLUGE: tkn reader.Read() will raise an error if a step in the TaskRun failed and there is no
+	// Err writer in the Stream object. This will result in some "error" messages being written to
+	// the log.
+
 	// TODO: Set TaskrunName or PipelinerunName based on object type
 	reader, err := tknlog.NewReader(tknlog.LogTypeTask, &tknopts.LogOptions{
 		AllSteps:    true,
 		Params:      tknParams,
 		TaskrunName: o.GetName(),
+		Stream: &cli.Stream{
+			Out: writer,
+			Err: writer,
+		},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create tkn reader: %v", err)
 	}
 	logChan, errChan, err := reader.Read()
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading from tkn reader: %v", err)
 	}
-	putLogClient, err := r.resultsClient.PutLog(ctx)
-	if err != nil {
-		return err
-	}
-	writer := logwriter.NewLogChunkWriter(putLogClient, record.FormatName(res.GetName(), rec.GetName()), logwriter.DefaultMaxLogChunkSize)
-	errWriter := &errorWriter{
-		errBuf: &bytes.Buffer{},
-	}
+	// errChan receives stderr from the TaskRun containers.
+	// This will be forwarded as combined output (stdout and stderr)
+
 	// TODO: Set writer type based on the object type
 	tknlog.NewWriter(tknlog.LogTypeTask, true).Write(&cli.Stream{
 		Out: writer,
-		Err: errWriter,
+		Err: writer,
 	}, logChan, errChan)
-	return errWriter.Error()
+	return nil
 }
 
 func isDone(o results.Object) bool {
@@ -218,20 +226,4 @@ func needsLogsStreamed(rec *pb.Record) (bool, error) {
 		needsStream = needsStream && trl.Status.File.Size <= 0
 	}
 	return needsStream, nil
-}
-
-type errorWriter struct {
-	errBuf *bytes.Buffer
-}
-
-func (e *errorWriter) Write(p []byte) (n int, err error) {
-	n, err = e.errBuf.Write(p)
-	return
-}
-
-func (e *errorWriter) Error() error {
-	if e.errBuf.Len() == 0 {
-		return nil
-	}
-	return fmt.Errorf("log streaming failed: %s", e.errBuf.String())
 }
