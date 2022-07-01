@@ -3,6 +3,7 @@ module github.com/tektoncd/results
 go 1.17
 
 require (
+	github.com/fatih/color v1.13.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/cel-go v0.11.3
 	github.com/google/go-cmp v0.5.8
@@ -13,7 +14,7 @@ require (
 	github.com/jonboulle/clockwork v0.2.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/prometheus/client_golang v1.12.1
-	github.com/tektoncd/cli v0.24.0
+	github.com/tektoncd/cli v0.23.1
 	github.com/tektoncd/pipeline v0.35.1
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.21.0
@@ -83,7 +84,6 @@ require (
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/fatih/color v1.13.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell v1.2.0 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
@@ -127,9 +127,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.15.1 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
 	github.com/ktr0731/go-fuzzyfinder v0.2.0 // indirect
-	github.com/lib/pq v1.10.4 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.2 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -154,12 +152,10 @@ require (
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/tektoncd/resolution v0.0.0-20220331203013-e4203c70c5eb // indirect
 	github.com/tektoncd/triggers v0.20.0 // indirect
