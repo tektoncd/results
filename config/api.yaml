@@ -53,14 +53,20 @@ spec:
               value: tekton-results-postgres-service
             - name: DB_NAME
               value: tekton-results
+            - name: LOGS_DATA
+              value: /app/tekton-results/logs
           volumeMounts:
             - name: tls
               mountPath: "/etc/tls"
               readOnly: true
+            - name: tekton-logs
+              mountPath: "/app/tekton-results/logs"
       volumes:
         - name: tls
           secret:
             secretName: tekton-results-tls
+        - name: tekton-logs
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

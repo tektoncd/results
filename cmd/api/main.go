@@ -85,8 +85,12 @@ func main() {
 		log.Fatalf("error loading TLS key pair: %v", err)
 	}
 
+	logsData := os.Getenv("LOGS_DATA")
+
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
+	v1a2, err := v1alpha2.New(db,
+		v1alpha2.WithAuth(auth.NewRBAC(k8s)),
+		v1alpha2.WithLogDataDir(logsData))
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
 	}
