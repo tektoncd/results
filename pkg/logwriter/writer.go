@@ -19,20 +19,20 @@ type Sender interface {
 
 type logChunkWriter struct {
 	sender       Sender
-	resultName   string
+	recordName   string
 	maxChunkSize int
 }
 
 // NewLogChunkWriter returns an io.Writer that writes log chunk messages to the gRPC sender for the
 // named Tekton result. The chunk size determines the maximum size of a single sent message - if
 // less than zero, this defaults to DefaultMaxLogChunkSize.
-func NewLogChunkWriter(sender Sender, resultName string, chunkSize int) io.Writer {
+func NewLogChunkWriter(sender Sender, recordName string, chunkSize int) io.Writer {
 	if chunkSize < 1 {
 		chunkSize = DefaultMaxLogChunkSize
 	}
 	return &logChunkWriter{
 		sender:       sender,
-		resultName:   resultName,
+		recordName:   recordName,
 		maxChunkSize: chunkSize,
 	}
 }
@@ -57,7 +57,7 @@ func (w *logChunkWriter) Write(p []byte) (int, error) {
 // sendBytes sends the provided byte array over gRPC.
 func (w *logChunkWriter) sendBytes(p []byte) (int, error) {
 	logChunk := &pb.LogChunk{
-		Name: w.resultName,
+		Name: w.recordName,
 		Data: p,
 	}
 	err := w.sender.Send(logChunk)
