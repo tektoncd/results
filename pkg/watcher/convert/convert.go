@@ -49,7 +49,7 @@ func ToProto(in runtime.Object) (*rpb.Any, error) {
 	}, nil
 }
 
-func ToLogProto(in metav1.Object) (*rpb.Any, error) {
+func ToLogProto(in metav1.Object, recordName string) (*rpb.Any, error) {
 	if in == nil {
 		return nil, nil
 	}
@@ -64,6 +64,7 @@ func ToLogProto(in metav1.Object) (*rpb.Any, error) {
 				Namespace: in.GetNamespace(),
 				Name:      in.GetName(),
 			},
+			RecordName: recordName,
 		},
 	}
 	trl.Default()

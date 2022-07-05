@@ -486,13 +486,15 @@ func (ca conditionAccessor) GetCondition(t apis.ConditionType) *apis.Condition {
 
 func TestToLogProto(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		in   metav1.Object
-		want *v1alpha2.TaskRunLog
+		name       string
+		in         metav1.Object
+		recordName string
+		want       *v1alpha2.TaskRunLog
 	}{
 		{
-			name: "TaskRun",
-			in:   taskrun,
+			name:       "TaskRun",
+			in:         taskrun,
+			recordName: fmt.Sprintf("%s/results/%s/records/%s", taskrun.Namespace, "test-pipeline", "taskrun-log"),
 			want: &v1alpha2.TaskRunLog{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "TaskRunLog",
@@ -507,12 +509,13 @@ func TestToLogProto(t *testing.T) {
 						Namespace: taskrun.Namespace,
 						Name:      taskrun.Name,
 					},
+					RecordName: fmt.Sprintf("%s/results/%s/records/%s", taskrun.Namespace, "test-pipeline", "taskrun-log"),
 				},
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToLogProto(tc.in)
+			got, err := ToLogProto(tc.in, tc.recordName)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}

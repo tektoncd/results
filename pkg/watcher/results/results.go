@@ -282,7 +282,7 @@ func (c *Client) createLogRecord(ctx context.Context, parent string, o Object, o
 	if curr != nil {
 		return curr, nil
 	}
-	data, err := convert.ToLogProto(o)
+	data, err := convert.ToLogProto(o, name)
 	if err != nil {
 		return nil, err
 	}
