@@ -1,6 +1,7 @@
 package logwriter
 
 import (
+	"fmt"
 	"io"
 
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -41,6 +42,7 @@ func NewLogChunkWriter(sender Sender, recordName string, chunkSize int) io.Write
 // log chunk size, the data is sent in multiple chunks.
 func (w *logChunkWriter) Write(p []byte) (int, error) {
 	// If the array length is less than or equal to the MaxLogChunkSize, send the entire byte array
+	fmt.Printf("writing %d bytes for %s\n", len(p), w.recordName)
 	if len(p) <= w.maxChunkSize {
 		return w.sendBytes(p)
 	}

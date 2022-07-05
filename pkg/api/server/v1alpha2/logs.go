@@ -20,25 +20,42 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Results_GetLogServer) erro
 	// Step 1: Get the record by its name
 	parent, result, name, err := record.ParseName(req.GetName())
 	if err != nil {
+		fmt.Printf("GetLog: could not parse record name %s: %v\n", req.GetName(), err)
 		return err
 	}
 	// Step 2: Run SAR check
 	if err := s.auth.Check(srv.Context(), parent, auth.ResourceRecords, auth.PermissionGet); err != nil {
+		fmt.Printf("GetLog: SAR check failed for %s: %v\n", req.GetName(), err)
 		return err
 	}
 	// Step 3: Get record from database
 	dbRecord, err := getRecord(s.db.WithContext(srv.Context()), parent, result, name)
 	if err != nil {
+		fmt.Printf("GetLog: could not get record for %s: %v\n", req.GetName(), err)
 		return err
 	}
 	// Step 4: Transform record into LogStreamer
-	streamer, _, err := record.ToLogStreamer(dbRecord, s.logChunkSize, s.logDataDir)
+	streamer, taskRunLog, err := record.ToLogStreamer(dbRecord, s.logChunkSize, s.logDataDir)
 	if err != nil {
+		fmt.Printf("GetLog: failed to convert %s to log streamer: %v\n", req.GetName(), err)
 		return err
+	}
+	if !hasLogs(taskRunLog) {
+		return fmt.Errorf("no logs exist for %s", req.GetName())
 	}
 	// Step 5: Stream log via gRPC Send calls.
 	_, err = streamer.WriteTo(logwriter.NewLogChunkWriter(srv, name, s.logChunkSize))
 	return err
+}
+
+func hasLogs(trl *v1alpha2.TaskRunLog) bool {
+	if trl.Spec.Type != v1alpha2.FileLogType {
+		return false
+	}
+	if trl.Status.File == nil {
+		return false
+	}
+	return trl.Status.File.Size > 0
 }
 
 func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
@@ -47,6 +64,10 @@ func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
 	var dbRecord *db.Record
 	var taskRunLog *v1alpha2.TaskRunLog
 	var logStreamer resultslog.LogStreamer
+	fmt.Println("PutLog: begin file stream")
+	defer func() {
+		fmt.Println("PutLog: finished file stream")
+	}()
 	for {
 		logChunk, err := stream.Recv()
 		// If we reach the end of the stream, we receive an io.EOF error
@@ -56,28 +77,34 @@ func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
 		// Ensure that we are receiving logs for the same record
 		if recordName == "" {
 			recordName = logChunk.GetName()
+			fmt.Printf("PutLog: receiving logs for %s\n", recordName)
 		}
 		if recordName != logChunk.GetName() {
+			err := fmt.Errorf("cannot put logs for multiple records in the same stream")
+			fmt.Printf("PutLog: error streaming %s: %v\n", recordName, err)
 			return s.handleReturn(stream,
 				dbRecord,
 				taskRunLog,
 				bytesWritten,
-				fmt.Errorf("cannot put logs for multiple records in the same stream"))
+				err)
 		}
 
 		// Step 1: Get the record by its name
-		parent, result, name, err := record.ParseName(logChunk.GetName())
+		parent, result, name, err := record.ParseName(recordName)
 		if err != nil {
+			fmt.Printf("PutLog: error parsing record name %s: %v\n", recordName, err)
 			return s.handleReturn(stream, dbRecord, taskRunLog, bytesWritten, err)
 		}
 		// Step 2: Run SAR check
 		if err := s.auth.Check(stream.Context(), parent, auth.ResourceRecords, auth.PermissionUpdate); err != nil {
+			fmt.Printf("PutLog: SAR check for %s failed: %v\n", recordName, err)
 			return s.handleReturn(stream, dbRecord, taskRunLog, bytesWritten, err)
 		}
 		// Step 3: Get record from database
 		if dbRecord == nil {
 			dbRecord, err = getRecord(s.db.WithContext(stream.Context()), parent, result, name)
 			if err != nil {
+				fmt.Printf("PutLog: failed to find record for %s: %v\n", recordName, err)
 				return s.handleReturn(stream, dbRecord, taskRunLog, bytesWritten, err)
 			}
 
@@ -86,6 +113,7 @@ func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
 		if logStreamer == nil {
 			logStreamer, taskRunLog, err = record.ToLogStreamer(dbRecord, s.logChunkSize, s.logDataDir)
 			if err != nil {
+				fmt.Printf("PutLog: failed to create LogStreamer for %s: %v\n", recordName, err)
 				return s.handleReturn(stream, dbRecord, taskRunLog, bytesWritten, err)
 			}
 		}
@@ -94,6 +122,7 @@ func (s *Server) PutLog(stream pb.Results_PutLogServer) error {
 		written, err := logStreamer.ReadFrom(buffer)
 		bytesWritten += written
 		if err != nil {
+			fmt.Printf("PutLog: failed to read from buffer for %s: %v\n", recordName, err)
 			return s.handleReturn(stream, dbRecord, taskRunLog, bytesWritten, err)
 		}
 	}
@@ -113,6 +142,7 @@ func (s *Server) handleReturn(stream pb.Results_PutLogServer, rec *db.Record, tr
 		if !isNilOrEOF(returnErr) {
 			return returnErr
 		}
+		fmt.Printf("handleReturn: failed to convert record %s to API: %v\n", rec.Name, err)
 		return err
 	}
 	apiRec.UpdateTime = timestamppb.Now()
@@ -127,6 +157,7 @@ func (s *Server) handleReturn(stream pb.Results_PutLogServer, rec *db.Record, tr
 		if !isNilOrEOF(returnErr) {
 			return returnErr
 		}
+		fmt.Printf("handleReturn: failed to marshal %s to JSON: %v\n", rec.Name, err)
 		return err
 	}
 	apiRec.Data = &pb.Any{
@@ -143,10 +174,12 @@ func (s *Server) handleReturn(stream pb.Results_PutLogServer, rec *db.Record, tr
 		if !isNilOrEOF(returnErr) {
 			return returnErr
 		}
+		fmt.Printf("handleReturn: failed to update record %s: %v\n", apiRec.GetName(), err)
 		return err
 	}
 
 	if returnErr == io.EOF {
+		fmt.Printf("PutLog: received %d bytes for %s\n", written, apiRec.GetName())
 		return stream.SendAndClose(&pb.PutLogSummary{
 			Record:        apiRec.Name,
 			BytesReceived: written,
