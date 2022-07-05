@@ -25,7 +25,6 @@ import (
 	"github.com/tektoncd/cli/pkg/cli"
 	tknlog "github.com/tektoncd/cli/pkg/log"
 	tknopts "github.com/tektoncd/cli/pkg/options"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"github.com/tektoncd/results/pkg/logwriter"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -168,7 +167,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, res *pb.Result, rec *pb.Rec
 	if err != nil {
 		return fmt.Errorf("failed to create PutLog client: %v", err)
 	}
-	writer := logwriter.NewLogChunkWriter(putLogClient, record.FormatName(res.GetName(), rec.GetName()), logwriter.DefaultMaxLogChunkSize)
+	writer := logwriter.NewLogChunkWriter(putLogClient, rec.GetName(), logwriter.DefaultMaxLogChunkSize)
 
 	tknParams := &cli.TektonParams{}
 	tknParams.SetNamespace(o.GetNamespace())
@@ -201,7 +200,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, res *pb.Result, rec *pb.Rec
 		Out: writer,
 		Err: writer,
 	}, logChan, errChan)
-	return nil
+	return putLogClient.CloseSend()
 }
 
 func isDone(o results.Object) bool {
