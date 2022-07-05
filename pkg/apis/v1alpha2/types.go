@@ -15,8 +15,9 @@ type TaskRunLog struct {
 }
 
 type TaskRunLogSpec struct {
-	Ref  TaskRunRef     `json:"ref"`
-	Type TaskRunLogType `json:"type"`
+	Ref        TaskRunRef     `json:"ref"`
+	RecordName string         `json:"recordName"`
+	Type       TaskRunLogType `json:"type"`
 }
 
 type TaskRunRef struct {

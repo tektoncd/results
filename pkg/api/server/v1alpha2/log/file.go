@@ -29,13 +29,15 @@ func NewFileLogStreamer(trl *v1alpha2.TaskRunLog, bufSize int, logDataDir string
 }
 
 func defaultFilePath(trl *v1alpha2.TaskRunLog) string {
-	return filepath.Join(trl.Spec.Ref.Namespace, "taskruns", trl.Spec.Ref.Name, "taskrun.log")
+	return filepath.Join(trl.Spec.RecordName, "taskrun.log")
 }
 
 func (*fileLogStreamer) Type() string {
 	return string(v1alpha2.FileLogType)
 }
 
+// WriteTo reads the contents of the TaskRun log file and writes them to the provided writer, such
+// as os.Stdout.
 func (f *fileLogStreamer) WriteTo(w io.Writer) (n int64, err error) {
 	_, err = os.Stat(f.path)
 	if err != nil {
@@ -57,6 +59,8 @@ func (f *fileLogStreamer) WriteTo(w io.Writer) (n int64, err error) {
 	return
 }
 
+// ReadFrom reads the log contents from the provided io.Reader, and writes them to the TaskRun log
+// file on disk.
 func (f *fileLogStreamer) ReadFrom(r io.Reader) (n int64, err error) {
 	// Ensure that the directories in the path already exist
 	dir := filepath.Dir(f.path)
