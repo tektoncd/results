@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. [Tekton Pipelines](https://github.com/tektoncd/pipeline/blob/master/docs/install.md)
+1. [Tekton Pipelines](https://github.com/tektoncd/pipeline/blob/main/docs/install.md)
    must be installed on the cluster.
 2. Generating a database root password.
 

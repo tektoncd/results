@@ -13,7 +13,7 @@ depending on number of developers working on the project.
 
 - [x] Result API v0.1.0
   - [x] Implement
-        [v1alpha2 Result/Record CRUD API](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
+        [v1alpha2 Result/Record CRUD API](https://github.com/tektoncd/community/blob/main/teps/0021-results-api.md).
   - [x] Basic TaskRun/PipelineRun filtering
   - [x] Pagination
   - [x] Deprecate/remove proof-of-concept v1alpha1 API.
@@ -22,7 +22,7 @@ depending on number of developers working on the project.
 - [x] Set up release infrastructure.
 - [ ] tekton.dev docs
 - [x] Goal: Tekton Results running against
-      [Tekton Dogfooding Cluster](https://github.com/tektoncd/plumbing/blob/master/docs/dogfooding.md).
+      [Tekton Dogfooding Cluster](https://github.com/tektoncd/plumbing/blob/main/docs/dogfooding.md).
 
 ## Q2 2021
 

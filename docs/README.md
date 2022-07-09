@@ -28,7 +28,7 @@ allows you to:
   letting you free up etcd resources for Run execution.
 
 Additional background and design motivations can be found in
-[TEP-0021](https://github.com/tektoncd/community/blob/master/teps/0021-results-api.md).
+[TEP-0021](https://github.com/tektoncd/community/blob/main/teps/0021-results-api.md).
 
 ## Overview
 
@@ -90,5 +90,5 @@ examples of the data we intend to support).
 
 ## Contact
 
-- [Tekton Community](https://github.com/tektoncd/community/blob/master/contact.md)
+- [Tekton Community](https://github.com/tektoncd/community/blob/main/contact.md)
 - [#results - Tekton Slack](https://tektoncd.slack.com/archives/C01GCEH0FLK)
