@@ -14,4 +14,4 @@ sed -i "s/devel$/${RELEASE_VERSION}/g" ${RELEASE_DIR}/kustomization.yaml
 sed -i "s/devel$/${RELEASE_VERSION}/g" ${ROOT}/config/config-info.yaml  
 
 # Apply kustomiation + build images + generate yaml
-kubectl kustomize ${RELEASE_DIR} | ko resolve -P -f - -t ${RELEASE_VERSION} > ${RELEASE_DIR}/release.yaml
+kubectl kustomize ${RELEASE_DIR} | ko resolve --platform "linux/amd64,linux/ppc64le" -P -f - -t ${RELEASE_VERSION} > ${RELEASE_DIR}/release.yaml

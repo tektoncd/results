@@ -52,6 +52,20 @@ spec:
       workspaces:
         - name: source
           workspace: ws
+    - name: unit-tests-ppc64le
+      runAfter: [checkout]
+      taskRef:
+        name: golang-test
+      params:
+        - name: package
+          value: $(params.package)
+        - name: GOARCH
+          value: ppc64le
+        - name: flags
+          value: "-cover -v"
+      workspaces:
+        - name: source
+          workspace: ws
     - name: build
       runAfter: [checkout]
       taskRef:
@@ -59,6 +73,18 @@ spec:
       params:
         - name: package
           value: $(params.package)
+      workspaces:
+        - name: source
+          workspace: ws
+    - name: build-ppc64le
+      runAfter: [checkout]
+      taskRef:
+        name: golang-build
+      params:
+        - name: package
+          value: $(params.package)
+        - name: GOARCH
+          value: ppc64le
       workspaces:
         - name: source
           workspace: ws
