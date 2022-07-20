@@ -56,8 +56,24 @@ spec:
       workspaces:
         - name: source
           workspace: ws
+    - name: unit-tests-ppc64le
+      runAfter: [checkout]
+      taskRef:
+        name: golang-test
+      params:
+        - name: package
+          value: $(workspaces.source.path)/...
+        - name: GOARCH
+          value: ppc64le
+        - name: flags
+          value: "-cover -v"
+      workspaces:
+        - name: source
+          workspace: ws
     - name: publish-image
-      runAfter: [unit-tests]
+      runAfter: 
+        - unit-tests
+        - unit-tests-ppc64le
       taskSpec:
         params:
           - name: repo

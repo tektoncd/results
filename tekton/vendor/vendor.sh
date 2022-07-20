@@ -14,6 +14,6 @@
 # limitations under the License.
 
 
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/golang-test/0.1/golang-test.yaml
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/golang-build/0.1/golang-build.yaml
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.2/git-clone.yaml
+kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/golang-test/0.2/golang-test.yaml
+kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/golang-build/0.3/golang-build.yaml
+kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.7/git-clone.yaml
