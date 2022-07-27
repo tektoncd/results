@@ -106,9 +106,9 @@ filtering spec. Filter specs expect a boolean result value.
 #### Records
 
 | Name      | Description                                                                                                                                              |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --------- |----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | name      | Record name                                                                                                                                              |
-| data_type | Type identifier of the Record data (corresponds to [Any.type](/proto/v1alpha2/resources.proto))                                                          |
+| data_type | Type identifier of the Record data (corresponds to [Any.type](../../proto/v1alpha2/resources.proto))                                                     |
 | data      | Record data (see [JSON Data Conversion](https://github.com/google/cel-spec/blob/master/doc/langdef.md#json-data-conversion) for how CEL represents this) |
 
 ### Cookbook
