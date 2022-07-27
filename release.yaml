@@ -1,0 +1,387 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-api
+  namespace: tekton-pipelines
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-watcher
+  namespace: tekton-pipelines
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-admin
+rules:
+  - apiGroups:
+      - results.tekton.dev
+    resources:
+      - results
+      - records
+    verbs:
+      - create
+      - update
+      - get
+      - list
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-api
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-readonly
+rules:
+  - apiGroups:
+      - results.tekton.dev
+    resources:
+      - results
+      - records
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-readwrite
+rules:
+  - apiGroups:
+      - results.tekton.dev
+    resources:
+      - results
+      - records
+    verbs:
+      - create
+      - update
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-watcher
+rules:
+  - apiGroups:
+      - results.tekton.dev
+    resources:
+      - results
+      - records
+    verbs:
+      - create
+      - get
+      - update
+  - apiGroups:
+      - tekton.dev
+    resources:
+      - pipelineruns
+      - taskruns
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-api
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-results-api
+subjects:
+  - kind: ServiceAccount
+    name: tekton-results-api
+    namespace: tekton-pipelines
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-watcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-results-watcher
+subjects:
+  - kind: ServiceAccount
+    name: tekton-results-watcher
+    namespace: tekton-pipelines
+---
+apiVersion: v1
+data:
+  POSTGRES_DB: tekton-results
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: tekton-results-postgres
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-postgres
+  namespace: tekton-pipelines
+---
+apiVersion: v1
+data:
+  results.sql: "-- Copyright 2020 The Tekton Authors\n--\n-- Licensed under the Apache License, Version 2.0 (the \"License\");\n-- you may not use this file except in compliance with the License.\n-- You may obtain a copy of the License at\n--\n--      http://www.apache.org/licenses/LICENSE-2.0\n--\n-- Unless required by applicable law or agreed to in writing, software\n-- distributed under the License is distributed on an \"AS IS\" BASIS,\n-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n-- See the License for the specific language governing permissions and\n-- limitations under the License.\n\nCREATE TABLE results (\n\tparent varchar(64),\n\tid varchar(64),\n\n\tname varchar(64),\n\tannotations jsonb,\n\n\tcreated_time timestamp default current_timestamp not null,\n\tupdated_time timestamp default current_timestamp not null,\n\t\n\tetag varchar(128),\n\n\tPRIMARY KEY(parent, id)\n);\nCREATE UNIQUE INDEX results_by_name ON results(parent, name);\n\nCREATE TABLE records (\n\tparent varchar(64),\n\tresult_id varchar(64),\n\tid varchar(64),\n\n\tresult_name varchar(64),\n\tname varchar(64),\n\n\ttype varchar(128),\n\tdata jsonb,\n\n\tcreated_time timestamp default current_timestamp not null,\n\tupdated_time timestamp default current_timestamp not null,\n\n\tetag varchar(128),\n\n\tPRIMARY KEY(parent, result_id, id),\n\tFOREIGN KEY(parent, result_id) REFERENCES results(parent, id) ON DELETE CASCADE\n);\nCREATE UNIQUE INDEX records_by_name ON records(parent, result_name, name);\n"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-sql-initdb-config
+  namespace: tekton-pipelines
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-api-service
+  namespace: tekton-pipelines
+spec:
+  ports:
+    - name: grpc
+      port: 50051
+      protocol: TCP
+      targetPort: 50051
+    - name: prometheus
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/name: tekton-results-api
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: tekton-results-postgres
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-postgres-service
+  namespace: tekton-pipelines
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+  selector:
+    app.kubernetes.io/name: tekton-results-postgres
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: tekton-results-api
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-api
+  namespace: tekton-pipelines
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tekton-results-api
+      app.kubernetes.io/part-of: tekton-results
+      app.kubernetes.io/version: v0.4.0
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app.kubernetes.io/name: tekton-results-api
+        app.kubernetes.io/part-of: tekton-results
+        app.kubernetes.io/version: v0.4.0
+    spec:
+      containers:
+        - env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  key: POSTGRES_USER
+                  name: tekton-results-postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: POSTGRES_PASSWORD
+                  name: tekton-results-postgres
+            - name: DB_PROTOCOL
+              value: tcp
+            - name: DB_ADDR
+              value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
+            - name: DB_NAME
+              value: tekton-results
+          image: snehak24/api-b1b7ffa9ba32f7c3020c3b68830b30a8:latest
+          name: api
+          volumeMounts:
+            - mountPath: /etc/tls
+              name: tls
+              readOnly: true
+      serviceAccountName: tekton-results-api
+      volumes:
+        - name: tls
+          secret:
+            secretName: tekton-results-tls
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: tekton-results-watcher
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-watcher
+  namespace: tekton-pipelines
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tekton-results-watcher
+      app.kubernetes.io/part-of: tekton-results
+      app.kubernetes.io/version: v0.4.0
+  template:
+    metadata:
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+      labels:
+        app.kubernetes.io/name: tekton-results-watcher
+        app.kubernetes.io/part-of: tekton-results
+        app.kubernetes.io/version: v0.4.0
+    spec:
+      containers:
+        - args:
+            - -api_addr
+            - tekton-results-api-service.tekton-pipelines.svc.cluster.local:50051
+            - -auth_mode
+            - token
+          image: snehak24/watcher-83f971ea227fb24157c0c699b824a628
+          name: watcher
+          volumeMounts:
+            - mountPath: /etc/tls
+              name: tls
+              readOnly: true
+      serviceAccountName: tekton-results-watcher
+      volumes:
+        - name: tls
+          secret:
+            secretName: tekton-results-tls
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/name: tekton-results-postgres
+    app.kubernetes.io/part-of: tekton-results
+    app.kubernetes.io/version: v0.4.0
+  name: tekton-results-postgres
+  namespace: tekton-pipelines
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tekton-results-postgres
+      app.kubernetes.io/part-of: tekton-results
+      app.kubernetes.io/version: v0.4.0
+  serviceName: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tekton-results-postgres
+        app.kubernetes.io/part-of: tekton-results
+        app.kubernetes.io/version: v0.4.0
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: tekton-results-postgres
+            - secretRef:
+                name: tekton-results-postgres
+          image: postgres@sha256:6647385dd9ae11aa2216bf55c54d126b0a85637b3cf4039ef24e3234113588e3
+          name: postgres
+          ports:
+            - containerPort: 5432
+              name: postgredb
+          volumeMounts:
+            - mountPath: /var/data
+              name: postgredb
+            - mountPath: /docker-entrypoint-initdb.d
+              name: sql-initdb
+      volumes:
+        - configMap:
+            name: tekton-results-sql-initdb-config
+          name: sql-initdb
+  volumeClaimTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/part-of: tekton-results
+          app.kubernetes.io/version: v0.4.0
+        name: postgredb
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+---

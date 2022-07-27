@@ -71,7 +71,7 @@ spec:
         - name: source
           workspace: ws
     - name: publish-image
-      runAfter: 
+      runAfter:
         - unit-tests
         - unit-tests-ppc64le
       taskSpec:
