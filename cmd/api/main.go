@@ -34,6 +34,7 @@ import (
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -48,22 +49,50 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+type ConfigFile struct {
+	DB_USER     string `mapstructure:"DB_USER"`
+	DB_PASSWORD string `mapstructure:"DB_PASSWORD"`
+	DB_PROTOCOL string `mapstructure:"DB_PROTOCOL"`
+	DB_ADDR     string `mapstructure:"DB_ADDR"`
+	DB_NAME     string `mapstructure:"DB_NAME"`
+	DB_SSLMODE  string `mapstructure:"DB_SSLMODE"`
+}
+
 func main() {
+
+	viper.AddConfigPath("./env")
+	viper.SetConfigName("config")
+	viper.SetConfigType("env")
+
+	viper.AutomaticEnv()
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		return
+	}
+
+	configFile := ConfigFile{}
+	err = viper.Unmarshal(&configFile)
+
+	if err != nil {
+		log.Fatal("cannot load config:", err)
+	}
+
 	flag.Parse()
 
-	user, pass := os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")
+	user, pass := configFile.DB_USER, configFile.DB_PASSWORD
 	if user == "" || pass == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
-	sslmode := os.Getenv("DB_SSLMODE")
+	sslmode := configFile.DB_SSLMODE
 	if sslmode == "" {
 		sslmode = "disable"
 	}
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=%s", os.Getenv("DB_ADDR"), user, pass, os.Getenv("DB_NAME"), os.Getenv("DB_SSLMODE"))
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=5432 sslmode=%s", configFile.DB_ADDR, user, pass, configFile.DB_NAME, configFile.DB_SSLMODE)
 	db, err := gorm.Open(postgres.Open(dbURI), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to open the results.db: %v", err)
