@@ -11,6 +11,7 @@
 | DB_NAME              | MySQL Database name             | tekton_results                               |
 | DB_SSLMODE           | Database SSL mode               | verify-full                                  |
 
+These values can also be set in the config file located in the `env/config` directory.
 
 Values derived from MySQL DSN (see
 https://github.com/go-sql-driver/mysql#dsn-data-source-name)

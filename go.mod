@@ -14,6 +14,7 @@ require (
 	github.com/jonboulle/clockwork v0.2.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/prometheus/client_golang v1.11.0
+	github.com/spf13/viper v1.8.1
 	github.com/tektoncd/pipeline v0.29.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.19.1
