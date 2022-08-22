@@ -20,6 +20,7 @@ import "resources.proto";
 
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
+import "google/api/client.proto";
 import "google/api/resource.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
@@ -90,6 +91,32 @@ service Results {
       delete: "/v1alpha2/{name=*/results/*/records/*}"
     };
   }
+
+  rpc GetLog(GetLogRequest) returns (stream Log) {
+    option (google.api.http) = {
+      get: "/v1alpha2/{name=*/results/*/logs/*}"
+    };
+    option (google.api.method_signature) = "name";
+  }
+
+  rpc ListLogs(ListLogsRequest) returns (ListLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1alpha2/{parent=*/results/*}/logs"
+    };
+    option (google.api.method_signature) = "parent";
+  }
+
+  rpc UpdateLog(stream Log) returns (LogSummary) {
+    option (google.api.method_signature) = "log";
+  }
+
+  rpc DeleteLog(DeleteLogRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1alpha2/{name=*/results/*/logs/*}"
+    };
+    option (google.api.method_signature) = "name";
+  }
+
 }
 
 message CreateResultRequest {
@@ -173,4 +200,52 @@ message ListRecordsRequest {
 message ListRecordsResponse {
   repeated Record records = 1;
   string next_page_token = 2;
+}
+
+message GetLogRequest {
+  // Name of the log to retrieve.
+  // Format: {namespace}/results/{result}/logs/{record}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "tekton.results.v1alpha2/Record"
+    }];
+}
+
+message ListLogsRequest {
+  // The parent, which owns this collection of logs.
+  // Format: {namespace}/results/{result}
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "tekton.results.v1alpha2/Result"
+      child_type: "tekton.results.v1alpha2/Record"
+    }];
+
+  int32 page_size = 2;
+
+  string page_token = 3;
+
+  string filter = 4;
+
+  string order_by = 5;
+}
+
+message ListLogsResponse {
+  // The collection of logs
+  repeated LogSummary logs = 1;
+
+  // A token, which can be sent as `page_token` to retrieve the next page.
+  // If this field is omitted, there are no subsequent pages.
+  string next_page_token = 2;
+}
+
+message DeleteLogRequest {
+  // Name of the log to delete.
+  // Format: {namespace}/results/{result}/logs/{record}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "tekton.results.v1alpha2/Record"
+    }];
 }
