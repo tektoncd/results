@@ -3,11 +3,13 @@ approvers:
 - wlynch
 - dibyom
 - xinruzhang
-- sbwsg
+# alumni:
+# sbwsg
 
 # Reviewers is the set of people that will be automatically assigned when a PR is opened.
 # This is purposely a subset of approvers so that certain users can approve PRs to be
 # submitted without being expected to respond to incoming PRs.
 reviewers:
 - dibyom
-- sbwsg
+# alumni:
+# sbwsg
