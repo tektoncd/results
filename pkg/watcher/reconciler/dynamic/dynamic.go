@@ -16,10 +16,18 @@ package dynamic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jonboulle/clockwork"
+	"github.com/tektoncd/cli/pkg/cli"
+	tknlog "github.com/tektoncd/cli/pkg/log"
+	tknopts "github.com/tektoncd/cli/pkg/options"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"github.com/tektoncd/results/pkg/watcher/convert"
+	logwriter "github.com/tektoncd/results/pkg/watcher/log"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
@@ -42,6 +50,11 @@ type Reconciler struct {
 	objectClient  ObjectClient
 	cfg           *reconciler.Config
 	enqueue       func(interface{}, time.Duration)
+}
+
+func init() {
+	// Disable colorized output from the tkn CLI.
+	color.NoColor = true
 }
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
@@ -75,9 +88,38 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		return err
 	}
 
+	var logName string
+
+	if !o.GetObjectKind().GroupVersionKind().Empty() && o.GetObjectKind().GroupVersionKind().Kind == "TaskRun" {
+		// Create a log record if the object has/supports logs
+		// For now this is just TaskRuns.
+		logResult, logRecord, err := r.resultsClient.PutLog(ctx, o)
+		if err != nil {
+			log.Errorf("error creating TaskRun log Record: %v", err)
+			return err
+		}
+		if logRecord != nil {
+			logName = logRecord.GetName()
+		}
+		needsStream, err := needsLogsStreamed(logRecord)
+		if err != nil {
+			log.Errorf("error determining if logs need to be streamed: %v", err)
+			return err
+		}
+		if needsStream {
+			log.Infof("streaming logs for TaskRun %s/%s", o.GetNamespace(), o.GetName())
+			err = r.streamLogs(ctx, logResult, logRecord, o)
+			if err != nil {
+				log.Errorf("error streaming logs: %v", err)
+				return err
+			}
+			log.Infof("finished streaming logs for TaskRun %s/%s", o.GetNamespace(), o.GetName())
+		}
+	}
+
 	if a := o.GetAnnotations(); !r.cfg.GetDisableAnnotationUpdate() && (result.GetName() != a[annotation.Result] || record.GetName() != a[annotation.Record]) {
 		// Update object with Result Annotations.
-		patch, err := annotation.Add(result.GetName(), record.GetName())
+		patch, err := annotation.Add(result.GetName(), record.GetName(), logName)
 		if err != nil {
 			log.Errorf("error adding Result annotations: %v", err)
 			return err
@@ -119,6 +161,63 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	return nil
 }
 
+func (r *Reconciler) streamLogs(ctx context.Context, res *pb.Result, rec *pb.Record, o metav1.Object) error {
+	logClient, err := r.resultsClient.UpdateLog(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create PutLog client: %v", err)
+	}
+	writer := logwriter.NewLogWriter(logClient, rec.GetName(), logwriter.DefaultMaxLogChunkSize)
+
+	tknParams := &cli.TektonParams{}
+	tknParams.SetNamespace(o.GetNamespace())
+	// KLUGE: tkn reader.Read() will raise an error if a step in the TaskRun failed and there is no
+	// Err writer in the Stream object. This will result in some "error" messages being written to
+	// the log.
+
+	// TODO: Set TaskrunName or PipelinerunName based on object type
+	reader, err := tknlog.NewReader(tknlog.LogTypeTask, &tknopts.LogOptions{
+		AllSteps:    true,
+		Params:      tknParams,
+		TaskrunName: o.GetName(),
+		Stream: &cli.Stream{
+			Out: writer,
+			Err: writer,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create tkn reader: %v", err)
+	}
+	logChan, errChan, err := reader.Read()
+	if err != nil {
+		return fmt.Errorf("error reading from tkn reader: %v", err)
+	}
+	// errChan receives stderr from the TaskRun containers.
+	// This will be forwarded as combined output (stdout and stderr)
+
+	// TODO: Set writer type based on the object type
+	tknlog.NewWriter(tknlog.LogTypeTask, true).Write(&cli.Stream{
+		Out: writer,
+		Err: writer,
+	}, logChan, errChan)
+	return logClient.CloseSend()
+}
+
 func isDone(o results.Object) bool {
 	return o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
+}
+
+func needsLogsStreamed(rec *pb.Record) (bool, error) {
+	if rec.GetData().Type != v1alpha2.TaskRunLogRecordType {
+		return false, nil
+	}
+	trl := &v1alpha2.TaskRunLog{}
+	err := json.Unmarshal(rec.GetData().GetValue(), trl)
+	if err != nil {
+		return false, err
+	}
+	needsStream := trl.Spec.Type == v1alpha2.FileLogType
+	if trl.Status.File != nil {
+		needsStream = needsStream && trl.Status.File.Size <= 0
+	}
+	return needsStream, nil
 }

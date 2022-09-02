@@ -19,6 +19,7 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"testing"
 	"time"
 
@@ -306,6 +307,53 @@ func TestToProto(t *testing.T) {
 		}
 	})
 
+}
+
+func TestToLogProto(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		in         metav1.Object
+		recordName string
+		want       *v1alpha2.TaskRunLog
+	}{
+		{
+			name:       "TaskRun",
+			in:         taskrun,
+			recordName: fmt.Sprintf("%s/results/%s/records/%s", taskrun.Namespace, "test-pipeline", "taskrun-log"),
+			want: &v1alpha2.TaskRunLog{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "TaskRunLog",
+					APIVersion: "results.tekton.dev/v1alpha2",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: taskrun.Namespace,
+					Name:      fmt.Sprintf("%s-log", taskrun.Name),
+				},
+				Spec: v1alpha2.TaskRunLogSpec{
+					Ref: v1alpha2.TaskRunRef{
+						Namespace: taskrun.Namespace,
+						Name:      taskrun.Name,
+					},
+					RecordName: fmt.Sprintf("%s/results/%s/records/%s", taskrun.Namespace, "test-pipeline", "taskrun-log"),
+					Type:       v1alpha2.FileLogType,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ToLogProto(tc.in, tc.recordName)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			wantData := &rpb.Any{
+				Type:  v1alpha2.TaskRunLogRecordType,
+				Value: toJSON(tc.want),
+			}
+			if d := cmp.Diff(wantData, got, protocmp.Transform()); d != "" {
+				t.Errorf("Diff(-want,+got): %s", d)
+			}
+		})
+	}
 }
 
 func toJSON(i interface{}) []byte {

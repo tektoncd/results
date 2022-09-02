@@ -39,8 +39,8 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 	c := &Reconciler{
 		LeaderAwareFuncs: leaderelection.NewLeaderAwareFuncs(lister.List),
 		client:           client,
-		lister:           lister,
-		k8sclient:        pipelineclient.Get(ctx),
+		lister:           informer.Lister(),
+		pipelineClient:   pipelineclient.Get(ctx),
 		cfg:              cfg,
 	}
 

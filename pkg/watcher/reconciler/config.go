@@ -14,10 +14,16 @@
 
 package reconciler
 
-import "time"
+import (
+	"k8s.io/client-go/kubernetes"
+	"time"
+)
 
 // Config defines shared reconciler configuration options.
 type Config struct {
+	// Kubernetes interface to fetch other resources.
+	KubeClient kubernetes.Interface
+
 	// Configures whether Tekton CRD objects should be updated with Result
 	// annotations during reconcile. Useful to enable for dry run modes.
 	DisableAnnotationUpdate bool

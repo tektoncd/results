@@ -21,6 +21,8 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
@@ -43,6 +45,36 @@ func ToProto(in runtime.Object) (*rpb.Any, error) {
 
 	return &rpb.Any{
 		Type:  TypeName(in),
+		Value: b,
+	}, nil
+}
+
+func ToLogProto(in metav1.Object, recordName string) (*rpb.Any, error) {
+	if in == nil {
+		return nil, nil
+	}
+
+	trl := &v1alpha2.TaskRunLog{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: in.GetNamespace(),
+			Name:      fmt.Sprintf("%s-log", in.GetName()),
+		},
+		Spec: v1alpha2.TaskRunLogSpec{
+			Ref: v1alpha2.TaskRunRef{
+				Namespace: in.GetNamespace(),
+				Name:      in.GetName(),
+			},
+			RecordName: recordName,
+			Type:       v1alpha2.FileLogType,
+		},
+	}
+	trl.Default()
+	b, err := json.Marshal(trl)
+	if err != nil {
+		return nil, err
+	}
+	return &rpb.Any{
+		Type:  v1alpha2.TaskRunLogRecordType,
 		Value: b,
 	}, nil
 }

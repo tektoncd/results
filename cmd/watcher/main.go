@@ -26,6 +26,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
@@ -76,12 +78,21 @@ func main() {
 	defer conn.Close()
 	results := v1alpha2pb.NewResultsClient(conn)
 
+	config := injection.ParseAndGetRESTConfigOrDie()
+
+	// Create kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("failed to create kubernetes client: %v", err)
+	}
+
 	cfg := &reconciler.Config{
+		KubeClient:                   clientset,
 		DisableAnnotationUpdate:      *disableCRDUpdate,
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
 	}
 
-	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, corev1.NamespaceAll), "watcher",
+	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, corev1.NamespaceAll), "watcher", config,
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return pipelinerun.NewControllerWithConfig(ctx, results, cfg)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
