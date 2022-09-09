@@ -275,7 +275,7 @@ func TestUpsertRecord(t *testing.T) {
 					TaskRunResults: []v1beta1.TaskRunResult{
 						{
 							Name:  "result1",
-							Value: "value1",
+							Value: *v1beta1.NewArrayOrString("value1"),
 						},
 					},
 				},
@@ -297,7 +297,7 @@ func TestUpsertRecord(t *testing.T) {
 					PipelineResults: []v1beta1.PipelineRunResult{
 						{
 							Name:  "result1",
-							Value: "value1",
+							Value: *v1beta1.NewArrayOrString("value1"),
 						},
 					},
 				},
@@ -375,7 +375,7 @@ func TestUpsertRecord(t *testing.T) {
 								TaskRunResults: []v1beta1.TaskRunResult{
 									{
 										Name:  "result1",
-										Value: "value1-updated",
+										Value: *v1beta1.NewArrayOrString("value1-updated"),
 									},
 								},
 							},
@@ -398,7 +398,7 @@ func TestUpsertRecord(t *testing.T) {
 								PipelineResults: []v1beta1.PipelineRunResult{
 									{
 										Name:  "result1",
-										Value: "value1-updated",
+										Value: *v1beta1.NewArrayOrString("value1-update"),
 									},
 								},
 							},

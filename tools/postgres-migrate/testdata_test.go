@@ -48,39 +48,37 @@ var (
 			Timeout: &metav1.Duration{Duration: time.Hour},
 			TaskSpec: &v1beta1.TaskSpec{
 				Steps: []v1beta1.Step{{
-					Script: "script",
-					Container: corev1.Container{
-						Name:       "name",
-						Image:      "image",
-						Command:    []string{"cmd1", "cmd2"},
-						Args:       []string{"arg1", "arg2"},
-						WorkingDir: "workingdir",
-						Env: []corev1.EnvVar{{
-							Name:  "env1",
-							Value: "ENV1",
-						}, {
-							Name:  "env2",
-							Value: "ENV2",
-						}},
-						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "vm1",
-							MountPath: "path1",
-							ReadOnly:  false,
-							SubPath:   "subpath1",
-						}, {
-							Name:      "vm2",
-							MountPath: "path2",
-							ReadOnly:  true,
-							SubPath:   "subpath2",
-						}},
-					},
+					Script:     "script",
+					Name:       "name",
+					Image:      "image",
+					Command:    []string{"cmd1", "cmd2"},
+					Args:       []string{"arg1", "arg2"},
+					WorkingDir: "workingdir",
+					Env: []corev1.EnvVar{{
+						Name:  "env1",
+						Value: "ENV1",
+					}, {
+						Name:  "env2",
+						Value: "ENV2",
+					}},
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      "vm1",
+						MountPath: "path1",
+						ReadOnly:  false,
+						SubPath:   "subpath1",
+					}, {
+						Name:      "vm2",
+						MountPath: "path2",
+						ReadOnly:  true,
+						SubPath:   "subpath2",
+					}},
 				}, {
-					Container: corev1.Container{Name: "step2"},
+					Name: "step2",
 				}},
 				Sidecars: []v1beta1.Sidecar{{
-					Container: corev1.Container{Name: "sidecar1"},
+					Name: "sidecar1",
 				}, {
-					Container: corev1.Container{Name: "sidecar2"},
+					Name: "sidecar2",
 				}},
 				Volumes: []corev1.Volume{{
 					Name:         "volname1",
@@ -269,32 +267,30 @@ var (
 						},
 						TaskSpec: v1beta1.TaskSpec{
 							Steps: []v1beta1.Step{{
-								Script: "script",
-								Container: corev1.Container{
-									Name:       "name",
-									Image:      "image",
-									Command:    []string{"cmd1", "cmd2"},
-									Args:       []string{"arg1", "arg2"},
-									WorkingDir: "workingdir",
-									Env: []corev1.EnvVar{{
-										Name:  "env1",
-										Value: "ENV1",
-									}, {
-										Name:  "env2",
-										Value: "ENV2",
-									}},
-									VolumeMounts: []corev1.VolumeMount{{
-										Name:      "vm1",
-										MountPath: "path1",
-										ReadOnly:  false,
-										SubPath:   "subpath1",
-									}, {
-										Name:      "vm2",
-										MountPath: "path2",
-										ReadOnly:  true,
-										SubPath:   "subpath2",
-									}},
-								},
+								Script:     "script",
+								Name:       "name",
+								Image:      "image",
+								Command:    []string{"cmd1", "cmd2"},
+								Args:       []string{"arg1", "arg2"},
+								WorkingDir: "workingdir",
+								Env: []corev1.EnvVar{{
+									Name:  "env1",
+									Value: "ENV1",
+								}, {
+									Name:  "env2",
+									Value: "ENV2",
+								}},
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "vm1",
+									MountPath: "path1",
+									ReadOnly:  false,
+									SubPath:   "subpath1",
+								}, {
+									Name:      "vm2",
+									MountPath: "path2",
+									ReadOnly:  true,
+									SubPath:   "subpath2",
+								}},
 							}},
 							Sidecars: []v1beta1.Sidecar{{}},
 							Volumes: []corev1.Volume{{
@@ -308,7 +304,7 @@ var (
 				Results: []v1beta1.PipelineResult{{
 					Name:        "result",
 					Description: "desc",
-					Value:       "value",
+					Value:       *v1beta1.NewArrayOrString("value"),
 				}},
 				Finally: []v1beta1.PipelineTask{{}},
 			},
