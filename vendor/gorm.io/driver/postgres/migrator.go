@@ -6,11 +6,33 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v4"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
 )
+
+const indexSql = `
+select
+    t.relname as table_name,
+    i.relname as index_name,
+    a.attname as column_name,
+    ix.indisunique as non_unique,
+	ix.indisprimary as primary
+from
+    pg_class t,
+    pg_class i,
+    pg_index ix,
+    pg_attribute a
+where
+    t.oid = ix.indrelid
+    and i.oid = ix.indexrelid
+    and a.attrelid = t.oid
+    and a.attnum = ANY(ix.indkey)
+    and t.relkind = 'r'
+    and t.relname = ?
+`
 
 type Migrator struct {
 	migrator.Migrator
@@ -246,54 +268,71 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 				}
 			}
 
-			return m.DB.Connection(func(tx *gorm.DB) error {
-				fileType := clause.Expr{SQL: m.DataTypeOf(field)}
-				if fieldColumnType.DatabaseTypeName() != fileType.SQL {
-					if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fileType).Error; err != nil {
+			fileType := clause.Expr{SQL: m.DataTypeOf(field)}
+			if fieldColumnType.DatabaseTypeName() != fileType.SQL {
+				filedColumnAutoIncrement, _ := fieldColumnType.AutoIncrement()
+				if field.AutoIncrement && filedColumnAutoIncrement { // update
+					serialDatabaseType, _ := getSerialDatabaseType(fileType.SQL)
+					if t, _ := fieldColumnType.ColumnType(); t != serialDatabaseType {
+						if err := m.UpdateSequence(m.DB, stmt, field, serialDatabaseType); err != nil {
+							return err
+						}
+					}
+				} else if field.AutoIncrement && !filedColumnAutoIncrement { // create
+					serialDatabaseType, _ := getSerialDatabaseType(fileType.SQL)
+					if err := m.CreateSequence(m.DB, stmt, field, serialDatabaseType); err != nil {
+						return err
+					}
+				} else if !field.AutoIncrement && filedColumnAutoIncrement { // delete
+					if err := m.DeleteSequence(m.DB, stmt, field, fileType); err != nil {
+						return err
+					}
+				} else {
+					if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fileType).Error; err != nil {
 						return err
 					}
 				}
+			}
 
-				if null, _ := fieldColumnType.Nullable(); null == field.NotNull {
-					if field.NotNull {
-						if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? SET NOT NULL", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+			if null, _ := fieldColumnType.Nullable(); null == field.NotNull {
+				if field.NotNull {
+					if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? SET NOT NULL", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+						return err
+					}
+				} else {
+					if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP NOT NULL", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+						return err
+					}
+				}
+			}
+
+			if uniq, _ := fieldColumnType.Unique(); uniq != field.Unique {
+				idxName := clause.Column{Name: m.DB.Config.NamingStrategy.IndexName(stmt.Table, field.DBName)}
+				if err := m.DB.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
+					return err
+				}
+			}
+
+			if v, _ := fieldColumnType.DefaultValue(); v != field.DefaultValue {
+				if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
+					if field.DefaultValueInterface != nil {
+						defaultStmt := &gorm.Statement{Vars: []interface{}{field.DefaultValueInterface}}
+						m.Dialector.BindVarTo(defaultStmt, defaultStmt, field.DefaultValueInterface)
+						if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? SET DEFAULT ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: m.Dialector.Explain(defaultStmt.SQL.String(), field.DefaultValueInterface)}).Error; err != nil {
+							return err
+						}
+					} else if field.DefaultValue != "(-)" {
+						if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? SET DEFAULT ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: field.DefaultValue}).Error; err != nil {
 							return err
 						}
 					} else {
-						if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? DROP NOT NULL", m.CurrentTable(stmt), clause.Column{Name: field.DBName}).Error; err != nil {
+						if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: field.DefaultValue}).Error; err != nil {
 							return err
 						}
 					}
 				}
-
-				if uniq, _ := fieldColumnType.Unique(); uniq != field.Unique {
-					idxName := clause.Column{Name: m.DB.Config.NamingStrategy.IndexName(stmt.Table, field.DBName)}
-					if err := tx.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
-						return err
-					}
-				}
-
-				if v, _ := fieldColumnType.DefaultValue(); v != field.DefaultValue {
-					if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
-						if field.DefaultValueInterface != nil {
-							defaultStmt := &gorm.Statement{Vars: []interface{}{field.DefaultValueInterface}}
-							m.Dialector.BindVarTo(defaultStmt, defaultStmt, field.DefaultValueInterface)
-							if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? SET DEFAULT ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: m.Dialector.Explain(defaultStmt.SQL.String(), field.DefaultValueInterface)}).Error; err != nil {
-								return err
-							}
-						} else if field.DefaultValue != "(-)" {
-							if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? SET DEFAULT ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: field.DefaultValue}).Error; err != nil {
-								return err
-							}
-						} else {
-							if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, clause.Expr{SQL: field.DefaultValue}).Error; err != nil {
-								return err
-							}
-						}
-					}
-				}
-				return nil
-			})
+			}
+			return nil
 		}
 		return fmt.Errorf("failed to look up field with name: %s", field)
 	})
@@ -363,7 +402,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 			}
 
 			if column.DefaultValueValue.Valid {
-				column.DefaultValueValue.String = regexp.MustCompile("'(.*)'::[\\w]+$").ReplaceAllString(column.DefaultValueValue.String, "$1")
+				column.DefaultValueValue.String = regexp.MustCompile(`'(.*)'::[\w]+$`).ReplaceAllString(column.DefaultValueValue.String, "$1")
 			}
 
 			if datetimePrecision.Valid {
@@ -439,6 +478,12 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 					mc := c.(*migrator.ColumnType)
 					if mc.NameValue.String == name {
 						mc.ColumnTypeValue = sql.NullString{String: dataType, Valid: true}
+						// Handle array type: _text -> text[] , _int4 -> integer[]
+						// Not support array size limits and array size limits because:
+						// https://www.postgresql.org/docs/current/arrays.html#ARRAYS-DECLARATION
+						if strings.HasPrefix(mc.DataTypeValue.String, "_") {
+							mc.DataTypeValue = sql.NullString{String: dataType, Valid: true}
+						}
 						break
 					}
 				}
@@ -453,12 +498,17 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 func (m Migrator) GetRows(currentSchema interface{}, table interface{}) (*sql.Rows, error) {
 	name := table.(string)
-	if currentSchema != nil {
-		if _, ok := currentSchema.(string); ok {
-			name = fmt.Sprintf("%v.%v", currentSchema, table)
-		}
+	if _, ok := currentSchema.(string); ok {
+		name = fmt.Sprintf("%v.%v", currentSchema, table)
 	}
-	return m.DB.Session(&gorm.Session{}).Table(name).Limit(1).Rows()
+
+	return m.DB.Session(&gorm.Session{}).Table(name).Limit(1).Scopes(func(d *gorm.DB) *gorm.DB {
+		// use simple protocol
+		if !m.DB.PrepareStmt {
+			d.Statement.Vars = append(d.Statement.Vars, pgx.QuerySimpleProtocol(true))
+		}
+		return d
+	}).Rows()
 }
 
 func (m Migrator) CurrentSchema(stmt *gorm.Statement, table string) (interface{}, interface{}) {
@@ -474,4 +524,142 @@ func (m Migrator) CurrentSchema(stmt *gorm.Statement, table string) (interface{}
 		}
 	}
 	return clause.Expr{SQL: "CURRENT_SCHEMA()"}, table
+}
+
+func (m Migrator) CreateSequence(tx *gorm.DB, stmt *gorm.Statement, field *schema.Field,
+	serialDatabaseType string) (err error) {
+
+	_, table := m.CurrentSchema(stmt, stmt.Table)
+	tableName := table.(string)
+
+	sequenceName := strings.Join([]string{tableName, field.DBName, "seq"}, "_")
+	if err = tx.Exec(`CREATE SEQUENCE IF NOT EXISTS ? AS ?`, clause.Expr{SQL: sequenceName},
+		clause.Expr{SQL: serialDatabaseType}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? SET DEFAULT nextval('?')",
+		clause.Expr{SQL: tableName}, clause.Expr{SQL: field.DBName}, clause.Expr{SQL: sequenceName}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("ALTER SEQUENCE ? OWNED BY ?.?",
+		clause.Expr{SQL: sequenceName}, clause.Expr{SQL: tableName}, clause.Expr{SQL: field.DBName}).Error; err != nil {
+		return err
+	}
+	return
+}
+
+func (m Migrator) UpdateSequence(tx *gorm.DB, stmt *gorm.Statement, field *schema.Field,
+	serialDatabaseType string) (err error) {
+
+	sequenceName, err := m.getColumnSequenceName(tx, stmt, field)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Exec(`ALTER SEQUENCE IF EXISTS ? AS ?`, clause.Expr{SQL: sequenceName}, clause.Expr{SQL: serialDatabaseType}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?",
+		m.CurrentTable(stmt), clause.Expr{SQL: field.DBName}, clause.Expr{SQL: serialDatabaseType}).Error; err != nil {
+		return err
+	}
+	return
+}
+
+func (m Migrator) DeleteSequence(tx *gorm.DB, stmt *gorm.Statement, field *schema.Field,
+	fileType clause.Expr) (err error) {
+
+	sequenceName, err := m.getColumnSequenceName(tx, stmt, field)
+	if err != nil {
+		return err
+	}
+
+	if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?", m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fileType).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Exec("ALTER TABLE ? ALTER COLUMN ? DROP DEFAULT",
+		m.CurrentTable(stmt), clause.Expr{SQL: field.DBName}).Error; err != nil {
+		return err
+	}
+
+	if err = tx.Exec(`DROP SEQUENCE IF EXISTS ?`, clause.Expr{SQL: sequenceName}).Error; err != nil {
+		return err
+	}
+
+	return
+}
+
+func (m Migrator) getColumnSequenceName(tx *gorm.DB, stmt *gorm.Statement, field *schema.Field) (
+	sequenceName string, err error) {
+	_, table := m.CurrentSchema(stmt, stmt.Table)
+
+	// DefaultValueValue is reset by ColumnTypes, search again.
+	var columnDefault string
+	err = tx.Raw(
+		`SELECT column_default FROM information_schema.columns WHERE table_name = ? AND column_name = ?`,
+		table, field.DBName).Scan(&columnDefault).Error
+
+	if err != nil {
+		return
+	}
+
+	sequenceName = strings.TrimSuffix(
+		strings.TrimPrefix(columnDefault, `nextval('`),
+		`'::regclass)`,
+	)
+	return
+}
+
+func (m Migrator) GetIndexes(value interface{}) ([]gorm.Index, error) {
+	indexes := make([]gorm.Index, 0)
+
+	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		result := make([]*Index, 0)
+		scanErr := m.DB.Raw(indexSql, stmt.Table).Scan(&result).Error
+		if scanErr != nil {
+			return scanErr
+		}
+		indexMap := groupByIndexName(result)
+		for _, idx := range indexMap {
+			tempIdx := &migrator.Index{
+				TableName: idx[0].TableName,
+				NameValue: idx[0].IndexName,
+				PrimaryKeyValue: sql.NullBool{
+					Bool:  idx[0].Primary,
+					Valid: true,
+				},
+				UniqueValue: sql.NullBool{
+					Bool:  idx[0].NonUnique,
+					Valid: true,
+				},
+			}
+			for _, x := range idx {
+				tempIdx.ColumnList = append(tempIdx.ColumnList, x.ColumnName)
+			}
+			indexes = append(indexes, tempIdx)
+		}
+		return nil
+	})
+	return indexes, err
+}
+
+// Index table index info
+type Index struct {
+	TableName  string `gorm:"column:table_name"`
+	ColumnName string `gorm:"column:column_name"`
+	IndexName  string `gorm:"column:index_name"`
+	NonUnique  bool   `gorm:"column:non_unique"`
+	Primary    bool   `gorm:"column:primary"`
+}
+
+func groupByIndexName(indexList []*Index) map[string][]*Index {
+	columnIndexMap := make(map[string][]*Index, len(indexList))
+	for _, idx := range indexList {
+		columnIndexMap[idx.IndexName] = append(columnIndexMap[idx.IndexName], idx)
+	}
+	return columnIndexMap
 }
