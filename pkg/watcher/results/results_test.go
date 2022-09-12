@@ -140,6 +140,40 @@ func TestResultName(t *testing.T) {
 	}
 }
 
+func TestParentName(t *testing.T) {
+	tests := []struct {
+		name string
+		in   metav1.Object
+		want string
+	}{{
+		name: "default to the object's namespace when the results annotation is unset",
+		in: &metav1.ObjectMeta{
+			Namespace: "dev",
+		},
+		want: "dev",
+	},
+		{
+			name: "extract the parent name from the result annotation",
+			in: &metav1.ObjectMeta{
+				Namespace: "dev",
+				Annotations: map[string]string{
+					annotation.Result: "foo/results/bar",
+				},
+			},
+			want: "foo",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := parentName(test.in)
+			if test.want != got {
+				t.Errorf("parentName: want %s, got %s", test.want, got)
+			}
+		})
+	}
+}
+
 func TestEnsureResult(t *testing.T) {
 	ctx := logtest.TestContextWithLogger(t)
 	client := client(t)
