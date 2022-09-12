@@ -112,7 +112,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 	if status.Code(err) == codes.NotFound {
 		// Result doesn't exist yet - create.
 		req := &pb.CreateResultRequest{
-			Parent: o.GetNamespace(),
+			Parent: parentName(o),
 			Result: new,
 		}
 		return c.ResultsClient.CreateResult(ctx, req, opts...)
@@ -186,6 +186,18 @@ func recordName(parent string, o Object) string {
 		return name
 	}
 	return record.FormatName(parent, defaultName(o))
+}
+
+// parentName returns the parent's name of the result in question. If the
+// results annotation is set, returns the first segment of the result
+// name. Otherwise, returns the object's namespace.
+func parentName(o metav1.Object) string {
+	if value, found := o.GetAnnotations()[annotation.Result]; found {
+		if parts := strings.Split(value, "/"); len(parts) != 0 {
+			return parts[0]
+		}
+	}
+	return o.GetNamespace()
 }
 
 // upsertRecord updates or creates a record for the object. If there has been
