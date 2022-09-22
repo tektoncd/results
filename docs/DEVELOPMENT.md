@@ -62,28 +62,41 @@ using
 [`kubectl port-forward`](https://kubernetes.io/docs/tasks/access-application-cluster/port-forward-access-application-cluster/) +
 [`grpc_cli`](https://github.com/grpc/grpc/blob/master/doc/command_line_tool.md).
 
+Enable port forwarding in the separated terminal:
+
 ```sh
-# Prepare a custom Service Account that will be used for debugging purposes
-$ kubectl create sa tekton-results-debug -n tekton-pipelines
+$ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051
+```
 
-# Grant required privileges to the Service Account
-$ kubectl create clusterrolebinding tekton-results-debug --clusterrole=tekton-results-readonly --serviceaccount=tekton-pipelines:tekton-results-debug
+Execute script to get debug permissions:
 
-# Proxies the remote Service to localhost.
-$ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051  # This will block, so run this in a separate shell or background the process.
+```sh
+$ ./get-debug-perm.sh
+```
 
-# If using self-signed certs, download the API Server certificate locally and configure gRPC.
-# (if using a cert that's already present in your system pool, this can be skipped)
-$ kubectl get secrets tekton-results-tls -n tekton-pipelines --template='{{index .data "tls.crt"}}' | base64 -d > /tmp/results.crt
+You can make grpc_cli requests in the terminal:
+
+```
 $ export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/results.crt
+$ export TOKEN=$(cat /tmp/token)
 
 # Lists the available gRPC services.
 $ grpc_cli ls --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local localhost:50051
+
+--- Output
+grpc.health.v1.Health
 grpc.reflection.v1alpha.ServerReflection
 tekton.results.v1alpha2.Results
 
 # Makes a request to the Results service.
-$ grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$(kubectl get secrets -n tekton-pipelines -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='tekton-results-debug')].data.token}"|base64 --decode) localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+$ grpc_cli call \
+--channel_creds_type=ssl \
+--ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local \
+--call_creds=access_token=${TOKEN} \
+localhost:50051 \
+tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+
+--- Output
 connecting to localhost:50051
 results {
   name: "default/results/9b7714d0-cbd3-40c6-87ec-bcbd9f199985"
