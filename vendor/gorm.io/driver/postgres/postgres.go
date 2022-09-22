@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
@@ -138,7 +139,7 @@ func (dialector Dialector) QuoteTo(writer clause.Writer, str string) {
 	writer.WriteByte('"')
 }
 
-var numericPlaceholder = regexp.MustCompile("\\$(\\d+)")
+var numericPlaceholder = regexp.MustCompile(`\$(\d+)`)
 
 func (dialector Dialector) Explain(sql string, vars ...interface{}) string {
 	return logger.ExplainSQL(sql, numericPlaceholder, `'`, vars...)
@@ -192,9 +193,30 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 		return "timestamptz"
 	case schema.Bytes:
 		return "bytea"
+	default:
+		return dialector.getSchemaCustomType(field)
+	}
+}
+
+func (dialector Dialector) getSchemaCustomType(field *schema.Field) string {
+	sqlType := string(field.DataType)
+
+	if field.AutoIncrement && !strings.Contains(strings.ToLower(sqlType), "serial") {
+		size := field.Size
+		if field.GORMDataType == schema.Uint {
+			size++
+		}
+		switch {
+		case size <= 16:
+			sqlType = "smallserial"
+		case size <= 32:
+			sqlType = "serial"
+		default:
+			sqlType = "bigserial"
+		}
 	}
 
-	return string(field.DataType)
+	return sqlType
 }
 
 func (dialectopr Dialector) SavePoint(tx *gorm.DB, name string) error {
@@ -205,4 +227,17 @@ func (dialectopr Dialector) SavePoint(tx *gorm.DB, name string) error {
 func (dialectopr Dialector) RollbackTo(tx *gorm.DB, name string) error {
 	tx.Exec("ROLLBACK TO SAVEPOINT " + name)
 	return nil
+}
+
+func getSerialDatabaseType(s string) (dbType string, ok bool) {
+	switch s {
+	case "smallserial":
+		return "smallint", true
+	case "serial":
+		return "integer", true
+	case "bigserial":
+		return "bigint", true
+	default:
+		return "", false
+	}
 }
