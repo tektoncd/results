@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
+	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/transport"
 	"knative.dev/pkg/configmap"
@@ -56,12 +57,17 @@ var (
 	disableCRDUpdate        = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
 	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
 	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
+	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
 )
 
 func main() {
 	flag.Parse()
-	// TODO: Enable leader election.
-	ctx := sharedmain.WithHADisabled(signals.NewContext())
+
+	// Allow users to customize the number of workers used to process the
+	// controller's workqueue.
+	controller.DefaultThreadsPerController = *threadiness
+
+	ctx := signals.NewContext()
 
 	conn, err := connectToAPIServer(ctx, *apiAddr, *authMode)
 	if err != nil {
@@ -75,7 +81,7 @@ func main() {
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
 	}
 
-	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, ""), "watcher",
+	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, corev1.NamespaceAll), "watcher",
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return pipelinerun.NewControllerWithConfig(ctx, results, cfg)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {

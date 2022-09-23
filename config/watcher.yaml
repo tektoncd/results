@@ -42,6 +42,24 @@ spec:
               "-auth_mode",
               "token",
             ]
+          env:
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONFIG_LOGGING_NAME
+              value: tekton-results-config-logging
+            - name: CONFIG_LEADERELECTION_NAME
+              value: tekton-results-config-leader-election
+            - name: CONFIG_OBSERVABILITY_NAME
+              value: tekton-results-config-observability
+            - name: METRICS_DOMAIN
+              value: tekton.dev/results
+          ports:
+            - name: metrics
+              containerPort: 9090
+            - name: profiling
+              containerPort: 8008
           volumeMounts:
             - name: tls
               mountPath: "/etc/tls"
@@ -50,3 +68,17 @@ spec:
         - name: tls
           secret:
             secretName: tekton-results-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: watcher
+  namespace: tekton-pipelines
+spec:
+  ports:
+  - name: metrics
+    port: 9090
+  - name: profiling
+    port: 8008
+  selector:
+    app.kubernetes.io/name: tekton-results-watcher

@@ -20,6 +20,7 @@ import (
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/leaderelection"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
@@ -33,12 +34,14 @@ func NewController(ctx context.Context, client pb.ResultsClient) *controller.Imp
 
 func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	informer := taskruninformer.Get(ctx)
+	lister := informer.Lister()
 
 	c := &Reconciler{
-		client:    client,
-		lister:    informer.Lister(),
-		k8sclient: pipelineclient.Get(ctx),
-		cfg:       cfg,
+		LeaderAwareFuncs: leaderelection.NewLeaderAwareFuncs(lister.List),
+		client:           client,
+		lister:           lister,
+		k8sclient:        pipelineclient.Get(ctx),
+		cfg:              cfg,
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
