@@ -154,7 +154,7 @@ func NetworkAddress(host string, port uint16) (network, address string) {
 // 	 PGCONNECT_TIMEOUT
 // 	 PGTARGETSESSIONATTRS
 //
-// See http://www.postgresql.org/docs/11/static/libpq-envars.html for details on the meaning of environment variables.
+// See https://www.postgresql.org/docs/11/libpq-envars.html for details on the meaning of environment variables.
 //
 // See https://www.postgresql.org/docs/11/libpq-connect.html#LIBPQ-PARAMKEYWORDS for parameter key word names. They are
 // usually but not always the environment variable name downcased and without the "PG" prefix.
