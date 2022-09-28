@@ -15,7 +15,7 @@
 | TLS_HOSTNAME_OVERRIDE| Override the hostname used to serve TLS. This should not be set (or set to the empty string) in production environments.     | results.tekton.dev                           |
 | TLS_PATH             | Path to TLS files          | /etc/tls                                     |
 
-These values can also be set in the config file located in the `env/config` directory.
+These values can also be set in the config file located in the `config/env/config` directory.
 
 Values derived from Postgres DSN
 
