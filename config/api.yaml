@@ -52,10 +52,16 @@ spec:
             - name: DB_NAME
               value: tekton-results
           volumeMounts:
+            - name: config
+              mountPath: /home/nonroot/env
+              readOnly: true
             - name: tls
               mountPath: "/etc/tls"
               readOnly: true
       volumes:
+        - name: config
+          configMap:
+            name: tekton-results-api-config
         - name: tls
           secret:
             secretName: tekton-results-tls

@@ -24,6 +24,14 @@ resources:
 - config-leader-election.yaml
 - config-logging.yaml
 - config-observability.yaml
+configMapGenerator:
+  # Create a ConfigMap containing the API configs.
+  - name: api-config
+    namespace: tekton-pipelines
+    files:
+      - env/config
+    options:
+      disableNameSuffixHash: true
 labels:
   - pairs:
       app.kubernetes.io/part-of: tekton-results

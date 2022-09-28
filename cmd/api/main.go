@@ -19,15 +19,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"path"
+
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	_ "go.uber.org/automaxprocs"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
-	"net"
-	"net/http"
-	"path"
 
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -68,7 +69,7 @@ func main() {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		return
+		log.Fatalf("Error reading config: %v", err)
 	}
 
 	configFile := ConfigFile{}
