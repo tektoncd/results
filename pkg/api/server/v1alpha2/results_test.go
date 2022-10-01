@@ -200,7 +200,7 @@ func TestUpdateResult(t *testing.T) {
 				t.Fatalf("could not create result: %v", err)
 			}
 
-			// foward the time to test if the UpdateTime field is properly updated.
+			// forward the time to test if the UpdateTime field is properly updated.
 			fakeClock.Advance(time.Second)
 
 			if tc.requestName == "" {
