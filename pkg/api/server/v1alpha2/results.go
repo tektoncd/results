@@ -237,7 +237,13 @@ func (s *Server) getFilteredPaginatedSortedResults(ctx context.Context, parent s
 	for len(out) < pageSize {
 		batchSize := batcher.Next()
 		dbresults := make([]*db.Result, 0, batchSize)
-		q := s.db.WithContext(ctx).Where("parent = ? AND id > ?", parent, start)
+		q := s.db.WithContext(ctx).Where("id > ?", start)
+		// Specifying `-` allows users to read Results from any parent.
+		// See https://google.aip.dev/159 for more details.
+		if parent != "-" {
+			q = q.Where("parent = ?", parent)
+		}
+
 		if sortOrder != "" {
 			q.Order(sortOrder)
 		}

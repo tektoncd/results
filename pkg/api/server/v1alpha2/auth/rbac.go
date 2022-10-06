@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	authnv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	authnclient "k8s.io/client-go/kubernetes/typed/authentication/v1"
@@ -56,6 +57,13 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	v := md.Get("authorization")
 	if len(v) == 0 {
 		return status.Error(codes.Unauthenticated, "unable to find token")
+	}
+
+	if verb == PermissionList && namespace == "-" {
+		// In list operations `-` means that the caller wants to list
+		// resources across all parents. Thus, let's assume all
+		// namespaces here.
+		namespace = corev1.NamespaceAll
 	}
 
 	for _, raw := range v {
