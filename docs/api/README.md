@@ -140,10 +140,14 @@ Fields supported in `order_by`:
 | `created_time` |
 | `updated_time` |
 
+## Reading results across parents
+
+Results can be read across parents by specifying `-` as the parent name. This is useful for listing all results stored in the system without a prior knowledge about the available parents.
+
 ## Reading Records across Results
 
-Records can be read across Results by specifying `-` as the Result name part
-(e.g. `default/results/-`). This can be used to read and filter matching Records
+Records can be read across Results by specifying `-` as the Result name part or across parents by specifying `-` as the parent name.
+(e.g. `default/results/-` or `-/results/-`). This can be used to read and filter matching Records
 without knowing the exact Result name.
 
 ## Metrics

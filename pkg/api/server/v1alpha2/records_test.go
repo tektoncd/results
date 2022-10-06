@@ -326,6 +326,24 @@ func TestListRecords(t *testing.T) {
 			},
 		},
 		{
+			name: "list all records without knowing the result name",
+			req: &pb.ListRecordsRequest{
+				Parent: "foo/results/-",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: records,
+			},
+		},
+		{
+			name: "list all records without knowing the parent and the result name",
+			req: &pb.ListRecordsRequest{
+				Parent: "-/results/-",
+			},
+			want: &pb.ListRecordsResponse{
+				Records: records,
+			},
+		},
+		{
 			// TODO: We should return NOT_FOUND in the future.
 			name: "missing parent",
 			req: &pb.ListRecordsRequest{

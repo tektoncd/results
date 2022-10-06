@@ -407,6 +407,16 @@ func TestListResults(t *testing.T) {
 			status: codes.OK,
 		},
 		{
+			name: "list all results without knowing the parent name",
+			req: &pb.ListResultsRequest{
+				Parent: "-",
+			},
+			want: &pb.ListResultsResponse{
+				Results: results,
+			},
+			status: codes.OK,
+		},
+		{
 			name: "list all w/ pagination token",
 			req: &pb.ListResultsRequest{
 				Parent:   parent,
