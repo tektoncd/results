@@ -312,6 +312,10 @@ func (stmt *Statement) BuildCondition(query interface{}, args ...interface{}) []
 		case clause.Expression:
 			conds = append(conds, v)
 		case *DB:
+			for _, scope := range v.Statement.scopes {
+				v = scope(v)
+			}
+
 			if cs, ok := v.Statement.Clauses["WHERE"]; ok {
 				if where, ok := cs.Expression.(clause.Where); ok {
 					if len(where.Exprs) == 1 {
@@ -605,10 +609,10 @@ func (stmt *Statement) Changed(fields ...string) bool {
 	changed := func(field *schema.Field) bool {
 		fieldValue, _ := field.ValueOf(stmt.Context, modelValue)
 		if v, ok := selectColumns[field.DBName]; (ok && v) || (!ok && !restricted) {
-			if v, ok := stmt.Dest.(map[string]interface{}); ok {
-				if fv, ok := v[field.Name]; ok {
+			if mv, mok := stmt.Dest.(map[string]interface{}); mok {
+				if fv, ok := mv[field.Name]; ok {
 					return !utils.AssertEqual(fv, fieldValue)
-				} else if fv, ok := v[field.DBName]; ok {
+				} else if fv, ok := mv[field.DBName]; ok {
 					return !utils.AssertEqual(fv, fieldValue)
 				}
 			} else {
@@ -618,6 +622,9 @@ func (stmt *Statement) Changed(fields ...string) bool {
 				}
 
 				changedValue, zero := field.ValueOf(stmt.Context, destValue)
+				if v {
+					return !utils.AssertEqual(changedValue, fieldValue)
+				}
 				return !zero && !utils.AssertEqual(changedValue, fieldValue)
 			}
 		}
@@ -643,7 +650,7 @@ func (stmt *Statement) Changed(fields ...string) bool {
 	return false
 }
 
-var nameMatcher = regexp.MustCompile(`^[\W]?(?:[a-z_]+?)[\W]?\.[\W]?([a-z_]+?)[\W]?$`)
+var nameMatcher = regexp.MustCompile(`^[\W]?(?:[a-z_0-9]+?)[\W]?\.[\W]?([a-z_0-9]+?)[\W]?$`)
 
 // SelectAndOmitColumns get select and omit columns, select -> true, omit -> false
 func (stmt *Statement) SelectAndOmitColumns(requireCreate, requireUpdate bool) (map[string]bool, bool) {
