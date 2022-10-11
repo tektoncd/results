@@ -30,40 +30,49 @@ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipeli
 
 echo "Generating TLS key pair..."
 set +e
-  openssl req -x509 \
-     -newkey rsa:4096 \
-     -keyout "/tmp/tekton-results-key.pem" \
-     -out "/tmp/tekton-results-cert.pem" \
-     -days 365 \
-     -nodes \
-     -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
-     -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+openssl req -x509 \
+        -newkey rsa:4096 \
+        -keyout "/tmp/tekton-results-key.pem" \
+        -out "/tmp/tekton-results-cert.pem" \
+        -days 365 \
+        -nodes \
+        -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
+        -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
 
-  if [ $? -ne 0 ] ; then
+if [ $? -ne 0 ] ; then
     # LibreSSL didn't support the -addext flag until version 3.1.0 but
     # version 2.8.3 ships with MacOS Big Sur. So let's try a different way...
     echo "Falling back to legacy libressl cert generation"
     openssl req -x509 \
-      -verbose \
-      -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local")) \
-      -extensions SAN \
-      -newkey rsa:4096 \
-      -keyout "/tmp/tekton-results-key.pem" \
-      -out "/tmp/tekton-results-cert.pem" \
-      -days 365 \
-      -nodes \
-      -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+            -verbose \
+            -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local")) \
+            -extensions SAN \
+            -newkey rsa:4096 \
+            -keyout "/tmp/tekton-results-key.pem" \
+            -out "/tmp/tekton-results-cert.pem" \
+            -days 365 \
+            -nodes \
+            -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
 
     if [ $? -ne 0 ] ; then
-      echo "There was an error generating certificates"
-      exit 1
+        echo "There was an error generating certificates"
+        exit 1
     fi
-  fi
+fi
 set -e
 kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
 kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply -f -
+
+echo "Fetching access tokens..."
+tokens_dir=/tmp/tekton-results/tokens
+mkdir -p $tokens_dir
+service_accounts=(all-namespaces-read-access single-namespace-read-access)
+for service_account in ${service_accounts[@]}; do
+    kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='$service_account')].data.token}"|base64 --decode > $tokens_dir/$service_account
+    echo "Created $tokens_dir/$service_account"
+done
 
 echo "Waiting for deployments to be ready..."
 kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"

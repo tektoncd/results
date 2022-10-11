@@ -137,7 +137,11 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
-	if err := s.auth.Check(ctx, req.GetParent(), auth.ResourceRecords, auth.PermissionList); err != nil {
+	parent, _, err := result.ParseName(req.GetParent())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.auth.Check(ctx, parent, auth.ResourceRecords, auth.PermissionList); err != nil {
 		return nil, err
 	}
 
