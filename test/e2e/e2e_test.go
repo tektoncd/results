@@ -21,6 +21,13 @@ import (
 	"context"
 	"io/ioutil"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -137,4 +144,150 @@ func client(t *testing.T) *clientset.TektonV1beta1Client {
 		panic(err)
 	}
 	return clientset.NewForConfigOrDie(config)
+}
+
+func TestListResults(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("list results under the default parent", func(t *testing.T) {
+		client := newResultsClient(t, allNamespacesReadAccess)
+		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if length := len(resp.Results); length == 0 {
+			t.Error("No results returned by the API server")
+		} else {
+			t.Logf("Found %d results\n", length)
+		}
+	})
+
+	t.Run("list results across parents", func(t *testing.T) {
+		client := newResultsClient(t, allNamespacesReadAccess)
+
+		// For the purposes of this test suite, listing results under
+		// the `default` parent or using the `-` symbol must return the
+		// same items. Therefore, let's run both queries and make sure
+		// that results are identical.
+
+		want, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+			Parent:  "default",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+			Parent:  "-",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if diff := cmp.Diff(want.Results, got.Results, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
+		client := newResultsClient(t, singleNamespaceReadAccess)
+		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
+		if err == nil {
+			t.Fatal("Want an unauthenticated error, but the request succeeded")
+		}
+
+		if status.Code(err) != codes.Unauthenticated {
+			t.Errorf("API server returned an unexpected error: %v", err)
+		}
+	})
+
+	t.Run("list results under the default parent using the identity with more limited access", func(t *testing.T) {
+		client := newResultsClient(t, singleNamespaceReadAccess)
+		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if length := len(resp.Results); length == 0 {
+			t.Error("No results returned by the API server")
+		} else {
+			t.Logf("Found %d results\n", length)
+		}
+	})
+}
+
+func TestListRecords(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("list records by omitting the result name", func(t *testing.T) {
+		client := newResultsClient(t, allNamespacesReadAccess)
+		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if length := len(resp.Records); length == 0 {
+			t.Error("No records returned by the API server")
+		} else {
+			t.Logf("Found %d records\n", length)
+		}
+	})
+
+	t.Run("list records by omitting the parent and result names", func(t *testing.T) {
+		client := newResultsClient(t, allNamespacesReadAccess)
+
+		// For the purposes of this test suite, listing records under
+		// the `default/results/-` result or using the `-/results/-`
+		// form must return the same items. Therefore, let's run both
+		// queries and make sure that results are identical.
+
+		want, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+			Parent:  "default/results/-",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+			Parent:  "-/results/-",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if diff := cmp.Diff(want.Records, got.Records, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
+		client := newResultsClient(t, singleNamespaceReadAccess)
+		_, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
+		if err == nil {
+			t.Fatal("Want an unauthenticated error, but the request succeeded")
+		}
+
+		if status.Code(err) != codes.Unauthenticated {
+			t.Errorf("API server returned an unexpected error: %v", err)
+		}
+	})
+
+	t.Run("list records using the identity with more limited access", func(t *testing.T) {
+		client := newResultsClient(t, singleNamespaceReadAccess)
+		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if length := len(resp.Records); length == 0 {
+			t.Error("No records returned by the API server")
+		} else {
+			t.Logf("Found %d records\n", length)
+		}
+	})
 }
