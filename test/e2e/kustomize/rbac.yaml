@@ -41,6 +41,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: single-namespace-read-access
+  namespace: default
 subjects:
   - kind: ServiceAccount
     name: single-namespace-read-access
