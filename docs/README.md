@@ -47,9 +47,8 @@ Tekton Results is composed of 2 main components:
 2. Result Watcher listens for all TaskRun/PipelineRun changes.
 3. If a TaskRun/PipelineRun has changed, Watcher updates (or creates) a
    corresponding `Record` (and `Result` if necessary using the Results API.
-
-- Watcher will also annotate the original TaskRun/PipelineRun with identifiers
-  as well.
+    - Watcher will also annotate the original TaskRun/PipelineRun with
+    identifiers as well.
 
 4. Users can get/query Result/Record data directly from the API. Once the
    TaskRun/PipelineRun is complete and has been successfully stored in the

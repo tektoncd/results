@@ -97,6 +97,7 @@ var (
 					apis.Condition{
 						Type:   apis.ConditionSucceeded,
 						Status: corev1.ConditionTrue,
+						Reason: "Succeeded",
 					},
 				},
 			},

@@ -25,6 +25,7 @@ import (
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	model "github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
+	"github.com/tektoncd/results/pkg/conf"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"gorm.io/gorm"
 )
@@ -48,10 +49,14 @@ type Server struct {
 	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
 	getResultID getResultID
+
+	ctx context.Context
+
+	Conf *conf.ConfigFile
 }
 
 // New set up environment for the api server
-func New(db *gorm.DB, opts ...Option) (*Server, error) {
+func New(db *gorm.DB, ctx context.Context, opts ...Option) (*Server, error) {
 	if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
 		return nil, fmt.Errorf("error automigrating DB: %w", err)
 	}
@@ -62,6 +67,7 @@ func New(db *gorm.DB, opts ...Option) (*Server, error) {
 	srv := &Server{
 		db:  db,
 		env: env,
+		ctx: ctx,
 
 		// Default open auth for easier testing.
 		auth: auth.AllowAll{},
@@ -81,6 +87,12 @@ type Option func(*Server)
 func WithAuth(c auth.Checker) Option {
 	return func(s *Server) {
 		s.auth = c
+	}
+}
+
+func WithConf(conf *conf.ConfigFile) Option {
+	return func(s *Server) {
+		s.Conf = conf
 	}
 }
 

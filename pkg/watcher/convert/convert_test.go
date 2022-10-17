@@ -335,7 +335,6 @@ func TestToLogProto(t *testing.T) {
 						Name:      taskrun.Name,
 					},
 					RecordName: fmt.Sprintf("%s/results/%s/records/%s", taskrun.Namespace, "test-pipeline", "taskrun-log"),
-					Type:       v1alpha2.FileLogType,
 				},
 			},
 		},

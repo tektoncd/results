@@ -69,7 +69,7 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	r.UpdatedTime = ts
 	r.UpdateTime = ts
 
-	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord())
+	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord(), s.Conf)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		pb.UpdateTime = updateTime
 
 		// Convert back to storage and store.
-		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb)
+		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb, s.Conf)
 		if err != nil {
 			return err
 		}

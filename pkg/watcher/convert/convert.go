@@ -65,7 +65,6 @@ func ToLogProto(in metav1.Object, recordName string) (*rpb.Any, error) {
 				Name:      in.GetName(),
 			},
 			RecordName: recordName,
-			Type:       v1alpha2.FileLogType,
 		},
 	}
 	trl.Default()

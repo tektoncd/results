@@ -24,15 +24,19 @@ const (
 	Log    = "results.tekton.dev/log"
 )
 
+type Annotation struct {
+	Name  string
+	Value string
+}
+
 // Add creates a jsonpatch path used for adding result / record identifiers
 // an object's annotations field.
-func Add(result, record, log string) ([]byte, error) {
-	annotations := map[string]string{
-		Result: result,
-		Record: record,
-	}
-	if len(log) > 0 {
-		annotations[Log] = log
+func Add(annotation ...Annotation) ([]byte, error) {
+	annotations := make(map[string]string)
+	for _, annotation := range annotation {
+		if len(annotation.Value) > 0 {
+			annotations[annotation.Name] = annotation.Value
+		}
 	}
 	data := map[string]interface{}{
 		"metadata": map[string]interface{}{

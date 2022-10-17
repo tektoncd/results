@@ -29,10 +29,17 @@ type TaskRunLogType string
 
 const (
 	FileLogType TaskRunLogType = "File"
+	S3LogType   TaskRunLogType = "S3"
 )
 
 type TaskRunLogStatus struct {
-	File *FileLogTypeStatus `json:"file,omitempty"`
+	File  *FileLogTypeStatus `json:"file,omitempty"`
+	S3Log *S3LogStatus       `json:"s3file,omitempty"`
+}
+
+type S3LogStatus struct {
+	Path string `json:"path,omitempty"`
+	Size int64  `json:"size"`
 }
 
 type FileLogTypeStatus struct {

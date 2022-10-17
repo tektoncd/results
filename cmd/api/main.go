@@ -35,6 +35,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
+	"github.com/tektoncd/results/pkg/conf"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -45,23 +46,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type ConfigFile struct {
-	DB_USER               string `mapstructure:"DB_USER"`
-	DB_PASSWORD           string `mapstructure:"DB_PASSWORD"`
-	DB_HOST               string `mapstructure:"DB_HOST"`
-	DB_PORT               string `mapstructure:"DB_PORT"`
-	DB_NAME               string `mapstructure:"DB_NAME"`
-	DB_SSLMODE            string `mapstructure:"DB_SSLMODE"`
-	GRPC_PORT             string `mapstructure:"GRPC_PORT"`
-	REST_PORT             string `mapstructure:"REST_PORT"`
-	PROMETHEUS_PORT       string `mapstructure:"PROMETHEUS_PORT"`
-	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
-	TLS_PATH              string `mapstructure:"TLS_PATH"`
-}
-
 func main() {
-
-	viper.AddConfigPath("./env")
+	// points to env file folder for local development
+	viper.AddConfigPath("./config/env")
 	viper.SetConfigName("config")
 	viper.SetConfigType("env")
 
@@ -72,9 +59,8 @@ func main() {
 		log.Fatalf("Error reading config: %v", err)
 	}
 
-	configFile := ConfigFile{}
-	err = viper.Unmarshal(&configFile)
-
+	configFile := &conf.ConfigFile{}
+	err = viper.Unmarshal(configFile)
 	if err != nil {
 		log.Fatal("Cannot load config:", err)
 	}
@@ -110,8 +96,16 @@ func main() {
 		creds = insecure.NewCredentials()
 	}
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
+	v1a2, err := v1alpha2.New(db,
+		ctx,
+		v1alpha2.WithAuth(auth.NewRBAC(k8s)),
+		v1alpha2.WithConf(configFile),
+	)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
@@ -161,9 +155,6 @@ func main() {
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 
 	// Register gRPC server endpoint for gRPC gateway
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	mux := runtime.NewServeMux()
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
 	if err != nil {

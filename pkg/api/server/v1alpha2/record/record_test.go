@@ -15,6 +15,9 @@
 package record
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +26,9 @@ import (
 	cw "github.com/jonboulle/clockwork"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/conf"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -181,7 +187,7 @@ func TestToStorage(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -219,7 +225,7 @@ func TestToStorage(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in, nil)
 			if status.Code(err) != tc.want {
 				t.Fatalf("expected %v, got (%v, %v)", tc.want, got, err)
 			}
@@ -282,6 +288,93 @@ func TestToAPI(t *testing.T) {
 
 			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("-want,+got: %s", diff)
+			}
+		})
+	}
+}
+
+type mockLogStreamer struct {
+	streamerType string
+}
+
+func (s *mockLogStreamer) WriteTo(io.Writer) (int64, error) {
+	return 0, fmt.Errorf("not implemented!")
+}
+
+func (s *mockLogStreamer) ReadFrom(io.Reader) (int64, error) {
+	return 0, fmt.Errorf("not implemented")
+}
+
+func (s *mockLogStreamer) Type() string {
+	return s.streamerType
+}
+
+func TestToLogStreamer(t *testing.T) {
+	cases := []struct {
+		name      string
+		in        *db.Record
+		want      log.LogStreamer
+		expectErr bool
+	}{
+		{
+			name: "TaskRunLog Filesystem Type",
+			in: &db.Record{
+				Parent:     "app",
+				ResultID:   "1",
+				ResultName: "push-main",
+				Name:       "taskrun-compile-log",
+				ID:         "a",
+				Type:       v1alpha2.TaskRunLogRecordType,
+				Data: jsonutil.AnyBytes(t, &v1alpha2.TaskRunLog{
+					Spec: v1alpha2.TaskRunLogSpec{
+						Type: v1alpha2.FileLogType,
+						Ref: v1alpha2.TaskRunRef{
+							Namespace: "app",
+							Name:      "taskrun-compile",
+						},
+					},
+				}),
+			},
+			want: &mockLogStreamer{
+				streamerType: string(v1alpha2.FileLogType),
+			},
+		},
+		{
+			name: "TaskRun Record",
+			in: &db.Record{
+				Parent:     "app",
+				ResultID:   "1",
+				ResultName: "push-main",
+				Name:       "taskrun-compile",
+				ID:         "a",
+				Type:       "pipeline.tekton.dev/TaskRun",
+			},
+			expectErr: true,
+		},
+		{
+			name: "PipelineRun Record",
+			in: &db.Record{
+				Parent:     "app",
+				ResultID:   "1",
+				ResultName: "push-main",
+				Name:       "taskrun-compile",
+				ID:         "a",
+				Type:       "pipeline.tekton.dev/PipelineRun",
+			},
+			expectErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			streamer, _, err := ToLogStreamer(tc.in, 1024, "", &conf.ConfigFile{}, context.TODO())
+			if err != nil {
+				if !tc.expectErr {
+					t.Errorf("unexpected error: %v", err)
+				}
+				return
+			}
+			if streamer.Type() != tc.want.Type() {
+				t.Errorf("expected log streamer %s, got %s", tc.want.Type(), streamer.Type())
 			}
 		})
 	}

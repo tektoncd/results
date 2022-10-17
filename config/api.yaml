@@ -51,6 +51,20 @@ spec:
               value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
               value: tekton-results
+            - name: LOGS_DATA
+              value: /app/tekton-results/logs
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tekton-results-s3-credentials
+                  key: S3_ACCESS_KEY_ID
+                  optional: true
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tekton-results-s3-credentials
+                  key: S3_SECRET_ACCESS_KEY
+                  optional: true
           volumeMounts:
             - name: config
               mountPath: /home/nonroot/env
@@ -58,6 +72,8 @@ spec:
             - name: tls
               mountPath: "/etc/tls"
               readOnly: true
+            - name: tekton-logs
+              mountPath: "/app/tekton-results/logs"
       volumes:
         - name: config
           configMap:
@@ -65,6 +81,21 @@ spec:
         - name: tls
           secret:
             secretName: tekton-results-tls
+        - name: tekton-logs
+          persistentVolumeClaim:
+            claimName: tekton-logs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tekton-logs
+  namespace: tekton-pipelines
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 ---
 apiVersion: v1
 kind: Service

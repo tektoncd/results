@@ -34,7 +34,7 @@ import (
 )
 
 func TestCreateResult(t *testing.T) {
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestCreateResult(t *testing.T) {
 }
 
 func TestUpdateResult(t *testing.T) {
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestUpdateResult(t *testing.T) {
 }
 
 func TestGetResult(t *testing.T) {
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestGetResult(t *testing.T) {
 }
 
 func TestDeleteResult(t *testing.T) {
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestDeleteResult(t *testing.T) {
 }
 
 func TestCascadeDelete(t *testing.T) {
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestListResults(t *testing.T) {
 	lastID = 0
 
 	// Create a temporary database
-	srv, err := New(test.NewDB(t))
+	srv, err := New(test.NewDB(t), context.TODO())
 	if err != nil {
 		t.Fatalf("failed to setup db: %v", err)
 	}

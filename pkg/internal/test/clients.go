@@ -15,6 +15,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -31,7 +32,7 @@ const (
 
 func NewResultsClient(t *testing.T, opts ...server.Option) pb.ResultsClient {
 	t.Helper()
-	srv, err := server.New(test.NewDB(t), opts...)
+	srv, err := server.New(test.NewDB(t), context.TODO(), opts...)
 	if err != nil {
 		t.Fatalf("Failed to create fake server: %v", err)
 	}

@@ -3,6 +3,12 @@ module github.com/tektoncd/results
 go 1.18
 
 require (
+	github.com/aws/aws-sdk-go-v2 v1.16.16
+	github.com/aws/aws-sdk-go-v2/config v1.17.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.20
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.33
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
+	github.com/emicklei/go-restful v2.16.0+incompatible
 	github.com/fatih/color v1.13.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/cel-go v0.11.3
@@ -51,20 +57,22 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed // indirect
-	github.com/aws/aws-sdk-go-v2 v1.16.14 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.17.5 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.18 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.22 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.8 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.15.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.12.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17 // indirect
-	github.com/aws/smithy-go v1.13.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.19 // indirect
+	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220228164355-396b2034c795 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -82,7 +90,6 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.18+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
-	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
