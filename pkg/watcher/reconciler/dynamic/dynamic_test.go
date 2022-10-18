@@ -136,7 +136,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 		DisableAnnotationUpdate: true,
 	}
 
-	r := NewDynamicReconciler(results, trclient, cfg, nil)
+	r := NewDynamicReconciler(results, trclient, cfg)
 	if err := r.Reconcile(ctx, taskrun); err != nil {
 		t.Fatal(err)
 	}
@@ -179,19 +179,27 @@ func TestReconcile_TaskRun(t *testing.T) {
 		// Enable object deletion, re-reconcile
 		cfg.CompletedResourceGracePeriod = 1 * time.Second
 
-		reenqueued := false
-		r.enqueue = func(i interface{}, d time.Duration) {
-			reenqueued = true
-		}
-		if err := r.Reconcile(ctx, taskrun); err != nil {
-			t.Fatal(err)
+		isRequeueKey := func(err error) bool {
+			ok, _ := controller.IsRequeueKey(err)
+			return ok
 		}
 
-		if !reenqueued {
-			t.Fatal("expected object to be reenqueued")
+		// The controller must requeue the object since the
+		// CompletionTime field is nil.
+		if err := r.Reconcile(ctx, taskrun); !isRequeueKey(err) {
+			t.Fatalf("Want a controller.RequeueKey error, but got %v", err)
 		}
 
-		fakeclock.Advance(1 * time.Minute)
+		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
+		// The controller must requeue the object since the grace period
+		// hasn't elapsed yet.
+		if err := r.Reconcile(ctx, taskrun); !isRequeueKey(err) {
+			t.Fatalf("Want a controller.RequeueKey error, but got %v", err)
+		}
+
+		// Advance the clock to force the grace period to elapse. The
+		// TaskRun must be processed and deleted from the cluster.
+		fakeclock.Advance(2 * time.Second)
 		if err := r.Reconcile(ctx, taskrun); err != nil {
 			t.Fatal(err)
 		}
@@ -219,7 +227,7 @@ func TestReconcile_PipelineRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := NewDynamicReconciler(results, prclient, nil, nil)
+	r := NewDynamicReconciler(results, prclient, nil)
 	if err := r.Reconcile(ctx, pipelinerun); err != nil {
 		t.Fatal(err)
 	}

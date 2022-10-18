@@ -16,18 +16,22 @@ package dynamic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
 
@@ -41,23 +45,21 @@ type Reconciler struct {
 	resultsClient *results.Client
 	objectClient  ObjectClient
 	cfg           *reconciler.Config
-	enqueue       func(interface{}, time.Duration)
 }
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
-func NewDynamicReconciler(rc pb.ResultsClient, oc ObjectClient, cfg *reconciler.Config, enqueue func(interface{}, time.Duration)) *Reconciler {
+func NewDynamicReconciler(rc pb.ResultsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
 		resultsClient: &results.Client{ResultsClient: rc},
 		objectClient:  oc,
 		cfg:           cfg,
-		enqueue:       enqueue,
 	}
 }
 
 // Reconcile handles result/record uploading for the given Run object.
 // If enabled, the object may be deleted upon successful result upload.
 func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
-	log := logging.FromContext(ctx)
+	logger := logging.FromContext(ctx)
 
 	if o.GetObjectKind().GroupVersionKind().Empty() {
 		gvk, err := convert.InferGVK(o)
@@ -65,55 +67,101 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 			return err
 		}
 		o.GetObjectKind().SetGroupVersionKind(gvk)
-		log.Infof("Post-GVK Object: %v", o)
+		logger.Debugf("Post SetGroupVersionKind: %s", o.GetObjectKind().GroupVersionKind().String())
 	}
 
 	// Update record.
 	result, record, err := r.resultsClient.Put(ctx, o)
 	if err != nil {
-		log.Errorf("error updating Record: %v", err)
+		logger.Errorw("Error updating Record", zap.Error(err))
 		return err
 	}
 
-	if a := o.GetAnnotations(); !r.cfg.GetDisableAnnotationUpdate() && (result.GetName() != a[annotation.Result] || record.GetName() != a[annotation.Record]) {
+	logger = logger.With(zap.String("results.tekton.dev/result", result.Name),
+		zap.String("results.tekton.dev/record", record.Name))
+
+	if err := r.addResultsAnnotations(logging.WithLogger(ctx, logger), o, result, record); err != nil {
+		return err
+	}
+
+	return r.deleteUponCompletion(logging.WithLogger(ctx, logger), o)
+}
+
+// addResultsAnnotations adds Results annotations to the object in question if
+// annotation patching is enabled.
+func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object, result *pb.Result, record *pb.Record) error {
+	logger := logging.FromContext(ctx)
+
+	objectAnnotations := o.GetAnnotations()
+	if r.cfg.GetDisableAnnotationUpdate() {
+		logger.Info("Skipping CRD annotation patch: annotation update is disabled")
+	} else if result.GetName() == objectAnnotations[annotation.Result] && record.GetName() == objectAnnotations[annotation.Record] {
+		logger.Info("Skipping CRD annotation patch: Result annotations are already set")
+	} else {
 		// Update object with Result Annotations.
 		patch, err := annotation.Add(result.GetName(), record.GetName())
 		if err != nil {
-			log.Errorf("error adding Result annotations: %v", err)
+			logger.Errorw("Error adding Result annotations", zap.Error(err))
 			return err
 		}
 		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-			log.Errorf("Patch: %v", err)
+			logger.Errorw("Error patching object", zap.Error(err))
 			return err
 		}
-	} else {
-		log.Infof("skipping CRD patch - annotation patching disabled [%t] or annotations already match", r.cfg.GetDisableAnnotationUpdate())
+	}
+	return nil
+}
+
+// deleteUponCompletion deletes the object in question when the following
+// conditions are met:
+// * The resource deletion is enabled in the config (the grace period is greater
+// than 0).
+// * The object is done and it isn't owned by other object.
+// * The configured grace period has elapsed since the object's completion.
+func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object) error {
+	logger := logging.FromContext(ctx)
+
+	gracePeriod := r.cfg.GetCompletedResourceGracePeriod()
+	logger = logger.With(zap.Duration("results.tekton.dev/gracePeriod", gracePeriod))
+	if gracePeriod == 0 {
+		logger.Info("Skipping resource deletion: deletion is disabled")
+		return nil
 	}
 
-	// If the Object is complete and not yet marked for deletion, cleanup the run resource from the cluster.
-	done := isDone(o)
-	log.Infof("should skipping resource deletion?  - done: %t, delete enabled: %t", done, r.cfg.GetCompletedResourceGracePeriod() != 0)
-	if done && r.cfg.GetCompletedResourceGracePeriod() != 0 {
-		if o := o.GetOwnerReferences(); len(o) > 0 {
-			log.Infof("resource is owned by another object, defering deletion to parent resource(s): %v", o)
-			return nil
-		}
+	if !isDone(o) {
+		logger.Info("Skipping resource deletion: object is not done yet")
+		return nil
+	}
 
-		// We haven't hit the grace period yet - reenqueue the key for processing later.
-		if s := clock.Since(record.GetUpdatedTime().AsTime()); s < r.cfg.GetCompletedResourceGracePeriod() {
-			log.Infof("object is not ready for deletion - grace period: %v, time since completion: %v", r.cfg.GetCompletedResourceGracePeriod(), s)
-			r.enqueue(o, r.cfg.GetCompletedResourceGracePeriod())
-			return nil
-		}
-		log.Infof("deleting PipelineRun UID %s", o.GetUID())
-		if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
-			Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
-		}); err != nil && !errors.IsNotFound(err) {
-			log.Errorf("PipelineRun.Delete: %v", err)
-			return err
-		}
-	} else {
-		log.Infof("skipping resource deletion - done: %t, delete enabled: %t, %v", done, r.cfg.GetCompletedResourceGracePeriod() != 0, r.cfg.GetCompletedResourceGracePeriod())
+	if ownerReferences := o.GetOwnerReferences(); len(ownerReferences) > 0 {
+		logger.Infow("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
+		return nil
+	}
+
+	completionTime, err := getCompletionTime(o)
+	if err != nil {
+		return err
+	}
+
+	// This isn't probable since the object is done, but defensive
+	// programming never hurts.
+	if completionTime == nil {
+		logger.Info("Object's completion time isn't set yet - requeuing to process later")
+		return controller.NewRequeueAfter(gracePeriod)
+	}
+
+	if timeSinceCompletion := clock.Since(*completionTime); timeSinceCompletion < gracePeriod {
+		requeueAfter := gracePeriod - timeSinceCompletion
+		logger.Infow("Object is not ready for deletion yet - requeuing to process later", zap.Duration("results.tekton.dev/requeueAfter", requeueAfter))
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+
+	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())))
+	if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
+		Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
+	}); err != nil && !errors.IsNotFound(err) {
+		logger.Errorw("Error deleting object", zap.Error(err))
+		return err
 	}
 
 	return nil
@@ -121,4 +169,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 func isDone(o results.Object) bool {
 	return o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
+}
+
+// getCompletionTime returns the completion time of the object (PipelineRun or
+// TaskRun) in question.
+func getCompletionTime(object results.Object) (*time.Time, error) {
+	var completionTime *time.Time
+
+	switch o := object.(type) {
+
+	case *pipelinev1beta1.PipelineRun:
+		if o.Status.CompletionTime != nil {
+			completionTime = &o.Status.CompletionTime.Time
+		}
+
+	case *pipelinev1beta1.TaskRun:
+		if o.Status.CompletionTime != nil {
+			completionTime = &o.Status.CompletionTime.Time
+		}
+
+	default:
+		return nil, controller.NewPermanentError(fmt.Errorf("error getting completion time from incoming object: unrecognized type %T", o))
+	}
+	return completionTime, nil
 }

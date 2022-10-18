@@ -2,7 +2,6 @@ package pipelinerun
 
 import (
 	"context"
-	"time"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	"github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
@@ -25,15 +24,14 @@ type Reconciler struct {
 	lister    v1beta1.PipelineRunLister
 	k8sclient versioned.Interface
 	cfg       *reconciler.Config
-	enqueue   func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler is LeaderAware.
 var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
-	log := logging.FromContext(ctx)
-	log.With(zap.String("key", key))
+	log := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "PipelineRun"))
+	log.Info("Reconciling PipelineRun")
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -42,7 +40,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		log.Info("Skipping PipelineRun key because this instance isn't its leader")
+		log.Debug("Skipping PipelineRun key because this instance isn't its leader")
 		return controller.NewSkipKey(key)
 	}
 
@@ -55,8 +53,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		PipelineRunInterface: r.k8sclient.TektonV1beta1().PipelineRuns(namespace),
 	}
 
-	dyn := dynamic.NewDynamicReconciler(r.client, k8sclient, r.cfg, r.enqueue)
-	if err := dyn.Reconcile(ctx, pr); err != nil {
+	dyn := dynamic.NewDynamicReconciler(r.client, k8sclient, r.cfg)
+	if err := dyn.Reconcile(logging.WithLogger(ctx, log), pr); err != nil {
 		return err
 	}
 

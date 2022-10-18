@@ -2,7 +2,6 @@ package taskrun
 
 import (
 	"context"
-	"time"
 
 	"knative.dev/pkg/controller"
 	knativereconciler "knative.dev/pkg/reconciler"
@@ -26,15 +25,14 @@ type Reconciler struct {
 	lister    v1beta1.TaskRunLister
 	k8sclient versioned.Interface
 	cfg       *reconciler.Config
-	enqueue   func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler is LeaderAware.
 var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
-	log := logging.FromContext(ctx)
-	log.With(zap.String("key", key))
+	log := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
+	log.Info("Reconciling TaskRun")
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -43,7 +41,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		log.Info("Skipping TaskRun key because this instance isn't its leader")
+		log.Debug("Skipping TaskRun key because this instance isn't its leader")
 		return controller.NewSkipKey(key)
 	}
 
@@ -56,8 +54,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		TaskRunInterface: r.k8sclient.TektonV1beta1().TaskRuns(namespace),
 	}
 
-	dyn := dynamic.NewDynamicReconciler(r.client, k8sclient, r.cfg, r.enqueue)
-	if err := dyn.Reconcile(ctx, tr); err != nil {
+	dyn := dynamic.NewDynamicReconciler(r.client, k8sclient, r.cfg)
+	if err := dyn.Reconcile(logging.WithLogger(ctx, log), tr); err != nil {
 		return err
 	}
 

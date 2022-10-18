@@ -48,7 +48,6 @@ func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *
 		Logger:        logging.FromContext(ctx),
 		WorkQueueName: "PipelineRuns",
 	})
-	c.enqueue = impl.EnqueueAfter
 
 	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
