@@ -13,7 +13,7 @@ require (
 	github.com/jackc/pgconn v1.11.0
 	github.com/jonboulle/clockwork v0.2.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/prometheus/client_golang v1.11.1
+	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/viper v1.12.0
 	github.com/tektoncd/pipeline v0.39.0
 	go.uber.org/automaxprocs v1.4.0
@@ -22,7 +22,7 @@ require (
 	google.golang.org/api v0.81.0
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
 	google.golang.org/grpc v1.46.2
-	google.golang.org/protobuf v1.28.0
+	google.golang.org/protobuf v1.28.1
 	gorm.io/driver/mysql v1.3.3
 	gorm.io/driver/postgres v1.3.4
 	gorm.io/driver/sqlite v1.3.6
@@ -84,8 +84,8 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/go-kit/log v0.1.0 // indirect
-	github.com/go-logfmt/logfmt v0.5.0 // indirect
+	github.com/go-kit/log v0.2.0 // indirect
+	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
@@ -132,9 +132,9 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.32.1 // indirect
-	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/prometheus/client_model v0.3.0 // indirect
+	github.com/prometheus/common v0.37.0 // indirect
+	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
@@ -150,7 +150,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
-	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
