@@ -70,10 +70,25 @@ spec:
       workspaces:
         - name: source
           workspace: ws
+    - name: unit-tests-s390x
+      runAfter: [checkout]
+      taskRef:
+        name: golang-test
+      params:
+        - name: package
+          value: $(workspaces.source.path)/...
+        - name: GOARCH
+          value: s390x
+        - name: flags
+          value: "-cover -v"
+      workspaces:
+        - name: source
+          workspace: ws
     - name: publish-image
       runAfter:
         - unit-tests
         - unit-tests-ppc64le
+        - unit-tests-s390x
       taskSpec:
         params:
           - name: repo
