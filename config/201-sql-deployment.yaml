@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: postgres@sha256:6647385dd9ae11aa2216bf55c54d126b0a85637b3cf4039ef24e3234113588e3  # 13.3
+        image: bitnami/postgresql@sha256:23b9a21460fefdd83accd0f864e734c88bebc67c86ee752a97b77dd4843907f0  # 13.3.0
         envFrom:
           - configMapRef:
               name: tekton-results-postgres
@@ -59,6 +59,16 @@ spec:
           mountPath: /var/lib/postgresql/data
         - name: sql-initdb
           mountPath: /docker-entrypoint-initdb.d
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+            add:
+              - NET_BIND_SERVICE
       volumes:
         - name: sql-initdb
           configMap:
