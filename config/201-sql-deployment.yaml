@@ -48,15 +48,12 @@ spec:
               name: tekton-results-postgres
           - secretRef:
               name: tekton-results-postgres
-        env:
-          - name: PGDATA
-            value: /var/lib/postgresql/data/pgdata
         ports:
         - containerPort: 5432
           name: postgredb
         volumeMounts:
         - name: postgredb
-          mountPath: /var/lib/postgresql/data
+          mountPath: /bitnami/postgresql
         - name: sql-initdb
           mountPath: /docker-entrypoint-initdb.d
         securityContext:
