@@ -14,14 +14,14 @@
    - namespace: `tekton-pipelines`
    - name: `tekton-results-postgres`
    - contains the fields:
-     - `POSTGRESQL_USER=postgres`
-     - `POSTGRESQL_PASSWORD=<your password>`
+     - `POSTGRES_USER=postgres`
+     - `POSTGRES_PASSWORD=<your password>`
 
    If you are not using a particular password management strategy, the following
    command will generate a random password for you:
 
    ```sh
-   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRESQL_USER=postgres --from-literal=POSTGRESQL_PASSWORD=$(openssl rand -base64 20)
+   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
    ```
 
 3. Generate cert/key pair. Note: Feel free to use any cert management software

@@ -41,12 +41,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: tekton-results-postgres
-                  key: POSTGRESQL_USER
+                  key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: tekton-results-postgres
-                  key: POSTGRESQL_PASSWORD
+                  key: POSTGRES_PASSWORD
             - name: DB_HOST
               value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
