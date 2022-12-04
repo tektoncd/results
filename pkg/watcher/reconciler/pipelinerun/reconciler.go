@@ -20,10 +20,11 @@ type Reconciler struct {
 	// Inline LeaderAwareFuncs to support leader election.
 	knativereconciler.LeaderAwareFuncs
 
-	client    pb.ResultsClient
-	lister    v1beta1.PipelineRunLister
-	k8sclient versioned.Interface
-	cfg       *reconciler.Config
+	resultsClient pb.ResultsClient
+	logsClient    pb.LogsClient
+	lister        v1beta1.PipelineRunLister
+	k8sclient     versioned.Interface
+	cfg           *reconciler.Config
 }
 
 // Check that our Reconciler is LeaderAware.
@@ -53,7 +54,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		PipelineRunInterface: r.k8sclient.TektonV1beta1().PipelineRuns(namespace),
 	}
 
-	dyn := dynamic.NewDynamicReconciler(r.client, k8sclient, r.cfg)
+	dyn := dynamic.NewDynamicReconciler(r.resultsClient, k8sclient, r.cfg)
 	if err := dyn.Reconcile(logging.WithLogger(ctx, log), pr); err != nil {
 		return err
 	}

@@ -21,7 +21,8 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"github.com/tektoncd/results/pkg/watcher/logs"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -58,6 +59,7 @@ var (
 	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
 	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
 	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
+	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 )
 
 func main() {
@@ -75,6 +77,15 @@ func main() {
 	}
 	defer conn.Close()
 	results := v1alpha2pb.NewResultsClient(conn)
+
+	// Inject Logs client to context if Logs API is enabled here and in API server
+	if *logsAPI {
+		ctx, err = logs.WithContext(ctx, conn)
+		if err != nil {
+			log.Printf("Unable to inject logs client, logs will not be stored: %v", err)
+			*logsAPI = false
+		}
+	}
 
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate:      *disableCRDUpdate,
@@ -138,7 +149,7 @@ func loadCerts() (*x509.CertPool, error) {
 		return x509.SystemCertPool()
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read TLS cert file: %v", err)
 	}

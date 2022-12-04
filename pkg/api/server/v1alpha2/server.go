@@ -41,6 +41,7 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 // Server with implementation of API server
 type Server struct {
 	pb.UnimplementedResultsServer
+	pb.UnimplementedLogsServer
 	env  *cel.Env
 	db   *gorm.DB
 	auth auth.Checker

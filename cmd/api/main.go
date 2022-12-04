@@ -19,19 +19,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"log"
 	"net"
 	"net/http"
 	"path"
-	"time"
 
-	"github.com/golang-jwt/jwt/v4"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"go.uber.org/zap"
+
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,7 +35,7 @@ import (
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"go.uber.org/zap"
+	_ "go.uber.org/automaxprocs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -49,8 +45,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ConfigFile struct {
@@ -66,9 +60,13 @@ type ConfigFile struct {
 	LOG_LEVEL             string `mapstructure:"LOG_LEVEL"`
 	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
 	TLS_PATH              string `mapstructure:"TLS_PATH"`
+	LOGS_API              bool   `mapstructure:"LOGS_API"`
 }
 
 func main() {
+
+	viper.AddConfigPath("./config/env")
+	viper.AddConfigPath("/etc/config/server")
 	viper.AddConfigPath("./env")
 	viper.SetConfigName("config")
 	viper.SetConfigType("env")
@@ -104,27 +102,23 @@ func main() {
 	}
 	db, err := gorm.Open(postgres.Open(dbURI), gormConf)
 	if err != nil {
-		log.Fatal("Failed to open the results.db",
-			zap.String("Error: ", err.Error()))
+		log.Fatalf("Failed to open the results.db: %v", err)
 	}
 
 	// Create k8s client
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal("Error getting kubernetes client config",
-			zap.String("Error: ", err.Error()))
+		log.Fatal("Error getting kubernetes client config:", err)
 	}
 	k8s, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatal("Error creating kubernetes clientset",
-			zap.String("Error: ", err.Error()))
+		log.Fatal("Error creating kubernetes clientset:", err)
 	}
 
 	// Load TLS cert for server
 	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
 	if tlsError != nil {
-		log.Info("Error loading TLS key pair for server",
-			zap.String("Error: ", tlsError.Error()))
+		log.Infof("Error loading TLS key pair for server: %v", tlsError)
 		log.Info("Creating server without TLS")
 		creds = insecure.NewCredentials()
 	}
@@ -132,35 +126,17 @@ func main() {
 	// Register API server(s)
 	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
 	if err != nil {
-		log.Fatal("Failed to create server",
-			zap.String("Error: ", err.Error()))
+		log.Fatalf("Failed to create server: %v", err)
 	}
-
-	// Shared options for the logger, with a custom gRPC code to log level function.
-	zapOpts := []grpc_zap.Option{
-		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
-			return zap.Int64("grpc.time_duration_in_ns", duration.Nanoseconds())
-		}),
-	}
-
-	// Make sure that log statements internal to gRPC library are logged using the zapLogger as well.
-	//grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(zapLogger, 1)
 	s := grpc.NewServer(
 		grpc.Creds(creds),
-		grpc_middleware.WithUnaryServerChain(
-			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.UnaryServerInterceptor(log, zapOpts...),
-			grpc_auth.UnaryServerInterceptor(determineAuth),
-			prometheus.UnaryServerInterceptor,
-		),
-		grpc_middleware.WithStreamServerChain(
-			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.StreamServerInterceptor(log, zapOpts...),
-			grpc_auth.StreamServerInterceptor(determineAuth),
-			prometheus.StreamServerInterceptor,
-		),
+		grpc.StreamInterceptor(prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(prometheus.UnaryServerInterceptor),
 	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
+	if configFile.LOGS_API {
+		v1alpha2pb.RegisterLogsServer(s, v1a2)
+	}
 
 	// Allow service reflection - required for grpc_cli ls to work.
 	reflection.Register(s)
@@ -174,33 +150,27 @@ func main() {
 	prometheus.Register(s)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Info("Prometheus server listening",
-			zap.String("Port : ", configFile.PROMETHEUS_PORT))
+		log.Infof("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
 		if err := http.ListenAndServe(":"+configFile.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
-			log.Fatal("Error running Prometheus HTTP handler: %v",
-				zap.String("Error: ", err.Error()))
+			log.Fatalf("Error running Prometheus HTTP handler: %v", err)
 		}
 	}()
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", ":"+configFile.GRPC_PORT)
 	if err != nil {
-		log.Fatal("Failed to listen",
-			zap.String("Error: ", err.Error()))
+		log.Fatalf("Failed to listen: %v", err)
 	}
 	go func() {
-		log.Info("gRPC server listening",
-			zap.String("Port: ", configFile.GRPC_PORT))
-		log.Fatal("",
-			zap.String("Error: ", s.Serve(lis).Error()))
+		log.Infof("gRPC server listening on: %s", configFile.GRPC_PORT)
+		log.Fatal(s.Serve(lis))
 	}()
 
 	// Load REST client TLS cert to connect to the gRPC server
 	if tlsError == nil {
 		creds, err = credentials.NewClientTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), configFile.TLS_HOSTNAME_OVERRIDE)
 		if err != nil {
-			log.Fatal("Error loading TLS certificate for REST",
-				zap.String("Error: ", err.Error()))
+			log.Fatalf("Error loading TLS certificate for REST: %v", err)
 		}
 	}
 
@@ -213,54 +183,20 @@ func main() {
 	mux := runtime.NewServeMux()
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
 	if err != nil {
-		log.Fatal("Error registering gRPC server endpoint: ",
-			zap.String("Error: ", err.Error()))
+		log.Fatal("Error registering gRPC server endpoint: ", err)
 	}
 
 	// Start REST proxy server
-	log.Info("REST server Listening",
-		zap.String("Port:", configFile.REST_PORT))
-
+	log.Infof("REST server Listening on: %s", configFile.REST_PORT)
 	if tlsError != nil {
-		log.Fatal("",
-			zap.String("Error: ", http.ListenAndServe(":"+configFile.REST_PORT, mux).Error()))
+		log.Fatal(http.ListenAndServe(":"+configFile.REST_PORT, mux))
 	} else {
-		log.Fatal("",
-			zap.String("Error: ", http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux).Error()))
+		log.Fatal(http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux))
 	}
+
 }
 
-func determineAuth(ctx context.Context) (context.Context, error) {
-	// This code is used to extract values
-	// it is not doing any form of verification.
-
-	tokenString, err := grpc_auth.AuthFromMD(ctx, "bearer")
-	if err != nil {
-		ctxzap.AddFields(ctx,
-			zap.String("grpc.user", "unknown"),
-		)
-		return ctx, nil
-	}
-
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
-	if err != nil {
-		ctxzap.AddFields(ctx,
-			zap.String("grpc.user", "unknown"),
-		)
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		sub := fmt.Sprint(claims["sub"])
-		iss := fmt.Sprint(claims["iss"])
-		ctxzap.AddFields(ctx,
-			zap.String("grpc.user", sub),
-			zap.String("grpc.issuer", iss),
-		)
-	}
-	return ctx, nil
-}
-
-func getLogger(config ConfigFile) (*zap.Logger, zap.Config) {
+func getLogger(config ConfigFile) (*zap.SugaredLogger, zap.Config) {
 	zapConf := zap.NewProductionConfig()
 	if len(config.LOG_LEVEL) > 0 {
 		var err error
@@ -274,5 +210,5 @@ func getLogger(config ConfigFile) (*zap.Logger, zap.Config) {
 		log.Fatalf("Failed to initialize zap logger: %v", err)
 	}
 
-	return zapLog, zapConf
+	return zapLog.Sugar(), zapConf
 }
