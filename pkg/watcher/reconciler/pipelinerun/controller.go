@@ -16,9 +16,9 @@ package pipelinerun
 
 import (
 	"context"
-
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
+	"github.com/tektoncd/results/pkg/watcher/logs"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/leaderelection"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -28,17 +28,18 @@ import (
 )
 
 // NewController creates a Controller for watching PipelineRuns.
-func NewController(ctx context.Context, client pb.ResultsClient) *controller.Impl {
-	return NewControllerWithConfig(ctx, client, &reconciler.Config{})
+func NewController(ctx context.Context, resultsClient pb.ResultsClient) *controller.Impl {
+	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{})
 }
 
-func NewControllerWithConfig(ctx context.Context, client pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
+func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	informer := pipelineruninformer.Get(ctx)
 	lister := informer.Lister()
 
 	c := &Reconciler{
 		LeaderAwareFuncs: leaderelection.NewLeaderAwareFuncs(lister.List),
-		client:           client,
+		resultsClient:    resultsClient,
+		logsClient:       logs.Get(ctx),
 		lister:           lister,
 		k8sclient:        pipelineclient.Get(ctx),
 		cfg:              cfg,

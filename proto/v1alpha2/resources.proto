@@ -41,18 +41,18 @@ message Result {
   // Server assigned timestamp for when the result was created.
   // DEPRECATED: use create_time instead.
   google.protobuf.Timestamp created_time = 3
-      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
-      // Server assigned timestamp for when the result was created.
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the result was created.
   google.protobuf.Timestamp create_time = 8
-      [(google.api.field_behavior) = OUTPUT_ONLY];
-  
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
   // Server assigned timestamp for when the results was updated.
   // DEPRECATED: use update_time instead.
   google.protobuf.Timestamp updated_time = 6
-      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
   // Server assigned timestamp for when the results was updated.
   google.protobuf.Timestamp update_time = 9
-      [(google.api.field_behavior) = OUTPUT_ONLY];
+  [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // Arbitrary user provided labels for the result.
   map<string, string> annotations = 4;
@@ -60,7 +60,7 @@ message Result {
   // The etag for this result.
   // If this is provided on update, it must match the server's etag.
   string etag = 5
-      [(google.api.field_behavior) = OUTPUT_ONLY];
+  [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // High level overview of the root record for the Result. This is provided
   // as a convinence for clients to query Record state without needing to make
@@ -76,9 +76,9 @@ message Result {
 message Record {
   // Resource name, must be rooted in parent result.
   string name = 1 [(google.api.resource_reference) = {
-      child_type: "tekton.results.v1alpha2/Record"
+    child_type: "tekton.results.v1alpha2/Record"
   }];
-  
+
   // Server assigned identifier of the Result.
   // DEPRECATED: use uid instead.
   string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
@@ -86,7 +86,7 @@ message Record {
   string uid = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
 
   Any data = 3;
-  
+
   // The etag for this record.
   // If this is provided on update, it must match the server's etag.
   string etag = 4;
@@ -102,10 +102,10 @@ message Record {
   // Server assigned timestamp for when the results was updated.
   // DEPRECATED: use update_time instead.
   google.protobuf.Timestamp updated_time = 6
-      [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
   // Server assigned timestamp for when the results was updated.
   google.protobuf.Timestamp update_time = 9
-      [(google.api.field_behavior) = OUTPUT_ONLY];
+  [(google.api.field_behavior) = OUTPUT_ONLY];
 
   // next id: 10
 }
@@ -127,7 +127,7 @@ message Any {
 message RecordSummary {
   // The name of the Record this summary represents.
   string record = 1  [
-   (google.api.resource_reference).type = "results.tekton.dev/Record"
+    (google.api.resource_reference).type = "results.tekton.dev/Record"
   ];
   // Identifier of underlying data.
   // e.g. `pipelines.tekton.dev/PipelineRun`
@@ -147,9 +147,34 @@ message RecordSummary {
   // Completion status of the Record.
   Status status = 5;
 
-   // Key-value pairs representing arbitrary underlying record data that clients want to include
-   // that aren't covered by the above fields.
-   map<string, string> annotations = 6;
+  // Key-value pairs representing arbitrary underlying record data that clients want to include
+  // that aren't covered by the above fields.
+  map<string, string> annotations = 6;
 
-   // next id: 7
+  // next id: 7
+}
+
+// Log is a chunk of a log from a TaskRun.
+message Log {
+  option (google.api.resource) = {
+    type: "tekton.results.v1alpha2/Log"
+  };
+  // Resource name, must be rooted in parent result.
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "tekton.results.v1alpha2/Record"
+    }
+  ];
+
+  bytes data = 2;
+}
+
+message LogSummary {
+  // The name of the Record this summary represents.
+  string record = 1  [
+    (google.api.resource_reference).type = "results.tekton.dev/Record"
+  ];
+
+  int64 bytesReceived = 2;
 }
