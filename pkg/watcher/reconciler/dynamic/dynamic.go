@@ -73,7 +73,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	// Update record.
 	result, record, err := r.resultsClient.Put(ctx, o)
 	if err != nil {
-		logger.Errorw("Error updating Record", zap.Error(err))
+		logger.Debugw("Error updating Record", zap.Error(err))
 		return err
 	}
 
@@ -96,7 +96,7 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 	if r.cfg.GetDisableAnnotationUpdate() {
 		logger.Info("Skipping CRD annotation patch: annotation update is disabled")
 	} else if result.GetName() == objectAnnotations[annotation.Result] && record.GetName() == objectAnnotations[annotation.Record] {
-		logger.Info("Skipping CRD annotation patch: Result annotations are already set")
+		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
 	} else {
 		// Update object with Result Annotations.
 		patch, err := annotation.Add(result.GetName(), record.GetName())
@@ -129,12 +129,12 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 	}
 
 	if !isDone(o) {
-		logger.Info("Skipping resource deletion: object is not done yet")
+		logger.Debug("Skipping resource deletion: object is not done yet")
 		return nil
 	}
 
 	if ownerReferences := o.GetOwnerReferences(); len(ownerReferences) > 0 {
-		logger.Infow("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
+		logger.Debugw("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
 		return nil
 	}
 
@@ -146,13 +146,13 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 	// This isn't probable since the object is done, but defensive
 	// programming never hurts.
 	if completionTime == nil {
-		logger.Info("Object's completion time isn't set yet - requeuing to process later")
+		logger.Debug("Object's completion time isn't set yet - requeuing to process later")
 		return controller.NewRequeueAfter(gracePeriod)
 	}
 
 	if timeSinceCompletion := clock.Since(*completionTime); timeSinceCompletion < gracePeriod {
 		requeueAfter := gracePeriod - timeSinceCompletion
-		logger.Infow("Object is not ready for deletion yet - requeuing to process later", zap.Duration("results.tekton.dev/requeueAfter", requeueAfter))
+		logger.Debugw("Object is not ready for deletion yet - requeuing to process later", zap.Duration("results.tekton.dev/requeueAfter", requeueAfter))
 		return controller.NewRequeueAfter(requeueAfter)
 	}
 

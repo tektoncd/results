@@ -26,6 +26,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	_ "go.uber.org/automaxprocs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -43,6 +44,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type ConfigFile struct {
@@ -55,12 +57,12 @@ type ConfigFile struct {
 	GRPC_PORT             string `mapstructure:"GRPC_PORT"`
 	REST_PORT             string `mapstructure:"REST_PORT"`
 	PROMETHEUS_PORT       string `mapstructure:"PROMETHEUS_PORT"`
+	LOG_LEVEL             string `mapstructure:"LOG_LEVEL"`
 	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
 	TLS_PATH              string `mapstructure:"TLS_PATH"`
 }
 
 func main() {
-
 	viper.AddConfigPath("./env")
 	viper.SetConfigName("config")
 	viper.SetConfigType("env")
@@ -79,6 +81,9 @@ func main() {
 		log.Fatal("Cannot load config:", err)
 	}
 
+	log, logConf := getLogger(configFile)
+	defer log.Sync()
+
 	if configFile.DB_USER == "" || configFile.DB_PASSWORD == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
@@ -87,7 +92,11 @@ func main() {
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", configFile.DB_HOST, configFile.DB_USER, configFile.DB_PASSWORD, configFile.DB_NAME, configFile.DB_PORT, configFile.DB_SSLMODE)
 
-	db, err := gorm.Open(postgres.Open(dbURI), &gorm.Config{})
+	gormConf := &gorm.Config{}
+	if logConf.Level.Level() != zap.DebugLevel {
+		gormConf.Logger = logger.Default.LogMode(logger.Silent)
+	}
+	db, err := gorm.Open(postgres.Open(dbURI), gormConf)
 	if err != nil {
 		log.Fatalf("Failed to open the results.db: %v", err)
 	}
@@ -105,8 +114,8 @@ func main() {
 	// Load TLS cert for server
 	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
 	if tlsError != nil {
-		log.Printf("Error loading TLS key pair for server: %v", tlsError)
-		log.Println("Creating server without TLS")
+		log.Infof("Error loading TLS key pair for server: %v", tlsError)
+		log.Info("Creating server without TLS")
 		creds = insecure.NewCredentials()
 	}
 
@@ -134,7 +143,7 @@ func main() {
 	prometheus.Register(s)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Printf("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
+		log.Infof("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
 		if err := http.ListenAndServe(":"+configFile.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
 			log.Fatalf("Error running Prometheus HTTP handler: %v", err)
 		}
@@ -146,7 +155,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	go func() {
-		log.Printf("gRPC server listening on: %s", configFile.GRPC_PORT)
+		log.Infof("gRPC server listening on: %s", configFile.GRPC_PORT)
 		log.Fatal(s.Serve(lis))
 	}()
 
@@ -171,11 +180,28 @@ func main() {
 	}
 
 	// Start REST proxy server
-	log.Printf("REST server Listening on: %s", configFile.REST_PORT)
+	log.Infof("REST server Listening on: %s", configFile.REST_PORT)
 	if tlsError != nil {
 		log.Fatal(http.ListenAndServe(":"+configFile.REST_PORT, mux))
 	} else {
 		log.Fatal(http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux))
 	}
 
+}
+
+func getLogger(config ConfigFile) (*zap.SugaredLogger, zap.Config) {
+	zapConf := zap.NewProductionConfig()
+	if len(config.LOG_LEVEL) > 0 {
+		var err error
+		if zapConf.Level, err = zap.ParseAtomicLevel(config.LOG_LEVEL); err != nil {
+			log.Fatalf("Failed to parse log level from config: %v", err)
+		}
+	}
+
+	zapLog, err := zapConf.Build()
+	if err != nil {
+		log.Fatalf("Failed to initialize zap logger: %v", err)
+	}
+
+	return zapLog.Sugar(), zapConf
 }
