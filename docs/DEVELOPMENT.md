@@ -123,6 +123,37 @@ $ go test ./...
 
 See [test/e2e/README.md](/test/e2e/README.md)
 
+### Change log level
+
+You can change log level controllers for development purpose. Edit configmap:
+
+```sh
+kubectl edit cm config-logging -n tekton-pipelines
+```
+
+Change "zap-logger-config" field "level" and save it. 
+
+```yaml
+apiVersion: v1
+data:
+  loglevel.controller: info
+  loglevel.webhook: info
+  zap-logger-config: |
+    {
+      "level": "info",
+  ...
+```
+
+Log levels supported by Zap logger are:
+
+debug - fine-grained debugging
+info - normal logging
+warn - unexpected but non-critical errors
+error - critical errors; unexpected during normal operation
+dpanic - in debug mode, trigger a panic (crash)
+panic - trigger a panic (crash)
+fatal - immediately exit with exit status 1 (failure)
+
 ## Recommended Reading
 
 - [pipeline/DEVELOPMENT.md](https://github.com/tektoncd/pipeline/blob/main/DEVELOPMENT.md)
