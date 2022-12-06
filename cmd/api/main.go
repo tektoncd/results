@@ -19,32 +19,38 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net"
 	"net/http"
 	"path"
+	"time"
 
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
-	_ "go.uber.org/automaxprocs"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
+	"github.com/golang-jwt/jwt/v4"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type ConfigFile struct {
@@ -98,23 +104,27 @@ func main() {
 	}
 	db, err := gorm.Open(postgres.Open(dbURI), gormConf)
 	if err != nil {
-		log.Fatalf("Failed to open the results.db: %v", err)
+		log.Fatal("Failed to open the results.db",
+			zap.String("Error: ", err.Error()))
 	}
 
 	// Create k8s client
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal("Error getting kubernetes client config:", err)
+		log.Fatal("Error getting kubernetes client config",
+			zap.String("Error: ", err.Error()))
 	}
 	k8s, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatal("Error creating kubernetes clientset:", err)
+		log.Fatal("Error creating kubernetes clientset",
+			zap.String("Error: ", err.Error()))
 	}
 
 	// Load TLS cert for server
 	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
 	if tlsError != nil {
-		log.Infof("Error loading TLS key pair for server: %v", tlsError)
+		log.Info("Error loading TLS key pair for server",
+			zap.String("Error: ", tlsError.Error()))
 		log.Info("Creating server without TLS")
 		creds = insecure.NewCredentials()
 	}
@@ -122,12 +132,33 @@ func main() {
 	// Register API server(s)
 	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
 	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+		log.Fatal("Failed to create server",
+			zap.String("Error: ", err.Error()))
 	}
+
+	// Shared options for the logger, with a custom gRPC code to log level function.
+	zapOpts := []grpc_zap.Option{
+		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
+			return zap.Int64("grpc.time_duration_in_ns", duration.Nanoseconds())
+		}),
+	}
+
+	// Make sure that log statements internal to gRPC library are logged using the zapLogger as well.
+	//grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(zapLogger, 1)
 	s := grpc.NewServer(
 		grpc.Creds(creds),
-		grpc.StreamInterceptor(prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(prometheus.UnaryServerInterceptor),
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.UnaryServerInterceptor(log, zapOpts...),
+			grpc_auth.UnaryServerInterceptor(determineAuth),
+			prometheus.UnaryServerInterceptor,
+		),
+		grpc_middleware.WithStreamServerChain(
+			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.StreamServerInterceptor(log, zapOpts...),
+			grpc_auth.StreamServerInterceptor(determineAuth),
+			prometheus.StreamServerInterceptor,
+		),
 	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
 
@@ -143,27 +174,33 @@ func main() {
 	prometheus.Register(s)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Infof("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
+		log.Info("Prometheus server listening",
+			zap.String("Port : ", configFile.PROMETHEUS_PORT))
 		if err := http.ListenAndServe(":"+configFile.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
-			log.Fatalf("Error running Prometheus HTTP handler: %v", err)
+			log.Fatal("Error running Prometheus HTTP handler: %v",
+				zap.String("Error: ", err.Error()))
 		}
 	}()
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", ":"+configFile.GRPC_PORT)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatal("Failed to listen",
+			zap.String("Error: ", err.Error()))
 	}
 	go func() {
-		log.Infof("gRPC server listening on: %s", configFile.GRPC_PORT)
-		log.Fatal(s.Serve(lis))
+		log.Info("gRPC server listening",
+			zap.String("Port: ", configFile.GRPC_PORT))
+		log.Fatal("",
+			zap.String("Error: ", s.Serve(lis).Error()))
 	}()
 
 	// Load REST client TLS cert to connect to the gRPC server
 	if tlsError == nil {
 		creds, err = credentials.NewClientTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), configFile.TLS_HOSTNAME_OVERRIDE)
 		if err != nil {
-			log.Fatalf("Error loading TLS certificate for REST: %v", err)
+			log.Fatal("Error loading TLS certificate for REST",
+				zap.String("Error: ", err.Error()))
 		}
 	}
 
@@ -176,20 +213,54 @@ func main() {
 	mux := runtime.NewServeMux()
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
 	if err != nil {
-		log.Fatal("Error registering gRPC server endpoint: ", err)
+		log.Fatal("Error registering gRPC server endpoint: ",
+			zap.String("Error: ", err.Error()))
 	}
 
 	// Start REST proxy server
-	log.Infof("REST server Listening on: %s", configFile.REST_PORT)
-	if tlsError != nil {
-		log.Fatal(http.ListenAndServe(":"+configFile.REST_PORT, mux))
-	} else {
-		log.Fatal(http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux))
-	}
+	log.Info("REST server Listening",
+		zap.String("Port:", configFile.REST_PORT))
 
+	if tlsError != nil {
+		log.Fatal("",
+			zap.String("Error: ", http.ListenAndServe(":"+configFile.REST_PORT, mux).Error()))
+	} else {
+		log.Fatal("",
+			zap.String("Error: ", http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux).Error()))
+	}
 }
 
-func getLogger(config ConfigFile) (*zap.SugaredLogger, zap.Config) {
+func determineAuth(ctx context.Context) (context.Context, error) {
+	// This code is used to extract values
+	// it is not doing any form of verification.
+
+	tokenString, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	if err != nil {
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", "unknown"),
+		)
+		return ctx, nil
+	}
+
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", "unknown"),
+		)
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		sub := fmt.Sprint(claims["sub"])
+		iss := fmt.Sprint(claims["iss"])
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", sub),
+			zap.String("grpc.issuer", iss),
+		)
+	}
+	return ctx, nil
+}
+
+func getLogger(config ConfigFile) (*zap.Logger, zap.Config) {
 	zapConf := zap.NewProductionConfig()
 	if len(config.LOG_LEVEL) > 0 {
 		var err error
@@ -203,5 +274,5 @@ func getLogger(config ConfigFile) (*zap.SugaredLogger, zap.Config) {
 		log.Fatalf("Failed to initialize zap logger: %v", err)
 	}
 
-	return zapLog.Sugar(), zapConf
+	return zapLog, zapConf
 }
