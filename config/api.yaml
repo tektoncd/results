@@ -53,7 +53,7 @@ spec:
               value: tekton-results
           volumeMounts:
             - name: config
-              mountPath: /home/nonroot/env
+              mountPath: /env
               readOnly: true
             - name: tls
               mountPath: "/etc/tls"

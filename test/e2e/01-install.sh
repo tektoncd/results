@@ -70,10 +70,11 @@ tokens_dir=/tmp/tekton-results/tokens
 mkdir -p $tokens_dir
 service_accounts=(all-namespaces-read-access single-namespace-read-access)
 for service_account in ${service_accounts[@]}; do
-    kubectl get secrets -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='$service_account')].data.token}"|base64 --decode > $tokens_dir/$service_account
+    kubectl create token $service_account > $tokens_dir/$service_account
     echo "Created $tokens_dir/$service_account"
 done
 
 echo "Waiting for deployments to be ready..."
-kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"
-kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="60s"
+kubectl wait pod "tekton-results-postgres-0" --namespace="tekton-pipelines" --for="condition=Ready" --timeout="120s"
+kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"

@@ -70,6 +70,7 @@ type ConfigFile struct {
 
 func main() {
 	viper.AddConfigPath("./env")
+	viper.AddConfigPath("/env")
 	viper.SetConfigName("config")
 	viper.SetConfigType("env")
 

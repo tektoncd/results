@@ -38,7 +38,7 @@ main() {
 
     # Build static binaries; otherwise go test complains.
     export CGO_ENABLED=0
-    go test --tags=e2e ${REPO}/test/e2e/...
+    go test -v -count=1 --tags=e2e ${REPO}/test/e2e/...
 }
 
 main

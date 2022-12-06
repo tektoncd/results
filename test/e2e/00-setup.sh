@@ -19,5 +19,5 @@ export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
 
 ROOT="$(git rev-parse --show-toplevel)"
 
-kind create cluster --loglevel=debug --config "${ROOT}/test/e2e/kind-cluster.yaml" --name=${KIND_CLUSTER_NAME} --wait=60s
+kind create cluster --verbosity 3 --config "${ROOT}/test/e2e/kind-cluster.yaml" --name=${KIND_CLUSTER_NAME} --wait=60s
 kind export kubeconfig
