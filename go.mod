@@ -17,7 +17,7 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/tektoncd/pipeline v0.39.0
 	go.uber.org/automaxprocs v1.4.0
-	go.uber.org/zap v1.22.0
+	go.uber.org/zap v1.24.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.81.0
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd
