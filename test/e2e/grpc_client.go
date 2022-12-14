@@ -16,6 +16,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -33,6 +34,7 @@ import (
 
 const (
 	certFile                  = "/tmp/tekton-results-cert.pem"
+	keyFile                   = "/tmp/tekton-results-key.pem"
 	apiServerName             = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
 	apiServerAddress          = "localhost:50051"
 	allNamespacesReadAccess   = "/tmp/tekton-results/tokens/all-namespaces-read-access"
@@ -76,12 +78,22 @@ func loadCertificates() (*x509.CertPool, error) {
 }
 
 func openConnection(certPool *x509.CertPool, accessTokenPath string) (*grpc.ClientConn, error) {
-	transportCredentials := credentials.NewClientTLSFromCert(certPool, apiServerName)
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client cert key pair: %v", err)
+	}
+
+	tlsConfig := &tls.Config{
+		ServerName:         apiServerName,
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            certPool,
+		InsecureSkipVerify: true,
+	}
+
 	tokenSource := transport.NewCachedFileTokenSource(accessTokenPath)
 	opts := []grpc.DialOption{
-		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{TokenSource: tokenSource})),
-		grpc.WithTransportCredentials(transportCredentials),
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
