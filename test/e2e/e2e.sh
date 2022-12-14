@@ -30,6 +30,8 @@ trap cleanup EXIT
 main() {
     export KO_DOCKER_REPO="kind.local"
     export KIND_CLUSTER_NAME="tekton-results"
+    export SA_TOKEN_PATH=${SA_TOKEN_PATH:-"/tmp/tekton-results/tokens"}
+    export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
 
     REPO="$(git rev-parse --show-toplevel)"
 

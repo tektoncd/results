@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -32,12 +33,23 @@ import (
 )
 
 const (
-	certFile                  = "/tmp/tekton-results-cert.pem"
-	apiServerName             = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-	apiServerAddress          = "localhost:50051"
-	allNamespacesReadAccess   = "/tmp/tekton-results/tokens/all-namespaces-read-access"
-	singleNamespaceReadAccess = "/tmp/tekton-results/tokens/single-namespace-read-access"
+	certFile         = "tekton-results-cert.pem"
+	apiServerName    = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+	apiServerAddress = "localhost:50051"
+	defCertFolder    = "/tmp/tekton-results/ssl"
 )
+
+var (
+	certPath string
+)
+
+func init() {
+	certFolder := os.Getenv("SSL_CERT_PATH")
+	if len(certFolder) == 0 {
+		certFolder = defCertFolder
+	}
+	certPath = path.Join(certFolder, certFile)
+}
 
 // newResultsClient creates a new Results GRPC client to talk to the Results API
 // server.
@@ -63,7 +75,7 @@ func loadCertificates() (*x509.CertPool, error) {
 		return nil, fmt.Errorf("error loading system cert pool: %w", err)
 	}
 
-	cert, err := os.ReadFile(certFile)
+	cert, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, err
 	}

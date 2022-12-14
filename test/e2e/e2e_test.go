@@ -36,12 +36,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
+	"os"
+	"path"
 	"sigs.k8s.io/yaml"
 )
 
 const (
 	ns = "default"
+
+	defTokenFolder                   = "/tmp/tekton-results/tokens"
+	allNamespacesReadAccessTknFile   = "all-namespaces-read-access"
+	singleNamespaceReadAccessTknFile = "single-namespace-read-access"
 )
+
+var (
+	allNamespacesReadAccessPath, singleNamespaceReadAccessPath string
+)
+
+func init() {
+	tokensFolder := os.Getenv("SA_TOKEN_PATH")
+	if len(tokensFolder) == 0 {
+		tokensFolder = defTokenFolder
+	}
+	allNamespacesReadAccessPath = path.Join(tokensFolder, allNamespacesReadAccessTknFile)
+	singleNamespaceReadAccessPath = path.Join(tokensFolder, singleNamespaceReadAccessTknFile)
+}
 
 func TestTaskRun(t *testing.T) {
 	ctx := context.Background()
@@ -150,7 +169,7 @@ func TestListResults(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list results under the default parent", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccess)
+		client := newResultsClient(t, allNamespacesReadAccessPath)
 		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
@@ -164,7 +183,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("list results across parents", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccess)
+		client := newResultsClient(t, allNamespacesReadAccessPath)
 
 		// For the purposes of this test suite, listing results under
 		// the `default` parent or using the `-` symbol must return the
@@ -193,7 +212,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccess)
+		client := newResultsClient(t, singleNamespaceReadAccessPath)
 		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
@@ -205,7 +224,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("list results under the default parent using the identity with more limited access", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccess)
+		client := newResultsClient(t, singleNamespaceReadAccessPath)
 		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
@@ -223,7 +242,7 @@ func TestListRecords(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list records by omitting the result name", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccess)
+		client := newResultsClient(t, allNamespacesReadAccessPath)
 		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
@@ -237,7 +256,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("list records by omitting the parent and result names", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccess)
+		client := newResultsClient(t, allNamespacesReadAccessPath)
 
 		// For the purposes of this test suite, listing records under
 		// the `default/results/-` result or using the `-/results/-`
@@ -266,7 +285,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccess)
+		client := newResultsClient(t, singleNamespaceReadAccessPath)
 		_, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
@@ -278,7 +297,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("list records using the identity with more limited access", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccess)
+		client := newResultsClient(t, singleNamespaceReadAccessPath)
 		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)

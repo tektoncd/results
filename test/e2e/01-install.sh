@@ -17,6 +17,8 @@ set -e
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
+export SA_TOKEN_PATH=${SA_TOKEN_PATH:-"/tmp/tekton-results/tokens"}
+export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
 
 ROOT="$(git rev-parse --show-toplevel)"
 
@@ -30,10 +32,11 @@ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipeli
 
 echo "Generating TLS key pair..."
 set +e
+mkdir -p "${SSL_CERT_PATH}"
 openssl req -x509 \
         -newkey rsa:4096 \
-        -keyout "/tmp/tekton-results-key.pem" \
-        -out "/tmp/tekton-results-cert.pem" \
+        -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
+        -out "${SSL_CERT_PATH}/tekton-results-cert.pem" \
         -days 365 \
         -nodes \
         -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
@@ -48,8 +51,8 @@ if [ $? -ne 0 ] ; then
             -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local")) \
             -extensions SAN \
             -newkey rsa:4096 \
-            -keyout "/tmp/tekton-results-key.pem" \
-            -out "/tmp/tekton-results-cert.pem" \
+            -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
+            -out "${SSL_CERT_PATH}/tekton-results-cert.pem" \
             -days 365 \
             -nodes \
             -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
@@ -60,18 +63,17 @@ if [ $? -ne 0 ] ; then
     fi
 fi
 set -e
-kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="/tmp/tekton-results-cert.pem" --key="/tmp/tekton-results-key.pem" || true
+kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="${SSL_CERT_PATH}/tekton-results-cert.pem" --key="${SSL_CERT_PATH}/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
 kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply -f -
 
 echo "Fetching access tokens..."
-tokens_dir=/tmp/tekton-results/tokens
-mkdir -p $tokens_dir
+mkdir -p ${SA_TOKEN_PATH}
 service_accounts=(all-namespaces-read-access single-namespace-read-access)
-for service_account in ${service_accounts[@]}; do
-    kubectl create token $service_account > $tokens_dir/$service_account
-    echo "Created $tokens_dir/$service_account"
+for service_account in "${service_accounts[@]}"; do
+    kubectl create token $service_account > ${SA_TOKEN_PATH}/$service_account
+    echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
 echo "Waiting for deployments to be ready..."
