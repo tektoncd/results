@@ -16,7 +16,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/viper v1.12.0
 	github.com/tektoncd/pipeline v0.39.0
-	go.uber.org/automaxprocs v1.4.0
+	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.22.0
 	golang.org/x/oauth2 v0.2.0
 	google.golang.org/api v0.103.0
