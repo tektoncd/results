@@ -18,10 +18,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/google/cel-go/common/types/pb"
-	"github.com/google/cel-go/common/types/ref"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/google/cel-go/common/types/pb"
+	"github.com/google/cel-go/common/types/ref"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -52,25 +53,25 @@ func NewObject(adapter ref.TypeAdapter,
 		typeValue:   typeValue}
 }
 
-func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
-	pb := o.value
-	if reflect.TypeOf(pb).AssignableTo(typeDesc) {
-		return pb, nil
+func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	srcPB := o.value
+	if reflect.TypeOf(srcPB).AssignableTo(typeDesc) {
+		return srcPB, nil
 	}
 	if reflect.TypeOf(o).AssignableTo(typeDesc) {
 		return o, nil
 	}
 	switch typeDesc {
 	case anyValueType:
-		_, isAny := pb.(*anypb.Any)
+		_, isAny := srcPB.(*anypb.Any)
 		if isAny {
-			return pb, nil
+			return srcPB, nil
 		}
-		return anypb.New(pb)
+		return anypb.New(srcPB)
 	case jsonValueType:
 		// Marshal the proto to JSON first, and then rehydrate as protobuf.Value as there is no
 		// support for direct conversion from proto.Message to protobuf.Value.
-		bytes, err := protojson.Marshal(pb)
+		bytes, err := protojson.Marshal(srcPB)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +89,10 @@ func (o *protoObj) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 			val := reflect.New(typeDesc.Elem()).Interface()
 			dstPB, ok := val.(proto.Message)
 			if ok {
-				proto.Merge(dstPB, pb)
+				err := pb.Merge(dstPB, srcPB)
+				if err != nil {
+					return nil, fmt.Errorf("type conversion error: %v", err)
+				}
 				return dstPB, nil
 			}
 		}
@@ -109,10 +113,8 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Val {
 }
 
 func (o *protoObj) Equal(other ref.Val) ref.Val {
-	if o.typeDesc.Name() != other.Type().TypeName() {
-		return MaybeNoSuchOverloadErr(other)
-	}
-	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
+	otherPB, ok := other.Value().(proto.Message)
+	return Bool(ok && pb.Equal(o.value, otherPB))
 }
 
 // IsSet tests whether a field which is defined is set to a non-default value.
@@ -130,6 +132,11 @@ func (o *protoObj) IsSet(field ref.Val) ref.Val {
 		return True
 	}
 	return False
+}
+
+// IsZeroValue returns true if the protobuf object is empty.
+func (o *protoObj) IsZeroValue() bool {
+	return proto.Equal(o.value, o.typeDesc.Zero())
 }
 
 func (o *protoObj) Get(index ref.Val) ref.Val {
@@ -153,6 +160,6 @@ func (o *protoObj) Type() ref.Type {
 	return o.typeValue
 }
 
-func (o *protoObj) Value() interface{} {
+func (o *protoObj) Value() any {
 	return o.value
 }
