@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
@@ -122,6 +123,7 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 // than 0).
 // * The object is done and it isn't owned by other object.
 // * The configured grace period has elapsed since the object's completion.
+// * The object satisfies all label requirements defined in the supplied config.
 func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object) error {
 	logger := logging.FromContext(ctx)
 
@@ -158,6 +160,12 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		requeueAfter := gracePeriod - timeSinceCompletion
 		logger.Debugw("Object is not ready for deletion yet - requeuing to process later", zap.Duration("results.tekton.dev/requeueAfter", requeueAfter))
 		return controller.NewRequeueAfter(requeueAfter)
+	}
+
+	// Verify whether this object matches the provided label selectors
+	if selectors := r.cfg.GetLabelSelector(); !selectors.Matches(labels.Set(o.GetLabels())) {
+		logger.Debugw("Object doesn't match the required label selectors - requeuing to process later", zap.String("results.tekton.dev/label-selectors", selectors.String()))
+		return controller.NewRequeueAfter(1 * time.Minute)
 	}
 
 	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())),

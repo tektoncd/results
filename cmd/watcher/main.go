@@ -21,11 +21,12 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"github.com/tektoncd/results/pkg/watcher/logs"
 	"io"
 	"log"
 	"os"
 	"time"
+
+	"github.com/tektoncd/results/pkg/watcher/logs"
 
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
@@ -60,6 +61,7 @@ var (
 	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
 	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
 	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
+	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
 )
 
 func main() {
@@ -90,6 +92,12 @@ func main() {
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate:      *disableCRDUpdate,
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
+	}
+
+	if selector := *labelSelector; selector != "" {
+		if err := cfg.SetLabelSelector(selector); err != nil {
+			log.Fatalf("Malformed -label_selector value: %v", err)
+		}
 	}
 
 	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, corev1.NamespaceAll), "watcher",

@@ -14,7 +14,11 @@
 
 package reconciler
 
-import "time"
+import (
+	"time"
+
+	"k8s.io/apimachinery/pkg/labels"
+)
 
 // Config defines shared reconciler configuration options.
 type Config struct {
@@ -25,6 +29,11 @@ type Config struct {
 	// CompletedResourceGracePeriod is the time to wait before deleting completed resources.
 	// 0 implies the duration
 	CompletedResourceGracePeriod time.Duration
+
+	// Label selector to match resources against in order to determine
+	// whether completed resources are eligible for deletion. The default
+	// value is labels.Everything() which matches any resource.
+	labelSelector labels.Selector
 }
 
 // GetDisableAnnotationupdate returns whether annotation updates should be
@@ -47,4 +56,27 @@ func (c *Config) GetCompletedResourceGracePeriod() time.Duration {
 		return 0
 	}
 	return c.CompletedResourceGracePeriod
+}
+
+// GetLabelSelector returns the label selector to match resources against in
+// order to determine whether they're eligible for deletion. If no selector was
+// configured via the SetLabelSelector method, returns a selector that always
+// matches any resource.
+func (c *Config) GetLabelSelector() labels.Selector {
+	if c.labelSelector == nil {
+		return labels.Everything()
+	}
+	return c.labelSelector
+}
+
+// SetLabelSelector sets a label selector to match resources against in order to
+// determine whether they're eligible for deletion. The syntax obeys the same
+// format accepted by list operations peformed on the Kubernetes API server.
+func (c *Config) SetLabelSelector(selector string) error {
+	parsedSelector, err := labels.Parse(selector)
+	if err != nil {
+		return err
+	}
+	c.labelSelector = parsedSelector
+	return nil
 }
