@@ -131,7 +131,10 @@ func TestReconcile_TaskRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	taskrun.Status.InitializeConditions()
+	isRequeueKey := func(err error) bool {
+		ok, _ := controller.IsRequeueKey(err)
+		return ok
+	}
 
 	t.Run("DisabledAnnotations", func(t *testing.T) {
 		resultName := result.FormatName(taskrun.GetNamespace(), string(taskrun.GetUID()))
@@ -170,11 +173,6 @@ func TestReconcile_TaskRun(t *testing.T) {
 	t.Run("delete object once grace period elapses", func(t *testing.T) {
 		// Enable object deletion, re-reconcile
 		cfg.CompletedResourceGracePeriod = 1 * time.Second
-
-		isRequeueKey := func(err error) bool {
-			ok, _ := controller.IsRequeueKey(err)
-			return ok
-		}
 
 		// Simulate a successful TaskRun. The next test case will make
 		// sure that failed objects can be deleted as well.
@@ -224,6 +222,36 @@ func TestReconcile_TaskRun(t *testing.T) {
 		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
 		fakeclock.Advance(2 * time.Second)
 
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		// Make sure that the resource no longer exists
+		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+			t.Fatalf("Want NotFound, but got %v", err)
+		}
+	})
+
+	t.Run("wait until the object has the desired labels to delete it", func(t *testing.T) {
+		// Recreate the object to retest the deletion
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := cfg.SetLabelSelector("x=foo"); err != nil {
+			t.Fatal(err)
+		}
+
+		// The controller must return a RequeueKeyError because the
+		// TaskRun doesn't have the expected labels
+		if err := r.Reconcile(ctx, taskrun); !isRequeueKey(err) {
+			t.Fatalf("Want a controller.RequeueKey error, but got %v", err)
+		}
+
+		// Set the expected label and reconcile.
+		taskrun.Labels = map[string]string{
+			"x": "foo",
+		}
 		if err := r.Reconcile(ctx, taskrun); err != nil {
 			t.Fatal(err)
 		}
