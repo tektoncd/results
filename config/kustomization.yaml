@@ -14,7 +14,6 @@
 
 resources:
 - 100-api-serviceaccount.yaml
-- 100-sql-init.yaml
 - 100-watcher-serviceaccount.yaml
 - 201-sql-deployment.yaml
 - api.yaml
@@ -30,6 +29,19 @@ configMapGenerator:
     namespace: tekton-pipelines
     files:
       - env/config
+    options:
+      disableNameSuffixHash: true
+
+  # sql-initdb-config contains the initialization config for the database.  The
+# ConfigMap is generated automatically from the results.sql file. This ensures
+# that we are using the same schema for deployments and tests.  This config
+# should be mounted to /docker-entrypoint-initdb.d to initialize a database on
+# first startup.  See "Initialization Scripts" under
+# https://hub.docker.com/_/postgres for more info.
+  - name: sql-initdb-config
+    namespace: tekton-pipelines
+    files:
+      - results.sql
     options:
       disableNameSuffixHash: true
 labels:

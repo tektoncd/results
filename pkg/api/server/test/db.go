@@ -55,7 +55,7 @@ func NewDB(t *testing.T) *gorm.DB {
 
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(b)
-	schema, err := ioutil.ReadFile(path.Join(basepath, "../../../../schema/results.sql"))
+	schema, err := ioutil.ReadFile(path.Join(basepath, "../../../../config/results.sql"))
 	if err != nil {
 		t.Fatalf("failed to read schema file: %v", err)
 	}
