@@ -16,6 +16,7 @@ package dynamic
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	dynamicclient "k8s.io/client-go/dynamic/fake"
 	"knative.dev/pkg/apis"
@@ -59,17 +60,6 @@ var (
 			Namespace:   "ns",
 			Annotations: map[string]string{"demo": "demo"},
 			UID:         "12345",
-		},
-		Status: v1beta1.TaskRunStatus{
-			Status: duckv1beta1.Status{
-				Conditions: duckv1beta1.Conditions{
-					apis.Condition{
-						Type:   apis.ConditionSucceeded,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-			TaskRunStatusFields: v1beta1.TaskRunStatusFields{},
 		},
 		Spec: v1beta1.TaskRunSpec{
 			TaskSpec: &v1beta1.TaskSpec{
@@ -141,6 +131,8 @@ func TestReconcile_TaskRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	taskrun.Status.InitializeConditions()
+
 	t.Run("DisabledAnnotations", func(t *testing.T) {
 		resultName := result.FormatName(taskrun.GetNamespace(), string(taskrun.GetUID()))
 		if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: resultName}); err != nil {
@@ -175,7 +167,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 		t.Fatalf("GetRecord: %v", err)
 	}
 
-	t.Run("DeleteObject", func(t *testing.T) {
+	t.Run("delete object once grace period elapses", func(t *testing.T) {
 		// Enable object deletion, re-reconcile
 		cfg.CompletedResourceGracePeriod = 1 * time.Second
 
@@ -184,12 +176,21 @@ func TestReconcile_TaskRun(t *testing.T) {
 			return ok
 		}
 
+		// Simulate a successful TaskRun. The next test case will make
+		// sure that failed objects can be deleted as well.
+		taskrun.Status.SetCondition(&apis.Condition{
+			Type:   apis.ConditionSucceeded,
+			Status: corev1.ConditionTrue,
+			Reason: string(v1beta1.TaskRunReasonSuccessful),
+		})
+
 		// The controller must requeue the object since the
 		// CompletionTime field is nil.
 		if err := r.Reconcile(ctx, taskrun); !isRequeueKey(err) {
 			t.Fatalf("Want a controller.RequeueKey error, but got %v", err)
 		}
 
+		// Set the completion time and reconcile again.
 		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
 		// The controller must requeue the object since the grace period
 		// hasn't elapsed yet.
@@ -205,8 +206,31 @@ func TestReconcile_TaskRun(t *testing.T) {
 		}
 
 		_, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
-		if !errors.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			t.Fatalf("wanted NotFound, got %v", err)
+		}
+	})
+
+	t.Run("delete failed runs", func(t *testing.T) {
+		// Recreate the object to retest the deletion
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+
+		// Simulate a failed run, set the completion time and advance
+		// the clock to make this test case more independent from the
+		// previous one.
+		taskrun.Status.MarkResourceFailed(v1beta1.TaskRunReasonFailed, errors.New("Failed"))
+		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
+		fakeclock.Advance(2 * time.Second)
+
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		// Make sure that the resource no longer exists
+		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+			t.Fatalf("Want NotFound, but got %v", err)
 		}
 	})
 }

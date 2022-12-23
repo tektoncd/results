@@ -70,18 +70,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		logger.Debugf("Post SetGroupVersionKind: %s", o.GetObjectKind().GroupVersionKind().String())
 	}
 
-	// Update record.
+	// Upsert record.
+	startTime := time.Now()
 	result, record, err := r.resultsClient.Put(ctx, o)
+	timeTakenField := zap.Int64("results.tekton.dev/time-taken-ms", time.Since(startTime).Milliseconds())
+
 	if err != nil {
-		logger.Debugw("Error updating Record", zap.Error(err))
-		return err
+		logger.Debugw("Error upserting record", zap.Error(err), timeTakenField)
+		return fmt.Errorf("error upserting record: %w", err)
 	}
 
 	logger = logger.With(zap.String("results.tekton.dev/result", result.Name),
 		zap.String("results.tekton.dev/record", record.Name))
+	logger.Debugw("Record has been successfully upserted into API server", timeTakenField)
 
 	if err := r.addResultsAnnotations(logging.WithLogger(ctx, logger), o, result, record); err != nil {
-		return err
+		return fmt.Errorf("error adding Result annotations to the object: %w", err)
 	}
 
 	return r.deleteUponCompletion(logging.WithLogger(ctx, logger), o)
@@ -94,7 +98,7 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 
 	objectAnnotations := o.GetAnnotations()
 	if r.cfg.GetDisableAnnotationUpdate() {
-		logger.Info("Skipping CRD annotation patch: annotation update is disabled")
+		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
 	} else if result.GetName() == objectAnnotations[annotation.Result] && record.GetName() == objectAnnotations[annotation.Record] {
 		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
 	} else {
@@ -156,19 +160,21 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		return controller.NewRequeueAfter(requeueAfter)
 	}
 
-	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())))
+	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())),
+		zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
 	if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
 		Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
 	}); err != nil && !errors.IsNotFound(err) {
-		logger.Errorw("Error deleting object", zap.Error(err))
-		return err
+		logger.Debugw("Error deleting object", zap.Error(err))
+		return fmt.Errorf("error deleting object: %w", err)
 	}
 
+	logger.Debugw("Object has been successfully deleted", zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
 	return nil
 }
 
 func isDone(o results.Object) bool {
-	return o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsTrue()
+	return !o.GetStatusCondition().GetCondition(apis.ConditionSucceeded).IsUnknown()
 }
 
 // getCompletionTime returns the completion time of the object (PipelineRun or
