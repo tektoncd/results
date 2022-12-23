@@ -2,6 +2,7 @@ package taskrun
 
 import (
 	"context"
+	"fmt"
 
 	"knative.dev/pkg/controller"
 	knativereconciler "knative.dev/pkg/reconciler"
@@ -12,6 +13,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/logging"
@@ -32,23 +34,28 @@ type Reconciler struct {
 var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
 
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
-	log := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
-	log.Info("Reconciling TaskRun")
+	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		log.Errorf("invalid resource key: %s", key)
+		logger.Errorf("invalid resource key: %s", key)
 		return nil
 	}
 
 	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		log.Debug("Skipping TaskRun key because this instance isn't its leader")
+		logger.Debug("Skipping TaskRun key because this instance isn't its leader")
 		return controller.NewSkipKey(key)
 	}
 
+	logger.Info("Reconciling TaskRun")
+
 	tr, err := r.lister.TaskRuns(namespace).Get(name)
 	if err != nil {
-		return err
+		if apierrors.IsNotFound(err) {
+			logger.Debug("Skipping key: object is no longer available")
+			return controller.NewSkipKey(key)
+		}
+		return fmt.Errorf("error reading TaskRun from the indexer: %w", err)
 	}
 
 	k8sclient := &dynamic.TaskRunClient{
@@ -56,7 +63,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, k8sclient, r.cfg)
-	if err := dyn.Reconcile(logging.WithLogger(ctx, log), tr); err != nil {
+	if err := dyn.Reconcile(logging.WithLogger(ctx, logger), tr); err != nil {
 		return err
 	}
 
