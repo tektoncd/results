@@ -19,12 +19,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"log"
 	"net"
 	"net/http"
 	"path"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"go.uber.org/zap"
 
@@ -61,6 +62,7 @@ type ConfigFile struct {
 	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
 	TLS_PATH              string `mapstructure:"TLS_PATH"`
 	LOGS_API              bool   `mapstructure:"LOGS_API"`
+	NO_AUTH               bool   `mapstructure:"NO_AUTH"`
 }
 
 func main() {
@@ -106,16 +108,6 @@ func main() {
 		log.Fatalf("Failed to open the results.db: %v", err)
 	}
 
-	// Create k8s client
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatal("Error getting kubernetes client config:", err)
-	}
-	k8s, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Fatal("Error creating kubernetes clientset:", err)
-	}
-
 	// Load TLS cert for server
 	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
 	if tlsError != nil {
@@ -124,8 +116,27 @@ func main() {
 		creds = insecure.NewCredentials()
 	}
 
+	// Create the authorization checker
+	var checker auth.Checker
+	if configFile.NO_AUTH {
+		log.Warn("Starting server with authorization check disabled - all requests will be allowed by the API server")
+		checker = &auth.AllowAll{}
+	} else {
+		log.Info("Starting server with Kubernetes RBAC authorization check enabled")
+		// Create k8s client
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Fatal("Error getting kubernetes client config:", err)
+		}
+		k8s, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Fatal("Error creating kubernetes clientset:", err)
+		}
+		checker = auth.NewRBAC(k8s)
+	}
+
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(auth.NewRBAC(k8s)))
+	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(checker))
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

@@ -11,3 +11,4 @@ LOG_LEVEL=info
 TLS_HOSTNAME_OVERRIDE=
 TLS_PATH=/etc/tls
 LOGS_API=false
+NO_AUTH=false
