@@ -24,6 +24,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/logging"
 )
 
 // Client is a wrapper around a Results client that provides helpful utilities
@@ -86,20 +88,27 @@ func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*p
 // ensureResult gets the Result corresponding to the Object, creates a new
 // one, or updates the existing Result with new Object details if necessary.
 func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, error) {
-	name := resultName(o)
-	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}, opts...)
+	resultName := resultName(o)
+	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: resultName}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
-		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", name, err)
+		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", resultName, err)
 	}
 
-	new := &pb.Result{
-		Name: name,
-	}
+	recordName := recordName(resultName, o)
 	topLevel := isTopLevelRecord(o)
+
+	logger := logging.FromContext(ctx).With(zap.String(annotation.Result, resultName),
+		zap.String(annotation.Record, recordName),
+		zap.Bool("results.tekton.dev/top-level-record", topLevel))
+
+	new := &pb.Result{
+		Name: resultName,
+	}
+
 	if topLevel {
 		// If the object corresponds to a top level record  - include a RecordSummary.
 		new.Summary = &pb.RecordSummary{
-			Record:    recordName(name, o),
+			Record:    recordName,
 			Type:      convert.TypeName(o),
 			Status:    convert.Status(o.GetStatusCondition()),
 			StartTime: getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionReady)),
@@ -110,7 +119,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 	// Regardless of whether the object is a top level record or not,
 	// if the Result doesn't exist yet just create it and return.
 	if status.Code(err) == codes.NotFound {
-		// Result doesn't exist yet - create.
+		logger.Debug("Result doesn't exist yet - creating")
 		req := &pb.CreateResultRequest{
 			Parent: parentName(o),
 			Result: new,
@@ -122,8 +131,9 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 	// to be made to the Record.
 
 	if !topLevel {
-		// If the object is top level there's nothing else to do because we
+		// If the object isn't top level there's nothing else to do because we
 		// won't be modifying the RecordSummary.
+		logger.Debug("No further actions to be done on the Result: the object is not a top level record")
 		return curr, nil
 	}
 
@@ -131,11 +141,12 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 	// change to the RecordSummary (only looking at the summary also helps us
 	// avoid OUTPUT_ONLY fields in the Result))
 	if cmp.Equal(curr.GetSummary(), new.GetSummary(), protocmp.Transform()) {
-		// No differences, nothing to do.
+		logger.Debug("No further actions to be done on the Result: no differences found")
 		return curr, nil
 	}
+	logger.Debug("Updating Result")
 	req := &pb.UpdateResultRequest{
-		Name:   name,
+		Name:   resultName,
 		Result: new,
 	}
 	return c.ResultsClient.UpdateResult(ctx, req, opts...)
@@ -181,9 +192,16 @@ func resultName(o metav1.Object) string {
 }
 
 func recordName(parent string, o Object) string {
-	name, ok := o.GetAnnotations()[annotation.Record]
-	if ok {
-		return name
+	// Attempt to read the record name from annotations only if the object
+	// in question is a top-level record (i.e. it isn't owned by another
+	// object). Otherwise, the annotation containing the record name maybe
+	// was propagated by the owner what causes conflicts while upserting the
+	// object into the API. For further details, please see
+	// https://github.com/tektoncd/results/issues/296.
+	if isTopLevelRecord(o) {
+		if name, ok := o.GetAnnotations()[annotation.Record]; ok {
+			return name
+		}
 	}
 	return record.FormatName(parent, defaultName(o))
 }
@@ -203,25 +221,25 @@ func parentName(o metav1.Object) string {
 // upsertRecord updates or creates a record for the object. If there has been
 // no change in the Record data, the existing Record is returned.
 func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts ...grpc.CallOption) (*pb.Record, error) {
-	name, ok := o.GetAnnotations()[annotation.Record]
-	if !ok {
-		name = record.FormatName(parent, defaultName(o))
-	}
+	recordName := recordName(parent, o)
+	logger := logging.FromContext(ctx).With(zap.String(annotation.Record, recordName))
 	data, err := convert.ToProto(o)
 	if err != nil {
 		return nil, err
 	}
 
-	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: name}, opts...)
+	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: recordName}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return nil, err
 	}
 	if curr != nil {
 		// Data already exists for the Record - update it iff there is a diff of Data.
 		if cmp.Equal(data, curr.GetData(), protocmp.Transform()) {
+			logger.Debug("No further actions to be done on the Record: no changes found")
 			return curr, nil
 		}
 
+		logger.Debug("Updating Record")
 		curr.Data = data
 		return c.UpdateRecord(ctx, &pb.UpdateRecordRequest{
 			Record: curr,
@@ -229,11 +247,11 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 		}, opts...)
 	}
 
-	// Data does not exist for the Record - create it.
+	logger.Debug("Record doesn't exist yet - creating")
 	return c.CreateRecord(ctx, &pb.CreateRecordRequest{
 		Parent: parent,
 		Record: &pb.Record{
-			Name: name,
+			Name: recordName,
 			Data: data,
 		},
 	}, opts...)

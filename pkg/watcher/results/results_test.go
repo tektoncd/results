@@ -30,6 +30,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/kmeta"
 	logtest "knative.dev/pkg/logging/testing"
 )
 
@@ -135,6 +137,59 @@ func TestResultName(t *testing.T) {
 			}
 			if got := resultName(o); tc.want != got {
 				t.Errorf("want %s, got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestRecordName(t *testing.T) {
+	tests := []struct {
+		name string
+		in   Object
+		want string
+	}{{
+		name: "derive the record name from the parent name and the record's default name",
+		in: &v1beta1.TaskRun{
+			ObjectMeta: metav1.ObjectMeta{
+				UID: types.UID("uid"),
+			},
+		},
+		want: "foo/results/bar/records/uid",
+	},
+		{
+			name: "read the record name from the record annotation",
+			in: &v1beta1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.Record: "foo/results/bar/records/baz",
+					},
+					UID: types.UID("uid"),
+				},
+			},
+			want: "foo/results/bar/records/baz",
+		},
+		{
+			name: "do not read the record annotation if the object is owned by another object",
+			in: &v1beta1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.Record: "foo/results/bar/records/baz",
+					},
+					UID: types.UID("uid"),
+					OwnerReferences: []metav1.OwnerReference{
+						*kmeta.NewControllerRef(&v1beta1.PipelineRun{}),
+					},
+				},
+			},
+			want: "foo/results/bar/records/uid",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := recordName("foo/results/bar", test.in)
+			if test.want != got {
+				t.Errorf("recordName: want %s, got %s", test.want, got)
 			}
 		})
 	}
