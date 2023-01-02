@@ -3,19 +3,21 @@ package migrator
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
 
 var (
-	regRealDataType = regexp.MustCompile(`[^\d](\d+)[^\d]?`)
-	regFullDataType = regexp.MustCompile(`[^\d]*(\d+)[^\d]?`)
+	regFullDataType = regexp.MustCompile(`\D*(\d+)\D?`)
 )
 
 // Migrator m struct
@@ -28,6 +30,16 @@ type Config struct {
 	CreateIndexAfterCreateTable bool
 	DB                          *gorm.DB
 	gorm.Dialector
+}
+
+type printSQLLogger struct {
+	logger.Interface
+}
+
+func (l *printSQLLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	sql, _ := fc()
+	fmt.Println(sql + ";")
+	l.Interface.Trace(ctx, begin, fc, err)
 }
 
 // GormDataTypeInterface gorm data type interface
@@ -92,14 +104,22 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
 // AutoMigrate auto migrate values
 func (m Migrator) AutoMigrate(values ...interface{}) error {
 	for _, value := range m.ReorderModels(values, true) {
-		tx := m.DB.Session(&gorm.Session{})
-		if !tx.Migrator().HasTable(value) {
-			if err := tx.Migrator().CreateTable(value); err != nil {
+		queryTx := m.DB.Session(&gorm.Session{})
+		execTx := queryTx
+		if m.DB.DryRun {
+			queryTx.DryRun = false
+			execTx = m.DB.Session(&gorm.Session{Logger: &printSQLLogger{Interface: m.DB.Logger}})
+		}
+		if !queryTx.Migrator().HasTable(value) {
+			if err := execTx.Migrator().CreateTable(value); err != nil {
 				return err
 			}
 		} else {
 			if err := m.RunWithValue(value, func(stmt *gorm.Statement) (errr error) {
-				columnTypes, _ := m.DB.Migrator().ColumnTypes(value)
+				columnTypes, err := queryTx.Migrator().ColumnTypes(value)
+				if err != nil {
+					return err
+				}
 
 				for _, dbName := range stmt.Schema.DBNames {
 					field := stmt.Schema.FieldsByDBName[dbName]
@@ -114,37 +134,40 @@ func (m Migrator) AutoMigrate(values ...interface{}) error {
 
 					if foundColumn == nil {
 						// not found, add column
-						if err := tx.Migrator().AddColumn(value, dbName); err != nil {
+						if err := execTx.Migrator().AddColumn(value, dbName); err != nil {
 							return err
 						}
-					} else if err := m.DB.Migrator().MigrateColumn(value, field, foundColumn); err != nil {
+					} else if err := execTx.Migrator().MigrateColumn(value, field, foundColumn); err != nil {
 						// found, smart migrate
 						return err
 					}
 				}
 
-				for _, rel := range stmt.Schema.Relationships.Relations {
-					if !m.DB.Config.DisableForeignKeyConstraintWhenMigrating {
-						if constraint := rel.ParseConstraint(); constraint != nil &&
-							constraint.Schema == stmt.Schema && !tx.Migrator().HasConstraint(value, constraint.Name) {
-							if err := tx.Migrator().CreateConstraint(value, constraint.Name); err != nil {
-								return err
-							}
+				if !m.DB.DisableForeignKeyConstraintWhenMigrating && !m.DB.IgnoreRelationshipsWhenMigrating {
+					for _, rel := range stmt.Schema.Relationships.Relations {
+						if rel.Field.IgnoreMigration {
+							continue
 						}
-					}
-
-					for _, chk := range stmt.Schema.ParseCheckConstraints() {
-						if !tx.Migrator().HasConstraint(value, chk.Name) {
-							if err := tx.Migrator().CreateConstraint(value, chk.Name); err != nil {
+						if constraint := rel.ParseConstraint(); constraint != nil &&
+							constraint.Schema == stmt.Schema && !queryTx.Migrator().HasConstraint(value, constraint.Name) {
+							if err := execTx.Migrator().CreateConstraint(value, constraint.Name); err != nil {
 								return err
 							}
 						}
 					}
 				}
 
+				for _, chk := range stmt.Schema.ParseCheckConstraints() {
+					if !queryTx.Migrator().HasConstraint(value, chk.Name) {
+						if err := execTx.Migrator().CreateConstraint(value, chk.Name); err != nil {
+							return err
+						}
+					}
+				}
+
 				for _, idx := range stmt.Schema.ParseIndexes() {
-					if !tx.Migrator().HasIndex(value, idx.Name) {
-						if err := tx.Migrator().CreateIndex(value, idx.Name); err != nil {
+					if !queryTx.Migrator().HasIndex(value, idx.Name) {
+						if err := execTx.Migrator().CreateIndex(value, idx.Name); err != nil {
 							return err
 						}
 					}
@@ -220,12 +243,15 @@ func (m Migrator) CreateTable(values ...interface{}) error {
 					}
 
 					createTableSQL += ","
-					values = append(values, clause.Expr{SQL: idx.Name}, tx.Migrator().(BuildIndexOptionsInterface).BuildIndexOptions(idx.Fields, stmt))
+					values = append(values, clause.Column{Name: idx.Name}, tx.Migrator().(BuildIndexOptionsInterface).BuildIndexOptions(idx.Fields, stmt))
 				}
 			}
 
-			for _, rel := range stmt.Schema.Relationships.Relations {
-				if !m.DB.DisableForeignKeyConstraintWhenMigrating {
+			if !m.DB.DisableForeignKeyConstraintWhenMigrating && !m.DB.IgnoreRelationshipsWhenMigrating {
+				for _, rel := range stmt.Schema.Relationships.Relations {
+					if rel.Field.IgnoreMigration {
+						continue
+					}
 					if constraint := rel.ParseConstraint(); constraint != nil {
 						if constraint.Schema == stmt.Schema {
 							sql, vars := buildConstraint(constraint)
@@ -400,31 +426,52 @@ func (m Migrator) RenameColumn(value interface{}, oldName, newName string) error
 // MigrateColumn migrate column
 func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnType gorm.ColumnType) error {
 	// found, smart migrate
-	fullDataType := strings.ToLower(m.DB.Migrator().FullDataTypeOf(field).SQL)
+	fullDataType := strings.TrimSpace(strings.ToLower(m.DB.Migrator().FullDataTypeOf(field).SQL))
 	realDataType := strings.ToLower(columnType.DatabaseTypeName())
 
-	alterColumn := false
+	var (
+		alterColumn, isSameType bool
+	)
 
-	// check size
-	if length, ok := columnType.Length(); length != int64(field.Size) {
-		if length > 0 && field.Size > 0 {
-			alterColumn = true
-		} else {
-			// has size in data type and not equal
-			// Since the following code is frequently called in the for loop, reg optimization is needed here
-			matches := regRealDataType.FindAllStringSubmatch(realDataType, -1)
-			matches2 := regFullDataType.FindAllStringSubmatch(fullDataType, -1)
-			if (len(matches) == 1 && matches[0][1] != fmt.Sprint(field.Size) || !field.PrimaryKey) &&
-				(len(matches2) == 1 && matches2[0][1] != fmt.Sprint(length) && ok) {
+	if !field.PrimaryKey {
+		// check type
+		if !strings.HasPrefix(fullDataType, realDataType) {
+			// check type aliases
+			aliases := m.DB.Migrator().GetTypeAliases(realDataType)
+			for _, alias := range aliases {
+				if strings.HasPrefix(fullDataType, alias) {
+					isSameType = true
+					break
+				}
+			}
+
+			if !isSameType {
 				alterColumn = true
 			}
 		}
 	}
 
-	// check precision
-	if precision, _, ok := columnType.DecimalSize(); ok && int64(field.Precision) != precision {
-		if regexp.MustCompile(fmt.Sprintf("[^0-9]%d[^0-9]", field.Precision)).MatchString(m.DataTypeOf(field)) {
-			alterColumn = true
+	if !isSameType {
+		// check size
+		if length, ok := columnType.Length(); length != int64(field.Size) {
+			if length > 0 && field.Size > 0 {
+				alterColumn = true
+			} else {
+				// has size in data type and not equal
+				// Since the following code is frequently called in the for loop, reg optimization is needed here
+				matches2 := regFullDataType.FindAllStringSubmatch(fullDataType, -1)
+				if !field.PrimaryKey &&
+					(len(matches2) == 1 && matches2[0][1] != fmt.Sprint(length) && ok) {
+					alterColumn = true
+				}
+			}
+		}
+
+		// check precision
+		if precision, _, ok := columnType.DecimalSize(); ok && int64(field.Precision) != precision {
+			if regexp.MustCompile(fmt.Sprintf("[^0-9]%d[^0-9]", field.Precision)).MatchString(m.DataTypeOf(field)) {
+				alterColumn = true
+			}
 		}
 	}
 
@@ -445,10 +492,22 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 	}
 
 	// check default value
-	if v, ok := columnType.DefaultValue(); ok && v != field.DefaultValue {
-		// not primary key
-		if !field.PrimaryKey {
+	if !field.PrimaryKey {
+		currentDefaultNotNull := field.HasDefaultValue && (field.DefaultValueInterface != nil || !strings.EqualFold(field.DefaultValue, "NULL"))
+		dv, dvNotNull := columnType.DefaultValue()
+		if dvNotNull && !currentDefaultNotNull {
+			// defalut value -> null
 			alterColumn = true
+		} else if !dvNotNull && currentDefaultNotNull {
+			// null -> default value
+			alterColumn = true
+		} else if (field.GORMDataType != schema.Time && dv != field.DefaultValue) ||
+			(field.GORMDataType == schema.Time && !strings.EqualFold(strings.TrimSuffix(dv, "()"), strings.TrimSuffix(field.DefaultValue, "()"))) {
+			// default value not equal
+			// not both null
+			if currentDefaultNotNull || dvNotNull {
+				alterColumn = true
+			}
 		}
 	}
 
@@ -461,7 +520,7 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 	}
 
 	if alterColumn && !field.IgnoreMigration {
-		return m.DB.Migrator().AlterColumn(value, field.Name)
+		return m.DB.Migrator().AlterColumn(value, field.DBName)
 	}
 
 	return nil
@@ -756,7 +815,8 @@ func (m Migrator) ReorderModels(values []interface{}, autoAdd bool) (results []i
 			Statement: &gorm.Statement{DB: m.DB, Dest: value},
 		}
 		beDependedOn := map[*schema.Schema]bool{}
-		if err := dep.Parse(value); err != nil {
+		// support for special table name
+		if err := dep.ParseWithSpecialTableName(value, m.DB.Statement.Table); err != nil {
 			m.DB.Logger.Error(context.Background(), "failed to parse value %#v, got error %v", value, err)
 		}
 		if _, ok := parsedSchemas[dep.Statement.Schema]; ok {
@@ -764,26 +824,31 @@ func (m Migrator) ReorderModels(values []interface{}, autoAdd bool) (results []i
 		}
 		parsedSchemas[dep.Statement.Schema] = true
 
-		for _, rel := range dep.Schema.Relationships.Relations {
-			if c := rel.ParseConstraint(); c != nil && c.Schema == dep.Statement.Schema && c.Schema != c.ReferenceSchema {
-				dep.Depends = append(dep.Depends, c.ReferenceSchema)
-			}
+		if !m.DB.IgnoreRelationshipsWhenMigrating {
+			for _, rel := range dep.Schema.Relationships.Relations {
+				if rel.Field.IgnoreMigration {
+					continue
+				}
+				if c := rel.ParseConstraint(); c != nil && c.Schema == dep.Statement.Schema && c.Schema != c.ReferenceSchema {
+					dep.Depends = append(dep.Depends, c.ReferenceSchema)
+				}
 
-			if rel.Type == schema.HasOne || rel.Type == schema.HasMany {
-				beDependedOn[rel.FieldSchema] = true
-			}
+				if rel.Type == schema.HasOne || rel.Type == schema.HasMany {
+					beDependedOn[rel.FieldSchema] = true
+				}
 
-			if rel.JoinTable != nil {
-				// append join value
-				defer func(rel *schema.Relationship, joinValue interface{}) {
-					if !beDependedOn[rel.FieldSchema] {
-						dep.Depends = append(dep.Depends, rel.FieldSchema)
-					} else {
-						fieldValue := reflect.New(rel.FieldSchema.ModelType).Interface()
-						parseDependence(fieldValue, autoAdd)
-					}
-					parseDependence(joinValue, autoAdd)
-				}(rel, reflect.New(rel.JoinTable.ModelType).Interface())
+				if rel.JoinTable != nil {
+					// append join value
+					defer func(rel *schema.Relationship, joinValue interface{}) {
+						if !beDependedOn[rel.FieldSchema] {
+							dep.Depends = append(dep.Depends, rel.FieldSchema)
+						} else {
+							fieldValue := reflect.New(rel.FieldSchema.ModelType).Interface()
+							parseDependence(fieldValue, autoAdd)
+						}
+						parseDependence(joinValue, autoAdd)
+					}(rel, reflect.New(rel.JoinTable.ModelType).Interface())
+				}
 			}
 		}
 
@@ -839,4 +904,14 @@ func (m Migrator) CurrentTable(stmt *gorm.Statement) interface{} {
 		return *stmt.TableExpr
 	}
 	return clause.Table{Name: stmt.Table}
+}
+
+// GetIndexes return Indexes []gorm.Index and execErr error
+func (m Migrator) GetIndexes(dst interface{}) ([]gorm.Index, error) {
+	return nil, errors.New("not support")
+}
+
+// GetTypeAliases return database type aliases
+func (m Migrator) GetTypeAliases(databaseTypeName string) []string {
+	return nil
 }
