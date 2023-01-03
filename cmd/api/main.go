@@ -187,6 +187,13 @@ func main() {
 		log.Fatal("Error registering gRPC server endpoint: ", err)
 	}
 
+	if configFile.LOGS_API {
+		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
+		if err != nil {
+			log.Fatal("Error registering gRPC server endpoints for log: ", err)
+		}
+	}
+
 	// Start REST proxy server
 	log.Infof("REST server Listening on: %s", configFile.REST_PORT)
 	if tlsError != nil {
