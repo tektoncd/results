@@ -29,9 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // TaskRunSpec defines the desired state of TaskRun
@@ -50,13 +50,16 @@ type TaskRunSpec struct {
 	TaskRef *TaskRef `json:"taskRef,omitempty"`
 	// +optional
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
-	// Used for cancelling a taskrun (and maybe more later on)
+	// Used for cancelling a TaskRun (and maybe more later on)
 	// +optional
 	Status TaskRunSpecStatus `json:"status,omitempty"`
 	// Status message for cancellation.
 	// +optional
 	StatusMessage TaskRunSpecStatusMessage `json:"statusMessage,omitempty"`
-	// Time after which the build times out. Defaults to 1 hour.
+	// Retries represents how many times this TaskRun should be retried in the event of Task failure.
+	// +optional
+	Retries int `json:"retries,omitempty"`
+	// Time after which one retry attempt times out. Defaults to 1 hour.
 	// Specified build timeout should be less than 24h.
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
 	// +optional
@@ -85,7 +88,7 @@ type TaskRunSpec struct {
 	ComputeResources *corev1.ResourceRequirements `json:"computeResources,omitempty"`
 }
 
-// TaskRunSpecStatus defines the taskrun spec status the user can provide
+// TaskRunSpecStatus defines the TaskRun spec status the user can provide
 type TaskRunSpecStatus string
 
 const (
@@ -101,6 +104,8 @@ const (
 	// TaskRunCancelledByPipelineMsg indicates that the PipelineRun of which this
 	// TaskRun was a part of has been cancelled.
 	TaskRunCancelledByPipelineMsg TaskRunSpecStatusMessage = "TaskRun cancelled as the PipelineRun it belongs to has been cancelled."
+	// TaskRunCancelledByPipelineTimeoutMsg indicates that the TaskRun was cancelled because the PipelineRun running it timed out.
+	TaskRunCancelledByPipelineTimeoutMsg TaskRunSpecStatusMessage = "TaskRun cancelled as the PipelineRun it belongs to has timed out."
 )
 
 // TaskRunDebug defines the breakpoint config for a particular TaskRun
@@ -131,10 +136,23 @@ var taskRunCondSet = apis.NewBatchConditionSet()
 
 // TaskRunStatus defines the observed state of TaskRun
 type TaskRunStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// TaskRunStatusFields inlines the status fields.
 	TaskRunStatusFields `json:",inline"`
+}
+
+// TaskRunConditionType is an enum used to store TaskRun custom conditions
+// conditions such as one used in spire results verification
+type TaskRunConditionType string
+
+const (
+	// TaskRunConditionResultsVerified is a Condition Type that indicates that the results were verified by spire
+	TaskRunConditionResultsVerified TaskRunConditionType = "SignedResultsVerified"
+)
+
+func (t TaskRunConditionType) String() string {
+	return string(t)
 }
 
 // TaskRunReason is an enum used to store all TaskRun reason for
@@ -151,15 +169,27 @@ const (
 	TaskRunReasonSuccessful TaskRunReason = "Succeeded"
 	// TaskRunReasonFailed is the reason set when the TaskRun completed with a failure
 	TaskRunReasonFailed TaskRunReason = "Failed"
-	// TaskRunReasonCancelled is the reason set when the Taskrun is cancelled by the user
+	// TaskRunReasonToBeRetried is the reason set when the last TaskRun execution failed, and will be retried
+	TaskRunReasonToBeRetried TaskRunReason = "ToBeRetried"
+	// TaskRunReasonCancelled is the reason set when the TaskRun is cancelled by the user
 	TaskRunReasonCancelled TaskRunReason = "TaskRunCancelled"
-	// TaskRunReasonTimedOut is the reason set when the Taskrun has timed out
+	// TaskRunReasonTimedOut is the reason set when one TaskRun execution has timed out
 	TaskRunReasonTimedOut TaskRunReason = "TaskRunTimeout"
 	// TaskRunReasonResolvingTaskRef indicates that the TaskRun is waiting for
 	// its taskRef to be asynchronously resolved.
 	TaskRunReasonResolvingTaskRef = "ResolvingTaskRef"
 	// TaskRunReasonImagePullFailed is the reason set when the step of a task fails due to image not being pulled
 	TaskRunReasonImagePullFailed TaskRunReason = "TaskRunImagePullFailed"
+	// TaskRunReasonResultsVerified is the reason set when the TaskRun results are verified by spire
+	TaskRunReasonResultsVerified TaskRunReason = "TaskRunResultsVerified"
+	// TaskRunReasonsResultsVerificationFailed is the reason set when the TaskRun results are failed to verify by spire
+	TaskRunReasonsResultsVerificationFailed TaskRunReason = "TaskRunResultsVerificationFailed"
+	// AwaitingTaskRunResults is the reason set when waiting upon `TaskRun` results and signatures to verify
+	AwaitingTaskRunResults TaskRunReason = "AwaitingTaskRunResults"
+	// TaskRunReasonResultLargerThanAllowedLimit is the reason set when one of the results exceeds its maximum allowed limit of 1 KB
+	TaskRunReasonResultLargerThanAllowedLimit TaskRunReason = "TaskRunResultLargerThanAllowedLimit"
+	// TaskRunReasonStopSidecarFailed indicates that the sidecar is not properly stopped.
+	TaskRunReasonStopSidecarFailed = "TaskRunStopSidecarFailed"
 )
 
 func (t TaskRunReason) String() string {
@@ -235,7 +265,7 @@ type TaskRunStatusFields struct {
 	// +listType=atomic
 	RetriesStatus []TaskRunStatus `json:"retriesStatus,omitempty"`
 
-	// Results from Resources built during the taskRun. currently includes
+	// Results from Resources built during the TaskRun. currently includes
 	// the digest of build container images
 	// +optional
 	// +listType=atomic
@@ -253,6 +283,9 @@ type TaskRunStatusFields struct {
 
 	// TaskSpec contains the Spec from the dereferenced Task definition used to instantiate this TaskRun.
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
+
+	// Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).
+	Provenance *Provenance `json:"provenance,omitempty"`
 }
 
 // TaskRunStepOverride is used to override the values of a Step in the corresponding Task.
@@ -393,7 +426,7 @@ type TaskRunList struct {
 	Items           []TaskRun `json:"items"`
 }
 
-// GetPipelineRunPVCName for taskrun gets pipelinerun
+// GetPipelineRunPVCName for TaskRun gets pipelinerun
 func (tr *TaskRun) GetPipelineRunPVCName() string {
 	if tr == nil {
 		return ""
@@ -422,7 +455,7 @@ func (tr *TaskRun) IsDone() bool {
 	return !tr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
 }
 
-// HasStarted function check whether taskrun has valid start time set in its status
+// HasStarted function check whether TaskRun has valid start time set in its status
 func (tr *TaskRun) HasStarted() bool {
 	return tr.Status.StartTime != nil && !tr.Status.StartTime.IsZero()
 }
@@ -435,6 +468,21 @@ func (tr *TaskRun) IsSuccessful() bool {
 // IsCancelled returns true if the TaskRun's spec status is set to Cancelled state
 func (tr *TaskRun) IsCancelled() bool {
 	return tr.Spec.Status == TaskRunSpecStatusCancelled
+}
+
+// IsTaskRunResultVerified returns true if the TaskRun's results have been validated by spire.
+func (tr *TaskRun) IsTaskRunResultVerified() bool {
+	return tr.Status.GetCondition(apis.ConditionType(TaskRunConditionResultsVerified.String())).IsTrue()
+}
+
+// IsTaskRunResultDone returns true if the TaskRun's results are available for verification
+func (tr *TaskRun) IsTaskRunResultDone() bool {
+	return !tr.Status.GetCondition(apis.ConditionType(TaskRunConditionResultsVerified.String())).IsUnknown()
+}
+
+// IsRetriable returns true if the TaskRun's Retries is not exhausted.
+func (tr *TaskRun) IsRetriable() bool {
+	return len(tr.Status.RetriesStatus) < tr.Spec.Retries
 }
 
 // HasTimedOut returns true if the TaskRun runtime is beyond the allowed timeout
@@ -464,20 +512,6 @@ func (tr *TaskRun) GetTimeout(ctx context.Context) time.Duration {
 // GetNamespacedName returns a k8s namespaced name that identifies this TaskRun
 func (tr *TaskRun) GetNamespacedName() types.NamespacedName {
 	return types.NamespacedName{Namespace: tr.Namespace, Name: tr.Name}
-}
-
-// IsPartOfPipeline return true if TaskRun is a part of a Pipeline.
-// It also return the name of Pipeline and PipelineRun
-func (tr *TaskRun) IsPartOfPipeline() (bool, string, string) {
-	if tr == nil || len(tr.Labels) == 0 {
-		return false, "", ""
-	}
-
-	if pl, ok := tr.Labels[pipeline.PipelineLabelKey]; ok {
-		return true, pl, tr.Labels[pipeline.PipelineRunLabelKey]
-	}
-
-	return false, "", ""
 }
 
 // HasVolumeClaimTemplate returns true if TaskRun contains volumeClaimTemplates that is

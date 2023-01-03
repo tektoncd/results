@@ -27,13 +27,12 @@ import (
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	pod "github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
-	runv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/run/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // +genclient
@@ -174,6 +173,40 @@ func (pr *PipelineRun) HasTimedOut(ctx context.Context, c clock.PassiveClock) bo
 	return false
 }
 
+// HaveTasksTimedOut returns true if a pipelinerun has exceeded its spec.Timeouts.Tasks
+func (pr *PipelineRun) HaveTasksTimedOut(ctx context.Context, c clock.PassiveClock) bool {
+	timeout := pr.TasksTimeout()
+	startTime := pr.Status.StartTime
+
+	if !startTime.IsZero() && timeout != nil {
+		if timeout.Duration == config.NoTimeoutDuration {
+			return false
+		}
+		runtime := c.Since(startTime.Time)
+		if runtime > timeout.Duration {
+			return true
+		}
+	}
+	return false
+}
+
+// HasFinallyTimedOut returns true if a pipelinerun has exceeded its spec.Timeouts.Finally, based on status.FinallyStartTime
+func (pr *PipelineRun) HasFinallyTimedOut(ctx context.Context, c clock.PassiveClock) bool {
+	timeout := pr.FinallyTimeout()
+	startTime := pr.Status.FinallyStartTime
+
+	if startTime != nil && !startTime.IsZero() && timeout != nil {
+		if timeout.Duration == config.NoTimeoutDuration {
+			return false
+		}
+		runtime := c.Since(startTime.Time)
+		if runtime > timeout.Duration {
+			return true
+		}
+	}
+	return false
+}
+
 // HasVolumeClaimTemplate returns true if PipelineRun contains volumeClaimTemplates that is
 // used for creating PersistentVolumeClaims with an OwnerReference for each run
 func (pr *PipelineRun) HasVolumeClaimTemplate() bool {
@@ -264,7 +297,7 @@ const (
 
 // PipelineRunStatus defines the observed state of PipelineRun
 type PipelineRunStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// PipelineRunStatusFields inlines the status fields.
 	PipelineRunStatusFields `json:",inline"`
@@ -418,6 +451,13 @@ type PipelineRunStatusFields struct {
 	// +optional
 	// +listType=atomic
 	ChildReferences []ChildStatusReference `json:"childReferences,omitempty"`
+
+	// FinallyStartTime is when all non-finally tasks have been completed and only finally tasks are being executed.
+	// +optional
+	FinallyStartTime *metav1.Time `json:"finallyStartTime,omitempty"`
+
+	// Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).
+	Provenance *Provenance `json:"provenance,omitempty"`
 }
 
 // SkippedTask is used to describe the Tasks that were skipped due to their When Expressions
@@ -450,6 +490,12 @@ const (
 	GracefullyStoppedSkip SkippingReason = "PipelineRun was gracefully stopped"
 	// MissingResultsSkip means the task was skipped because it's missing necessary results
 	MissingResultsSkip SkippingReason = "Results were missing"
+	// PipelineTimedOutSkip means the task was skipped because the PipelineRun has passed its overall timeout.
+	PipelineTimedOutSkip SkippingReason = "PipelineRun timeout has been reached"
+	// TasksTimedOutSkip means the task was skipped because the PipelineRun has passed its Timeouts.Tasks.
+	TasksTimedOutSkip SkippingReason = "PipelineRun Tasks timeout has been reached"
+	// FinallyTimedOutSkip means the task was skipped because the PipelineRun has passed its Timeouts.Finally.
+	FinallyTimedOutSkip SkippingReason = "PipelineRun Finally timeout has been reached"
 	// None means the task was not skipped
 	None SkippingReason = "None"
 )
@@ -476,13 +522,13 @@ type PipelineRunTaskRunStatus struct {
 	WhenExpressions []WhenExpression `json:"whenExpressions,omitempty"`
 }
 
-// PipelineRunRunStatus contains the name of the PipelineTask for this Run and the Run's Status
+// PipelineRunRunStatus contains the name of the PipelineTask for this CustomRun or Run and the CustomRun or Run's Status
 type PipelineRunRunStatus struct {
 	// PipelineTaskName is the name of the PipelineTask.
 	PipelineTaskName string `json:"pipelineTaskName,omitempty"`
-	// Status is the RunStatus for the corresponding Run
+	// Status is the CustomRunStatus for the corresponding CustomRun or Run
 	// +optional
-	Status *runv1alpha1.RunStatus `json:"status,omitempty"`
+	Status *CustomRunStatus `json:"status,omitempty"`
 	// WhenExpressions is the list of checks guarding the execution of the PipelineTask
 	// +optional
 	// +listType=atomic

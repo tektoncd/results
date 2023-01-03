@@ -22,11 +22,15 @@ function install_pipeline_crd() {
   echo ">> Deploying Tekton Pipelines"
   local ko_target="$(mktemp)"
   ko resolve -R -f config/ > "${ko_target}" || fail_test "Pipeline image resolve failed"
+  ko resolve -R -f optional_config/ >> "${ko_target}" || fail_test "Pod log access resolve failed"
   cat "${ko_target}" | sed -e 's%"level": "info"%"level": "debug"%' \
       | sed -e 's%loglevel.controller: "info"%loglevel.controller: "debug"%' \
       | sed -e 's%loglevel.webhook: "info"%loglevel.webhook: "debug"%' \
       | kubectl apply -R -f - || fail_test "Build pipeline installation failed"
+
   verify_pipeline_installation
+  verify_resolvers_installation
+  verify_log_access_enabled
 
   export SYSTEM_NAMESPACE=tekton-pipelines
 }
@@ -35,6 +39,12 @@ function install_pipeline_crd() {
 function install_pipeline_crd_version() {
   echo ">> Deploying Tekton Pipelines of Version $1"
   kubectl apply -f "https://github.com/tektoncd/pipeline/releases/download/$1/release.yaml" || fail_test "Build pipeline installation failed of Version $1"
+
+  # If the version to be installed is v0.40.x, we need to install resolvers.yaml separately.
+  if [[ "${1}" == v0.40.* ]]; then
+    kubectl apply -f "https://github.com/tektoncd/pipeline/releases/download/$1/resolvers.yaml" || fail_test "Resolvers installation failed of Version $1"
+  fi
+
   verify_pipeline_installation
 }
 
@@ -44,6 +54,27 @@ function verify_pipeline_installation() {
 
   # Wait for pods to be running in the namespaces we are deploying to
   wait_until_pods_running tekton-pipelines || fail_test "Tekton Pipeline did not come up"
+}
+
+function verify_resolvers_installation() {
+  # Make sure that everything is cleaned up in the current namespace.
+  delete_resolvers_resources
+
+  # Wait for pods to be running in the namespaces we are deploying to
+  wait_until_pods_running tekton-pipelines-resolvers || fail_test "Tekton Pipeline Resolvers did not come up"
+}
+
+function verify_log_access_enabled() {
+  var=$(kubectl get clusterroles | grep tekton-pipelines-controller-pod-log-access)
+  if [ -z "$var" ]
+  then
+    fail_test "Failed to create clusterrole granting pod/logs access to the tekton controller."
+  fi
+  var=$(kubectl get clusterrolebindings | grep tekton-pipelines-controller-pod-log-access)
+  if [ -z "$var" ]
+  then
+    fail_test "Failed to create clusterrole binding granting pod/logs access to the tekton controller."
+  fi
 }
 
 function uninstall_pipeline_crd() {
@@ -58,6 +89,10 @@ function uninstall_pipeline_crd_version() {
   echo ">> Uninstalling Tekton Pipelines of version $1"
   kubectl delete --ignore-not-found=true -f "https://github.com/tektoncd/pipeline/releases/download/$1/release.yaml"
 
+  if [ "${PIPELINE_FEATURE_GATE}" == "alpha" ]; then
+    kubectl delete --ignore-not-found=true -f "https://github.com/tektoncd/pipeline/releases/download/$1/resolvers.yaml"
+  fi
+
   # Make sure that everything is cleaned up in the current namespace.
   delete_pipeline_resources
 }
@@ -66,4 +101,8 @@ function delete_pipeline_resources() {
   for res in pipelineresources tasks clustertasks pipelines taskruns pipelineruns; do
     kubectl delete --ignore-not-found=true ${res}.tekton.dev --all
   done
+}
+
+function delete_resolvers_resources() {
+  kubectl delete --ignore-not-found=true resolutionrequests.resolution.tekton.dev --all
 }

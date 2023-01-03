@@ -23,6 +23,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/hashicorp/go-multierror"
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	resource "github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
@@ -30,9 +31,11 @@ import (
 	"github.com/tektoncd/pipeline/pkg/reconciler/events/cache"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
+	"knative.dev/pkg/apis"
 	controller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
@@ -71,6 +74,43 @@ func cloudEventDeliveryFromTargets(targets []string) []v1beta1.CloudEventDeliver
 		return events
 	}
 	return nil
+}
+
+// EmitCloudEvents emits CloudEvents (only) for object
+func EmitCloudEvents(ctx context.Context, object runtime.Object) {
+	logger := logging.FromContext(ctx)
+	configs := config.FromContextOrDefaults(ctx)
+	sendCloudEvents := (configs.Defaults.DefaultCloudEventsSink != "")
+	if sendCloudEvents {
+		ctx = cloudevents.ContextWithTarget(ctx, configs.Defaults.DefaultCloudEventsSink)
+	}
+
+	if sendCloudEvents {
+		err := SendCloudEventWithRetries(ctx, object)
+		if err != nil {
+			logger.Warnf("Failed to emit cloud events %v", err.Error())
+		}
+	}
+}
+
+// EmitCloudEventsWhenConditionChange emits CloudEvents when there is a change in condition
+func EmitCloudEventsWhenConditionChange(ctx context.Context, beforeCondition *apis.Condition, afterCondition *apis.Condition, object runtime.Object) {
+	logger := logging.FromContext(ctx)
+	configs := config.FromContextOrDefaults(ctx)
+	sendCloudEvents := (configs.Defaults.DefaultCloudEventsSink != "")
+	if sendCloudEvents {
+		ctx = cloudevents.ContextWithTarget(ctx, configs.Defaults.DefaultCloudEventsSink)
+	}
+
+	if sendCloudEvents {
+		// Only send events if the new condition represents a change
+		if !equality.Semantic.DeepEqual(beforeCondition, afterCondition) {
+			err := SendCloudEventWithRetries(ctx, object)
+			if err != nil {
+				logger.Warnf("Failed to emit cloud events %v", err.Error())
+			}
+		}
+	}
 }
 
 // SendCloudEvents is used by the TaskRun controller to send cloud events once
@@ -142,14 +182,18 @@ func SendCloudEventWithRetries(ctx context.Context, object runtime.Object) error
 	// Events for Runs require a cache of events that have been sent
 	cacheClient := cache.Get(ctx)
 	_, isRun := object.(*v1alpha1.Run)
+	_, isCustomRun := object.(*v1beta1.CustomRun)
 
 	wasIn := make(chan error)
+
+	ceClient.addCount()
 	go func() {
+		defer ceClient.decreaseCount()
 		wasIn <- nil
 		logger.Debugf("Sending cloudevent of type %q", event.Type())
 		// In case of Run event, check cache if cloudevent is already sent
-		if isRun {
-			cloudEventSent, err := cache.IsCloudEventSent(cacheClient, event)
+		if isRun || isCustomRun {
+			cloudEventSent, err := cache.ContainsOrAddCloudEvent(cacheClient, event)
 			if err != nil {
 				logger.Errorf("error while checking cache: %s", err)
 			}
@@ -163,14 +207,9 @@ func SendCloudEventWithRetries(ctx context.Context, object runtime.Object) error
 			recorder := controller.GetEventRecorder(ctx)
 			if recorder == nil {
 				logger.Warnf("No recorder in context, cannot emit error event")
+				return
 			}
 			recorder.Event(object, corev1.EventTypeWarning, "Cloud Event Failure", result.Error())
-		}
-		// In case of Run event, add to the cache to avoid duplicate events
-		if isRun {
-			if err := cache.AddEventSentToCache(cacheClient, event); err != nil {
-				logger.Errorf("error while adding sent event to cache: %s", err)
-			}
 		}
 	}()
 
