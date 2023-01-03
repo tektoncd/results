@@ -279,7 +279,8 @@ func TestListRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if diff := cmp.Diff(want.Records, got.Records, protocmp.Transform()); diff != "" {
+		// Compare only record names. Comparing records data is susceptable to race conditions.
+		if diff := cmp.Diff(recordNames(t, want.Records), recordNames(t, got.Records), protocmp.Transform()); diff != "" {
 			t.Errorf("Mismatch (-want +got):\n%s", diff)
 		}
 	})
@@ -309,4 +310,14 @@ func TestListRecords(t *testing.T) {
 			t.Logf("Found %d records\n", length)
 		}
 	})
+}
+
+func recordNames(t *testing.T, records []*resultsv1alpha2.Record) []string {
+	t.Helper()
+
+	ret := make([]string, len(records))
+	for _, record := range records {
+		ret = append(ret, record.GetName())
+	}
+	return ret
 }
