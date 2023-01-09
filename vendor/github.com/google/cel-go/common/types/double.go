@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/google/cel-go/common/types/ref"
@@ -58,21 +59,26 @@ func (d Double) Add(other ref.Val) ref.Val {
 
 // Compare implements traits.Comparer.Compare.
 func (d Double) Compare(other ref.Val) ref.Val {
-	otherDouble, ok := other.(Double)
-	if !ok {
+	if math.IsNaN(float64(d)) {
+		return NewErr("NaN values cannot be ordered")
+	}
+	switch ov := other.(type) {
+	case Double:
+		if math.IsNaN(float64(ov)) {
+			return NewErr("NaN values cannot be ordered")
+		}
+		return compareDouble(d, ov)
+	case Int:
+		return compareDoubleInt(d, ov)
+	case Uint:
+		return compareDoubleUint(d, ov)
+	default:
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if d < otherDouble {
-		return IntNegOne
-	}
-	if d > otherDouble {
-		return IntOne
-	}
-	return IntZero
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (d Double) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (d Double) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Float32:
 		v := float32(d)
@@ -158,12 +164,27 @@ func (d Double) Divide(other ref.Val) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (d Double) Equal(other ref.Val) ref.Val {
-	otherDouble, ok := other.(Double)
-	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+	if math.IsNaN(float64(d)) {
+		return False
 	}
-	// TODO: Handle NaNs properly.
-	return Bool(d == otherDouble)
+	switch ov := other.(type) {
+	case Double:
+		if math.IsNaN(float64(ov)) {
+			return False
+		}
+		return Bool(d == ov)
+	case Int:
+		return Bool(compareDoubleInt(d, ov) == 0)
+	case Uint:
+		return Bool(compareDoubleUint(d, ov) == 0)
+	default:
+		return False
+	}
+}
+
+// IsZeroValue returns true if double value is 0.0
+func (d Double) IsZeroValue() bool {
+	return float64(d) == 0.0
 }
 
 // Multiply implements traits.Multiplier.Multiply.
@@ -195,6 +216,6 @@ func (d Double) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (d Double) Value() interface{} {
+func (d Double) Value() any {
 	return float64(d)
 }

@@ -17,20 +17,22 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strings"
+
+	"github.com/stoewer/go-strcase"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/google/cel-go/common/types/pb"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
-	"github.com/stoewer/go-strcase"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
-func NewDynamicMap(adapter ref.TypeAdapter, value interface{}) traits.Mapper {
+func NewDynamicMap(adapter ref.TypeAdapter, value any) traits.Mapper {
 	refValue := reflect.ValueOf(value)
 	return &baseMap{
 		TypeAdapter: adapter,
@@ -65,7 +67,7 @@ func NewRefValMap(adapter ref.TypeAdapter, value map[ref.Val]ref.Val) traits.Map
 }
 
 // NewStringInterfaceMap returns a specialized traits.Mapper with string keys and interface values.
-func NewStringInterfaceMap(adapter ref.TypeAdapter, value map[string]interface{}) traits.Mapper {
+func NewStringInterfaceMap(adapter ref.TypeAdapter, value map[string]any) traits.Mapper {
 	return &baseMap{
 		TypeAdapter: adapter,
 		mapAccessor: newStringIfaceMapAccessor(adapter, value),
@@ -105,11 +107,9 @@ var (
 // This interface implements portions of the API surface area required by the traits.Mapper
 // interface.
 type mapAccessor interface {
-	// Find returns a value, if one exists, for the inpput key.
+	// Find returns a value, if one exists, for the input key.
 	//
 	// If the key is not found the function returns (nil, false).
-	// If the input key is not valid for the map, or is Err or Unknown the function returns
-	// (Unknown|Err, false).
 	Find(ref.Val) (ref.Val, bool)
 
 	// Iterator returns an Iterator over the map key set.
@@ -127,7 +127,7 @@ type baseMap struct {
 	mapAccessor
 
 	// value is the native Go value upon which the map type operators.
-	value interface{}
+	value any
 
 	// size is the number of entries in the map.
 	size int
@@ -135,16 +135,12 @@ type baseMap struct {
 
 // Contains implements the traits.Container interface method.
 func (m *baseMap) Contains(index ref.Val) ref.Val {
-	val, found := m.Find(index)
-	// When the index is not found and val is non-nil, this is an error or unknown value.
-	if !found && val != nil && IsUnknownOrError(val) {
-		return val
-	}
+	_, found := m.Find(index)
 	return Bool(found)
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
 	if reflect.TypeOf(m.value).AssignableTo(typeDesc) {
@@ -251,36 +247,23 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Val {
 func (m *baseMap) Equal(other ref.Val) ref.Val {
 	otherMap, ok := other.(traits.Mapper)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if m.Size() != otherMap.Size() {
 		return False
 	}
 	it := m.Iterator()
-	var maybeErr ref.Val
 	for it.HasNext() == True {
 		key := it.Next()
 		thisVal, _ := m.Find(key)
 		otherVal, found := otherMap.Find(key)
 		if !found {
-			if otherVal == nil {
-				return False
-			}
-			if maybeErr == nil {
-				maybeErr = MaybeNoSuchOverloadErr(otherVal)
-			}
-			continue
+			return False
 		}
-		valEq := thisVal.Equal(otherVal)
+		valEq := Equal(thisVal, otherVal)
 		if valEq == False {
 			return False
 		}
-		if maybeErr == nil && IsUnknownOrError(valEq) {
-			maybeErr = valEq
-		}
-	}
-	if maybeErr != nil {
-		return maybeErr
 	}
 	return True
 }
@@ -294,9 +277,33 @@ func (m *baseMap) Get(key ref.Val) ref.Val {
 	return v
 }
 
+// IsZeroValue returns true if the map is empty.
+func (m *baseMap) IsZeroValue() bool {
+	return m.size == 0
+}
+
 // Size implements the traits.Sizer interface method.
 func (m *baseMap) Size() ref.Val {
 	return Int(m.size)
+}
+
+// String converts the map into a human-readable string.
+func (m *baseMap) String() string {
+	var sb strings.Builder
+	sb.WriteString("{")
+	it := m.Iterator()
+	i := 0
+	for it.HasNext() == True {
+		k := it.Next()
+		v, _ := m.Find(k)
+		sb.WriteString(fmt.Sprintf("%v: %v", k, v))
+		if i != m.size-1 {
+			sb.WriteString(", ")
+		}
+		i++
+	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
 // Type implements the ref.Val interface method.
@@ -305,7 +312,7 @@ func (m *baseMap) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (m *baseMap) Value() interface{} {
+func (m *baseMap) Value() any {
 	return m.value
 }
 
@@ -325,12 +332,10 @@ type jsonStructAccessor struct {
 // found.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an  Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *jsonStructAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "unsupported key type: %v", key.Type()), false
+		return nil, false
 	}
 	keyVal, found := a.st[string(strKey)]
 	if !found {
@@ -373,39 +378,58 @@ type reflectMapAccessor struct {
 // returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an  Err or Unknown, the function returns
-// (Unknown|Err, false).
-func (a *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	if IsUnknownOrError(key) {
-		return MaybeNoSuchOverloadErr(key), false
-	}
-	if a.refValue.Len() == 0 {
+func (m *reflectMapAccessor) Find(key ref.Val) (ref.Val, bool) {
+	if m.refValue.Len() == 0 {
 		return nil, false
 	}
-	k, err := key.ConvertToNative(a.keyType)
-	if err != nil {
-		return NewErr("unsupported key type: %v", key.Type()), false
+	if keyVal, found := m.findInternal(key); found {
+		return keyVal, true
 	}
-	refKey := reflect.ValueOf(k)
-	val := a.refValue.MapIndex(refKey)
-	if val.IsValid() {
-		return a.NativeToValue(val.Interface()), true
-	}
-	mapIt := a.refValue.MapRange()
-	for mapIt.Next() {
-		if refKey.Kind() == mapIt.Key().Kind() {
-			return nil, false
+	switch k := key.(type) {
+	// Double is not a valid proto map key type, so check for the key as an int or uint.
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := m.findInternal(Int(ik)); found {
+				return keyVal, true
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			return m.findInternal(Int(ik))
 		}
 	}
-	return NewErr("unsupported key type: %v", key.Type()), false
+	return nil, false
+}
+
+// findInternal attempts to convert the incoming key to the map's internal native type
+// and then returns the value, if found.
+func (m *reflectMapAccessor) findInternal(key ref.Val) (ref.Val, bool) {
+	k, err := key.ConvertToNative(m.keyType)
+	if err != nil {
+		return nil, false
+	}
+	refKey := reflect.ValueOf(k)
+	val := m.refValue.MapIndex(refKey)
+	if val.IsValid() {
+		return m.NativeToValue(val.Interface()), true
+	}
+	return nil, false
 }
 
 // Iterator creates a Golang reflection based traits.Iterator.
-func (a *reflectMapAccessor) Iterator() traits.Iterator {
+func (m *reflectMapAccessor) Iterator() traits.Iterator {
 	return &mapIterator{
-		TypeAdapter: a.TypeAdapter,
-		mapKeys:     a.refValue.MapRange(),
-		len:         a.refValue.Len(),
+		TypeAdapter: m.TypeAdapter,
+		mapKeys:     m.refValue.MapRange(),
+		len:         m.refValue.Len(),
 	}
 }
 
@@ -420,24 +444,37 @@ type refValMapAccessor struct {
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is an Err or Unknown, the function returns (Unknown|Err, false).
 func (a *refValMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	if IsUnknownOrError(key) {
-		return key, false
-	}
 	if len(a.mapVal) == 0 {
 		return nil, false
 	}
-	keyVal, found := a.mapVal[key]
-	if found {
+	if keyVal, found := a.mapVal[key]; found {
 		return keyVal, true
 	}
-	for k := range a.mapVal {
-		if k.Type().TypeName() == key.Type().TypeName() {
-			return nil, false
+	switch k := key.(type) {
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := a.mapVal[Int(ik)]; found {
+				return keyVal, found
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			keyVal, found := a.mapVal[Uint(uk)]
+			return keyVal, found
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			keyVal, found := a.mapVal[Uint(uk)]
+			return keyVal, found
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			keyVal, found := a.mapVal[Int(ik)]
+			return keyVal, found
 		}
 	}
-	return NewErr("unsupported key type: %v", key.Type()), found
+	return nil, false
 }
 
 // Iterator produces a new traits.Iterator which iterates over the map keys via Golang reflection.
@@ -460,12 +497,10 @@ type stringMapAccessor struct {
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *stringMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "unsupported key type: %v", key.Type()), false
+		return nil, false
 	}
 	keyVal, found := a.mapVal[string(strKey)]
 	if !found {
@@ -489,7 +524,7 @@ func (a *stringMapAccessor) Iterator() traits.Iterator {
 	}
 }
 
-func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]interface{}) mapAccessor {
+func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]any) mapAccessor {
 	return &stringIfaceMapAccessor{
 		TypeAdapter: adapter,
 		mapVal:      mapVal,
@@ -498,18 +533,16 @@ func newStringIfaceMapAccessor(adapter ref.TypeAdapter, mapVal map[string]interf
 
 type stringIfaceMapAccessor struct {
 	ref.TypeAdapter
-	mapVal map[string]interface{}
+	mapVal map[string]any
 }
 
 // Find uses native map accesses to find the key, returning (value, true) if present.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a String, or is an Err or Unknown, the function returns
-// (Unknown|Err, false).
 func (a *stringIfaceMapAccessor) Find(key ref.Val) (ref.Val, bool) {
 	strKey, ok := key.(String)
 	if !ok {
-		return ValOrErr(key, "unsupported key type: %v", key.Type()), false
+		return nil, false
 	}
 	keyVal, found := a.mapVal[string(strKey)]
 	if !found {
@@ -542,18 +575,14 @@ type protoMap struct {
 
 // Contains returns whether the map contains the given key.
 func (m *protoMap) Contains(key ref.Val) ref.Val {
-	val, found := m.Find(key)
-	// When the index is not found and val is non-nil, this is an error or unknown value.
-	if !found && val != nil && IsUnknownOrError(val) {
-		return val
-	}
+	_, found := m.Find(key)
 	return Bool(found)
 }
 
 // ConvertToNative implements the ref.Val interface method.
 //
 // Note, assignment to Golang struct types is not yet supported.
-func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
 	switch typeDesc {
@@ -598,9 +627,9 @@ func (m *protoMap) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	m.value.Range(func(key protoreflect.MapKey, val protoreflect.Value) bool {
 		ntvKey := key.Interface()
 		ntvVal := val.Interface()
-		switch ntvVal.(type) {
+		switch pv := ntvVal.(type) {
 		case protoreflect.Message:
-			ntvVal = ntvVal.(protoreflect.Message).Interface()
+			ntvVal = pv.Interface()
 		}
 		if keyType == otherKeyType && valType == otherValType {
 			mapVal.SetMapIndex(reflect.ValueOf(ntvKey), reflect.ValueOf(ntvVal))
@@ -642,7 +671,7 @@ func (m *protoMap) ConvertToType(typeVal ref.Type) ref.Val {
 func (m *protoMap) Equal(other ref.Val) ref.Val {
 	otherMap, ok := other.(traits.Mapper)
 	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+		return False
 	}
 	if m.value.Map.Len() != int(otherMap.Size().(Int)) {
 		return False
@@ -653,14 +682,10 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 		valVal := m.NativeToValue(val)
 		otherVal, found := otherMap.Find(keyVal)
 		if !found {
-			if otherVal == nil {
-				retVal = False
-				return false
-			}
-			retVal = MaybeNoSuchOverloadErr(otherVal)
+			retVal = False
 			return false
 		}
-		valEq := valVal.Equal(otherVal)
+		valEq := Equal(valVal, otherVal)
 		if valEq != True {
 			retVal = valEq
 			return false
@@ -673,17 +698,41 @@ func (m *protoMap) Equal(other ref.Val) ref.Val {
 // Find returns whether the protoreflect.Map contains the input key.
 //
 // If the key is not found the function returns (nil, false).
-// If the input key is not a supported proto map key type, or is an Err or Unknown,
-// the function returns
-// (Unknown|Err, false).
 func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
-	if IsUnknownOrError(key) {
-		return key, false
+	if keyVal, found := m.findInternal(key); found {
+		return keyVal, true
 	}
+	switch k := key.(type) {
+	// Double is not a valid proto map key type, so check for the key as an int or uint.
+	case Double:
+		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
+			if keyVal, found := m.findInternal(Int(ik)); found {
+				return keyVal, true
+			}
+		}
+		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	// map keys of type double are not supported.
+	case Int:
+		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
+			return m.findInternal(Uint(uk))
+		}
+	case Uint:
+		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
+			return m.findInternal(Int(ik))
+		}
+	}
+	return nil, false
+}
+
+// findInternal attempts to convert the incoming key to the map's internal native type
+// and then returns the value, if found.
+func (m *protoMap) findInternal(key ref.Val) (ref.Val, bool) {
 	// Convert the input key to the expected protobuf key type.
 	ntvKey, err := key.ConvertToNative(m.value.KeyType.ReflectType())
 	if err != nil {
-		return NewErr("unsupported key type: %v", key.Type()), false
+		return nil, false
 	}
 	// Use protoreflection to get the key value.
 	val := m.value.Get(protoreflect.ValueOf(ntvKey).MapKey())
@@ -694,7 +743,7 @@ func (m *protoMap) Find(key ref.Val) (ref.Val, bool) {
 	switch v := val.Interface().(type) {
 	case protoreflect.List, protoreflect.Map:
 		// Maps do not support list or map values
-		return NewErr("unsupported map element type: (%T)%v", v, v), false
+		return nil, false
 	default:
 		return m.NativeToValue(v), true
 	}
@@ -707,6 +756,11 @@ func (m *protoMap) Get(key ref.Val) ref.Val {
 		return ValOrErr(v, "no such key: %v", key)
 	}
 	return v
+}
+
+// IsZeroValue returns true if the map is empty.
+func (m *protoMap) IsZeroValue() bool {
+	return m.value.Len() == 0
 }
 
 // Iterator implements the traits.Iterable interface method.
@@ -735,7 +789,7 @@ func (m *protoMap) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (m *protoMap) Value() interface{} {
+func (m *protoMap) Value() any {
 	return m.value
 }
 

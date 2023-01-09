@@ -16,13 +16,17 @@ package interpreter
 
 import "math"
 
+// TODO: remove Coster.
+
 // Coster calculates the heuristic cost incurred during evaluation.
+// Deprecated: Please migrate cel.EstimateCost, it supports length estimates for input data and cost estimates for
+// extension functions.
 type Coster interface {
 	Cost() (min, max int64)
 }
 
 // estimateCost returns the heuristic cost interval for the program.
-func estimateCost(i interface{}) (min, max int64) {
+func estimateCost(i any) (min, max int64) {
 	c, ok := i.(Coster)
 	if !ok {
 		return 0, math.MaxInt64
