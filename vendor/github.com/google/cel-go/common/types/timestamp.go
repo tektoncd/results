@@ -89,7 +89,7 @@ func (t Timestamp) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (t Timestamp) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// If the timestamp is already assignable to the desired type return it.
 	if reflect.TypeOf(t.Time).AssignableTo(typeDesc) {
 		return t.Time, nil
@@ -134,13 +134,16 @@ func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (t Timestamp) Equal(other ref.Val) ref.Val {
-	if TimestampType != other.Type() {
-		return MaybeNoSuchOverloadErr(other)
-	}
-	return Bool(t.Time.Equal(other.(Timestamp).Time))
+	otherTime, ok := other.(Timestamp)
+	return Bool(ok && t.Time.Equal(otherTime.Time))
 }
 
-// Receive implements traits.Reciever.Receive.
+// IsZeroValue returns true if the timestamp is epoch 0.
+func (t Timestamp) IsZeroValue() bool {
+	return t.IsZero()
+}
+
+// Receive implements traits.Receiver.Receive.
 func (t Timestamp) Receive(function string, overload string, args []ref.Val) ref.Val {
 	switch len(args) {
 	case 0:
@@ -182,7 +185,7 @@ func (t Timestamp) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (t Timestamp) Value() interface{} {
+func (t Timestamp) Value() any {
 	return t.Time
 }
 
@@ -301,7 +304,7 @@ func timeZone(tz ref.Val, visitor timestampVisitor) timestampVisitor {
 		if err != nil {
 			return wrapErr(err)
 		}
-		min, err := strconv.Atoi(string(val[ind+1]))
+		min, err := strconv.Atoi(string(val[ind+1:]))
 		if err != nil {
 			return wrapErr(err)
 		}

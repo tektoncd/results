@@ -16,6 +16,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 
@@ -65,21 +66,23 @@ func (i Uint) Add(other ref.Val) ref.Val {
 
 // Compare implements traits.Comparer.Compare.
 func (i Uint) Compare(other ref.Val) ref.Val {
-	otherUint, ok := other.(Uint)
-	if !ok {
+	switch ov := other.(type) {
+	case Double:
+		if math.IsNaN(float64(ov)) {
+			return NewErr("NaN values cannot be ordered")
+		}
+		return compareUintDouble(i, ov)
+	case Int:
+		return compareUintInt(i, ov)
+	case Uint:
+		return compareUint(i, ov)
+	default:
 		return MaybeNoSuchOverloadErr(other)
 	}
-	if i < otherUint {
-		return IntNegOne
-	}
-	if i > otherUint {
-		return IntOne
-	}
-	return IntZero
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
-func (i Uint) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (i Uint) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Uint, reflect.Uint32:
 		v, err := uint64ToUint32Checked(uint64(i))
@@ -176,11 +179,24 @@ func (i Uint) Divide(other ref.Val) ref.Val {
 
 // Equal implements ref.Val.Equal.
 func (i Uint) Equal(other ref.Val) ref.Val {
-	otherUint, ok := other.(Uint)
-	if !ok {
-		return MaybeNoSuchOverloadErr(other)
+	switch ov := other.(type) {
+	case Double:
+		if math.IsNaN(float64(ov)) {
+			return False
+		}
+		return Bool(compareUintDouble(i, ov) == 0)
+	case Int:
+		return Bool(compareUintInt(i, ov) == 0)
+	case Uint:
+		return Bool(i == ov)
+	default:
+		return False
 	}
-	return Bool(i == otherUint)
+}
+
+// IsZeroValue returns true if the uint is zero.
+func (i Uint) IsZeroValue() bool {
+	return i == 0
 }
 
 // Modulo implements traits.Modder.Modulo.
@@ -228,7 +244,7 @@ func (i Uint) Type() ref.Type {
 }
 
 // Value implements ref.Val.Value.
-func (i Uint) Value() interface{} {
+func (i Uint) Value() any {
 	return uint64(i)
 }
 

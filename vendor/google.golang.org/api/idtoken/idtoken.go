@@ -9,14 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	"google.golang.org/api/impersonate"
 	"google.golang.org/api/internal"
 	"google.golang.org/api/option"
 	"google.golang.org/api/option/internaloption"
@@ -27,14 +24,6 @@ import (
 
 // ClientOption is for configuring a Google API client or transport.
 type ClientOption = option.ClientOption
-
-type credentialsType int
-
-const (
-	unknownCredType credentialsType = iota
-	serviceAccount
-	impersonatedServiceAccount
-)
 
 // NewClient creates a HTTP Client that automatically adds an ID token to each
 // request via an Authorization header. The token will have the audience
@@ -114,83 +103,45 @@ func newTokenSource(ctx context.Context, audience string, ds *internal.DialSetti
 }
 
 func tokenSourceFromBytes(ctx context.Context, data []byte, audience string, ds *internal.DialSettings) (oauth2.TokenSource, error) {
-	allowedType, err := getAllowedType(data)
+	if err := isServiceAccount(data); err != nil {
+		return nil, err
+	}
+	cfg, err := google.JWTConfigFromJSON(data, ds.GetScopes()...)
 	if err != nil {
 		return nil, err
 	}
-	switch allowedType {
-	case serviceAccount:
-		cfg, err := google.JWTConfigFromJSON(data, ds.GetScopes()...)
-		if err != nil {
-			return nil, err
-		}
-		customClaims := ds.CustomClaims
-		if customClaims == nil {
-			customClaims = make(map[string]interface{})
-		}
-		customClaims["target_audience"] = audience
 
-		cfg.PrivateClaims = customClaims
-		cfg.UseIDToken = true
-
-		ts := cfg.TokenSource(ctx)
-		tok, err := ts.Token()
-		if err != nil {
-			return nil, err
-		}
-		return oauth2.ReuseTokenSource(tok, ts), nil
-	case impersonatedServiceAccount:
-		type url struct {
-			ServiceAccountImpersonationURL string `json:"service_account_impersonation_url"`
-		}
-		var accountURL *url
-		if err := json.Unmarshal(data, &accountURL); err != nil {
-			return nil, err
-		}
-		account := filepath.Base(accountURL.ServiceAccountImpersonationURL)
-		account = strings.Split(account, ":")[0]
-
-		config := impersonate.IDTokenConfig{
-			Audience:        audience,
-			TargetPrincipal: account,
-			IncludeEmail:    true,
-		}
-		ts, err := impersonate.IDTokenSource(ctx, config)
-		if err != nil {
-			return nil, err
-		}
-		return ts, nil
-	default:
-		return nil, fmt.Errorf("idtoken: unsupported credentials type")
+	customClaims := ds.CustomClaims
+	if customClaims == nil {
+		customClaims = make(map[string]interface{})
 	}
+	customClaims["target_audience"] = audience
+
+	cfg.PrivateClaims = customClaims
+	cfg.UseIDToken = true
+
+	ts := cfg.TokenSource(ctx)
+	tok, err := ts.Token()
+	if err != nil {
+		return nil, err
+	}
+	return oauth2.ReuseTokenSource(tok, ts), nil
 }
 
-// getAllowedType returns the credentials type of type credentialsType, and an error.
-// allowed types are "service_account" and "impersonated_service_account"
-func getAllowedType(data []byte) (credentialsType, error) {
-	var t credentialsType
+func isServiceAccount(data []byte) error {
 	if len(data) == 0 {
-		return t, fmt.Errorf("idtoken: credential provided is 0 bytes")
+		return fmt.Errorf("idtoken: credential provided is 0 bytes")
 	}
 	var f struct {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(data, &f); err != nil {
-		return t, err
+		return err
 	}
-	t = parseCredType(f.Type)
-	return t, nil
-}
-
-func parseCredType(typeString string) credentialsType {
-	switch typeString {
-	case "service_account":
-		return serviceAccount
-	case "impersonated_service_account":
-		return impersonatedServiceAccount
-	default:
-		return unknownCredType
+	if f.Type != "service_account" {
+		return fmt.Errorf("idtoken: credential must be service_account, found %q", f.Type)
 	}
+	return nil
 }
 
 // WithCustomClaims optionally specifies custom private claims for an ID token.

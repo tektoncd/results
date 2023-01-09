@@ -12,10 +12,12 @@ import (
 
 // Returns a set of temporary security credentials for users who have been
 // authenticated in a mobile or web application with a web identity provider.
-// Example providers include Amazon Cognito, Login with Amazon, Facebook, Google,
-// or any OpenID Connect-compatible identity provider. For mobile applications, we
-// recommend that you use Amazon Cognito. You can use Amazon Cognito with the
-// Amazon Web Services SDK for iOS Developer Guide
+// Example providers include the OAuth 2.0 providers Login with Amazon and
+// Facebook, or any OpenID Connect-compatible identity provider such as Google or
+// Amazon Cognito federated identities
+// (https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-identity.html).
+// For mobile applications, we recommend that you use Amazon Cognito. You can use
+// Amazon Cognito with the Amazon Web Services SDK for iOS Developer Guide
 // (http://aws.amazon.com/sdkforios/) and the Amazon Web Services SDK for Android
 // Developer Guide (http://aws.amazon.com/sdkforandroid/) to uniquely identify a
 // user. You can also supply the user with a consistent identity throughout the
@@ -61,16 +63,16 @@ import (
 // inline or managed session policies
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 // to this operation. You can pass a single JSON policy document to use as an
-// inline session policy. You can also specify up to 10 managed policies to use as
-// managed session policies. The plaintext that you use for both inline and managed
-// session policies can't exceed 2,048 characters. Passing policies to this
-// operation returns new temporary credentials. The resulting session's permissions
-// are the intersection of the role's identity-based policy and the session
-// policies. You can use the role's temporary credentials in subsequent Amazon Web
-// Services API calls to access resources in the account that owns the role. You
-// cannot use session policies to grant more permissions than those allowed by the
-// identity-based policy of the role that is being assumed. For more information,
-// see Session Policies
+// inline session policy. You can also specify up to 10 managed policy Amazon
+// Resource Names (ARNs) to use as managed session policies. The plaintext that you
+// use for both inline and managed session policies can't exceed 2,048 characters.
+// Passing policies to this operation returns new temporary credentials. The
+// resulting session's permissions are the intersection of the role's
+// identity-based policy and the session policies. You can use the role's temporary
+// credentials in subsequent Amazon Web Services API calls to access resources in
+// the account that owns the role. You cannot use session policies to grant more
+// permissions than those allowed by the identity-based policy of the role that is
+// being assumed. For more information, see Session Policies
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 // in the IAM User Guide. Tags (Optional) You can configure your IdP to pass
 // attributes into your web identity token as session tags. Each session tag
@@ -82,16 +84,16 @@ import (
 // these and additional limits, see IAM and STS Character Limits
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-limits.html#reference_iam-limits-entity-length)
 // in the IAM User Guide. An Amazon Web Services conversion compresses the passed
-// session policies and session tags into a packed binary format that has a
-// separate limit. Your request can fail for this limit even if your plaintext
-// meets the other requirements. The PackedPolicySize response element indicates by
-// percentage how close the policies and tags for your request are to the upper
-// size limit. You can pass a session tag with the same key as a tag that is
-// attached to the role. When you do, the session tag overrides the role tag with
-// the same key. An administrator must grant you the permissions necessary to pass
-// session tags. The administrator can also create granular permissions to allow
-// you to pass only specific session tags. For more information, see Tutorial:
-// Using Tags for Attribute-Based Access Control
+// inline session policy, managed policy ARNs, and session tags into a packed
+// binary format that has a separate limit. Your request can fail for this limit
+// even if your plaintext meets the other requirements. The PackedPolicySize
+// response element indicates by percentage how close the policies and tags for
+// your request are to the upper size limit. You can pass a session tag with the
+// same key as a tag that is attached to the role. When you do, the session tag
+// overrides the role tag with the same key. An administrator must grant you the
+// permissions necessary to pass session tags. The administrator can also create
+// granular permissions to allow you to pass only specific session tags. For more
+// information, see Tutorial: Using Tags for Attribute-Based Access Control
 // (https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_attribute-based-access-control.html)
 // in the IAM User Guide. You can set the session tags as transitive. Transitive
 // tags persist during role chaining. For more information, see Chaining Roles with
@@ -213,11 +215,11 @@ type AssumeRoleWithWebIdentityInput struct {
 	// be any ASCII character from the space character to the end of the valid
 	// character list (\u0020 through \u00FF). It can also include the tab (\u0009),
 	// linefeed (\u000A), and carriage return (\u000D) characters. An Amazon Web
-	// Services conversion compresses the passed session policies and session tags into
-	// a packed binary format that has a separate limit. Your request can fail for this
-	// limit even if your plaintext meets the other requirements. The PackedPolicySize
-	// response element indicates by percentage how close the policies and tags for
-	// your request are to the upper size limit.
+	// Services conversion compresses the passed inline session policy, managed policy
+	// ARNs, and session tags into a packed binary format that has a separate limit.
+	// Your request can fail for this limit even if your plaintext meets the other
+	// requirements. The PackedPolicySize response element indicates by percentage how
+	// close the policies and tags for your request are to the upper size limit.
 	Policy *string
 
 	// The Amazon Resource Names (ARNs) of the IAM managed policies that you want to
@@ -228,27 +230,27 @@ type AssumeRoleWithWebIdentityInput struct {
 	// Amazon Resource Names (ARNs) and Amazon Web Services Service Namespaces
 	// (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) in
 	// the Amazon Web Services General Reference. An Amazon Web Services conversion
-	// compresses the passed session policies and session tags into a packed binary
-	// format that has a separate limit. Your request can fail for this limit even if
-	// your plaintext meets the other requirements. The PackedPolicySize response
-	// element indicates by percentage how close the policies and tags for your request
-	// are to the upper size limit. Passing policies to this operation returns new
-	// temporary credentials. The resulting session's permissions are the intersection
-	// of the role's identity-based policy and the session policies. You can use the
-	// role's temporary credentials in subsequent Amazon Web Services API calls to
-	// access resources in the account that owns the role. You cannot use session
-	// policies to grant more permissions than those allowed by the identity-based
-	// policy of the role that is being assumed. For more information, see Session
-	// Policies
+	// compresses the passed inline session policy, managed policy ARNs, and session
+	// tags into a packed binary format that has a separate limit. Your request can
+	// fail for this limit even if your plaintext meets the other requirements. The
+	// PackedPolicySize response element indicates by percentage how close the policies
+	// and tags for your request are to the upper size limit. Passing policies to this
+	// operation returns new temporary credentials. The resulting session's permissions
+	// are the intersection of the role's identity-based policy and the session
+	// policies. You can use the role's temporary credentials in subsequent Amazon Web
+	// Services API calls to access resources in the account that owns the role. You
+	// cannot use session policies to grant more permissions than those allowed by the
+	// identity-based policy of the role that is being assumed. For more information,
+	// see Session Policies
 	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#policies_session)
 	// in the IAM User Guide.
 	PolicyArns []types.PolicyDescriptorType
 
-	// The fully qualified host component of the domain name of the identity provider.
-	// Specify this value only for OAuth 2.0 access tokens. Currently www.amazon.com
-	// and graph.facebook.com are the only supported identity providers for OAuth 2.0
-	// access tokens. Do not include URL schemes and port numbers. Do not specify this
-	// value for OpenID Connect ID tokens.
+	// The fully qualified host component of the domain name of the OAuth 2.0 identity
+	// provider. Do not specify this value for an OpenID Connect identity provider.
+	// Currently www.amazon.com and graph.facebook.com are the only supported identity
+	// providers for OAuth 2.0 access tokens. Do not include URL schemes and port
+	// numbers. Do not specify this value for OpenID Connect ID tokens.
 	ProviderId *string
 
 	noSmithyDocumentSerde

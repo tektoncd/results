@@ -53,7 +53,7 @@ func (b Bytes) Add(other ref.Val) ref.Val {
 	return append(b, otherBytes...)
 }
 
-// Compare implments traits.Comparer interface method by lexicographic ordering.
+// Compare implements traits.Comparer interface method by lexicographic ordering.
 func (b Bytes) Compare(other ref.Val) ref.Val {
 	otherBytes, ok := other.(Bytes)
 	if !ok {
@@ -63,7 +63,7 @@ func (b Bytes) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (b Bytes) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
 	case reflect.Array, reflect.Slice:
 		return reflect.ValueOf(b).Convert(typeDesc).Interface(), nil
@@ -113,10 +113,12 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Val {
 // Equal implements the ref.Val interface method.
 func (b Bytes) Equal(other ref.Val) ref.Val {
 	otherBytes, ok := other.(Bytes)
-	if !ok {
-		return ValOrErr(other, "no such overload")
-	}
-	return Bool(bytes.Equal(b, otherBytes))
+	return Bool(ok && bytes.Equal(b, otherBytes))
+}
+
+// IsZeroValue returns true if the byte array is empty.
+func (b Bytes) IsZeroValue() bool {
+	return len(b) == 0
 }
 
 // Size implements the traits.Sizer interface method.
@@ -130,6 +132,6 @@ func (b Bytes) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (b Bytes) Value() interface{} {
+func (b Bytes) Value() any {
 	return []byte(b)
 }
