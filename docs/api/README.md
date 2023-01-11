@@ -153,6 +153,6 @@ without knowing the exact Result name.
 ## Metrics
 
 The API Server includes an HTTP server for exposing gRPC server Prometheus
-metrics. By default, the Service exposes metrics on port `:8080`. For more
+metrics. By default, the Service exposes metrics on port `:9090`. For more
 details on the structure of the metrics, see
 https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics.
