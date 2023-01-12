@@ -18,7 +18,7 @@ metadata:
   name: readonly
 rules:
   - apiGroups: ["results.tekton.dev"]
-    resources: ["results", "records"]
+    resources: ["logs", "results", "records"]
     verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -27,7 +27,7 @@ metadata:
   name: readwrite
 rules:
   - apiGroups: ["results.tekton.dev"]
-    resources: ["results", "records"]
+    resources: ["logs", "results", "records"]
     verbs: ["create", "update", "get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -36,5 +36,5 @@ metadata:
   name: admin
 rules:
   - apiGroups: ["results.tekton.dev"]
-    resources: ["results", "records"]
+    resources: ["logs", "results", "records"]
     verbs: ["create", "update", "get", "list", "delete"]
