@@ -5,6 +5,7 @@ approvers:
 - vdemeester
 - wlynch
 - xinruzhang
+- alan-ghelardi
 # alumni:
 # sbwsg
 
@@ -13,5 +14,6 @@ approvers:
 # submitted without being expected to respond to incoming PRs.
 reviewers:
 - dibyom
+- alan-ghelardi
 # alumni:
 # sbwsg
