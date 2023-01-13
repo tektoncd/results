@@ -740,7 +740,7 @@ var (
 )
 
 func request_Logs_ListLogs_0(ctx context.Context, marshaler runtime.Marshaler, client LogsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ListLogsRequest
+	var protoReq ListRecordsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -773,7 +773,7 @@ func request_Logs_ListLogs_0(ctx context.Context, marshaler runtime.Marshaler, c
 }
 
 func local_request_Logs_ListLogs_0(ctx context.Context, marshaler runtime.Marshaler, server LogsServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ListLogsRequest
+	var protoReq ListRecordsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -870,7 +870,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateResult", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*}/results"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*}/results"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -894,7 +894,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateResult", runtime.WithHTTPPathPattern("/v1alpha2/{result.name=*/results/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{result.name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -918,7 +918,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetResult", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -942,7 +942,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteResult", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -966,7 +966,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListResults", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*}/results"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListResults", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*}/results"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -990,7 +990,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateRecord", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/records"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/records"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1014,7 +1014,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateRecord", runtime.WithHTTPPathPattern("/v1alpha2/{record.name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{record.name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1038,7 +1038,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetRecord", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1062,7 +1062,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListRecords", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/records"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListRecords", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/records"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1086,7 +1086,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteRecord", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1126,7 +1126,7 @@ func RegisterLogsHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/ListLogs", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/logs"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/ListLogs", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/logs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1150,7 +1150,7 @@ func RegisterLogsHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/DeleteLog", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/logs/*}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/DeleteLog", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/logs/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1213,7 +1213,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateResult", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*}/results"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*}/results"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1234,7 +1234,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateResult", runtime.WithHTTPPathPattern("/v1alpha2/{result.name=*/results/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{result.name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1255,7 +1255,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetResult", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1276,7 +1276,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteResult", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteResult", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1297,7 +1297,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListResults", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*}/results"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListResults", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*}/results"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1318,7 +1318,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateRecord", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/records"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/CreateRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/records"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1339,7 +1339,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateRecord", runtime.WithHTTPPathPattern("/v1alpha2/{record.name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/UpdateRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{record.name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1360,7 +1360,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetRecord", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/GetRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1381,7 +1381,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListRecords", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/records"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/ListRecords", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/records"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1402,7 +1402,7 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteRecord", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/records/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Results/DeleteRecord", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/records/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1422,25 +1422,25 @@ func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 }
 
 var (
-	pattern_Results_CreateResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"v1alpha2", "parent", "results"}, ""))
+	pattern_Results_CreateResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "parent", "results"}, ""))
 
-	pattern_Results_UpdateResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2}, []string{"v1alpha2", "results", "result.name"}, ""))
+	pattern_Results_UpdateResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "result.name"}, ""))
 
-	pattern_Results_GetResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2}, []string{"v1alpha2", "results", "name"}, ""))
+	pattern_Results_GetResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "name"}, ""))
 
-	pattern_Results_DeleteResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2}, []string{"v1alpha2", "results", "name"}, ""))
+	pattern_Results_DeleteResult_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "name"}, ""))
 
-	pattern_Results_ListResults_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 2, 2}, []string{"v1alpha2", "parent", "results"}, ""))
+	pattern_Results_ListResults_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "parent", "results"}, ""))
 
-	pattern_Results_CreateRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2, 2, 3}, []string{"v1alpha2", "results", "parent", "records"}, ""))
+	pattern_Results_CreateRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5, 2, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "parent", "records"}, ""))
 
-	pattern_Results_UpdateRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1, 0, 4, 5, 5, 3}, []string{"v1alpha2", "results", "records", "record.name"}, ""))
+	pattern_Results_UpdateRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 2, 5, 1, 0, 4, 5, 5, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "records", "record.name"}, ""))
 
-	pattern_Results_GetRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1, 0, 4, 5, 5, 3}, []string{"v1alpha2", "results", "records", "name"}, ""))
+	pattern_Results_GetRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 2, 5, 1, 0, 4, 5, 5, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "records", "name"}, ""))
 
-	pattern_Results_ListRecords_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2, 2, 3}, []string{"v1alpha2", "results", "parent", "records"}, ""))
+	pattern_Results_ListRecords_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5, 2, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "parent", "records"}, ""))
 
-	pattern_Results_DeleteRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1, 0, 4, 5, 5, 3}, []string{"v1alpha2", "results", "records", "name"}, ""))
+	pattern_Results_DeleteRecord_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 2, 5, 1, 0, 4, 5, 5, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "records", "name"}, ""))
 )
 
 var (
@@ -1508,7 +1508,7 @@ func RegisterLogsHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/GetLog", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/logs/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/GetLog", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/logs/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1529,7 +1529,7 @@ func RegisterLogsHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/ListLogs", runtime.WithHTTPPathPattern("/v1alpha2/{parent=*/results/*}/logs"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/ListLogs", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/logs"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1550,7 +1550,7 @@ func RegisterLogsHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/DeleteLog", runtime.WithHTTPPathPattern("/v1alpha2/{name=*/results/*/logs/*}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/tekton.results.v1alpha2.Logs/DeleteLog", runtime.WithHTTPPathPattern("/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/logs/*}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1570,11 +1570,11 @@ func RegisterLogsHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 }
 
 var (
-	pattern_Logs_GetLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1, 0, 4, 5, 5, 3}, []string{"v1alpha2", "results", "logs", "name"}, ""))
+	pattern_Logs_GetLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 2, 5, 1, 0, 4, 5, 5, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "logs", "name"}, ""))
 
-	pattern_Logs_ListLogs_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 4, 3, 5, 2, 2, 3}, []string{"v1alpha2", "results", "parent", "logs"}, ""))
+	pattern_Logs_ListLogs_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 4, 3, 5, 5, 2, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "parent", "logs"}, ""))
 
-	pattern_Logs_DeleteLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1, 0, 4, 5, 5, 3}, []string{"v1alpha2", "results", "logs", "name"}, ""))
+	pattern_Logs_DeleteLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 2, 4, 1, 0, 2, 5, 1, 0, 4, 5, 5, 6}, []string{"apis", "results.tekton.dev", "v1alpha2", "parents", "results", "logs", "name"}, ""))
 )
 
 var (
