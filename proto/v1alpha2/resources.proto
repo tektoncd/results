@@ -154,19 +154,16 @@ message RecordSummary {
   // next id: 7
 }
 
-// Log is a chunk of a log from a TaskRun.
+// Log is a chunk of a log.
 message Log {
   option (google.api.resource) = {
     type: "tekton.results.v1alpha2/Log"
   };
-  // Resource name, must be rooted in parent result.
-  string name = 1 [
-    (google.api.field_behavior) = REQUIRED,
-    (google.api.resource_reference) = {
-      type: "tekton.results.v1alpha2/Record"
-    }
-  ];
 
+  // Resource name fo the log
+  string name = 1 ;
+
+  // The log data
   bytes data = 2;
 }
 
@@ -176,5 +173,6 @@ message LogSummary {
     (google.api.resource_reference).type = "results.tekton.dev/Record"
   ];
 
+  // Number of bytes received while streaming
   int64 bytesReceived = 2;
 }
