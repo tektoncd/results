@@ -19,14 +19,23 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"path"
+	"time"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/golang-jwt/jwt/v4"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -102,10 +111,33 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
+
+	// Shared options for the logger, with a custom gRPC code to log level function.
+	zapOpts := []grpc_zap.Option{
+		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
+			return zap.Int64("grpc.time_duration_in_ms", duration.Milliseconds())
+		}),
+	}
+
+	// Customize logger so it can be passed to the gRPC interceptors
+	grpcLogger := log.Desugar().With(zap.Bool("grpc.auth_disabled", serverConfig.NO_AUTH))
+
 	s := grpc.NewServer(
 		grpc.Creds(creds),
-		grpc.StreamInterceptor(prometheus.StreamServerInterceptor),
-		grpc.UnaryInterceptor(prometheus.UnaryServerInterceptor),
+		grpc_middleware.WithUnaryServerChain(
+			// The grpc_ctxtags context updater should be before everything else
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
+			grpc_auth.UnaryServerInterceptor(determineAuth),
+			prometheus.UnaryServerInterceptor,
+		),
+		grpc_middleware.WithStreamServerChain(
+			// The grpc_ctxtags context updater should be before everything else
+			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.StreamServerInterceptor(grpcLogger, zapOpts...),
+			grpc_auth.StreamServerInterceptor(determineAuth),
+			prometheus.StreamServerInterceptor,
+		),
 	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
 	if serverConfig.LOGS_API {
@@ -175,4 +207,34 @@ func main() {
 		log.Fatal(http.ListenAndServeTLS(":"+serverConfig.REST_PORT, path.Join(serverConfig.TLS_PATH, "tls.crt"), path.Join(serverConfig.TLS_PATH, "tls.key"), mux))
 	}
 
+}
+
+func determineAuth(ctx context.Context) (context.Context, error) {
+	// This code is used to extract values
+	// it is not doing any form of verification.
+
+	tokenString, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	if err != nil {
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", "unknown"),
+		)
+		return ctx, nil
+	}
+
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", "unknown"),
+		)
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		sub := fmt.Sprint(claims["sub"])
+		iss := fmt.Sprint(claims["iss"])
+		ctxzap.AddFields(ctx,
+			zap.String("grpc.user", sub),
+			zap.String("grpc.issuer", iss),
+		)
+	}
+	return ctx, nil
 }
