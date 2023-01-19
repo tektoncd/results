@@ -19,8 +19,8 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.24.0
 	golang.org/x/oauth2 v0.2.0
-	google.golang.org/api v0.103.0
-	google.golang.org/genproto v0.0.0-20221201204527-e3fa12d562f3
+	google.golang.org/api v0.108.0
+	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
 	gorm.io/driver/mysql v1.3.3
@@ -35,8 +35,8 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.12.1 // indirect
-	cloud.google.com/go/compute/metadata v0.2.1 // indirect
+	cloud.google.com/go/compute v1.14.0 // indirect
+	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0 // indirect
 	github.com/Azure/azure-sdk-for-go v63.3.0+incompatible // indirect
@@ -99,7 +99,7 @@ require (
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20220328141311-efc62d802606 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220301182634-bfe2ffc6b6bd // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -155,7 +155,7 @@ require (
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	golang.org/x/term v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
