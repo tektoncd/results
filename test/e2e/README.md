@@ -55,10 +55,14 @@ All components are installed to the current kubectl context
 This can safely be ran multiple times, and should be ran anytime a change is
 made to Results components.
 
-| Environment variable   | Description                                                             | Default                                                                     |
-|------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| KO_DOCKER_REPO         | Docker repository to use for ko                                         | kind.local                                                                  |
-| TEKTON_PIPELINE_CONFIG | Tekton Pipelines config source (anything `kubectl apply -f` compatible) | https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml |
+| Environment variable   | Description                                                                   | Default                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| KO_DOCKER_REPO         | Docker repository to use for ko                                               | kind.local                                                                  |
+| TEKTON_PIPELINE_CONFIG | Tekton Pipelines config source (anything `kubectl apply -f` compatible)       | https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml |
+| KIND_CLUSTER_NAME      | Name of the kind cluster for testing                                          | `tekton-results`                                                            |
+| SA_TOKEN_PATH          | Path to store the service account tokens used for testing                     | `/tmp/tekton-results/tokens`                                                |
+| SSL_CERT_PATH          | Path to store the SSL certificate used to secure the gRPC endpoint            | `/tmp/tekton-results/ssl`                                                   |
+| SSL_INCLUDE_LOCALHOST  | Include "localhost" as an alternate DNS name in the generated SSL certificate | "false"                                                                     |
 
 ## Running the tests
 
