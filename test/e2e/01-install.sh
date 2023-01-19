@@ -35,6 +35,13 @@ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipeli
 echo "Generating TLS key pair..."
 set +e
 mkdir -p "${SSL_CERT_PATH}"
+
+SSL_INCLUDE_LOCALHOST=${SSL_INCLUDE_LOCALHOST:-"false"}
+altNames="DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+if [ "$SSL_INCLUDE_LOCALHOST" = "true" ] ; then
+    altNames+=",DNS:localhost"
+fi
+
 openssl req -x509 \
         -newkey rsa:4096 \
         -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
@@ -42,7 +49,7 @@ openssl req -x509 \
         -days 365 \
         -nodes \
         -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
-        -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+        -addext "subjectAltName = ${altNames}"
 
 if [ $? -ne 0 ] ; then
     # LibreSSL didn't support the -addext flag until version 3.1.0 but
@@ -50,7 +57,7 @@ if [ $? -ne 0 ] ; then
     echo "Falling back to legacy libressl cert generation"
     openssl req -x509 \
             -verbose \
-            -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local")) \
+            -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = %s" ${altNames})) \
             -extensions SAN \
             -newkey rsa:4096 \
             -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
