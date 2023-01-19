@@ -23,7 +23,8 @@ export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
 ROOT="$(git rev-parse --show-toplevel)"
 
 echo "Installing Tekton Pipelines..."
-TEKTON_PIPELINE_CONFIG=${TEKTON_PIPELINE_CONFIG:-"https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml"}
+TEKTON_PIPELINE_VERSION=${TEKTON_PIPELINE_VERSION:-"previous/v0.42.0"}
+TEKTON_PIPELINE_CONFIG=${TEKTON_PIPELINE_CONFIG:-"https://storage.googleapis.com/tekton-releases/pipeline/${TEKTON_PIPELINE_VERSION}/release.yaml"}
 kubectl apply --filename ${TEKTON_PIPELINE_CONFIG}
 
 echo "Generating DB secret..."

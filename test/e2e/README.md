@@ -41,10 +41,12 @@ All components are installed to the current kubectl context
 This can safely be ran multiple times, and should be ran anytime a change is
 made to Results components.
 
-| Environment variable   | Description                                                             | Default                                                                     |
-| ---------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| KO_DOCKER_REPO         | Docker repository to use for ko                                         | kind.local                                                                  |
-| TEKTON_PIPELINE_CONFIG | Tekton Pipelines config source (anything `kubectl apply -f` compatible) | https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml |
+| Environment variable    | Description                                                             | Default                                                                     |
+| ----------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| KO_DOCKER_REPO          | Docker repository to use for ko                                         | kind.local                                                                  |
+| TEKTON_PIPELINE_VERSION | Version of Tekton Pipelines to install, as found on tekton-releases     | previous/v0.42.0                                                            |
+| TEKTON_PIPELINE_CONFIG  | Tekton Pipelines config source (anything `kubectl apply -f` compatible). This overwrites `TEKTON_PIPELINE_VERSION`. | https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.42.0/release.yaml |
+
 
 ## Running the tests
 
