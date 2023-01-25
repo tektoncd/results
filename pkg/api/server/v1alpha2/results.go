@@ -162,7 +162,7 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 
 	// First get the current result. This ensures that we return NOT_FOUND if
 	// the entry is already deleted.
-	// This does not need to be done in the same transaction as the delete,
+	// This does not need to be done in the same transaction as to delete,
 	// since the identifiers are immutable.
 	r := &db.Result{}
 	get := s.db.WithContext(ctx).
@@ -269,7 +269,7 @@ func (s *Server) getFilteredPaginatedSortedResults(ctx context.Context, parent s
 			}
 		}
 
-		// We fetched less results than requested - this means we've exhausted
+		// We fetched fewer results than requested - this means we've exhausted
 		// all items.
 		if len(dbresults) < batchSize {
 			break

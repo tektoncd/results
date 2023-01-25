@@ -17,6 +17,7 @@ package auth_test
 import (
 	"context"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/config"
 	"testing"
 
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
@@ -71,7 +72,7 @@ func TestRBAC(t *testing.T) {
 		}
 		return true, sar, nil
 	})
-	client := testclient.NewResultsClient(t, server.WithAuth(auth.NewRBAC(k8s)))
+	resultsClient, _ := testclient.NewResultsClient(t, &config.Config{}, server.WithAuth(auth.NewRBAC(k8s)))
 
 	ctx := context.Background()
 	result := "foo/results/bar"
@@ -102,7 +103,7 @@ func TestRBAC(t *testing.T) {
 			// oauth.TokenSource here since it requires a higher SecurityLevel
 			// + TLS.
 			ctx := metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", tc.token))
-			if _, err := client.CreateResult(ctx, &pb.CreateResultRequest{
+			if _, err := resultsClient.CreateResult(ctx, &pb.CreateResultRequest{
 				Parent: "foo",
 				Result: &pb.Result{
 					Name: "foo/results/bar",
@@ -110,17 +111,17 @@ func TestRBAC(t *testing.T) {
 			}); status.Code(err) != tc.want {
 				t.Fatalf("CreateResult: %v, want %v", err, tc.want)
 			}
-			if _, err := client.GetResult(ctx, &pb.GetResultRequest{Name: result}); status.Code(err) != tc.want {
+			if _, err := resultsClient.GetResult(ctx, &pb.GetResultRequest{Name: result}); status.Code(err) != tc.want {
 				t.Fatalf("GetResult: %v, want %v", err, tc.want)
 			}
-			if _, err := client.ListResults(ctx, &pb.ListResultsRequest{Parent: "foo"}); status.Code(err) != tc.want {
+			if _, err := resultsClient.ListResults(ctx, &pb.ListResultsRequest{Parent: "foo"}); status.Code(err) != tc.want {
 				t.Fatalf("ListResult: %v, want %v", err, tc.want)
 			}
-			if _, err := client.UpdateResult(ctx, &pb.UpdateResultRequest{Name: result, Result: &pb.Result{Name: result}}); status.Code(err) != tc.want {
+			if _, err := resultsClient.UpdateResult(ctx, &pb.UpdateResultRequest{Name: result, Result: &pb.Result{Name: result}}); status.Code(err) != tc.want {
 				t.Fatalf("UpdateResult: %v, want %v", err, tc.want)
 			}
 
-			if _, err := client.CreateRecord(ctx, &pb.CreateRecordRequest{
+			if _, err := resultsClient.CreateRecord(ctx, &pb.CreateRecordRequest{
 				Parent: result,
 				Record: &pb.Record{
 					Name: record,
@@ -128,20 +129,20 @@ func TestRBAC(t *testing.T) {
 			}); status.Code(err) != tc.want {
 				t.Fatalf("CreateRecord: %v, want %v", err, tc.want)
 			}
-			if _, err := client.GetRecord(ctx, &pb.GetRecordRequest{Name: record}); status.Code(err) != tc.want {
+			if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: record}); status.Code(err) != tc.want {
 				t.Fatalf("GetRecord: %v, want %v", err, tc.want)
 			}
-			if _, err := client.ListRecords(ctx, &pb.ListRecordsRequest{Parent: result}); status.Code(err) != tc.want {
+			if _, err := resultsClient.ListRecords(ctx, &pb.ListRecordsRequest{Parent: result}); status.Code(err) != tc.want {
 				t.Fatalf("ListRecord: %v, want %v", err, tc.want)
 			}
-			if _, err := client.UpdateRecord(ctx, &pb.UpdateRecordRequest{Record: &pb.Record{Name: record}}); status.Code(err) != tc.want {
+			if _, err := resultsClient.UpdateRecord(ctx, &pb.UpdateRecordRequest{Record: &pb.Record{Name: record}}); status.Code(err) != tc.want {
 				t.Fatalf("UpdateRecord: %v, want %v", err, tc.want)
 			}
 
-			if _, err := client.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: record}); status.Code(err) != tc.want {
+			if _, err := resultsClient.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: record}); status.Code(err) != tc.want {
 				t.Fatalf("DeleteRecord: %v, want %v", err, tc.want)
 			}
-			if _, err := client.DeleteResult(ctx, &pb.DeleteResultRequest{Name: result}); status.Code(err) != tc.want {
+			if _, err := resultsClient.DeleteResult(ctx, &pb.DeleteResultRequest{Name: result}); status.Code(err) != tc.want {
 				t.Fatalf("DeleteResult: %v, want %v", err, tc.want)
 			}
 		})

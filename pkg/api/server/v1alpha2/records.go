@@ -53,7 +53,7 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 
 	// Look up the result ID from the name. This does not have to happen
 	// transactionally with the insert since name<->ID mappings are immutable,
-	// and if the the parent result is deleted mid-request, the insert should
+	// and if the parent result is deleted mid-request, the insert should
 	// fail due to foreign key constraints.
 	resultID, err := s.getResultID(ctx, parent, resultName)
 	if err != nil {
@@ -69,7 +69,7 @@ func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) 
 	r.UpdatedTime = ts
 	r.UpdateTime = ts
 
-	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord())
+	store, err := record.ToStorage(parent, resultName, resultID, name, req.GetRecord(), s.config)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 	}, nil
 }
 
-// getFilteredPaginatedRecords returns the specified number of results that
+// getFilteredPaginatedSortedRecords returns the specified number of results that
 // match the given CEL program.
 func (s *Server) getFilteredPaginatedSortedRecords(ctx context.Context, parent, start string, pageSize int, prg cel.Program, sortOrder string) ([]*pb.Record, error) {
 	parent, result, err := result.ParseName(parent)
@@ -248,7 +248,7 @@ func (s *Server) getFilteredPaginatedSortedRecords(ctx context.Context, parent, 
 			}
 		}
 
-		// We fetched less results than requested - this means we've exhausted
+		// We fetched fewer results than requested - this means we've exhausted
 		// all items.
 		if len(dbrecords) < batchSize {
 			break
@@ -301,7 +301,7 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 		pb.UpdateTime = updateTime
 
 		// Convert back to storage and store.
-		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb)
+		s, err := record.ToStorage(r.Parent, r.ResultName, r.ResultID, r.Name, pb, s.config)
 		if err != nil {
 			return err
 		}
@@ -331,7 +331,7 @@ func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) 
 
 	// First get the current record. This ensures that we return NOT_FOUND if
 	// the entry is already deleted.
-	// This does not need to be done in the same transaction as the delete,
+	// This does not need to be done in the same transaction as to delete,
 	// since the identifiers are immutable.
 	r, err := getRecord(s.db, parent, result, name)
 	if err != nil {

@@ -15,7 +15,6 @@
 package test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -32,7 +31,7 @@ func NewDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
 	// Create a temporary file
-	tmpfile, err := ioutil.TempFile("", "testdb")
+	tmpfile, err := os.CreateTemp("", "testdb")
 	if err != nil {
 		t.Fatalf("failed to create temp file for db: %v", err)
 	}
