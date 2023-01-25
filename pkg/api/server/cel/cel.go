@@ -16,6 +16,7 @@
 package cel
 
 import (
+	"context"
 	"log"
 
 	"github.com/google/cel-go/cel"
@@ -58,6 +59,10 @@ func ParseFilter(env *cel.Env, filter string) (cel.Program, error) {
 
 // allowAll is a CEL program implementation that always returns true.
 type allowAll struct{}
+
+func (allowAll) ContextEval(context.Context, interface{}) (ref.Val, *cel.EvalDetails, error) {
+	return types.Bool(true), nil, nil
+}
 
 func (allowAll) Eval(interface{}) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil

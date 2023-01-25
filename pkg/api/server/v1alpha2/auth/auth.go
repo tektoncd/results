@@ -19,6 +19,7 @@ import "context"
 const (
 	ResourceResults = "results"
 	ResourceRecords = "records"
+	ResourceLogs    = "logs"
 
 	PermissionCreate = "create"
 	PermissionGet    = "get"

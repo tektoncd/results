@@ -19,20 +19,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"path"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"go.uber.org/zap"
 
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/viper"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/logger"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -45,99 +44,61 @@ import (
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
-type ConfigFile struct {
-	DB_USER                  string `mapstructure:"DB_USER"`
-	DB_PASSWORD              string `mapstructure:"DB_PASSWORD"`
-	DB_HOST                  string `mapstructure:"DB_HOST"`
-	DB_PORT                  string `mapstructure:"DB_PORT"`
-	DB_NAME                  string `mapstructure:"DB_NAME"`
-	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
-	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
-	GRPC_PORT                string `mapstructure:"GRPC_PORT"`
-	REST_PORT                string `mapstructure:"REST_PORT"`
-	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
-	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
-	TLS_HOSTNAME_OVERRIDE    string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
-	TLS_PATH                 string `mapstructure:"TLS_PATH"`
-	LOGS_API                 bool   `mapstructure:"LOGS_API"`
-	NO_AUTH                  bool   `mapstructure:"NO_AUTH"`
-}
-
 func main() {
+	serverConfig := config.Get()
 
-	viper.AddConfigPath("./config/env")
-	viper.AddConfigPath("/etc/config/server")
-	viper.AddConfigPath("./env")
-	viper.AddConfigPath("/env")
-	viper.SetConfigName("config")
-	viper.SetConfigType("env")
-
-	viper.AutomaticEnv()
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Fatalf("Error reading config: %v", err)
-	}
-
-	configFile := ConfigFile{}
-	err = viper.Unmarshal(&configFile)
-
-	if err != nil {
-		log.Fatal("Cannot load config:", err)
-	}
-
-	log, logConf := getLogger(configFile)
+	log := logger.Get(serverConfig.LOG_LEVEL)
 	defer log.Sync()
 
-	if configFile.DB_USER == "" || configFile.DB_PASSWORD == "" {
+	if serverConfig.DB_USER == "" || serverConfig.DB_PASSWORD == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", configFile.DB_HOST, configFile.DB_USER, configFile.DB_PASSWORD, configFile.DB_NAME, configFile.DB_PORT, configFile.DB_SSLMODE)
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE)
 
-	gormConf := &gorm.Config{}
-	if logConf.Level.Level() != zap.DebugLevel {
-		gormConf.Logger = logger.Default.LogMode(logger.Silent)
+	gormConfig := &gorm.Config{}
+	if log.Level() != zap.DebugLevel {
+		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}
-	db, err := gorm.Open(postgres.Open(dbURI), gormConf)
+	db, err := gorm.Open(postgres.Open(dbURI), gormConfig)
 	if err != nil {
 		log.Fatalf("Failed to open the results.db: %v", err)
 	}
 
 	// Load TLS cert for server
-	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"))
+	creds, tlsError := credentials.NewServerTLSFromFile(path.Join(serverConfig.TLS_PATH, "tls.crt"), path.Join(serverConfig.TLS_PATH, "tls.key"))
 	if tlsError != nil {
 		log.Infof("Error loading TLS key pair for server: %v", tlsError)
-		log.Info("Creating server without TLS")
+		log.Warn("Creating server without TLS")
 		creds = insecure.NewCredentials()
 	}
 
-	// Create the authorization checker
-	var checker auth.Checker
-	if configFile.NO_AUTH {
+	// Create the authorization authCheck
+	var authCheck auth.Checker
+	if serverConfig.NO_AUTH {
 		log.Warn("Starting server with authorization check disabled - all requests will be allowed by the API server")
-		checker = &auth.AllowAll{}
+		authCheck = &auth.AllowAll{}
 	} else {
 		log.Info("Starting server with Kubernetes RBAC authorization check enabled")
 		// Create k8s client
-		config, err := rest.InClusterConfig()
+		k8sConfig, err := rest.InClusterConfig()
 		if err != nil {
 			log.Fatal("Error getting kubernetes client config:", err)
 		}
-		k8s, err := kubernetes.NewForConfig(config)
+		k8s, err := kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
 		}
-		checker = auth.NewRBAC(k8s)
+		authCheck = auth.NewRBAC(k8s)
 	}
 
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(checker), v1alpha2.WithDatabaseAutoMigration(configFile.DB_ENABLE_AUTO_MIGRATION))
+	v1a2, err := v1alpha2.New(serverConfig, log, db, v1alpha2.WithAuth(authCheck))
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
@@ -147,7 +108,7 @@ func main() {
 		grpc.UnaryInterceptor(prometheus.UnaryServerInterceptor),
 	)
 	v1alpha2pb.RegisterResultsServer(s, v1a2)
-	if configFile.LOGS_API {
+	if serverConfig.LOGS_API {
 		v1alpha2pb.RegisterLogsServer(s, v1a2)
 	}
 
@@ -163,25 +124,25 @@ func main() {
 	prometheus.Register(s)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Infof("Prometheus server listening on: %s", configFile.PROMETHEUS_PORT)
-		if err := http.ListenAndServe(":"+configFile.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
+		log.Infof("Prometheus server listening on: %s", serverConfig.PROMETHEUS_PORT)
+		if err := http.ListenAndServe(":"+serverConfig.PROMETHEUS_PORT, promhttp.Handler()); err != nil {
 			log.Fatalf("Error running Prometheus HTTP handler: %v", err)
 		}
 	}()
 
 	// Start gRPC server
-	lis, err := net.Listen("tcp", ":"+configFile.GRPC_PORT)
+	lis, err := net.Listen("tcp", ":"+serverConfig.GRPC_PORT)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	go func() {
-		log.Infof("gRPC server listening on: %s", configFile.GRPC_PORT)
+		log.Infof("gRPC server listening on: %s", serverConfig.GRPC_PORT)
 		log.Fatal(s.Serve(lis))
 	}()
 
 	// Load REST client TLS cert to connect to the gRPC server
 	if tlsError == nil {
-		creds, err = credentials.NewClientTLSFromFile(path.Join(configFile.TLS_PATH, "tls.crt"), configFile.TLS_HOSTNAME_OVERRIDE)
+		creds, err = credentials.NewClientTLSFromFile(path.Join(serverConfig.TLS_PATH, "tls.crt"), serverConfig.TLS_HOSTNAME_OVERRIDE)
 		if err != nil {
 			log.Fatalf("Error loading TLS certificate for REST: %v", err)
 		}
@@ -194,41 +155,24 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mux := runtime.NewServeMux()
-	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
+	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+serverConfig.GRPC_PORT, opts)
 	if err != nil {
 		log.Fatal("Error registering gRPC server endpoint: ", err)
 	}
 
-	if configFile.LOGS_API {
-		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, mux, ":"+configFile.GRPC_PORT, opts)
+	if serverConfig.LOGS_API {
+		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, mux, ":"+serverConfig.GRPC_PORT, opts)
 		if err != nil {
 			log.Fatal("Error registering gRPC server endpoints for log: ", err)
 		}
 	}
 
 	// Start REST proxy server
-	log.Infof("REST server Listening on: %s", configFile.REST_PORT)
+	log.Infof("REST server Listening on: %s", serverConfig.REST_PORT)
 	if tlsError != nil {
-		log.Fatal(http.ListenAndServe(":"+configFile.REST_PORT, mux))
+		log.Fatal(http.ListenAndServe(":"+serverConfig.REST_PORT, mux))
 	} else {
-		log.Fatal(http.ListenAndServeTLS(":"+configFile.REST_PORT, path.Join(configFile.TLS_PATH, "tls.crt"), path.Join(configFile.TLS_PATH, "tls.key"), mux))
+		log.Fatal(http.ListenAndServeTLS(":"+serverConfig.REST_PORT, path.Join(serverConfig.TLS_PATH, "tls.crt"), path.Join(serverConfig.TLS_PATH, "tls.key"), mux))
 	}
 
-}
-
-func getLogger(config ConfigFile) (*zap.SugaredLogger, zap.Config) {
-	zapConf := zap.NewProductionConfig()
-	if len(config.LOG_LEVEL) > 0 {
-		var err error
-		if zapConf.Level, err = zap.ParseAtomicLevel(config.LOG_LEVEL); err != nil {
-			log.Fatalf("Failed to parse log level from config: %v", err)
-		}
-	}
-
-	zapLog, err := zapConf.Build()
-	if err != nil {
-		log.Fatalf("Failed to initialize zap logger: %v", err)
-	}
-
-	return zapLog.Sugar(), zapConf
 }

@@ -53,7 +53,7 @@ spec:
               value: tekton-results
           volumeMounts:
             - name: config
-              mountPath: /env
+              mountPath: /etc/tekton/results
               readOnly: true
             - name: tls
               mountPath: "/etc/tls"

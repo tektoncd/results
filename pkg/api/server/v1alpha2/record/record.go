@@ -18,6 +18,9 @@ package record
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"regexp"
 
 	"github.com/google/cel-go/cel"
@@ -58,7 +61,7 @@ func FormatName(parent, name string) string {
 // ToStorage converts an API Record into its corresponding database storage
 // equivalent.
 // parent,result,name should be the name parts (e.g. not containing "/results/" or "/records/").
-func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Record, error) {
+func ToStorage(parent, resultName, resultID, name string, r *pb.Record, config *config.Config) (*db.Record, error) {
 	if err := validateData(r.GetData()); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -93,6 +96,13 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record) (*db.Rec
 	}
 	if r.UpdateTime.IsValid() {
 		dbr.UpdatedTime = r.UpdateTime.AsTime()
+	}
+	if dbr.Type == v1alpha2.LogRecordType {
+		data, err := log.ToStorage(r, config)
+		if err != nil {
+			return nil, err
+		}
+		dbr.Data = data
 	}
 
 	return dbr, nil
@@ -173,6 +183,8 @@ func validateData(m *pb.Any) error {
 		return json.Unmarshal(m.GetValue(), &v1beta1.TaskRun{})
 	case "pipeline.tekton.dev/PipelineRun":
 		return json.Unmarshal(m.GetValue(), &v1beta1.PipelineRun{})
+	case "results.tekton.dev/v1alpha2.Log":
+		return json.Unmarshal(m.GetValue(), &v1alpha2.Log{})
 	default:
 		// If it's not a well known type, just check that the message is a valid JSON document.
 		return json.Unmarshal(m.GetValue(), &json.RawMessage{})

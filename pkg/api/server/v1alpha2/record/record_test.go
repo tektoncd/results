@@ -15,6 +15,7 @@
 package record
 
 import (
+	"github.com/tektoncd/results/pkg/api/server/config"
 	"strings"
 	"testing"
 	"time"
@@ -181,7 +182,7 @@ func TestToStorage(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in, &config.Config{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -219,7 +220,7 @@ func TestToStorage(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToStorage("foo", "bar", "1", "baz", tc.in)
+			got, err := ToStorage("foo", "bar", "1", "baz", tc.in, &config.Config{})
 			if status.Code(err) != tc.want {
 				t.Fatalf("expected %v, got (%v, %v)", tc.want, got, err)
 			}

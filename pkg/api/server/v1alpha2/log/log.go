@@ -1,0 +1,113 @@
+package log
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/db"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"io"
+	"path/filepath"
+	"regexp"
+)
+
+const (
+	// DefaultBufferSize is the default buffer size. This based on the recommended
+	// gRPC message size for streamed content, which ranges from 16 to 64 KiB. Choosing 32 KiB as a
+	// middle ground between the two.
+	DefaultBufferSize = 32 * 1024
+)
+
+var (
+	// NameRegex matches valid name specs for a Result.
+	NameRegex = regexp.MustCompile("(^[a-z0-9_-]{1,63})/results/([a-z0-9_-]{1,63})/logs/([a-z0-9_-]{1,63}$)")
+)
+
+// ParseName splits a full Result name into its individual (parent, result, name)
+// components.
+func ParseName(raw string) (parent, result, name string, err error) {
+	s := NameRegex.FindStringSubmatch(raw)
+	if len(s) != 4 {
+		return "", "", "", status.Errorf(codes.InvalidArgument, "name must match %s", NameRegex.String())
+	}
+	return s[1], s[2], s[3], nil
+}
+
+// FormatName takes in a parent ("a/results/b") and record name ("c") and
+// returns the full resource name ("a/results/b/logs/c").
+func FormatName(parent, name string) string {
+	return fmt.Sprintf("%s/logs/%s", parent, name)
+}
+
+type Stream interface {
+	io.ReaderFrom
+	io.WriterTo
+	Type() string
+	Delete() error
+	Flush() error
+}
+
+// NewStream returns a LogStreamer for the given Log.
+// LogStreamers do the following:
+//
+// 1. Write log data from their respective source to an io.Writer interface.
+// 2. Read log data from a source, and store it in the respective backend if that behavior is supported.
+//
+// All LogStreamers support writing log data to an io.Writer from the provided source.
+// LogStreamers do not need to receive and store data from the provided source.
+//
+// NewStream may mutate the Log object's status, to provide implementation information
+// for reading and writing files.
+func NewStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (Stream, error) {
+	switch log.Spec.Type {
+	case v1alpha2.FileLogType:
+		return NewFileStream(ctx, log, config)
+	case v1alpha2.S3LogType:
+		return NewS3Stream(ctx, log, config)
+	}
+	return nil, fmt.Errorf("log streamer type %s is not supported", log.Spec.Type)
+}
+
+func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
+	log := &v1alpha2.Log{}
+	if len(record.GetData().Value) > 0 {
+		err := json.Unmarshal(record.GetData().Value, log)
+		if err != nil {
+			return nil, err
+		}
+	}
+	log.Default()
+
+	if log.Spec.Type == "" {
+		log.Spec.Type = v1alpha2.LogType(config.LOGS_TYPE)
+		if len(log.Spec.Type) == 0 {
+			return nil, fmt.Errorf("failed to set up log storage type to spec")
+		}
+	}
+	return json.Marshal(log)
+}
+
+func ToStream(ctx context.Context, record *db.Record, config *config.Config) (Stream, *v1alpha2.Log, error) {
+	if record.Type != v1alpha2.LogRecordType {
+		return nil, nil, fmt.Errorf("record type %s cannot stream logs", record.Type)
+	}
+	log := &v1alpha2.Log{}
+	err := json.Unmarshal(record.Data, log)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not decode Log record: %v", err)
+	}
+	stream, err := NewStream(ctx, log, config)
+	return stream, log, err
+}
+
+func FilePath(log *v1alpha2.Log) (string, error) {
+	filePath := filepath.Join(log.GetNamespace(), string(log.GetUID()), log.Name)
+	if filePath == "" {
+		return "", fmt.Errorf("invalid file path")
+	}
+	return filePath, nil
+}

@@ -17,8 +17,9 @@ package server
 import (
 	"context"
 	"fmt"
-
 	"github.com/google/cel-go/cel"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	cw "github.com/jonboulle/clockwork"
@@ -42,9 +43,11 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 type Server struct {
 	pb.UnimplementedResultsServer
 	pb.UnimplementedLogsServer
-	env  *cel.Env
-	db   *gorm.DB
-	auth auth.Checker
+	config *config.Config
+	logger *zap.SugaredLogger
+	env    *cel.Env
+	db     *gorm.DB
+	auth   auth.Checker
 
 	// enableDatabaseAutoMigration controls whether the API server will
 	// auto-migrate the database upon startup.
@@ -56,23 +59,19 @@ type Server struct {
 }
 
 // New set up environment for the api server
-func New(db *gorm.DB, opts ...Option) (*Server, error) {
+func New(config *config.Config, logger *zap.SugaredLogger, db *gorm.DB, opts ...Option) (*Server, error) {
 	env, err := resultscel.NewEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
 
 	srv := &Server{
-		db:  db,
-		env: env,
+		db:     db,
+		env:    env,
+		config: config,
+		logger: logger,
 		// Default open auth for easier testing.
 		auth: auth.AllowAll{},
-		// By default always create/update tables on startup. Note: Gorm
-		// doesn't attempt to delete unused tables or fields. For
-		// further details, refer to
-		// https://gorm.io/docs/migration.html. Users may disable this
-		// option via configuration.
-		enableDatabaseAutoMigration: true,
 	}
 
 	// Set default impls of overridable behavior
@@ -82,7 +81,7 @@ func New(db *gorm.DB, opts ...Option) (*Server, error) {
 		o(srv)
 	}
 
-	if srv.enableDatabaseAutoMigration {
+	if config.DB_ENABLE_AUTO_MIGRATION {
 		if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
 			return nil, fmt.Errorf("error automigrating DB: %w", err)
 		}
@@ -96,14 +95,6 @@ type Option func(*Server)
 func WithAuth(c auth.Checker) Option {
 	return func(s *Server) {
 		s.auth = c
-	}
-}
-
-// WithDatabaseAutoMigration allows callers to enable or disable the database
-// auto-migration upon startup.
-func WithDatabaseAutoMigration(value bool) Option {
-	return func(server *Server) {
-		server.enableDatabaseAutoMigration = value
 	}
 }
 
