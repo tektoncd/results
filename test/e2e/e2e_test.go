@@ -21,17 +21,19 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
-	"os"
-	"path"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
+
+	"time"
+
+	"os"
+	"path"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	clientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
@@ -106,7 +108,7 @@ func TestTaskRun(t *testing.T) {
 		}
 	})
 
-	t.Run("Run Cleanup", func(t *testing.T) {
+	t.Run("TaskRun Cleanup", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
 			tr, err := c.TaskRuns(ns).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if k8serrors.IsNotFound(err) {
@@ -140,21 +142,36 @@ func TestPipelineRun(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	// Wait for Result ID to show up.
-	if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-		pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
-		if err != nil {
-			t.Logf("Get: %v", err)
+	t.Run("result annotations", func(t *testing.T) {
+		// Wait for Result ID to show up.
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+			pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
+			if err != nil {
+				t.Logf("Get: %v", err)
+				return false, nil
+			}
+			if r, ok := pr.GetAnnotations()["results.tekton.dev/result"]; ok {
+				t.Logf("Found Result: %s", r)
+				return true, nil
+			}
 			return false, nil
+		}); err != nil {
+			t.Fatalf("error waiting for Result ID: %v", err)
 		}
-		if r, ok := pr.GetAnnotations()["results.tekton.dev/result"]; ok {
-			t.Logf("Found Result: %s", r)
-			return true, nil
+	})
+
+	t.Run("PipelineRun cleanup", func(t *testing.T) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+			pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+			t.Logf("Get: %+v, %v", pr.GetName(), err)
+			return false, nil
+		}); err != nil {
+			t.Fatalf("error waiting PipelineRun to be deleted: %v", err)
 		}
-		return false, nil
-	}); err != nil {
-		t.Fatalf("error waiting for Result ID: %v", err)
-	}
+	})
 }
 
 func clientConfig(t *testing.T) *rest.Config {
@@ -172,6 +189,93 @@ func clientConfig(t *testing.T) *rest.Config {
 func clientTekton(t *testing.T) *clientset.TektonV1beta1Client {
 	t.Helper()
 	return clientset.NewForConfigOrDie(clientConfig(t))
+}
+
+func TestGRPCLogging(t *testing.T) {
+	ctx := context.Background()
+
+	// ignore old logs
+	sinceTime := metav1.Now()
+	podLogOptions := corev1.PodLogOptions{
+		SinceTime: &sinceTime,
+	}
+
+	matcher := "\"grpc.method\":\"ListResults\""
+
+	client := newResultsClient(t, allNamespacesReadAccessPath)
+
+	t.Run("Log entry is found when not expected", func(t *testing.T) {
+		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !strings.Contains(resultsApiLogs, matcher) {
+			t.Logf("No log match %s when there should not be\n", matcher)
+		} else {
+			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsApiLogs)
+		}
+	})
+
+	t.Run("Log entry is found when expected", func(t *testing.T) {
+
+		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if strings.Contains(resultsApiLogs, matcher) {
+			t.Logf("Found log match %s\n", matcher)
+		} else {
+			t.Errorf("No match for %s in logs %s", matcher, resultsApiLogs)
+		}
+	})
+}
+
+// Returns a string of api pods logs concatenated
+func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions, t *testing.T) (string, error) {
+	t.Helper()
+	const apiPodBasename = "tekton-results-api"
+	const nsResults = "tekton-pipelines"
+
+	clientset := kubernetes.NewForConfigOrDie(clientConfig(t))
+
+	pods, err := clientset.CoreV1().Pods(nsResults).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	numApiPods := 0
+	var apiPodsLogs []string
+	for _, pod := range pods.Items {
+		// find api pods
+		if strings.HasPrefix(pod.Name, apiPodBasename) {
+			numApiPods++
+			// read pod logs
+			podLogRequest := clientset.CoreV1().Pods(nsResults).GetLogs(pod.Name, podLogOptions)
+			stream, err := podLogRequest.Stream(ctx)
+			if err != nil {
+				return "", err
+			}
+			defer stream.Close()
+			podLogBytes, err := ioutil.ReadAll(stream)
+			if err != nil {
+				return "", err
+			}
+			apiPodsLogs = append(apiPodsLogs, string(podLogBytes))
+		}
+	}
+
+	if numApiPods == 0 {
+		return "", errors.New("No " + apiPodBasename + "pod found")
+	}
+
+	return strings.Join(apiPodsLogs, ""), nil
 }
 
 func TestListResults(t *testing.T) {
@@ -329,91 +433,4 @@ func recordNames(t *testing.T, records []*resultsv1alpha2.Record) []string {
 		ret = append(ret, record.GetName())
 	}
 	return ret
-}
-
-func TestGRPCLogging(t *testing.T) {
-	ctx := context.Background()
-
-	// ignore old logs
-	sinceTime := metav1.Now()
-	podLogOptions := corev1.PodLogOptions{
-		SinceTime: &sinceTime,
-	}
-
-	matcher := "\"grpc.method\":\"ListResults\""
-
-	client := newResultsClient(t, allNamespacesReadAccessPath)
-
-	t.Run("Log entry is found when not expected", func(t *testing.T) {
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !strings.Contains(resultsApiLogs, matcher) {
-			t.Logf("No log match %s when there should not be\n", matcher)
-		} else {
-			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsApiLogs)
-		}
-	})
-
-	t.Run("Log entry is found when expected", func(t *testing.T) {
-
-		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if strings.Contains(resultsApiLogs, matcher) {
-			t.Logf("Found log match %s\n", matcher)
-		} else {
-			t.Errorf("No match for %s in logs %s", matcher, resultsApiLogs)
-		}
-	})
-}
-
-// Returns a string of api pods logs concatenated
-func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions, t *testing.T) (string, error) {
-	t.Helper()
-	const apiPodBasename = "tekton-results-api"
-	const nsResults = "tekton-pipelines"
-
-	clientset := kubernetes.NewForConfigOrDie(clientConfig(t))
-
-	pods, err := clientset.CoreV1().Pods(nsResults).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	numApiPods := 0
-	var apiPodsLogs []string
-	for _, pod := range pods.Items {
-		// find api pods
-		if strings.HasPrefix(pod.Name, apiPodBasename) {
-			numApiPods++
-			// read pod logs
-			podLogRequest := clientset.CoreV1().Pods(nsResults).GetLogs(pod.Name, podLogOptions)
-			stream, err := podLogRequest.Stream(ctx)
-			if err != nil {
-				return "", err
-			}
-			defer stream.Close()
-			podLogBytes, err := ioutil.ReadAll(stream)
-			if err != nil {
-				return "", err
-			}
-			apiPodsLogs = append(apiPodsLogs, string(podLogBytes))
-		}
-	}
-
-	if numApiPods == 0 {
-		return "", errors.New("No " + apiPodBasename + "pod found")
-	}
-
-	return strings.Join(apiPodsLogs, ""), nil
 }

@@ -51,9 +51,10 @@ var (
 // Reconciler implements common reconciler behavior across different Tekton Run
 // Object types.
 type Reconciler struct {
-	resultsClient *results.Client
-	objectClient  ObjectClient
-	cfg           *reconciler.Config
+	resultsClient          *results.Client
+	objectClient           ObjectClient
+	cfg                    *reconciler.Config
+	IsReadyForDeletionFunc IsReadyForDeletion
 }
 
 func init() {
@@ -61,12 +62,25 @@ func init() {
 	color.NoColor = true
 }
 
+// IsReadyForDeletion is a predicate function which indicates whether the object
+// being reconciled is ready to be garbage collected. Besides the reqirements
+// that are already enforced by this reconciler, callers may define more
+// specific constraints by providing a function that has the below signature to
+// the Reconciler instance. For instance, the controller that reconciles
+// PipelineRuns can verify whether all dependent TaskRuns are up to date in the
+// API server before deleting all objects in cascade.
+type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, error)
+
 // NewDynamicReconciler creates a new dynamic Reconciler.
 func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
 		resultsClient: results.NewClient(rc, lc),
 		objectClient:  oc,
 		cfg:           cfg,
+		// Always true predicate.
+		IsReadyForDeletionFunc: func(ctx context.Context, object results.Object) (bool, error) {
+			return true, nil
+		},
 	}
 }
 
@@ -125,26 +139,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object, annotations ...annotation.Annotation) error {
 	logger := logging.FromContext(ctx)
 	if r.cfg.GetDisableAnnotationUpdate() {
-		logger.Debugf("Skipping CRD patch - annotation patching disabled [%t]", r.cfg.GetDisableAnnotationUpdate())
-		return nil
-	}
-	var shouldBeUpdated bool
-	for _, a := range annotations {
-		if o.GetAnnotations()[a.Name] != a.Value {
-			shouldBeUpdated = true
-			break
-		}
-	}
-	if shouldBeUpdated {
-		patch, err := annotation.Add(annotations...)
+		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
+	} else if annotation.IsPatched(o, annotations...) {
+		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
+	} else {
+		// Update object with Result Annotations.
+		patch, err := annotation.Patch(o, annotations...)
 		if err != nil {
 			return fmt.Errorf("error adding Result annotations: %v", err)
 		}
 		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			return fmt.Errorf("error patching object: %v", err)
 		}
-	} else {
-		logger.Debugf("Skipping CRD patch - annotations already match [%t]", r.cfg.GetDisableAnnotationUpdate())
 	}
 	return nil
 }
@@ -156,6 +162,7 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 // * The object is done, and it isn't owned by other object.
 // * The configured grace period has elapsed since the object's completion.
 // * The object satisfies all label requirements defined in the supplied config.
+// * The assigned IsReadyForDeletionFunc returns true.
 func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object) error {
 	logger := logging.FromContext(ctx)
 
@@ -200,8 +207,15 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		return controller.NewRequeueAfter(r.cfg.RequeueInterval)
 	}
 
+	if isReady, err := r.IsReadyForDeletionFunc(ctx, o); err != nil {
+		return err
+	} else if !isReady {
+		return controller.NewRequeueAfter(r.cfg.RequeueInterval)
+	}
+
 	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())),
 		zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
+
 	if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
 		Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
 	}); err != nil && !errors.IsNotFound(err) {
