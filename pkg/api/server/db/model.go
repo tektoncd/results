@@ -25,27 +25,29 @@ import (
 
 // Result is the database model of a Result.
 type Result struct {
-	Parent      string `gorm:"primaryKey;index:results_by_name,priority:1"`
-	ID          string `gorm:"primaryKey"`
-	Name        string `gorm:"index:results_by_name,priority:2"`
-	Annotations Annotations
+	Parent      string      `gorm:"primaryKey;uniqueIndex:results_by_name,priority:1;size:64;"`
+	ID          string      `gorm:"primaryKey;size:64;"`
+	Name        string      `gorm:"uniqueIndex:results_by_name,priority:2;size:64;"`
+	Annotations Annotations `gorm:"type:jsonb;"`
 
-	CreatedTime time.Time
-	UpdatedTime time.Time
+	CreatedTime time.Time `gorm:"default:current_timestamp;"`
+	UpdatedTime time.Time `gorm:"default:current_timestamp;"`
 
-	Summary RecordSummary `gorm:"embedded;embeddedPrefix:recordsummary_"`
+	Summary RecordSummary `gorm:"embedded;embeddedPrefix:recordsummary_;"`
 
-	Etag string
+	Etag string `gorm:"size:128;"`
 }
 
 // RecordSummary is the database model of a Result.RecordSummary.
 type RecordSummary struct {
-	Record      string
-	Type        string
+	Record string `gorm:"size:256;"`
+	// Napkin Math (with a bit of buffer): 256 (DNS Subdomain) * 3 (Group +
+	// Version + Kind).
+	Type        string `gorm:"size:768;"`
 	StartTime   *time.Time
 	EndTime     *time.Time
 	Status      int32
-	Annotations Annotations
+	Annotations Annotations `gorm:"type:jsonb;"`
 }
 
 func (r Result) String() string {
@@ -58,20 +60,22 @@ type Record struct {
 	// table. Data will not be returned here during reads. Use the foreign key
 	// fields instead.
 	Result     Result `gorm:"foreignKey:Parent,ResultID;references:Parent,ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Parent     string `gorm:"primaryKey;index:records_by_name,priority:1"`
-	ResultID   string `gorm:"primaryKey"`
-	ResultName string `gorm:"index:records_by_name,priority:2"`
+	Parent     string `gorm:"primaryKey;uniqueIndex:records_by_name,priority:1;size:64;"`
+	ResultID   string `gorm:"primaryKey;size:64;"`
+	ResultName string `gorm:"uniqueIndex:records_by_name,priority:2;size:64;"`
 
-	ID   string `gorm:"primaryKey"`
-	Name string `gorm:"index:records_by_name,priority:3"`
+	ID   string `gorm:"primaryKey;size:64;"`
+	Name string `gorm:"index:records_by_name,priority:3;size:64;"`
 
-	Type string
-	Data []byte
+	// Napkin Math (with a bit of buffer): 256 (DNS Subdomain) * 3 (Group +
+	// Version + Kind).
+	Type string `gorm:"size:768;"`
+	Data []byte `gorm:"type:jsonb;"`
 
-	CreatedTime time.Time
-	UpdatedTime time.Time
+	CreatedTime time.Time `gorm:"default:current_timestamp;"`
+	UpdatedTime time.Time `gorm:"default:current_timestamp;"`
 
-	Etag string
+	Etag string `gorm:"size:128;"`
 }
 
 // Annotations is a custom-defined type of a gorm model field.

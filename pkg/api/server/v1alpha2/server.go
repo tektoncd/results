@@ -46,6 +46,10 @@ type Server struct {
 	db   *gorm.DB
 	auth auth.Checker
 
+	// enableDatabaseAutoMigration controls whether the API server will
+	// auto-migrate the database upon startup.
+	enableDatabaseAutoMigration bool
+
 	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
 	getResultID getResultID
@@ -53,25 +57,35 @@ type Server struct {
 
 // New set up environment for the api server
 func New(db *gorm.DB, opts ...Option) (*Server, error) {
-	if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
-		return nil, fmt.Errorf("error automigrating DB: %w", err)
-	}
 	env, err := resultscel.NewEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
+
 	srv := &Server{
 		db:  db,
 		env: env,
-
 		// Default open auth for easier testing.
 		auth: auth.AllowAll{},
+		// By default always create/update tables on startup. Note: Gorm
+		// doesn't attempt to delete unused tables or fields. For
+		// further details, refer to
+		// https://gorm.io/docs/migration.html. Users may disable this
+		// option via configuration.
+		enableDatabaseAutoMigration: true,
 	}
+
 	// Set default impls of overridable behavior
 	srv.getResultID = srv.getResultIDImpl
 
 	for _, o := range opts {
 		o(srv)
+	}
+
+	if srv.enableDatabaseAutoMigration {
+		if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
+			return nil, fmt.Errorf("error automigrating DB: %w", err)
+		}
 	}
 
 	return srv, nil
@@ -82,6 +96,14 @@ type Option func(*Server)
 func WithAuth(c auth.Checker) Option {
 	return func(s *Server) {
 		s.auth = c
+	}
+}
+
+// WithDatabaseAutoMigration allows callers to enable or disable the database
+// auto-migration upon startup.
+func WithDatabaseAutoMigration(value bool) Option {
+	return func(server *Server) {
+		server.enableDatabaseAutoMigration = value
 	}
 }
 
