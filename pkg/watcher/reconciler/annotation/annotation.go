@@ -14,12 +14,26 @@
 
 package annotation
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 const (
+
+	// Result identifier.
 	Result = "results.tekton.dev/result"
+
+	// Record identifier.
 	Record = "results.tekton.dev/record"
-	Log    = "results.tekton.dev/log"
+
+	Log = "results.tekton.dev/log"
+
+	// Annotation that signals to the controller that a given child object
+	// (e.g. TaskRun owned by a PipelineRun) is done and up to date in the
+	// API server and therefore, ready to be garbage collected.
+	ChildReadyForDeletion = "results.tekton.dev/childReadyForDeletion"
 )
 
 type Annotation struct {
@@ -27,19 +41,65 @@ type Annotation struct {
 	Value string
 }
 
-// Add creates a jsonpatch path used for adding result / record identifiers
-// an object's annotations field.
-func Add(annotation ...Annotation) ([]byte, error) {
-	annotations := make(map[string]string)
-	for _, annotation := range annotation {
-		if len(annotation.Value) > 0 {
-			annotations[annotation.Name] = annotation.Value
-		}
-	}
-	data := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"annotations": annotations,
+type mergePatch struct {
+	Metadata metadata `json:"metadata"`
+}
+
+type metadata struct {
+	Annotations map[string]string `json:"annotations"`
+}
+
+// Patch creates a jsonpatch path used for adding result / record identifiers as
+// well as other internal annotations to an object's annotations field.
+func Patch(object metav1.Object, annotations ...Annotation) ([]byte, error) {
+	data := mergePatch{
+		Metadata: metadata{
+			Annotations: map[string]string{},
 		},
 	}
+
+	for _, annotation := range annotations {
+		if len(annotation.Value) != 0 {
+			data.Metadata.Annotations[annotation.Name] = annotation.Value
+		}
+	}
+
+	if isChildAndDone(object) {
+		data.Metadata.Annotations[ChildReadyForDeletion] = "true"
+	}
 	return json.Marshal(data)
+}
+
+// isChildAndDone returns true if the object in question is a child resource
+// (i.e. has owner references) and it's done, therefore eligible to be patched
+// with the results.tekton.dev/childReadyForDeletion annotation.
+func isChildAndDone(objecct metav1.Object) bool {
+	if len(objecct.GetOwnerReferences()) == 0 {
+		return false
+	}
+
+	doneObj, ok := objecct.(interface{ IsDone() bool })
+	if !ok {
+		return false
+	}
+	return doneObj.IsDone()
+}
+
+// IsPatched returns true if the object in question contains all relevant
+// annotations or false otherwise.
+func IsPatched(object metav1.Object, annotations ...Annotation) bool {
+	objAnnotations := object.GetAnnotations()
+	if isChildAndDone(object) {
+		if _, found := objAnnotations[ChildReadyForDeletion]; !found {
+			return false
+		}
+	}
+
+	for _, annotation := range annotations {
+		if objAnnotations[annotation.Name] != annotation.Value {
+			return false
+		}
+	}
+
+	return true
 }

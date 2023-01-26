@@ -16,8 +16,10 @@ package pipelinerun
 
 import (
 	"context"
+
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
+	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/logs"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/leaderelection"
@@ -33,16 +35,16 @@ func NewController(ctx context.Context, resultsClient pb.ResultsClient) *control
 }
 
 func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
-	informer := pipelineruninformer.Get(ctx)
-	lister := informer.Lister()
-
+	pipelineRunInformer := pipelineruninformer.Get(ctx)
+	pipelineRunLister := pipelineRunInformer.Lister()
 	c := &Reconciler{
-		LeaderAwareFuncs: leaderelection.NewLeaderAwareFuncs(lister.List),
-		resultsClient:    resultsClient,
-		logsClient:       logs.Get(ctx),
-		lister:           lister,
-		pipelineClient:   pipelineclient.Get(ctx),
-		cfg:              cfg,
+		LeaderAwareFuncs:  leaderelection.NewLeaderAwareFuncs(pipelineRunLister.List),
+		resultsClient:     resultsClient,
+		logsClient:        logs.Get(ctx),
+		pipelineRunLister: pipelineRunLister,
+		taskRunLister:     taskruninformer.Get(ctx).Lister(),
+		pipelineClient:    pipelineclient.Get(ctx),
+		cfg:               cfg,
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
@@ -50,7 +52,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		WorkQueueName: "PipelineRuns",
 	})
 
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	pipelineRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 	})
