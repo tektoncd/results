@@ -49,20 +49,21 @@ import (
 )
 
 type ConfigFile struct {
-	DB_USER               string `mapstructure:"DB_USER"`
-	DB_PASSWORD           string `mapstructure:"DB_PASSWORD"`
-	DB_HOST               string `mapstructure:"DB_HOST"`
-	DB_PORT               string `mapstructure:"DB_PORT"`
-	DB_NAME               string `mapstructure:"DB_NAME"`
-	DB_SSLMODE            string `mapstructure:"DB_SSLMODE"`
-	GRPC_PORT             string `mapstructure:"GRPC_PORT"`
-	REST_PORT             string `mapstructure:"REST_PORT"`
-	PROMETHEUS_PORT       string `mapstructure:"PROMETHEUS_PORT"`
-	LOG_LEVEL             string `mapstructure:"LOG_LEVEL"`
-	TLS_HOSTNAME_OVERRIDE string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
-	TLS_PATH              string `mapstructure:"TLS_PATH"`
-	LOGS_API              bool   `mapstructure:"LOGS_API"`
-	NO_AUTH               bool   `mapstructure:"NO_AUTH"`
+	DB_USER                  string `mapstructure:"DB_USER"`
+	DB_PASSWORD              string `mapstructure:"DB_PASSWORD"`
+	DB_HOST                  string `mapstructure:"DB_HOST"`
+	DB_PORT                  string `mapstructure:"DB_PORT"`
+	DB_NAME                  string `mapstructure:"DB_NAME"`
+	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
+	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
+	GRPC_PORT                string `mapstructure:"GRPC_PORT"`
+	REST_PORT                string `mapstructure:"REST_PORT"`
+	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
+	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
+	TLS_HOSTNAME_OVERRIDE    string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
+	TLS_PATH                 string `mapstructure:"TLS_PATH"`
+	LOGS_API                 bool   `mapstructure:"LOGS_API"`
+	NO_AUTH                  bool   `mapstructure:"NO_AUTH"`
 }
 
 func main() {
@@ -136,7 +137,7 @@ func main() {
 	}
 
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(checker))
+	v1a2, err := v1alpha2.New(db, v1alpha2.WithAuth(checker), v1alpha2.WithDatabaseAutoMigration(configFile.DB_ENABLE_AUTO_MIGRATION))
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

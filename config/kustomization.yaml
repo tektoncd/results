@@ -14,7 +14,6 @@
 
 resources:
 - 100-api-serviceaccount.yaml
-- 100-sql-init.yaml
 - 100-watcher-serviceaccount.yaml
 - 201-sql-deployment.yaml
 - api.yaml
