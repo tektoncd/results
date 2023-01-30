@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# shellcheck disable=SC2181 # To ignore long command exit code check
+
 set -e
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
@@ -24,11 +26,11 @@ ROOT="$(git rev-parse --show-toplevel)"
 
 echo "Installing Tekton Pipelines..."
 TEKTON_PIPELINE_CONFIG=${TEKTON_PIPELINE_CONFIG:-"https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml"}
-kubectl apply --filename ${TEKTON_PIPELINE_CONFIG}
+kubectl apply --filename "${TEKTON_PIPELINE_CONFIG}"
 
 echo "Generating DB secret..."
 # Don't fail if the secret isn't created - this can happen if the secret already exists.
-kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20) || true
+kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 20)" || true
 
 echo "Generating TLS key pair..."
 set +e
@@ -66,13 +68,14 @@ set -e
 kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="${SSL_CERT_PATH}/tekton-results-cert.pem" --key="${SSL_CERT_PATH}/tekton-results-key.pem" || true
 
 echo "Installing Tekton Results..."
-kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply -f -
+extra_ko_params="linux/$(go env GOARCH)"
+kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
-mkdir -p ${SA_TOKEN_PATH}
+mkdir -p "${SA_TOKEN_PATH}"
 service_accounts=(all-namespaces-read-access single-namespace-read-access)
 for service_account in "${service_accounts[@]}"; do
-    kubectl create token $service_account > ${SA_TOKEN_PATH}/$service_account
+    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account"
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
