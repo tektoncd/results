@@ -62,6 +62,7 @@ var (
 	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
 	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
+	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
 )
 
 func main() {
@@ -92,6 +93,7 @@ func main() {
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate:      *disableCRDUpdate,
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
+		RequeueInterval:              *requeueInterval,
 	}
 
 	if selector := *labelSelector; selector != "" {

@@ -124,6 +124,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate: true,
+		RequeueInterval:         1 * time.Second,
 	}
 
 	r := NewDynamicReconciler(results, trclient, cfg)

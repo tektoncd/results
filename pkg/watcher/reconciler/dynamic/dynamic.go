@@ -165,7 +165,7 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 	// Verify whether this object matches the provided label selectors
 	if selectors := r.cfg.GetLabelSelector(); !selectors.Matches(labels.Set(o.GetLabels())) {
 		logger.Debugw("Object doesn't match the required label selectors - requeuing to process later", zap.String("results.tekton.dev/label-selectors", selectors.String()))
-		return controller.NewRequeueAfter(1 * time.Minute)
+		return controller.NewRequeueAfter(r.cfg.RequeueInterval)
 	}
 
 	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())),
