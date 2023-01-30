@@ -34,6 +34,10 @@ type Config struct {
 	// whether completed resources are eligible for deletion. The default
 	// value is labels.Everything() which matches any resource.
 	labelSelector labels.Selector
+
+	// How long the controller waits to reprocess keys on certain events
+	// (e.g. an object doesn't match the provided label selectors).
+	RequeueInterval time.Duration
 }
 
 // GetDisableAnnotationupdate returns whether annotation updates should be
