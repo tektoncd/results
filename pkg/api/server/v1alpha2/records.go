@@ -123,9 +123,14 @@ func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.R
 }
 
 func getRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error) {
+	// Note: set the Parent, ResultName and Name fields in the model used to
+	// query the database to take advantage of the records_by_name composite
+	// index. Although the Name is an unique value as well, leveraging the
+	// index speeds up the query significantly. See
+	// https://github.com/tektoncd/results/issues/336.
 	store := &db.Record{}
 	q := txn.
-		Where(&db.Record{Result: db.Result{Parent: parent, Name: result}, Name: name}).
+		Where(&db.Record{Parent: parent, ResultName: result, Name: name}).
 		First(store)
 	if err := errors.Wrap(q.Error); err != nil {
 		return nil, err
