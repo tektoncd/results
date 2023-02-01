@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"errors"
+
 	"github.com/jonboulle/clockwork"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -27,7 +29,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
@@ -76,6 +78,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	timeTakenField := zap.Int64("results.tekton.dev/time-taken-ms", time.Since(startTime).Milliseconds())
 
 	if err != nil {
+		if errors.Is(err, results.ErrResultNotCreatedYet) {
+			// Requeue the key since the Result isn't available yet
+			// (maybe the parent resource is being reconciled
+			// concomitantly).
+			return controller.NewRequeueImmediately()
+		}
 		logger.Debugw("Error upserting record", zap.Error(err), timeTakenField)
 		return fmt.Errorf("error upserting record: %w", err)
 	}
@@ -164,7 +172,7 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
 	if err := r.objectClient.Delete(ctx, o.GetName(), metav1.DeleteOptions{
 		Preconditions: metav1.NewUIDPreconditions(string(o.GetUID())),
-	}); err != nil && !errors.IsNotFound(err) {
+	}); err != nil && !apierrors.IsNotFound(err) {
 		logger.Debugw("Error deleting object", zap.Error(err))
 		return fmt.Errorf("error deleting object: %w", err)
 	}

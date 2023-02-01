@@ -16,6 +16,8 @@ package results
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -35,6 +37,10 @@ import (
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 )
+
+// Sentinel error that signals to callers that a given result hasn't been
+// created yet.
+var ErrResultNotCreatedYet = errors.New("result not created yet")
 
 // Client is a wrapper around a Results client that provides helpful utilities
 // for performing result operations that require multiple RPCs or data specific
@@ -65,8 +71,12 @@ type StatusConditionGetter interface {
 }
 
 // Put adds the given Object to the Results API.
-// If the parent result is missing or the object is not yet associated with a
-// result, one is created automatically.
+// If the parent result is missing and the object in question is a top-level
+// (i.e. isn't owned by another object) the result is created
+// automatically. Otherwise, the method returns an ErrResultNotCreatedYet error,
+// by signaling to the caller that the result isn't yet available (the
+// controller must requeue the object to wait until the parent resource creates
+// the result).
 // If the Object is already associated with a Record, the existing Record is
 // updated - otherwise a new Record is created.
 func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, *pb.Record, error) {
@@ -85,40 +95,57 @@ func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*p
 	return result, record, nil
 }
 
-// ensureResult gets the Result corresponding to the Object, creates a new
-// one, or updates the existing Result with new Object details if necessary.
+// ensureResult gets the Result corresponding to the Object, creates a new one,
+// or updates the existing Result with new Object details if necessary. It
+// returns an ErrResultNotCreatedYet error if the parent result is missing and
+// the provided object isn't a top-level one (i.e. is owned by another object).
 func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, error) {
+	// Whether or not the object in question owns others.
+	topLevel := isTopLevelRecord(o)
+	logger := logging.FromContext(ctx).With()
 	resultName := resultName(o)
 	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: resultName}, opts...)
-	if err != nil && status.Code(err) != codes.NotFound {
-		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", resultName, err)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			if !topLevel {
+				// Signal to the controller that the result
+				// isn't available yet. We'll defer the process
+				// to wait until the top-level object creates
+				// the result instead of attempting to create it
+				// now. This avoid unnecessary requests to the
+				// API server that in highly concurrent
+				// scenarios wil result in a bunch of unique
+				// constraint violations.
+				logger.Debug("result not created yet - deferring creation to the parent resource")
+				return nil, fmt.Errorf("%s: %w", resultName, ErrResultNotCreatedYet)
+			}
+		} else {
+			// Unrecoverable error.
+			return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", resultName, err)
+		}
+	}
+
+	// If the object in question isn't a top-level, simply return the result to the caller.
+	if !topLevel {
+		return curr, nil
 	}
 
 	recordName := recordName(resultName, o)
-	topLevel := isTopLevelRecord(o)
-
-	logger := logging.FromContext(ctx).With(zap.String(annotation.Result, resultName),
-		zap.String(annotation.Record, recordName),
-		zap.Bool("results.tekton.dev/top-level-record", topLevel))
+	logger = logger.With(zap.String(annotation.Result, resultName),
+		zap.String(annotation.Record, recordName))
 
 	new := &pb.Result{
 		Name: resultName,
-	}
-
-	if topLevel {
-		// If the object corresponds to a top level record  - include a RecordSummary.
-		new.Summary = &pb.RecordSummary{
+		Summary: &pb.RecordSummary{
 			Record:    recordName,
 			Type:      convert.TypeName(o),
 			Status:    convert.Status(o.GetStatusCondition()),
 			StartTime: getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionReady)),
 			EndTime:   getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionSucceeded)),
-		}
+		},
 	}
 
-	// Regardless of whether the object is a top level record or not,
-	// if the Result doesn't exist yet just create it and return.
-	if status.Code(err) == codes.NotFound {
+	if curr == nil {
 		logger.Debug("Result doesn't exist yet - creating")
 		req := &pb.CreateResultRequest{
 			Parent: parentName(o),
@@ -129,17 +156,6 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 
 	// From here on, we're checking to see if there are any updates that need
 	// to be made to the Record.
-
-	if !topLevel {
-		// If the object isn't top level there's nothing else to do because we
-		// won't be modifying the RecordSummary.
-		logger.Debug("No further actions to be done on the Result: the object is not a top level record")
-		return curr, nil
-	}
-
-	// If this object is a top level record, only update if there's been a
-	// change to the RecordSummary (only looking at the summary also helps us
-	// avoid OUTPUT_ONLY fields in the Result))
 	if cmp.Equal(curr.GetSummary(), new.GetSummary(), protocmp.Transform()) {
 		logger.Debug("No further actions to be done on the Result: no differences found")
 		return curr, nil

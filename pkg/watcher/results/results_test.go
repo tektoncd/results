@@ -16,6 +16,7 @@ package results
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -315,23 +316,20 @@ func TestEnsureResult_RecordSummaryUpdate(t *testing.T) {
 		},
 	}
 
-	// Create TaskRun first - this will create a Result for the PipelineRun,
-	// but will *not* populate the RecordSummary.
-	got, err := client.ensureResult(ctx, tr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := &pb.Result{Name: resultName(pr)}
-	if diff := cmp.Diff(got, want, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
-		t.Fatal(diff)
+	// Attempt to create the TaskRun first. The client must raise an error
+	// since the result doesn't exist yet and the TaskRun is controlled by a
+	// PipelineRun.
+	_, err := client.ensureResult(ctx, tr)
+	if !errors.Is(err, ErrResultNotCreatedYet) {
+		t.Fatalf("Want a `%v` error, but got %v", ErrResultNotCreatedYet, err)
 	}
 
-	// Create the PipelineRun - this will update the Result with the Summary.
-	got, err = client.ensureResult(ctx, pr)
+	// Create the PipelineRun - this will create the Result with the correct Summary.
+	got, err := client.ensureResult(ctx, pr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = &pb.Result{
+	want := &pb.Result{
 		Name: resultName(pr),
 		Summary: &pb.RecordSummary{
 			Record: recordName(resultName(pr), pr),
