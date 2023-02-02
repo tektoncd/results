@@ -35,10 +35,10 @@ metadata:
   labels:
     app.kubernetes.io/name: tekton-results-info
 rules:
-    # All system:authenticated users needs to have access
-    # of the results-info ConfigMap even if they don't
-    # have access to the other resources present in the
-    # installed namespace.
+  # All system:authenticated users needs to have access
+  # of the results-info ConfigMap even if they don't
+  # have access to the other resources present in the
+  # installed namespace.
   - apiGroups: [""]
     resources: ["configmaps"]
     resourceNames: ["tekton-results-info"]
@@ -52,8 +52,8 @@ metadata:
   labels:
     app.kubernetes.io/name: tekton-results-info
 subjects:
-    # Giving all system:authenticated users the access of the
-    # ConfigMap which contains version information.
+  # Giving all system:authenticated users the access of the
+  # ConfigMap which contains version information.
   - kind: Group
     name: system:authenticated
     apiGroup: rbac.authorization.k8s.io

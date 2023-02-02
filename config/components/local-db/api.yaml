@@ -1,4 +1,4 @@
-# Copyright 2021 The Tekton Authors
+# Copyright 2023 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bases:
-- ../../../config/overlays/default-local-db
-resources:
-- rbac.yaml
-patchesJson6902:
-- target:
-    group: apps
-    version: v1
-    kind: Deployment
-    name: tekton-results-watcher
-    namespace: tekton-pipelines
-  path: watcher.yaml
-- target:
-    version: v1
-    kind: Service
-    name: tekton-results-api-service
-    namespace: tekton-pipelines
-  path: api-server.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: tekton-pipelines
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: DB_HOST
+              value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local

@@ -1,0 +1,45 @@
+# Copyright 2023 The Tekton Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Add common metadata (labels and names) to manifests
+# When creating an overlay, use labels as the final component
+#
+# Example kustomization:
+# resources:
+#   - ../../base
+# components:
+#   - ../../components/local-db
+#   - ../../components/metadata
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: tekton-results
+  - pairs:
+      app.kubernetes.io/version: devel
+    includeSelectors: false
+    fields:
+      # Include labels in template fields that are filtered out by includeSelectors.
+      # These are additive, derived from the kustomize commonLabel default.
+      # See https://github.com/kubernetes-sigs/kustomize/blob/f61b075d3bd670b7bcd5d58ce13e88a6f25977f2/api/konfig/builtinpluginconsts/commonlabels.go for the default values.
+      # See https://github.com/kubernetes-sigs/kustomize/blob/f61b075d3bd670b7bcd5d58ce13e88a6f25977f2/api/internal/target/kusttarget_configplugin.go#L263-L268 for the filtering.
+      - path: spec/template/metadata/labels
+        create: true
+        kind: Deployment
+      - path: spec/template/metadata/labels
+        create: true
+        group: apps
+        kind: StatefulSet
+namePrefix: tekton-results-
