@@ -1,5 +1,5 @@
 bases:
-  - ../config
+  - ../config/overlays/default-local-db
 commonLabels:
   # Leave this field as an environment variable - this is templated out during
   # the release process to label all resources with the proper version.

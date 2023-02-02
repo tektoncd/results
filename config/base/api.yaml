@@ -47,8 +47,6 @@ spec:
                 secretKeyRef:
                   name: tekton-results-postgres
                   key: POSTGRES_PASSWORD
-            - name: DB_HOST
-              value: tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
             - name: DB_NAME
               value: tekton-results
           volumeMounts:

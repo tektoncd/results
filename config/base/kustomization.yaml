@@ -15,7 +15,6 @@
 resources:
 - 100-api-serviceaccount.yaml
 - 100-watcher-serviceaccount.yaml
-- 201-sql-deployment.yaml
 - api.yaml
 - default-clusterroles.yaml
 - watcher.yaml
@@ -31,22 +30,3 @@ configMapGenerator:
       - env/config
     options:
       disableNameSuffixHash: true
-labels:
-  - pairs:
-      app.kubernetes.io/part-of: tekton-results
-  - pairs:
-      app.kubernetes.io/version: devel
-    includeSelectors: false
-    fields:
-      # Include labels in template fields that are filtered out by includeSelectors.
-      # These are additive, derived from the kustomize commonLabel default.
-      # See https://github.com/kubernetes-sigs/kustomize/blob/f61b075d3bd670b7bcd5d58ce13e88a6f25977f2/api/konfig/builtinpluginconsts/commonlabels.go for the default values.
-      # See https://github.com/kubernetes-sigs/kustomize/blob/f61b075d3bd670b7bcd5d58ce13e88a6f25977f2/api/internal/target/kusttarget_configplugin.go#L263-L268 for the filtering.
-      - path: spec/template/metadata/labels
-        create: true
-        kind: Deployment
-      - path: spec/template/metadata/labels
-        create: true
-        group: apps
-        kind: StatefulSet
-namePrefix: tekton-results-
