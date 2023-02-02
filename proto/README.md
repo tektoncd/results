@@ -4,6 +4,5 @@
 2. Rebuild the generated Go code
 
 ```sh
-$ cd v1alpha2
-$ go generate ./proto/
+$ go generate -v ./...
 ```
