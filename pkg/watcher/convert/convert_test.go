@@ -19,6 +19,8 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
 
@@ -314,6 +316,56 @@ func toJSON(i interface{}) []byte {
 		panic(fmt.Sprintf("error marshalling json: %v", err))
 	}
 	return b
+}
+
+func TestToLogProto(t *testing.T) {
+	wantType := "results.tekton.dev/v1alpha2.Log"
+	recordName := "foo/results/bar/records/baz"
+	for _, tc := range []struct {
+		in   metav1.Object
+		kind string
+	}{
+		{
+			in:   taskrun,
+			kind: "TaskRun",
+		},
+		{
+			in:   pipelinerun,
+			kind: "PipelineRun",
+		},
+	} {
+		t.Run(fmt.Sprintf("%s Log", tc.kind), func(t *testing.T) {
+			log := &v1alpha2.Log{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: tc.in.GetNamespace(),
+					Name:      fmt.Sprintf("%s-log", tc.in.GetName()),
+					UID:       types.UID("baz"),
+				},
+				Spec: v1alpha2.LogSpec{
+					Resource: v1alpha2.Resource{
+						Kind:      tc.kind,
+						Namespace: tc.in.GetNamespace(),
+						Name:      tc.in.GetName(),
+						UID:       tc.in.GetUID(),
+					},
+				},
+			}
+			log.Default()
+
+			want := &rpb.Any{
+				Type:  wantType,
+				Value: toJSON(log),
+			}
+
+			got, err := ToLogProto(tc.in, tc.kind, recordName)
+			if err != nil {
+				t.Fatalf("ToLogProto: %v", err)
+			}
+			if d := cmp.Diff(want, got, protocmp.Transform()); d != "" {
+				t.Errorf("Diff(-want,+got): %s", d)
+			}
+		})
+	}
 }
 
 func TestTypeName(t *testing.T) {

@@ -21,6 +21,10 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
@@ -43,6 +47,40 @@ func ToProto(in runtime.Object) (*rpb.Any, error) {
 
 	return &rpb.Any{
 		Type:  TypeName(in),
+		Value: b,
+	}, nil
+}
+
+func ToLogProto(in metav1.Object, kind, name string) (*rpb.Any, error) {
+	if in == nil {
+		return nil, nil
+	}
+	_, _, uid, err := record.ParseName(name)
+	if err != nil {
+		return nil, err
+	}
+	log := &v1alpha2.Log{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: in.GetNamespace(),
+			Name:      fmt.Sprintf("%s-log", in.GetName()),
+			UID:       types.UID(uid),
+		},
+		Spec: v1alpha2.LogSpec{
+			Resource: v1alpha2.Resource{
+				Kind:      kind,
+				Namespace: in.GetNamespace(),
+				Name:      in.GetName(),
+				UID:       in.GetUID(),
+			},
+		},
+	}
+	log.Default()
+	b, err := json.Marshal(log)
+	if err != nil {
+		return nil, err
+	}
+	return &rpb.Any{
+		Type:  v1alpha2.LogRecordType,
 		Value: b,
 	}, nil
 }

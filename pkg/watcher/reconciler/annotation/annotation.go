@@ -14,24 +14,31 @@
 
 package annotation
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 const (
 	Result = "results.tekton.dev/result"
 	Record = "results.tekton.dev/record"
+	Log    = "results.tekton.dev/log"
 )
+
+type Annotation struct {
+	Name  string
+	Value string
+}
 
 // Add creates a jsonpatch path used for adding result / record identifiers
 // an object's annotations field.
-func Add(result, record string) ([]byte, error) {
+func Add(annotation ...Annotation) ([]byte, error) {
+	annotations := make(map[string]string)
+	for _, annotation := range annotation {
+		if len(annotation.Value) > 0 {
+			annotations[annotation.Name] = annotation.Value
+		}
+	}
 	data := map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"annotations": map[string]string{
-				Result: result,
-				Record: record,
-			},
+			"annotations": annotations,
 		},
 	}
 	return json.Marshal(data)

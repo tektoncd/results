@@ -16,6 +16,9 @@ package test
 
 import (
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/logger"
+	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"testing"
 
@@ -29,14 +32,18 @@ const (
 	port = ":0"
 )
 
-func NewResultsClient(t *testing.T, opts ...server.Option) pb.ResultsClient {
+func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option) (pb.ResultsClient, pb.LogsClient) {
 	t.Helper()
-	srv, err := server.New(test.NewDB(t), opts...)
+	config.DB_ENABLE_AUTO_MIGRATION = true
+	config.LOGS_API = true
+	config.LOGS_TYPE = "File"
+	srv, err := server.New(config, logger.Get("info"), test.NewDB(t), opts...)
 	if err != nil {
 		t.Fatalf("Failed to create fake server: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterResultsServer(s, srv) // local test server
+	pb.RegisterResultsServer(s, srv)
+	pb.RegisterLogsServer(s, srv)
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
@@ -46,7 +53,7 @@ func NewResultsClient(t *testing.T, opts ...server.Option) pb.ResultsClient {
 			fmt.Printf("error starting result server: %v\n", err)
 		}
 	}()
-	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		t.Fatalf("did not connect: %v", err)
 	}
@@ -55,5 +62,5 @@ func NewResultsClient(t *testing.T, opts ...server.Option) pb.ResultsClient {
 		lis.Close()
 		conn.Close()
 	})
-	return pb.NewResultsClient(conn)
+	return pb.NewResultsClient(conn), pb.NewLogsClient(conn)
 }

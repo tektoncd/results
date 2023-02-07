@@ -19,8 +19,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/jonboulle/clockwork"
+	"github.com/tektoncd/cli/pkg/cli"
+	tknlog "github.com/tektoncd/cli/pkg/log"
+	tknopts "github.com/tektoncd/cli/pkg/options"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
+	"github.com/tektoncd/results/pkg/logs"
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
@@ -48,10 +56,15 @@ type Reconciler struct {
 	cfg           *reconciler.Config
 }
 
+func init() {
+	// Disable colorized output from the tkn CLI.
+	color.NoColor = true
+}
+
 // NewDynamicReconciler creates a new dynamic Reconciler.
-func NewDynamicReconciler(rc pb.ResultsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
+func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
-		resultsClient: &results.Client{ResultsClient: rc},
+		resultsClient: results.NewClient(rc, lc),
 		objectClient:  oc,
 		cfg:           cfg,
 	}
@@ -73,7 +86,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 	// Upsert record.
 	startTime := time.Now()
-	result, record, err := r.resultsClient.Put(ctx, o)
+	res, rec, err := r.resultsClient.Put(ctx, o)
 	timeTakenField := zap.Int64("results.tekton.dev/time-taken-ms", time.Since(startTime).Milliseconds())
 
 	if err != nil {
@@ -81,12 +94,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		return fmt.Errorf("error upserting record: %w", err)
 	}
 
-	logger = logger.With(zap.String("results.tekton.dev/result", result.Name),
-		zap.String("results.tekton.dev/record", record.Name))
+	// Update logs if enabled.
+	if r.resultsClient.LogsClient != nil {
+		if err := r.sendLog(ctx, o); err != nil {
+			logger.Errorw("Error sending log",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+				zap.Error(err),
+			)
+			return err
+		}
+	}
+
+	logger = logger.With(zap.String("results.tekton.dev/result", res.Name),
+		zap.String("results.tekton.dev/record", rec.Name))
 	logger.Debugw("Record has been successfully upserted into API server", timeTakenField)
 
-	if err := r.addResultsAnnotations(logging.WithLogger(ctx, logger), o, result, record); err != nil {
-		return fmt.Errorf("error adding Result annotations to the object: %w", err)
+	recordAnnotation := annotation.Annotation{Name: annotation.Record, Value: rec.GetName()}
+	resultAnnotation := annotation.Annotation{Name: annotation.Result, Value: res.GetName()}
+	if err := r.addResultsAnnotations(logging.WithLogger(ctx, logger), o, recordAnnotation, resultAnnotation); err != nil {
+		return err
 	}
 
 	return r.deleteUponCompletion(logging.WithLogger(ctx, logger), o)
@@ -94,25 +122,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 // addResultsAnnotations adds Results annotations to the object in question if
 // annotation patching is enabled.
-func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object, result *pb.Result, record *pb.Record) error {
+func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object, annotations ...annotation.Annotation) error {
 	logger := logging.FromContext(ctx)
-
-	objectAnnotations := o.GetAnnotations()
 	if r.cfg.GetDisableAnnotationUpdate() {
-		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
-	} else if result.GetName() == objectAnnotations[annotation.Result] && record.GetName() == objectAnnotations[annotation.Record] {
-		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
-	} else {
-		// Update object with Result Annotations.
-		patch, err := annotation.Add(result.GetName(), record.GetName())
+		logger.Debugf("Skipping CRD patch - annotation patching disabled [%t]", r.cfg.GetDisableAnnotationUpdate())
+		return nil
+	}
+	var shouldBeUpdated bool
+	for _, a := range annotations {
+		if o.GetAnnotations()[a.Name] != a.Value {
+			shouldBeUpdated = true
+			break
+		}
+	}
+	if shouldBeUpdated {
+		patch, err := annotation.Add(annotations...)
 		if err != nil {
-			logger.Errorw("Error adding Result annotations", zap.Error(err))
-			return err
+			return fmt.Errorf("error adding Result annotations: %v", err)
 		}
 		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-			logger.Errorw("Error patching object", zap.Error(err))
-			return err
+			return fmt.Errorf("error patching object: %v", err)
 		}
+	} else {
+		logger.Debugf("Skipping CRD patch - annotations already match [%t]", r.cfg.GetDisableAnnotationUpdate())
 	}
 	return nil
 }
@@ -121,7 +153,7 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 // conditions are met:
 // * The resource deletion is enabled in the config (the grace period is greater
 // than 0).
-// * The object is done and it isn't owned by other object.
+// * The object is done, and it isn't owned by other object.
 // * The configured grace period has elapsed since the object's completion.
 // * The object satisfies all label requirements defined in the supplied config.
 func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object) error {
@@ -206,4 +238,142 @@ func getCompletionTime(object results.Object) (*time.Time, error) {
 		return nil, controller.NewPermanentError(fmt.Errorf("error getting completion time from incoming object: unrecognized type %T", o))
 	}
 	return completionTime, nil
+}
+
+// sendLog streams logs to the API server
+func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
+	logger := logging.FromContext(ctx)
+	condition := o.GetStatusCondition().GetCondition(apis.ConditionSucceeded)
+	GVK := o.GetObjectKind().GroupVersionKind()
+	if !GVK.Empty() &&
+		(GVK.Kind == "TaskRun" || GVK.Kind == "PipelineRun") &&
+		condition != nil &&
+		condition.Type == "Succeeded" &&
+		(condition.Reason == "Succeeded" || condition.Reason == "Failed") {
+
+		rec, err := r.resultsClient.GetLogRecord(ctx, o)
+		if err != nil {
+			return err
+		}
+		if rec != nil {
+			// we had already started logs streaming
+			parent, resName, recName, err := record.ParseName(rec.GetName())
+			if err != nil {
+				return err
+			}
+			logName := log.FormatName(result.FormatName(parent, resName), recName)
+			// Update log annotation if it doesn't exist
+			if err := r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.Log, Value: logName}); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		// Create a log record if the object has/supports logs.
+		rec, err = r.resultsClient.PutLog(ctx, o)
+		if err != nil {
+			return err
+		}
+
+		parent, resName, recName, err := record.ParseName(rec.GetName())
+		if err != nil {
+			return err
+		}
+		logName := log.FormatName(result.FormatName(parent, resName), recName)
+
+		var logType string
+		switch o.GetObjectKind().GroupVersionKind().Kind {
+		case "TaskRun":
+			logType = tknlog.LogTypeTask
+		case "PipelineRun":
+			logType = tknlog.LogTypePipeline
+		}
+
+		if err := r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.Log, Value: logName}); err != nil {
+			return err
+		}
+
+		logger.Debugw("Streaming log started",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+			zap.String("name", o.GetName()),
+		)
+
+		go func() {
+			err := r.streamLogs(ctx, o, logType, logName)
+			if err != nil {
+				logger.Errorw("Error streaming log",
+					zap.String("namespace", o.GetNamespace()),
+					zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+					zap.String("name", o.GetName()),
+					zap.Error(err),
+				)
+			}
+			logger.Debugw("Streaming log completed",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+			)
+		}()
+	}
+
+	return nil
+}
+
+func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, logName string) error {
+	logger := logging.FromContext(ctx)
+	logsClient, err := r.resultsClient.UpdateLog(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create UpdateLog client: %v", err)
+	}
+
+	writer := logs.NewBufferedWriter(logsClient, logName, logs.DefaultBufferSize)
+
+	tknParams := &cli.TektonParams{}
+	tknParams.SetNamespace(o.GetNamespace())
+	// KLUGE: tkn reader.Read() will raise an error if a step in the TaskRun failed and there is no
+	// Err writer in the Stream object. This will result in some "error" messages being written to
+	// the log.
+
+	reader, err := tknlog.NewReader(logType, &tknopts.LogOptions{
+		AllSteps:        true,
+		Params:          tknParams,
+		PipelineRunName: o.GetName(),
+		TaskrunName:     o.GetName(),
+		Stream: &cli.Stream{
+			Out: writer,
+			Err: writer,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create tkn reader: %v", err)
+	}
+	logChan, errChan, err := reader.Read()
+	if err != nil {
+		return fmt.Errorf("error reading from tkn reader: %v", err)
+	}
+
+	errChanRepeater := make(chan error)
+	go func(echan <-chan error, o metav1.Object) {
+		writeErr := <-echan
+		errChanRepeater <- writeErr
+
+		_, err := writer.Flush()
+		if err != nil {
+			logger.Error(err)
+		}
+		if err = logsClient.CloseSend(); err != nil {
+			logger.Error(err)
+		}
+	}(errChan, o)
+
+	// errChanRepeater receives stderr from the TaskRun containers.
+	// This will be forwarded as combined output (stdout and stderr)
+
+	tknlog.NewWriter(logType, true).Write(&cli.Stream{
+		Out: writer,
+		Err: writer,
+	}, logChan, errChanRepeater)
+
+	return nil
 }
