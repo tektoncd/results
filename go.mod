@@ -24,7 +24,7 @@ require (
 	github.com/tektoncd/pipeline v0.42.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/oauth2 v0.3.0
+	golang.org/x/oauth2 v0.4.0
 	google.golang.org/api v0.104.0
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
 	google.golang.org/grpc v1.51.0
