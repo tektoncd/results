@@ -85,7 +85,7 @@ tekton.results.v1alpha2.Results
 # Create gRPC access token
 $ export GRPC_ACCESS_TOKEN=$(kubectl create token tekton-results-debug -n tekton-pipelines)
 # Makes a request to the Results service.
-$ grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$GRPC_ACCESS_TOKEN localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$(kubectl get secrets -n tekton-pipelines -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='tekton-results-debug')].data.token}"|base64 --decode) localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+$ grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$GRPC_ACCESS_TOKEN localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
 connecting to localhost:50051
 results {
   name: "default/results/9b7714d0-cbd3-40c6-87ec-bcbd9f199985"

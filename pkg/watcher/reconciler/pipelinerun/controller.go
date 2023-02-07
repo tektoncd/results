@@ -41,7 +41,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		resultsClient:    resultsClient,
 		logsClient:       logs.Get(ctx),
 		lister:           lister,
-		k8sclient:        pipelineclient.Get(ctx),
+		pipelineClient:   pipelineclient.Get(ctx),
 		cfg:              cfg,
 	}
 

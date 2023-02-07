@@ -17,6 +17,8 @@ package dynamic
 import (
 	"context"
 	"errors"
+	"github.com/google/uuid"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
+	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/test"
@@ -61,6 +64,18 @@ var (
 			Annotations: map[string]string{"demo": "demo"},
 			UID:         "12345",
 		},
+		Status: v1beta1.TaskRunStatus{
+			Status: duckv1beta1.Status{
+				Conditions: duckv1beta1.Conditions{
+					apis.Condition{
+						Type:   apis.ConditionSucceeded,
+						Status: corev1.ConditionTrue,
+						Reason: v1beta1.TaskRunReasonSuccessful.String(),
+					},
+				},
+			},
+			TaskRunStatusFields: v1beta1.TaskRunStatusFields{},
+		},
 		Spec: v1beta1.TaskRunSpec{
 			TaskSpec: &v1beta1.TaskSpec{
 				Steps: []v1beta1.Step{{
@@ -87,6 +102,7 @@ var (
 					apis.Condition{
 						Type:   apis.ConditionSucceeded,
 						Status: corev1.ConditionTrue,
+						Reason: v1beta1.PipelineRunReasonSuccessful.String(),
 					},
 				},
 			},
@@ -112,7 +128,7 @@ var (
 func TestReconcile_TaskRun(t *testing.T) {
 	// Configures fake tekton clients + informers.
 	ctx, _ := rtesting.SetupFakeContext(t)
-	results := test.NewResultsClient(t)
+	resultsClient, logsClient := test.NewResultsClient(t, &config.Config{})
 
 	fakeclock := clockwork.NewFakeClockAt(time.Now())
 	clock = fakeclock
@@ -127,7 +143,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 		RequeueInterval:         1 * time.Second,
 	}
 
-	r := NewDynamicReconciler(results, trclient, cfg)
+	r := NewDynamicReconciler(resultsClient, logsClient, trclient, cfg)
 	if err := r.Reconcile(ctx, taskrun); err != nil {
 		t.Fatal(err)
 	}
@@ -137,57 +153,65 @@ func TestReconcile_TaskRun(t *testing.T) {
 		return ok
 	}
 
-	t.Run("DisabledAnnotations", func(t *testing.T) {
+	t.Run("disabled annotations", func(t *testing.T) {
 		resultName := result.FormatName(taskrun.GetNamespace(), string(taskrun.GetUID()))
-		if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: resultName}); err != nil {
-			t.Fatalf("GetResult: %v", err)
+		res, err := resultsClient.GetResult(ctx, &pb.GetResultRequest{Name: resultName})
+		if err != nil {
+			t.Fatalf("Error getting result: %v", err)
 		}
 		recordName := record.FormatName(resultName, string(taskrun.GetUID()))
-		if _, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: recordName}); err != nil {
-			t.Fatalf("GetRecord: %v", err)
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: recordName}); err != nil {
+			t.Fatalf("Error getting record: %v", err)
+		}
+		uid, err := uuid.Parse(res.GetUid())
+		if err != nil {
+			t.Fatalf("Error parsing result uid: %v", err)
+		}
+		logRecordName := record.FormatName(resultName, uuid.NewMD5(uid, []byte(taskrun.GetUID())).String())
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName}); err != nil {
+			t.Fatalf("Error getting log record: %v", err)
 		}
 	})
 
 	// Enable Annotation Updates, re-reconcile
-	cfg.DisableAnnotationUpdate = false
-	if err := r.Reconcile(ctx, taskrun); err != nil {
-		t.Fatal(err)
-	}
-
-	tr, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, a := range []string{annotation.Result, annotation.Record} {
-		if _, ok := tr.GetAnnotations()[a]; !ok {
-			t.Errorf("annotation %s missing", a)
+	t.Run("enabled annotations", func(t *testing.T) {
+		cfg.DisableAnnotationUpdate = false
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
 		}
-	}
 
-	if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: tr.GetAnnotations()[annotation.Result]}); err != nil {
-		t.Fatalf("GetResult: %v", err)
-	}
-	if _, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: tr.GetAnnotations()[annotation.Record]}); err != nil {
-		t.Fatalf("GetRecord: %v", err)
-	}
+		tr, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range []string{annotation.Result, annotation.Record, annotation.Log} {
+			if _, ok := tr.GetAnnotations()[a]; !ok {
+				t.Fatalf("Annotation missing: %s", a)
+			}
+		}
+
+		if _, err := resultsClient.GetResult(ctx, &pb.GetResultRequest{Name: tr.GetAnnotations()[annotation.Result]}); err != nil {
+			t.Fatalf("GetResult: %v", err)
+		}
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: tr.GetAnnotations()[annotation.Record]}); err != nil {
+			t.Fatalf("GetRecord: %v", err)
+		}
+
+		// Test log record
+		logName := tr.GetAnnotations()[annotation.Log]
+		parent, resultName, recordName, err := log.ParseName(logName)
+		if err != nil {
+			t.Fatalf("Error parsing log name '%s': %v", logName, err)
+		}
+		logRecordName := record.FormatName(result.FormatName(parent, resultName), recordName)
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName}); err != nil {
+			t.Fatalf("Error getting log record '%s': %v", logRecordName, err)
+		}
+	})
 
 	t.Run("delete object once grace period elapses", func(t *testing.T) {
 		// Enable object deletion, re-reconcile
 		cfg.CompletedResourceGracePeriod = 1 * time.Second
-
-		// Simulate a successful TaskRun. The next test case will make
-		// sure that failed objects can be deleted as well.
-		taskrun.Status.SetCondition(&apis.Condition{
-			Type:   apis.ConditionSucceeded,
-			Status: corev1.ConditionTrue,
-			Reason: string(v1beta1.TaskRunReasonSuccessful),
-		})
-
-		// The controller must requeue the object since the
-		// CompletionTime field is nil.
-		if err := r.Reconcile(ctx, taskrun); !isRequeueKey(err) {
-			t.Fatalf("Want a controller.RequeueKey error, but got %v", err)
-		}
 
 		// Set the completion time and reconcile again.
 		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
@@ -212,12 +236,13 @@ func TestReconcile_TaskRun(t *testing.T) {
 
 	t.Run("delete failed runs", func(t *testing.T) {
 		// Recreate the object to retest the deletion
+		taskrun.Status.InitializeConditions()
 		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 
 		// Simulate a failed run, set the completion time and advance
-		// the clock to make this test case more independent from the
+		// the clock to make this test case more independent of the
 		// previous one.
 		taskrun.Status.MarkResourceFailed(v1beta1.TaskRunReasonFailed, errors.New("Failed"))
 		taskrun.Status.CompletionTime = &metav1.Time{Time: fakeclock.Now()}
@@ -270,7 +295,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 func TestReconcile_PipelineRun(t *testing.T) {
 	// Configures fake tekton clients + informers.
 	ctx, _ := rtesting.SetupFakeContext(t)
-	results := test.NewResultsClient(t)
+	resultsClient, logsClient := test.NewResultsClient(t, &config.Config{})
 
 	fakeclock := clockwork.NewFakeClockAt(time.Now())
 	clock = fakeclock
@@ -280,7 +305,7 @@ func TestReconcile_PipelineRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := NewDynamicReconciler(results, prclient, nil)
+	r := NewDynamicReconciler(resultsClient, logsClient, prclient, nil)
 	if err := r.Reconcile(ctx, pipelinerun); err != nil {
 		t.Fatal(err)
 	}
@@ -297,16 +322,32 @@ func TestReconcile_PipelineRun(t *testing.T) {
 
 	t.Run("Result", func(t *testing.T) {
 		name := pr.GetAnnotations()[annotation.Result]
-		if _, err := results.GetResult(ctx, &pb.GetResultRequest{Name: name}); err != nil {
+		if _, err := resultsClient.GetResult(ctx, &pb.GetResultRequest{Name: name}); err != nil {
 			t.Fatalf("GetResult: %v", err)
 		}
 	})
 
 	t.Run("Record", func(t *testing.T) {
 		name := pr.GetAnnotations()[annotation.Record]
-		_, err := results.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
+		_, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: name})
 		if err != nil {
 			t.Fatalf("GetRecord: %v", err)
+		}
+	})
+
+	t.Run("Log", func(t *testing.T) {
+		logName, ok := pr.GetAnnotations()[annotation.Log]
+		if !ok {
+			t.Fatalf("Annotation missing: %s", annotation.Log)
+		}
+		parent, resultName, recordName, err := log.ParseName(logName)
+		if err != nil {
+			t.Fatalf("Error parsing log name '%s': %v", logName, err)
+		}
+		logRecordName := record.FormatName(result.FormatName(parent, resultName), recordName)
+		_, err = resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName})
+		if err != nil {
+			t.Fatalf("Error getting log record: %v", err)
 		}
 	})
 

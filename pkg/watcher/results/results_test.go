@@ -17,6 +17,9 @@ package results
 import (
 	"context"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/kmeta"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -30,8 +33,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"knative.dev/pkg/kmeta"
 	logtest "knative.dev/pkg/logging/testing"
 )
 
@@ -219,11 +220,11 @@ func TestParentName(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := parentName(test.in)
-			if test.want != got {
-				t.Errorf("parentName: want %s, got %s", test.want, got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parentName(tc.in)
+			if tc.want != got {
+				t.Errorf("parentName: want %s, got %s", tc.want, got)
 			}
 		})
 	}
@@ -583,8 +584,9 @@ func crdToRecord(t *testing.T, name string, o Object) *pb.Record {
 
 func client(t *testing.T) *Client {
 	t.Helper()
-
+	resultsClient, logsClient := test.NewResultsClient(t, &config.Config{})
 	return &Client{
-		ResultsClient: test.NewResultsClient(t),
+		ResultsClient: resultsClient,
+		LogsClient:    logsClient,
 	}
 }

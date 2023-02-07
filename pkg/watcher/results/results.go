@@ -16,6 +16,8 @@ package results
 
 import (
 	"context"
+	"go.uber.org/zap"
+	"knative.dev/pkg/logging"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,7 +26,6 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/logging"
 )
 
 // Client is a wrapper around a Results client that provides helpful utilities
@@ -41,12 +41,14 @@ import (
 // operations.
 type Client struct {
 	pb.ResultsClient
+	pb.LogsClient
 }
 
 // NewClient returns a new results client for the particular kind.
-func NewClient(client pb.ResultsClient) *Client {
+func NewClient(resultsClient pb.ResultsClient, logsClient pb.LogsClient) *Client {
 	return &Client{
-		ResultsClient: client,
+		ResultsClient: resultsClient,
+		LogsClient:    logsClient,
 	}
 }
 
@@ -71,44 +73,42 @@ type StatusConditionGetter interface {
 // updated - otherwise a new Record is created.
 func (c *Client) Put(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, *pb.Record, error) {
 	// Make sure parent Result exists (or create one)
-	result, err := c.ensureResult(ctx, o, opts...)
+	res, err := c.ensureResult(ctx, o, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Create or update the record.
-	record, err := c.upsertRecord(ctx, result.GetName(), o, opts...)
+	// Create or update the rec.
+	rec, err := c.upsertRecord(ctx, res.GetName(), o, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return result, record, nil
+	return res, rec, nil
 }
 
 // ensureResult gets the Result corresponding to the Object, creates a new
 // one, or updates the existing Result with new Object details if necessary.
 func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOption) (*pb.Result, error) {
-	resultName := resultName(o)
-	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: resultName}, opts...)
+	resName := resultName(o)
+	curr, err := c.ResultsClient.GetResult(ctx, &pb.GetResultRequest{Name: resName}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
-		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", resultName, err)
+		return nil, status.Errorf(status.Code(err), "GetResult(%s): %v", resName, err)
 	}
 
-	recordName := recordName(resultName, o)
+	res := &pb.Result{
+		Name: resName,
+	}
+	recName := recordName(resName, o)
 	topLevel := isTopLevelRecord(o)
-
-	logger := logging.FromContext(ctx).With(zap.String(annotation.Result, resultName),
-		zap.String(annotation.Record, recordName),
+	logger := logging.FromContext(ctx).With(zap.String(annotation.Result, resName),
+		zap.String(annotation.Record, recName),
 		zap.Bool("results.tekton.dev/top-level-record", topLevel))
-
-	new := &pb.Result{
-		Name: resultName,
-	}
 
 	if topLevel {
 		// If the object corresponds to a top level record  - include a RecordSummary.
-		new.Summary = &pb.RecordSummary{
-			Record:    recordName,
+		res.Summary = &pb.RecordSummary{
+			Record:    recName,
 			Type:      convert.TypeName(o),
 			Status:    convert.Status(o.GetStatusCondition()),
 			StartTime: getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionReady)),
@@ -122,7 +122,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 		logger.Debug("Result doesn't exist yet - creating")
 		req := &pb.CreateResultRequest{
 			Parent: parentName(o),
-			Result: new,
+			Result: res,
 		}
 		return c.ResultsClient.CreateResult(ctx, req, opts...)
 	}
@@ -139,15 +139,14 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 
 	// If this object is a top level record, only update if there's been a
 	// change to the RecordSummary (only looking at the summary also helps us
-	// avoid OUTPUT_ONLY fields in the Result))
-	if cmp.Equal(curr.GetSummary(), new.GetSummary(), protocmp.Transform()) {
+	// avoid OUTPUT_ONLY fields in the Result)
+	if cmp.Equal(curr.GetSummary(), res.GetSummary(), protocmp.Transform()) {
 		logger.Debug("No further actions to be done on the Result: no differences found")
 		return curr, nil
 	}
-	logger.Debug("Updating Result")
 	req := &pb.UpdateResultRequest{
-		Name:   resultName,
-		Result: new,
+		Name:   resName,
+		Result: res,
 	}
 	return c.ResultsClient.UpdateResult(ctx, req, opts...)
 }
@@ -221,14 +220,14 @@ func parentName(o metav1.Object) string {
 // upsertRecord updates or creates a record for the object. If there has been
 // no change in the Record data, the existing Record is returned.
 func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts ...grpc.CallOption) (*pb.Record, error) {
-	recordName := recordName(parent, o)
-	logger := logging.FromContext(ctx).With(zap.String(annotation.Record, recordName))
+	recName := recordName(parent, o)
+	logger := logging.FromContext(ctx).With(zap.String(annotation.Record, recName))
 	data, err := convert.ToProto(o)
 	if err != nil {
 		return nil, err
 	}
 
-	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: recordName}, opts...)
+	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: recName}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
 		return nil, err
 	}
@@ -251,7 +250,7 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 	return c.CreateRecord(ctx, &pb.CreateRecordRequest{
 		Parent: parent,
 		Record: &pb.Record{
-			Name: recordName,
+			Name: recName,
 			Data: data,
 		},
 	}, opts...)
