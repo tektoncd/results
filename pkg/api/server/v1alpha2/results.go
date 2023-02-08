@@ -285,8 +285,11 @@ func (s *Server) getFilteredPaginatedSortedResults(ctx context.Context, parent s
 
 func getResultByParentName(gdb *gorm.DB, parent, name string) (*db.Result, error) {
 	r := &db.Result{}
-	if err := errors.Wrap(gdb.Where(&db.Result{Parent: parent, Name: name}).First(r).Error); err != nil {
-		return nil, status.Errorf(status.Code(err), "failed to query on database: %v", err)
+	q := gdb.
+		Where(&db.Result{Parent: parent, Name: name}).
+		First(r)
+	if err := errors.Wrap(q.Error); err != nil {
+		return nil, err
 	}
 	return r, nil
 }
