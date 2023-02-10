@@ -30,6 +30,14 @@ const (
 
 	Log = "results.tekton.dev/log"
 
+	// Integrators should add this annotation to objects in order to store
+	// arbitrary keys/values into the Result.Annotations field.
+	ResultAnnotations = "results.tekton.dev/resultAnnotations"
+
+	// Integrators should add this annotation to objects in order to store
+	// arbitrary keys/values into the Result.Summary.Annotations field.
+	RecordSummaryAnnotations = "results.tekton.dev/recordSummaryAnnotations"
+
 	// Annotation that signals to the controller that a given child object
 	// (e.g. TaskRun owned by a PipelineRun) is done and up to date in the
 	// API server and therefore, ready to be garbage collected.

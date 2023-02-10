@@ -16,6 +16,11 @@ apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   name: hello
+  annotations:
+    results.tekton.dev/resultAnnotations: |-
+      {"repo": "tektoncd/results", "commit": "1a6b908"}
+    results.tekton.dev/recordSummaryAnnotations: |-
+      {"foo": "bar"}
 spec:
   pipelineSpec:
     tasks:
