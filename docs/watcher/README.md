@@ -36,3 +36,24 @@ precedence):
 
 If no annotation is detected, the Watcher will automatically generate a new
 Result name for the Object.
+
+## Passing arbitrary key/values to Results
+
+Users and/or integrators can pass arbitrary keys/values to Results by adding special annotations to PipelineRuns and TaskRuns:
+
+- `results.tekton.dev/resultAnnotations`: a JSON object (string->string) to be stored into thee `Result.Annotations` field.
+- `results.tekton.dev/recordSummaryAnnotations`: a JSON object (string->string) to be stored into thee `Result.Summary.Annotations` field.
+
+Once the Watcher detects those annotations in the observed object, it passes the keys/values to the respective fields of the underlying Result. Those annotations can be used to store relevant metadata (e.g. the Git commit SHA that triggered a PipelineRun) into Results and may be used later to retrieve the objects from the API server. For instance:
+
+```yaml
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: hello-run-
+  annotations:
+    results.tekton.dev/resultAnnotations: |-
+      {"repo": "tektoncd/results", "commit": "1a6b908"}
+    results.tekton.dev/recordSummaryAnnotations: |-
+      {"foo": "bar"}
+```

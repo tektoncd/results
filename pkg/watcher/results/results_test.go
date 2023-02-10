@@ -344,6 +344,39 @@ func TestEnsureResult_RecordSummaryUpdate(t *testing.T) {
 	}
 }
 
+func TestAnnotations(t *testing.T) {
+	ctx := logtest.TestContextWithLogger(t)
+	client := client(t)
+
+	pipelineRun := &v1beta1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				annotation.ResultAnnotations:        `{"x": "y"}`,
+				annotation.RecordSummaryAnnotations: `{"foo":"bar"}`,
+			},
+			UID: types.UID("1"),
+		},
+	}
+
+	result, err := client.ensureResult(ctx, pipelineRun)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff(map[string]string{
+		"x": "y",
+	}, result.Annotations); diff != "" {
+		t.Errorf("Result.Annotations: mismatch (-want +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(map[string]string{
+		"foo": "bar",
+	}, result.Summary.Annotations); diff != "" {
+		t.Errorf("Result.Summary.Annotations: mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestUpsertRecord(t *testing.T) {
 	ctx := context.Background()
 	client := client(t)

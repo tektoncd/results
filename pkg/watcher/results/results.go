@@ -16,9 +16,11 @@ package results
 
 import (
 	"context"
-	"go.uber.org/zap"
-	"knative.dev/pkg/logging"
+	"encoding/json"
+	"fmt"
 	"strings"
+
+	"go.uber.org/zap"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -34,6 +36,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 )
 
 // Client is a wrapper around a Results client that provides helpful utilities
@@ -116,6 +120,41 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 		}
 	}
 
+	// Set the Result.Annotations and Result.Summary.Annotations fields if
+	// the object in question contains the required annotations.
+
+	if value, found := o.GetAnnotations()[annotation.ResultAnnotations]; found {
+		if resultAnnotations, err := parseAnnotations(annotation.ResultAnnotations, value); err != nil {
+			return nil, err
+		} else {
+			var annotations map[string]string
+			if curr != nil && len(curr.Annotations) != 0 {
+				copyKeys(resultAnnotations, curr.Annotations)
+				annotations = curr.Annotations
+			} else {
+				annotations = resultAnnotations
+			}
+			res.Annotations = annotations
+		}
+	}
+
+	if topLevel {
+		if value, found := o.GetAnnotations()[annotation.RecordSummaryAnnotations]; found {
+			if recordSummaryAnnotations, err := parseAnnotations(annotation.RecordSummaryAnnotations, value); err != nil {
+				return nil, err
+			} else {
+				var annotations map[string]string
+				if curr != nil && len(curr.Summary.Annotations) != 0 {
+					copyKeys(recordSummaryAnnotations, curr.Summary.Annotations)
+					annotations = curr.Summary.Annotations
+				} else {
+					annotations = recordSummaryAnnotations
+				}
+				res.Summary.Annotations = annotations
+			}
+		}
+	}
+
 	// Regardless of whether the object is a top level record or not,
 	// if the Result doesn't exist yet just create it and return.
 	if status.Code(err) == codes.NotFound {
@@ -149,6 +188,21 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 		Result: res,
 	}
 	return c.ResultsClient.UpdateResult(ctx, req, opts...)
+}
+
+// parseAnnotations attempts to return the provided value as a map of strings.
+func parseAnnotations(annotationKey, value string) (map[string]string, error) {
+	var annotations map[string]string
+	if err := json.Unmarshal([]byte(value), &annotations); err != nil {
+		return nil, controller.NewPermanentError(fmt.Errorf("error parsing annotation %s: %w", annotationKey, err))
+	}
+	return annotations, nil
+}
+
+func copyKeys(in, out map[string]string) {
+	for key, value := range in {
+		out[key] = value
+	}
 }
 
 func getTimestamp(c *apis.Condition) *timestamppb.Timestamp {
