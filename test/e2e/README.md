@@ -25,10 +25,10 @@ This folder contains several scripts, useful for testing e2e workflows:
 Sets up a local kind cluster, and configures your local kubectl context to use
 this environment.
 
-| Environment variable | Description              | Default               |
-| -------------------- | ------------------------ | --------------------- |
-| KIND_CLUSTER_NAME    | KIND cluster name to use | tekton-results        |
-| KIND_IMAGE           | KIND node image to use   | kindest/node:v1.17.11 |
+| Environment variable | Description              | Default                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| KIND_CLUSTER_NAME    | KIND cluster name to use | tekton-results                                                                               |
+| KIND_IMAGE           | KIND node image to use   | kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1 |
 
 ### `01-install.sh`
 

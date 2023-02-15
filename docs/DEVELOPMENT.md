@@ -79,6 +79,7 @@ $ export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/results.crt
 
 # Lists the available gRPC services.
 $ grpc_cli ls --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local localhost:50051
+grpc.health.v1.Health
 grpc.reflection.v1alpha.ServerReflection
 tekton.results.v1alpha2.Results
 
