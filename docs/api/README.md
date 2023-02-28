@@ -29,7 +29,7 @@ The following attributes are recognized:
 
 For example, a read-only Role might look like:
 
-```
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -52,9 +52,85 @@ patterns:
 | tekton-results-readwrite | Includes `tekton-results-readonly` + Create or update all Result API resources |
 | tekton-results-admin     | Includes `tekton-results-readwrite` + Allows deletion of Result API Resources  |
 
+### Impersonation
+
+[Kubernetes' impersonation](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation)
+is used to refine access to the APIs.
+
+#### How to use Impersonation?
+
+Run API server with feature flag `AUTH_IMPERSONATE` set to `true` in the config.
+
+Create two `ServiceAccount`, one for administering the permissions to impersonate and the other one  for the 
+permissions of the user to impersonate.
+
+```shell
+kubectl create serviceaccount impersonate-admin -n tekton-pipelines
+```
+```shell
+kubectl create serviceaccount impersonate-user -n user-namespace
+```
+
+Create the following `ClusterRole` and `ClusterRoleBinding` for the `impersonate-admin` service account.
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tekton-results-impersonate
+rules:
+  - apiGroups: [""]
+    resources: ["users", "groups", "serviceaccounts"]
+    verbs: ["impersonate"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["uids"]
+    verbs: ["impersonate"]
+```
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tekton-results-impersonate
+subjects:
+  - kind: ServiceAccount
+    name: impersonate-admin
+    namespace: tekton-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-results-impersonate
+```
+Create `RoleBinding` for `impersonate-user` service account.
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tekton-results-user
+  namespace: user-namespace
+subjects:
+  - kind: ServiceAccount
+    name: impersonate-user
+    namespace: user-namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tekton-results-readonly
+```
+Now get a token for service account `impersonate-admin` and store in a variable.
+```shell
+token=$(kubectl create token impersonate-admin -n tekton-pipelines)
+```
+Then the APIs can be called in the following format
+```shell
+curl -s --cacert /var/tmp/tekton/ssl/tls.crt  \
+-H 'authorization: Bearer '${token} \
+-H 'Impersonate-User: system:serviceaccount:user-namespace:impersonate-user' \
+https://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/user-namespace/results
+```
+Need to provide a TLS cert if API server is using TLS.
+
 ### Troubleshooting
 
-The following command can be ran to query the cluster's permissions. This can be
+The following command can be run to query the cluster's permissions. This can be
 useful for debugging permission denied errors:
 
 ```sh

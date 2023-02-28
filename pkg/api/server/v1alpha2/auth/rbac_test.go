@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/tektoncd/results/pkg/api/server/config"
+	"k8s.io/utils/strings/slices"
 	"testing"
 
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
@@ -61,7 +62,7 @@ func TestRBAC(t *testing.T) {
 	})
 	k8s.PrependReactor("create", "subjectaccessreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
 		sar := action.(test.CreateActionImpl).Object.(*authzv1.SubjectAccessReview)
-		if sar.Spec.User == "authorized" {
+		if sar.Spec.User == "authorized" || slices.Contains(sar.Spec.Groups, "authorized") {
 			sar.Status = authzv1.SubjectAccessReviewStatus{
 				Allowed: true,
 			}
@@ -72,37 +73,79 @@ func TestRBAC(t *testing.T) {
 		}
 		return true, sar, nil
 	})
-	resultsClient, _ := testclient.NewResultsClient(t, &config.Config{}, server.WithAuth(auth.NewRBAC(k8s)))
+	resultsClient, _ := testclient.NewResultsClient(t, &config.Config{}, server.WithAuth(auth.NewRBAC(k8s, auth.WithImpersonation(true))))
 
 	ctx := context.Background()
 	result := "foo/results/bar"
 	record := "foo/results/bar/records/baz"
 	for _, tc := range []struct {
-		user  string
-		token string
-		want  codes.Code
+		name             string
+		user             string
+		token            string
+		impersonateUser  string
+		impersonateGroup string
+		want             codes.Code
 	}{
 		{
+			name:  "authorized user",
 			user:  "authorized",
 			token: users["authorized"],
 			want:  codes.OK,
 		},
 		{
+			name:  "unauthorized user",
 			user:  "unauthorized",
 			token: users["unauthorized"],
 			want:  codes.Unauthenticated,
 		},
 		{
+			name:  "unauthenticated user",
 			user:  "unauthenticated",
 			token: "",
 			want:  codes.Unauthenticated,
 		},
+		{
+			name:            "authorized impersonated user",
+			user:            "authorized",
+			token:           users["authorized"],
+			impersonateUser: "authorized",
+			want:            codes.OK,
+		},
+		{
+			name:            "unauthorized impersonated user",
+			user:            "authorized",
+			token:           users["authorized"],
+			impersonateUser: "unauthorized",
+			want:            codes.Unauthenticated,
+		},
+		{
+			name:             "authorized impersonated group",
+			user:             "authorized",
+			token:            users["authorized"],
+			impersonateUser:  "unauthorized",
+			impersonateGroup: "authorized",
+			want:             codes.OK,
+		},
+		{
+			name:             "unauthorized impersonated group",
+			user:             "authorized",
+			token:            users["authorized"],
+			impersonateUser:  "unauthorized",
+			impersonateGroup: "unauthorized",
+			want:             codes.Unauthenticated,
+		},
 	} {
-		t.Run(tc.user, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			// Simulates a oauth.TokenSource. We avoid using the real
 			// oauth.TokenSource here since it requires a higher SecurityLevel
 			// + TLS.
 			ctx := metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", tc.token))
+			if tc.impersonateUser != "" {
+				ctx = metadata.AppendToOutgoingContext(ctx, "Impersonate-User", tc.impersonateUser)
+			}
+			if tc.impersonateGroup != "" {
+				ctx = metadata.AppendToOutgoingContext(ctx, "Impersonate-Group", tc.impersonateGroup)
+			}
 			if _, err := resultsClient.CreateResult(ctx, &pb.CreateResultRequest{
 				Parent: "foo",
 				Result: &pb.Result{

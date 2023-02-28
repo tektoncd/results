@@ -37,7 +37,9 @@ require (
 	gorm.io/gorm v1.24.3
 	k8s.io/api v0.25.8
 	k8s.io/apimachinery v0.25.8
+	k8s.io/apiserver v0.25.4
 	k8s.io/client-go v0.25.4
+	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
 	knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -204,7 +206,6 @@ require (
 	k8s.io/cli-runtime v0.25.4 // indirect
 	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
-	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect

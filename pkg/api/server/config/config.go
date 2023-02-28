@@ -20,7 +20,8 @@ type Config struct {
 	TLS_HOSTNAME_OVERRIDE    string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`
 
-	NO_AUTH bool `mapstructure:"NO_AUTH"`
+	AUTH_DISABLE     bool `mapstructure:"AUTH_DISABLE"`
+	AUTH_IMPERSONATE bool `mapstructure:"AUTH_IMPERSONATE"`
 
 	LOGS_API         bool   `mapstructure:"LOGS_API"`
 	LOGS_TYPE        string `mapstructure:"LOGS_TYPE"`
@@ -40,7 +41,7 @@ func Get() *Config {
 	viper.SetConfigName("config")
 	viper.SetConfigType("env")
 	viper.AddConfigPath("/etc/tekton/results")
-	viper.AddConfigPath("config/env")
+	viper.AddConfigPath("config/base/env")
 	viper.AddConfigPath("config")
 	viper.AddConfigPath(".")
 
