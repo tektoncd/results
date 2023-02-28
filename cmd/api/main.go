@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"net"
 	"net/http"
 	"path"
@@ -89,11 +90,12 @@ func main() {
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
-	if serverConfig.NO_AUTH {
+	var serverMuxOptions []runtime.ServeMuxOption
+	if serverConfig.AUTH_DISABLE {
 		log.Warn("Starting server with authorization check disabled - all requests will be allowed by the API server")
 		authCheck = &auth.AllowAll{}
 	} else {
-		log.Info("Starting server with Kubernetes RBAC authorization check enabled")
+		log.Info("Kubernetes RBAC authorization check enabled")
 		// Create k8s client
 		k8sConfig, err := rest.InClusterConfig()
 		if err != nil {
@@ -103,7 +105,12 @@ func main() {
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
 		}
-		authCheck = auth.NewRBAC(k8s)
+
+		if serverConfig.AUTH_IMPERSONATE {
+			log.Info("Kubernetes RBAC impersonation enabled")
+			serverMuxOptions = append(serverMuxOptions, runtime.WithIncomingHeaderMatcher(impersonation.HeaderMatcher))
+		}
+		authCheck = auth.NewRBAC(k8s, auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE))
 	}
 
 	// Register API server(s)
@@ -119,8 +126,8 @@ func main() {
 		}),
 	}
 
-	// Customize logger so it can be passed to the gRPC interceptors
-	grpcLogger := log.Desugar().With(zap.Bool("grpc.auth_disabled", serverConfig.NO_AUTH))
+	// Customize logger, so it can be passed to the gRPC interceptors
+	grpcLogger := log.Desugar().With(zap.Bool("grpc.auth_disabled", serverConfig.AUTH_DISABLE))
 
 	s := grpc.NewServer(
 		grpc.Creds(creds),
@@ -186,7 +193,8 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	mux := runtime.NewServeMux()
+
+	mux := runtime.NewServeMux(serverMuxOptions...)
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, mux, ":"+serverConfig.GRPC_PORT, opts)
 	if err != nil {
 		log.Fatal("Error registering gRPC server endpoint: ", err)

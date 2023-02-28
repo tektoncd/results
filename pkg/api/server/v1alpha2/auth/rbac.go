@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"log"
 	"strings"
 
@@ -38,15 +39,22 @@ import (
 // This checks RBAC permissions in the `results.tekton.dev` group, and assumes
 // checks are done at the namespace
 type RBAC struct {
-	authn authnclient.AuthenticationV1Interface
-	authz authzclient.AuthorizationV1Interface
+	allowImpersonation bool
+	authn              authnclient.AuthenticationV1Interface
+	authz              authzclient.AuthorizationV1Interface
 }
 
-func NewRBAC(client kubernetes.Interface) *RBAC {
-	return &RBAC{
+type Option func(*RBAC)
+
+func NewRBAC(client kubernetes.Interface, options ...Option) *RBAC {
+	rbac := &RBAC{
 		authn: client.AuthenticationV1(),
 		authz: client.AuthorizationV1(),
 	}
+	for _, option := range options {
+		option(rbac)
+	}
+	return rbac
 }
 
 func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) error {
@@ -54,6 +62,20 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	if !ok {
 		return status.Error(codes.Unauthenticated, "unable to get context metadata")
 	}
+
+	// Parse Impersonation header if the feature is enabled
+	var impersonator *impersonation.Impersonation
+	var err error
+	if r.allowImpersonation {
+		impersonator, err = impersonation.NewImpersonation(md)
+		// Ignore ErrorNoImpersonationData errors. This means that the request does not have any
+		// impersonation headers and should be processed normally.
+		if err != nil && err != impersonation.ErrorNoImpersonationData {
+			log.Println(err)
+			return status.Error(codes.Unauthenticated, "invalid impersonation data")
+		}
+	}
+
 	v := md.Get("authorization")
 	if len(v) == 0 {
 		return status.Error(codes.Unauthenticated, "unable to find token")
@@ -89,11 +111,32 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 			continue
 		}
 
+		user := tr.Status.User.Username
+		UID := tr.Status.User.UID
+		groups := []string{"tekton.dev"}
+		extra := map[string]authzv1.ExtraValue{}
+
+		// Check whether the authenticated user has permission to impersonate
+		if impersonator != nil {
+			if err := impersonator.Check(ctx, r.authz, user); err != nil {
+				log.Println(err)
+				return status.Error(codes.Unauthenticated, "permission denied")
+			}
+			// Change user data to impersonated user
+			userInfo := impersonator.GetUserInfo()
+			user = userInfo.GetName()
+			UID = userInfo.GetUID()
+			groups = userInfo.GetGroups()
+			extra = convertExtra(userInfo.GetExtra())
+		}
+
 		// Authorize the request by checking the RBAC permissions for the resource.
 		sar, err := r.authz.SubjectAccessReviews().Create(ctx, &authzv1.SubjectAccessReview{
 			Spec: authzv1.SubjectAccessReviewSpec{
-				User:   tr.Status.User.Username,
-				Groups: []string{"tekton.dev"},
+				User:   user,
+				UID:    UID,
+				Groups: groups,
+				Extra:  extra,
 				ResourceAttributes: &authzv1.ResourceAttributes{
 					Namespace: namespace,
 					Group:     "results.tekton.dev",
@@ -113,4 +156,20 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	// Return Unauthenticated - we don't know if we failed because of invalid
 	// token or unauthorized user, so this is safer to not leak any state.
 	return status.Error(codes.Unauthenticated, "permission denied")
+}
+
+// convertExtra converts the map[string][]string to map[string]ExtraValue for Subject Access Review.
+func convertExtra(extra map[string][]string) map[string]authzv1.ExtraValue {
+	var newExtra map[string]authzv1.ExtraValue
+	for key, value := range extra {
+		newExtra[key] = value
+	}
+	return newExtra
+}
+
+// WithImpersonation is an option function to enable Impersonation
+func WithImpersonation(enabled bool) Option {
+	return func(r *RBAC) {
+		r.allowImpersonation = enabled
+	}
 }

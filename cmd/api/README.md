@@ -15,7 +15,8 @@
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                              |
 | TLS_HOSTNAME_OVERRIDE    | Override the hostname used to serve TLS. This should not be set (or set to the empty string) in production environments.          | results.tekton.dev                           |
 | TLS_PATH                 | Path to TLS files                                                                                                                 | /etc/tls                                     |
-| NO_AUTH                  | Disable RBAC check for resources                                                                                                  | false (default)                              |
+| AUTH_DISABLE             | Disable RBAC check for resources                                                                                                  | false (default)                              |
+| AUTH_IMPERSONATE         | Enable RBAC impersonation                                                                                                         | true (default)                               |
 | LOG_LEVEL                | Log level for api server                                                                                                          | info (default)                               |
 | LOGS_API                 | Enable logs storage service                                                                                                       | false (default)                              |
 | LOGS_TYPE                | Determine Logs storage backend type                                                                                               | File (default)                               |
