@@ -21,7 +21,7 @@
    command will generate a random password for you:
 
    ```sh
-   $ kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
+   kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
    ```
 
 3. Generate cert/key pair. Note: Feel free to use any cert management software
@@ -30,9 +30,10 @@
    Tekton Results expects the cert/key pair to be stored in a
    [TLS Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets) named `tekton-results-tls`.
 
+   - Generate new self-signed cert
+
    ```sh
-   # Generate new self-signed cert.
-   $ openssl req -x509 \
+   openssl req -x509 \
    -newkey rsa:4096 \
    -keyout key.pem \
    -out cert.pem \
@@ -40,8 +41,12 @@
    -nodes \
    -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
    -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-   # Create new TLS Secret from cert.
-   $ kubectl create secret tls -n tekton-pipelines tekton-results-tls \
+   ```
+
+   - Create new TLS Secret from cert.
+
+   ```sh
+   kubectl create secret tls -n tekton-pipelines tekton-results-tls \
    --cert=cert.pem \
    --key=key.pem
    ```
@@ -55,8 +60,8 @@ $ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest
 ## Installing specific release
 
 ```sh
-$ export RELEASE_VERSION="<desired release version here>"
-$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${RELEASE_VERSION}/release.yaml
+export RELEASE_VERSION="<desired release version here>"
+kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${RELEASE_VERSION}/release.yaml
 ```
 
 ## Installing from source
