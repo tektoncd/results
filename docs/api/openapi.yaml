@@ -1,0 +1,756 @@
+# Copyright 2020 The Tekton Authors
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+openapi: 3.0.0
+info:
+  title: Tekton Results API Specification
+  version: v1alpha2
+  description: >-
+    Tekton Results aims to help users logically group CI/CD workload history and
+    separate out long term result storage away from the Pipeline controller.
+    This allows you to:
+
+    * Provide custom Result metadata about your CI/CD workflows not available in
+    the Tekton TaskRun/PipelineRun CRDs (for example: post-run actions)
+
+    * Group related workloads together (e.g. bundle related TaskRuns and
+    PipelineRuns into a single unit)
+
+    * Make long-term result history independent of the Pipeline CRD controller,
+    letting you free up etcd resources for Run execution.
+
+
+    This is the Tekton Results API documentation
+  termsOfService: https://github.com/tektoncd/results/blob/main/LICENSE
+  contact:
+    name: Tekton Community
+    url: https://github.com/tektoncd/community/blob/main/contact.md
+    email: tekton-dev@googlegroups.com
+  license:
+    name: Apache 2.0
+    url: https://github.com/tektoncd/results/blob/main/LICENSE
+  x-logo:
+    url: ""
+servers:
+  - url: https://{server_url}/apis/results.tekton.dev
+    description: The common url format for tekton results API
+    variables:
+      server_url:
+        default: localhost:8080
+        description: URL of the API server
+    x-last-modified: 1677677605032
+paths:
+  /v1alpha2/parents/{parent}/results:
+    summary: List Results
+    get:
+      tags:
+        - Results
+      responses:
+        "200":
+          $ref: "#/components/responses/ResultsList"
+          x-last-modified: 1677673623817
+      operationId: list_results_by_parent_name
+      summary: Get the list of the Results
+      description: >-
+        Results can be read across parents by specifying `-` as the `parent`.
+        This is useful for listing all results stored in the system without
+        prior knowledge about the available parents.
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677826043887
+      - $ref: "#/components/parameters/filter"
+        name: filter
+        x-last-modified: 1679484691871
+      - $ref: "#/components/parameters/page_token"
+        name: page_token
+        x-last-modified: 1679484706871
+      - $ref: "#/components/parameters/page_size"
+        name: page_size
+        x-last-modified: 1679484719471
+      - $ref: "#/components/parameters/order_by"
+        name: order_by
+        x-last-modified: 1679484733009
+    x-last-modified: 1677671948697
+  /v1alpha2/parents/{parent}/results/{result_uid}/records/{record_uid}:
+    summary: Create, delete or update records
+    get:
+      tags:
+        - Records
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: Default response
+      operationId: get_record_by_uid
+      summary: Get a record given uid
+      description: ""
+    post:
+      requestBody:
+        description: The record to be created.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Record"
+        required: true
+      tags:
+        - Records
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: Default response
+      operationId: create_record_by_uid
+      summary: Create record with given uid
+      description: ""
+    delete:
+      tags:
+        - Records
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: ""
+                type: object
+                example: ""
+              example: ""
+          description: ""
+          x-last-modified: 1677760439227
+      operationId: delete_record_by_uid
+      summary: Delete record given the uid
+      description: ""
+    patch:
+      requestBody:
+        description: The record to be updated.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Record"
+        required: true
+      tags:
+        - Records
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: Default response
+      operationId: ""
+      summary: Update a record given the uid
+      description: ""
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677672324160
+      - $ref: "#/components/parameters/result_uid"
+        name: result_uid
+        x-last-modified: 1677672338019
+      - $ref: "#/components/parameters/record_uid"
+        name: record_uid
+        x-last-modified: 1677672352453
+    x-last-modified: 1677672432307
+  /v1alpha2/parents/{parent}/results/{result_uid}:
+    summary: Get, Create, Delete or update result
+    get:
+      tags:
+        - Results
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Result"
+          description: Default response
+      operationId: get_result_by_uid
+      summary: Get a single result given the UID
+      description: ""
+    post:
+      requestBody:
+        description: The result to be created
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Result"
+        required: true
+      tags:
+        - Results
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Result"
+          description: Default response
+      operationId: create_result_by_uid
+      summary: Create a Result given data and UID
+      description: ""
+    delete:
+      tags:
+        - Results
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Result"
+              example: ""
+          description: Default response
+      operationId: delete_result_by_uid
+      summary: Delete a particular result using UID
+      description: ""
+    patch:
+      requestBody:
+        description: The result to be updated.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Result"
+        required: true
+      tags:
+        - Results
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Result"
+          description: Default response
+      operationId: update_result_by_uid
+      summary: Update result given the UID
+      description: ""
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677672496911
+      - $ref: "#/components/parameters/result_uid"
+        name: result_uid
+        x-last-modified: 1677672511792
+    x-last-modified: 1677672484697
+  /v1alpha2/parents/{parent}/results/{result_uid}/logs:
+    summary: List logs associated with a result
+    get:
+      tags:
+        - Logs
+      responses:
+        "200":
+          $ref: "#/components/responses/RecordsList"
+          x-last-modified: 1677673949442
+      operationId: list_logs_by_result_uid
+      summary: List Logs given the Result UID
+      description: >-
+        Logs can be read across Results by specifying `-` as the `result_uid` or
+        across parents by specifying `-` as the `parent`. (e.g.,
+        **default/results/-** or **-/results/-**). This can be used to read and
+        filter matching Logs without knowing the exact Result name.
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677672653795
+      - $ref: "#/components/parameters/result_uid"
+        name: result_uid
+        x-last-modified: 1677672667367
+      - $ref: "#/components/parameters/filter"
+        name: filter
+        x-last-modified: 1679485318262
+      - $ref: "#/components/parameters/page_size"
+        name: page_size
+        x-last-modified: 1679485331528
+      - $ref: "#/components/parameters/page_token"
+        name: page_token
+        x-last-modified: 1679485343811
+      - $ref: "#/components/parameters/order_by"
+        name: order_by
+        x-last-modified: 1679485356281
+    x-last-modified: 1677672632222
+  /v1alpha2/parents/{parent}/results/{result_uid}/logs/{log_uid}:
+    summary: Get or Delete Logs
+    get:
+      tags:
+        - Logs
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Log"
+          description: ""
+          x-last-modified: 1677676553132
+      operationId: get_log_by_uid
+      summary: Get a Log given UID
+    delete:
+      tags:
+        - Logs
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: ""
+                type: object
+                example: ""
+              example: ""
+          description: ""
+          x-last-modified: 1677760513398
+      operationId: delete_log_by_uid
+      summary: Delete a log given the UID
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677672795198
+      - $ref: "#/components/parameters/result_uid"
+        name: result_uid
+        x-last-modified: 1677672810563
+      - $ref: "#/components/parameters/log_uid"
+        name: log_uid
+        x-last-modified: 1677672825675
+    x-last-modified: 1677774010236
+  /v1alpha2/parents/{parent}/results/{result_uid}/records:
+    summary: "Get list of records associated with a result "
+    get:
+      tags:
+        - Records
+      responses:
+        "200":
+          $ref: "#/components/responses/RecordsList"
+          x-last-modified: 1677828297346
+      operationId: get_records_by_results_uid
+      summary: Get list of records
+      description: >-
+        Records can be read across Results by specifying `-` as the `result_uid`
+        or across parents by specifying `-` as the `parent` . (e.g.,
+        **default/results/-** or **-/results/-**). This can be used to read and
+        filter matching Records without knowing the exact Result name.
+    parameters:
+      - $ref: "#/components/parameters/parent"
+        name: parent
+        x-last-modified: 1677828269940
+      - $ref: "#/components/parameters/result_uid"
+        name: result_uid
+        x-last-modified: 1677828284019
+      - $ref: "#/components/parameters/filter"
+        name: filter
+        x-last-modified: 1679484834694
+      - $ref: "#/components/parameters/order_by"
+        name: order_by
+        x-last-modified: 1679485370769
+      - $ref: "#/components/parameters/page_size"
+        name: page_size
+        x-last-modified: 1679485384718
+      - $ref: "#/components/parameters/page_token"
+        name: page_token
+        x-last-modified: 1679485400765
+    x-last-modified: 1677828254610
+components:
+  schemas:
+    RecordType:
+      description: >-
+        It is unique identifier if the data type stored in the value. This is
+        used as a type to hint to determine how to unmarshal values. Limited to
+        128 characters. Currently RecordType can be one of the following:
+
+        * PipelineRun Record: `tekton.dev/v1beta1.PipelineRun`
+
+        * TaskRun Record: `tekton.dev/v1beta1.TaskRun`
+
+        * Log Record: `results.tekton.dev/v1alpha2.Log`
+      enum:
+        - tekton.dev/v1beta1.PipelineRun
+        - tekton.dev/v1beta1.TaskRun
+        - results.tekton.dev/v1alpha2.Log
+      type: string
+      x-last-modified: 1677762811698
+    Status:
+      description: "Completion status of the Record. "
+      enum:
+        - UNKNOWN
+        - SUCCESS
+        - FAILURE
+        - TIMEOUT
+        - CANCELLED
+      type: string
+      x-last-modified: 1677763193271
+    LogSummary:
+      description: Summary of the log properties.
+      required:
+        - record
+        - bytesRecieved
+      type: object
+      properties:
+        record:
+          description: the name of the Record this summary represents.
+          type: string
+        bytesReceived:
+          format: int64
+          description: Number of bytes received while streaming.
+          type: integer
+      x-last-modified: 1677768952407
+    Log:
+      description: Log is a chunk of a log.
+      required:
+        - name
+        - data
+      type: object
+      properties:
+        name:
+          description: Resource name for the log.
+          type: string
+        data:
+          format: byte
+          description: The log data as bytes.
+          type: string
+      x-last-modified: 1677768995130
+    RecordSummary:
+      description: >-
+        RecordSummary is a high level overview of a Record, typically
+        representing a "root" record for a result. It includes type agonstic
+        information so that UI's and other tools do not need to be aware of
+        underlying types.
+      required:
+        - record
+        - type
+        - status
+        - startTime
+        - endTime
+      type: object
+      properties:
+        record:
+          description: The name of the Record this summary represents.
+          type: string
+          example: >-
+            default/results/2be47d31-4d7f-4762-9616-969f2d7d9cc3/records/2be47d31-4d7f-4762-9616-969f2d7d9cc3
+        type:
+          description: Identifier of underlying data.
+          type: string
+          example: pipelines.tekton.dev/PipelineRun
+        status:
+          $ref: "#/components/schemas/Status"
+        startTime:
+          format: date-time
+          type: string
+        endTime:
+          format: date-time
+          type: string
+        annotations:
+          description: >-
+            Key-value pairs representing abitrary underlying record data that
+            clients want to include that aren't covered by the above fields.
+          type: object
+      x-last-modified: 1677769046145
+    Any:
+      description: Any represents lossely typed data to be stored within a Record.
+      required:
+        - value
+        - type
+      type: object
+      properties:
+        value:
+          format: byte
+          description: JSON encoded data.
+          type: string
+          example: VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg==
+        type:
+          $ref: "#/components/schemas/RecordType"
+          type: object
+      x-last-modified: 1677769074438
+    Record:
+      description: >-
+        Record belonging to a Result. Typically will be Tekton
+        TaskRun/PipelineRun, but may also include other execution information
+        e.g alternative configs, DSLs, input payloads, post-execution actions
+        etc.
+      required:
+        - uid
+        - name
+        - data
+      type: object
+      properties:
+        id:
+          deprecated: true
+          description: "DEPRECATED: use uid instead."
+          type: string
+        uid:
+          description: Server assigned identifier of the Record.
+          type: string
+          example: bc19969d-14ef-483c-b8c7-a83523cb5669
+        etag:
+          description: >-
+            The etag for this record. If this is provided on update, it must
+            match the server's etag.
+          type: string
+          example: bc19969d-14ef-483c-b8c7-a83523cb5669-1675088191915705326
+        name:
+          description: Resource name, must be rooted in parent result
+          type: string
+          example: >-
+            default/results/2be47d31-4d7f-4762-9616-969f2d7d9cc3/records/293d2bf0-e673-30c6-b5ca-4f35f020effc
+        createdTime:
+          deprecated: true
+          format: date-time
+          description: "DEPRECATED: use createTime instead."
+          type: string
+        createTime:
+          format: date-time
+          description: Server assigned timestamp for when the record was created.
+          type: string
+        updatedTime:
+          deprecated: true
+          format: date-time
+          description: "DEPRECATED: use updateTime instead."
+          type: string
+        updateTime:
+          format: date-time
+          description: Server assigned timestamp for when the record was updated.
+          type: string
+        data:
+          $ref: "#/components/schemas/Any"
+      x-last-modified: 1677769164720
+    Result:
+      description: >-
+        Results are aggregators of Records, allowing users to refer to groups of
+        Records as a single entity.
+      required:
+        - uid
+        - name
+      type: object
+      properties:
+        annotations:
+          description: Arbitrary user provided labels for the result.
+          type: object
+        uid:
+          description: "server assigned identified of the Results "
+          type: string
+          example: 0e0536c1-eccc-4727-9f99-5bb26ce3db90
+        name:
+          description: User assigned identifier of the Result. Encodes Parent information.
+          type: string
+          example: default/results/2be47d31-4d7f-4762-9616-969f2d7d9cc3
+        summary:
+          $ref: "#/components/schemas/RecordSummary"
+          description: >-
+            High level overview of the root record for the Result. This is
+            provided as a convinence for clients to query Record state without
+            needing to make multiple calls to fetch the underlying Records.
+        createdTime:
+          deprecated: true
+          format: date-time
+          description: "DEPRECATED: Use createTime instead"
+          type: string
+        createTime:
+          format: date-time
+          description: Server assigned timestamp for when the result was created.
+          type: string
+        updatedTime:
+          deprecated: true
+          format: date-time
+          description: "DEPRECATED: Use updateTime instead"
+          type: string
+        updateTime:
+          format: date-time
+          description: Server assigned timestamp for when the result was updated.
+          type: string
+        id:
+          deprecated: true
+          description: "DEPRECATED: use uid instead"
+          type: string
+          example: 0e0536c1-eccc-4727-9f99-5bb26ce3db90
+        etag:
+          description: >-
+            This is etag for Results. If this is provided on update, it must
+            match the server's etag.
+          type: string
+          example: 0e0536c1-eccc-4727-9f99-5bb26ce3db90-1675088191880127798
+      x-last-modified: 1677769213630
+  responses:
+    ResultsList:
+      content:
+        application/json:
+          schema:
+            description: List of Results with nextPageToken
+            required:
+              - results
+              - nextPageToken
+            type: object
+            properties:
+              results:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Result"
+              nextPageToken:
+                type: string
+      description: List of Results with nextPageToken
+      x-last-modified: 1677674976067
+    RecordsList:
+      content:
+        application/json:
+          schema:
+            description: List of Records with nextPageToken.
+            required:
+              - nextPageToken
+              - records
+            type: object
+            properties:
+              records:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Record"
+              nextPageToken:
+                type: string
+      description: List of Records with nextPageToken.
+      x-last-modified: 1677674985612
+  parameters:
+    page_token:
+      deprecated: false
+      name: page_token
+      description: >-
+        It can be used to fetch the next set of responses when the response is
+        paginated. It corresponds to `NextPageToken` in the response.
+      schema:
+        type: string
+      in: query
+      required: false
+      allowEmptyValue: false
+      x-last-modified: 1679485085921
+    page_size:
+      deprecated: false
+      name: page_size
+      description: >-
+        Number of response to fetch in one request. This query can be used for
+        pagination.
+      schema:
+        type: integer
+      in: query
+      required: false
+      allowEmptyValue: false
+      x-last-modified: 1679485107020
+    log_uid:
+      deprecated: false
+      name: log_uid
+      description: It is an alias to the record uid denoting a log.
+      schema:
+        format: uuid
+        type: string
+      in: path
+      required: true
+      x-last-modified: 1679485114681
+    record_uid:
+      deprecated: false
+      name: record_uid
+      description: Record UID is the server assigned identifier of the Record.
+      schema:
+        format: uuid
+        type: string
+      in: path
+      required: true
+      x-last-modified: 1679485126722
+    result_uid:
+      deprecated: false
+      name: result_uid
+      description: Result UID is the server assigned identifier of the result.
+      schema:
+        format: uuid
+        type: string
+      in: path
+      required: true
+      x-last-modified: 1679485137131
+    parent:
+      deprecated: false
+      name: parent
+      description: Parent name refers to the namespace name or workspace name.
+      schema:
+        type: string
+      in: path
+      required: true
+      x-last-modified: 1679485145042
+    filter:
+      deprecated: false
+      name: filter
+      description: >-
+        This query can be used to pass CEL Expressions to filter the response.
+        See more details
+        [here](https://github.com/tektoncd/results/tree/main/docs/api#filtering).
+      schema:
+        type: string
+        externalDocs:
+          url: https://github.com/tektoncd/results/tree/main/docs/api#filtering
+      in: query
+      required: false
+      allowEmptyValue: false
+      x-last-modified: 1679485842876
+    order_by:
+      deprecated: false
+      name: order_by
+      description: >-
+        This query can be used to order the response based on parameters. More
+        details can be found
+        [here](https://github.com/tektoncd/results/tree/main/docs/api#ordering).
+        Note: Add `%20` instead of space when adding an optional direction
+        qualifier, e.g `created_by%20asc`.
+      schema:
+        type: string
+        externalDocs:
+          url: https://github.com/tektoncd/results/tree/main/docs/api#ordering
+      in: query
+      required: false
+      allowEmptyValue: false
+      x-last-modified: 1679489217285
+  securitySchemes:
+    BasicAuth:
+      scheme: bearer
+      type: http
+      description: |-
+        Example:
+        > Authorization: Bearer ZGVtbzpwQDU1dzByZA ==
+      x-last-modified: 1677672932761
+  headers: {}
+security:
+  - BasicAuth: []
+tags:
+  - name: Records
+    description: >-
+      Records are individual instances of data. These will commonly be execution
+      data (e.g. PipelineRun, TaskRuns, Logs), but could also reference
+      additional data about the event/execution. Records are intended to be
+      flexible to support arbitrary information tools want to provide around a
+      CI event.
+    externalDocs:
+      url: https://github.com/tektoncd/results#data-model
+    x-last-modified: 1677767456366
+  - name: Logs
+    description: "Logs is a type of Record. "
+    x-last-modified: 1677767481655
+  - name: Results
+    description: >
+      Results are aggregators of Records, allowing users to refer to groups of
+      Records as a single entity. For example, you might have a single Result
+      that groups the following Records:
+
+
+      * Source Event (e.g. pull request, push) that kicked off the action.
+
+      * The PipelineRun that occurred.
+       * The TaskRuns that occurred in response of the PipelineRun (one per Task).
+       * Receipt of Cloud Event delivery.
+       * Receipt of Source status update.
+    externalDocs:
+      url: https://github.com/tektoncd/results#data-model
+    x-last-modified: 1677767734084
+externalDocs:
+  description: See Results API Documentation
+  url: https://github.com/tektoncd/results/tree/main/docs/api

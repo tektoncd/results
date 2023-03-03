@@ -27,6 +27,7 @@ allows you to:
   PipelineRuns into a single unit)
 - Make long-term result history independent of the Pipeline CRD controller,
   letting you free up etcd resources for Run execution.
+- Store logs produced by the TaskRuns/PipelineRuns so that completed Runs can be cleaned to save resources.
 
 Additional background and design motivations can be found in
 [TEP-0021](https://github.com/tektoncd/community/blob/main/teps/0021-results-api.md).
@@ -42,16 +43,25 @@ Tekton Results is composed of 2 main components:
 
 ### Life of a Result
 
-![overview](overview.png)
+```mermaid
+sequenceDiagram
+  actor U as Users
+  participant PC as Pipeline Controller
+  participant RW as Result Watcher
+  participant RA as Result API
+  U->>PC: Create PipelineRun/TaskRun
+  RW-->>PC: Watch PipelineRun/TaskRun
+  Note over PC,RW: Wait for PipelineRun/TaskRun Completion
+  RW->>RA: Update results database
+  U--)RA: Get Results
+```
 
 1. User creates a TaskRun or PipelineRun via the Kubernetes API as usual.
 2. Result Watcher listens for all TaskRun/PipelineRun changes.
 3. If a TaskRun/PipelineRun has changed, Watcher updates (or creates) a
    corresponding `Record` (and `Result` if necessary using the Results API.
-
-- Watcher will also annotate the original TaskRun/PipelineRun with identifiers
-  as well.
-
+    - Watcher will also annotate the original TaskRun/PipelineRun with
+    identifiers as well.
 4. Users can get/query Result/Record data directly from the API. Once the
    TaskRun/PipelineRun is complete and has been successfully stored in the
    Result API, the original CRD object can be safely removed from the cluster.
@@ -66,7 +76,15 @@ Tekton Results is composed of 2 main components:
 
 ## Data Model
 
-![results data model](datamodel.png)
+```mermaid
+---
+title: Tekton Results Data Model 
+---
+graph BT
+  B(TaskRun) --> |Record| A[Result]
+  C(Log) --> |Record| A
+  D(PipelineRun) --> |Record| A
+```
 
 - Records are individual instances of data. These will commonly be execution
   data (e.g. PipelineRun, TaskRuns, Logs), but could also reference additional data

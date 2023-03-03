@@ -134,7 +134,7 @@ The following command can be run to query the cluster's permissions. This can be
 useful for debugging permission denied errors:
 
 ```sh
-$ kubectl create --as=system:serviceaccount:tekton-pipelines:tekton-results-watcher -n tekton-pipelines -f - -o yaml << EOF
+kubectl create --as=system:serviceaccount:tekton-pipelines:tekton-results-watcher -n tekton-pipelines -f - -o yaml << EOF
 apiVersion: authorization.k8s.io/v1
 kind: SelfSubjectAccessReview
 spec:
@@ -183,9 +183,9 @@ filtering spec. Filter specs expect a boolean result value.
 
 | Name      | Description                                                                                                                                              |
 | --------- |----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name      | Record name                                                                                                                                              |
-| data_type | Type identifier of the Record data (corresponds to [Any.type](../../proto/v1alpha2/resources.proto))                                                     |
-| data      | Record data (see [JSON Data Conversion](https://github.com/google/cel-spec/blob/master/doc/langdef.md#json-data-conversion) for how CEL represents this) |
+| `name`      | Record name                                                                                                                                              |
+| `data_type` | Type identifier of the Record data (corresponds to [Any.type](../../proto/v1alpha2/resources.proto))                                                     |
+| `data`      | Record data (see [JSON Data Conversion](https://github.com/google/cel-spec/blob/master/doc/langdef.md#json-data-conversion) for how CEL represents this) |
 
 ### Cookbook
 
@@ -195,6 +195,10 @@ filtering spec. Filter specs expect a boolean result value.
 | `data_type == "tekton.dev/v1beta1.TaskRun"`                                    | Get all Records of type TaskRun                                              |
 | `data.status.conditions.has(c, c.type=="Succeeded" && c.status=="False")`      | Get all TaskRuns and PipelineRuns that have failed.                          |
 | `data.status.completion_time - record.data.status.start_time > duration("5m")` | Get all TaskRuns and PipelineRuns that took more than 5 minutes to complete. |
+
+**NOTE**: While performing a REST request, CEL filtering expressions
+should be passed by specifying `filer=<cel-expression>` format. Examples:
+`<query-url>?filter=name.startsWith("foo/results/bar")` or `<query-url>?filter=data_type=="results.tekton.dev/v1alpha2.Log`.
 
 ## Ordering
 
@@ -216,6 +220,23 @@ Fields supported in `order_by`:
 | `created_time` |
 | `updated_time` |
 
+## Pagination
+
+The reference implementation of Results API supports pagination for results, records
+and logs. The default number of objects in a single page is 50 and the
+maximum number is 10000.
+
+To paginate the response, include `page_size` query parameter in your request.
+It must be an integer value between 0 and 10000. If the `page_size` is less than
+the number of total objects available for the particular query, the response will
+include a `NextPageToken` in the response. You can pass this value to `page_token`
+query parameter to fetch the next page. Both the queries are independent and can
+be used individually or together.
+
+| Name | Description |
+| `page_size` | The number of objects to fetch in the response. |
+| `page_token` | Token of the page to be fetched. |
+
 ## Reading results across parents
 
 Results can be read across parents by specifying `-` as the parent name. This is useful for listing all results stored in the system without a prior knowledge about the available parents.
@@ -231,4 +252,8 @@ without knowing the exact Result name.
 The API Server includes an HTTP server for exposing gRPC server Prometheus
 metrics. By default, the Service exposes metrics on port `:9090`. For more
 details on the structure of the metrics, see
-https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics.
+<https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics>.
+
+## References
+
+- [OpenAPI Specification](openapi.yaml)
