@@ -52,7 +52,7 @@ You can redeploy all components with kubectl and ko. Just make sure to
 
 ```sh
 $ export KO_DOCKER_REPO=kind.local
-$ kubectl kustomize ./config | ko apply -f -
+$ kubectl kustomize ./test/e2e/kustomize/ | ko apply -f -
 ```
 
 ## Debugging
