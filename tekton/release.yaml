@@ -103,6 +103,7 @@ spec:
             image: gcr.io/google.com/cloudsdktool/cloud-sdk:310.0.0@sha256:cb03669fcdb9191d55a6200f2911fff3baec0b8c39b156d95b68aabe975ac506 #tag: 310.0.0
             script: |
               gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/results/previous/$(params.version)/release.yaml
+              gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/results/latest/release.yaml
       params:
         - name: version
           value: $(params.version)
