@@ -290,14 +290,14 @@ func (pt PipelineTask) validateTask(ctx context.Context) (errs *apis.FieldError)
 		if pt.TaskRef.Name != "" {
 			// TaskRef name must be a valid k8s name
 			if errSlice := validation.IsQualifiedName(pt.TaskRef.Name); len(errSlice) != 0 {
-				errs = errs.Also(apis.ErrInvalidValue(strings.Join(errSlice, ","), "name"))
+				errs = errs.Also(apis.ErrInvalidValue(strings.Join(errSlice, ","), "taskRef.name"))
 			}
 		} else if pt.TaskRef.Resolver == "" {
 			errs = errs.Also(apis.ErrInvalidValue("taskRef must specify name", "taskRef.name"))
 		}
 		// fail if bundle is present when EnableTektonOCIBundles feature flag is off (as it won't be allowed nor used)
 		if !cfg.FeatureFlags.EnableTektonOCIBundles && pt.TaskRef.Bundle != "" {
-			errs = errs.Also(apis.ErrDisallowedFields("taskref.bundle"))
+			errs = errs.Also(apis.ErrDisallowedFields("taskRef.bundle"))
 		}
 	}
 	return errs
@@ -313,9 +313,6 @@ func (pt *PipelineTask) validateMatrix(ctx context.Context) (errs *apis.FieldErr
 		// This is an alpha feature and will fail validation if it's used in a pipeline spec
 		// when the enable-api-fields feature gate is anything but "alpha".
 		errs = errs.Also(version.ValidateEnabledAPIFields(ctx, "matrix", config.AlphaAPIFields))
-		// Matrix requires "embedded-status" feature gate to be set to "minimal", and will fail
-		// validation if it is anything but "minimal".
-		errs = errs.Also(ValidateEmbeddedStatus(ctx, "matrix", config.MinimalEmbeddedStatus))
 		errs = errs.Also(pt.validateMatrixCombinationsCount(ctx))
 	}
 	errs = errs.Also(validateParameterInOneOfMatrixOrParams(pt.Matrix, pt.Params))
@@ -463,12 +460,11 @@ func (pt PipelineTask) Validate(ctx context.Context) (errs *apis.FieldError) {
 	errs = errs.Also(pt.validateEmbeddedOrType())
 
 	cfg := config.FromContextOrDefaults(ctx)
-	// If EnableCustomTasks feature flag is on, validate custom task specifications
-	// pipeline task having taskRef with APIVersion is classified as custom task
+	// Pipeline task having taskRef/taskSpec with APIVersion is classified as custom task
 	switch {
-	case cfg.FeatureFlags.EnableCustomTasks && pt.TaskRef != nil && pt.TaskRef.APIVersion != "":
+	case pt.TaskRef != nil && pt.TaskRef.APIVersion != "":
 		errs = errs.Also(pt.validateCustomTask())
-	case cfg.FeatureFlags.EnableCustomTasks && pt.TaskSpec != nil && pt.TaskSpec.APIVersion != "":
+	case pt.TaskSpec != nil && pt.TaskSpec.APIVersion != "":
 		errs = errs.Also(pt.validateCustomTask())
 		// If EnableTektonOCIBundles feature flag is on, validate bundle specifications
 	case cfg.FeatureFlags.EnableTektonOCIBundles && pt.TaskRef != nil && pt.TaskRef.Bundle != "":

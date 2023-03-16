@@ -23,6 +23,7 @@ import (
 
 // SetupFakeContext sets up the Context and the fake filtered informers for the tests.
 func SetupFakeContext(t *testing.T) (context.Context, []controller.Informer) {
+	t.Helper()
 	ctx, _, informer := setupFakeContextWithLabelKey(t)
 	return WithLogger(ctx, t), informer
 }
@@ -32,21 +33,23 @@ func SetupFakeCloudClientContext(ctx context.Context, expectedEventCount int) co
 	cloudEventClientBehaviour := cloudevent.FakeClientBehaviour{
 		SendSuccessfully: true,
 	}
-	return cloudevent.WithClient(ctx, &cloudEventClientBehaviour, expectedEventCount)
+	return cloudevent.WithFakeClient(ctx, &cloudEventClientBehaviour, expectedEventCount)
 }
 
 // SetupDefaultContext sets up the Context and the default filtered informers for the tests.
 func SetupDefaultContext(t *testing.T) (context.Context, []controller.Informer) {
+	t.Helper()
 	ctx, _, informer := setupDefaultContextWithLabelKey(t)
 	return WithLogger(ctx, t), informer
 }
 
-// WithLogger returns the the Logger
+// WithLogger returns the Logger
 func WithLogger(ctx context.Context, t *testing.T) context.Context {
+	t.Helper()
 	return logging.WithLogger(ctx, TestLogger(t))
 }
 
-// TestLogger sets up the the Logger
+// TestLogger sets up the Logger
 func TestLogger(t *testing.T) *zap.SugaredLogger {
 	logger := zaptest.NewLogger(t, zaptest.WrapOptions(zap.AddCaller()))
 	return logger.Sugar().Named(t.Name())

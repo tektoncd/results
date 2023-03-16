@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -24,11 +25,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/tektoncd/pipeline/internal/sidecarlogresults"
+	"github.com/tektoncd/pipeline/pkg/apis/config"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/termination"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 )
 
@@ -104,7 +109,7 @@ func SidecarsReady(podStatus corev1.PodStatus) bool {
 }
 
 // MakeTaskRunStatus returns a TaskRunStatus based on the Pod's status.
-func MakeTaskRunStatus(logger *zap.SugaredLogger, tr v1beta1.TaskRun, pod *corev1.Pod) (v1beta1.TaskRunStatus, error) {
+func MakeTaskRunStatus(ctx context.Context, logger *zap.SugaredLogger, tr v1beta1.TaskRun, pod *corev1.Pod, kubeclient kubernetes.Interface, ts *v1beta1.TaskSpec) (v1beta1.TaskRunStatus, error) {
 	trs := &tr.Status
 	if trs.GetCondition(apis.ConditionSucceeded) == nil || trs.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionUnknown {
 		// If the taskRunStatus doesn't exist yet, it's because we just started running
@@ -136,7 +141,7 @@ func MakeTaskRunStatus(logger *zap.SugaredLogger, tr v1beta1.TaskRun, pod *corev
 	}
 
 	var merr *multierror.Error
-	if err := setTaskRunStatusBasedOnStepStatus(logger, stepStatuses, &tr); err != nil {
+	if err := setTaskRunStatusBasedOnStepStatus(ctx, logger, stepStatuses, &tr, pod.Status.Phase, kubeclient, ts); err != nil {
 		merr = multierror.Append(merr, err)
 	}
 
@@ -147,10 +152,36 @@ func MakeTaskRunStatus(logger *zap.SugaredLogger, tr v1beta1.TaskRun, pod *corev
 	return *trs, merr.ErrorOrNil()
 }
 
-func setTaskRunStatusBasedOnStepStatus(logger *zap.SugaredLogger, stepStatuses []corev1.ContainerStatus, tr *v1beta1.TaskRun) *multierror.Error {
+func setTaskRunStatusBasedOnStepStatus(ctx context.Context, logger *zap.SugaredLogger, stepStatuses []corev1.ContainerStatus, tr *v1beta1.TaskRun, podPhase corev1.PodPhase, kubeclient kubernetes.Interface, ts *v1beta1.TaskSpec) *multierror.Error {
 	trs := &tr.Status
 	var merr *multierror.Error
 
+	// collect results from taskrun spec and taskspec
+	specResults := []v1beta1.TaskResult{}
+	if tr.Spec.TaskSpec != nil {
+		specResults = append(specResults, tr.Spec.TaskSpec.Results...)
+	}
+	if ts != nil {
+		specResults = append(specResults, ts.Results...)
+	}
+
+	// Extract results from sidecar logs
+	sidecarLogsResultsEnabled := config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs
+	if sidecarLogsResultsEnabled && tr.Status.TaskSpec.Results != nil {
+		// extraction of results from sidecar logs
+		sidecarLogResults, err := sidecarlogresults.GetResultsFromSidecarLogs(ctx, kubeclient, tr.Namespace, tr.Status.PodName, pipeline.ReservedResultsSidecarContainerName, podPhase)
+		if err != nil {
+			merr = multierror.Append(merr, err)
+		}
+
+		// populate task run CRD with results from sidecar logs
+		taskResults, pipelineResourceResults, _ := filterResultsAndResources(sidecarLogResults, specResults)
+		if tr.IsSuccessful() {
+			trs.TaskRunResults = append(trs.TaskRunResults, taskResults...)
+			trs.ResourcesResult = append(trs.ResourcesResult, pipelineResourceResults...)
+		}
+	}
+	// Continue with extraction of termination messages
 	for _, s := range stepStatuses {
 		if s.State.Terminated != nil && len(s.State.Terminated.Message) != 0 {
 			msg := s.State.Terminated.Message
@@ -170,7 +201,8 @@ func setTaskRunStatusBasedOnStepStatus(logger *zap.SugaredLogger, stepStatuses [
 					logger.Errorf("error extracting the exit code of step %q in taskrun %q: %v", s.Name, tr.Name, err)
 					merr = multierror.Append(merr, err)
 				}
-				taskResults, pipelineResourceResults, filteredResults := filterResultsAndResources(results)
+
+				taskResults, pipelineResourceResults, filteredResults := filterResultsAndResources(results, specResults)
 				if tr.IsSuccessful() {
 					trs.TaskRunResults = append(trs.TaskRunResults, taskResults...)
 					trs.ResourcesResult = append(trs.ResourcesResult, pipelineResourceResults...)
@@ -199,7 +231,6 @@ func setTaskRunStatusBasedOnStepStatus(logger *zap.SugaredLogger, stepStatuses [
 	}
 
 	return merr
-
 }
 
 func setTaskRunStatusBasedOnSidecarStatus(sidecarStatuses []corev1.ContainerStatus, trs *v1beta1.TaskRunStatus) {
@@ -224,22 +255,35 @@ func createMessageFromResults(results []v1beta1.PipelineResourceResult) (string,
 	return string(bytes), nil
 }
 
-func filterResultsAndResources(results []v1beta1.PipelineResourceResult) ([]v1beta1.TaskRunResult, []v1beta1.PipelineResourceResult, []v1beta1.PipelineResourceResult) {
+func filterResultsAndResources(results []v1beta1.PipelineResourceResult, specResults []v1beta1.TaskResult) ([]v1beta1.TaskRunResult, []v1beta1.PipelineResourceResult, []v1beta1.PipelineResourceResult) {
 	var taskResults []v1beta1.TaskRunResult
 	var pipelineResourceResults []v1beta1.PipelineResourceResult
 	var filteredResults []v1beta1.PipelineResourceResult
+	neededTypes := make(map[string]v1beta1.ResultsType)
+	for _, r := range specResults {
+		neededTypes[r.Name] = r.Type
+	}
 	for _, r := range results {
 		switch r.ResultType {
 		case v1beta1.TaskRunResultType:
-			v := v1beta1.ResultValue{}
-			err := v.UnmarshalJSON([]byte(r.Value))
-			if err != nil {
-				continue
-			}
-			taskRunResult := v1beta1.TaskRunResult{
-				Name:  r.Key,
-				Type:  v1beta1.ResultsType(v.Type),
-				Value: v,
+			taskRunResult := v1beta1.TaskRunResult{}
+			if neededTypes[r.Key] == v1beta1.ResultsTypeString {
+				taskRunResult = v1beta1.TaskRunResult{
+					Name:  r.Key,
+					Type:  v1beta1.ResultsTypeString,
+					Value: *v1beta1.NewStructuredValues(r.Value),
+				}
+			} else {
+				v := v1beta1.ResultValue{}
+				err := v.UnmarshalJSON([]byte(r.Value))
+				if err != nil {
+					continue
+				}
+				taskRunResult = v1beta1.TaskRunResult{
+					Name:  r.Key,
+					Type:  v1beta1.ResultsType(v.Type),
+					Value: v,
+				}
 			}
 			taskResults = append(taskResults, taskRunResult)
 			filteredResults = append(filteredResults, r)
@@ -337,15 +381,30 @@ func updateIncompleteTaskRunStatus(trs *v1beta1.TaskRunStatus, pod *corev1.Pod) 
 
 // DidTaskRunFail check the status of pod to decide if related taskrun is failed
 func DidTaskRunFail(pod *corev1.Pod) bool {
-	f := pod.Status.Phase == corev1.PodFailed
+	if pod.Status.Phase == corev1.PodFailed {
+		return true
+	}
+
 	for _, s := range pod.Status.ContainerStatuses {
 		if IsContainerStep(s.Name) {
 			if s.State.Terminated != nil {
-				f = f || s.State.Terminated.ExitCode != 0 || isOOMKilled(s)
+				if s.State.Terminated.ExitCode != 0 || isOOMKilled(s) {
+					return true
+				}
 			}
 		}
 	}
-	return f
+	return false
+}
+
+// IsPodArchived indicates if a pod is archived in the retriesStatus.
+func IsPodArchived(pod *corev1.Pod, trs *v1beta1.TaskRunStatus) bool {
+	for _, retryStatus := range trs.RetriesStatus {
+		if retryStatus.PodName == pod.GetName() {
+			return true
+		}
+	}
+	return false
 }
 
 func areStepsComplete(pod *corev1.Pod) bool {
@@ -361,26 +420,17 @@ func areStepsComplete(pod *corev1.Pod) bool {
 }
 
 func getFailureMessage(logger *zap.SugaredLogger, pod *corev1.Pod) string {
-	// First, try to surface an error about the actual build step that failed.
+	// First, try to surface an error about the actual init container that failed.
+	for _, status := range pod.Status.InitContainerStatuses {
+		if msg := extractContainerFailureMessage(logger, status, pod.ObjectMeta); len(msg) > 0 {
+			return fmt.Sprintf("init container failed, %s", msg)
+		}
+	}
+
+	// Next, try to surface an error about the actual build step that failed.
 	for _, status := range pod.Status.ContainerStatuses {
-		term := status.State.Terminated
-		if term != nil {
-			msg := status.State.Terminated.Message
-			r, _ := termination.ParseMessage(logger, msg)
-			for _, result := range r {
-				if result.ResultType == v1beta1.InternalTektonResultType && result.Key == "Reason" && result.Value == "TimeoutExceeded" {
-					// Newline required at end to prevent yaml parser from breaking the log help text at 80 chars
-					return fmt.Sprintf("%q exited because the step exceeded the specified timeout limit; for logs run: kubectl -n %s logs %s -c %s\n",
-						status.Name,
-						pod.Namespace, pod.Name, status.Name)
-				}
-			}
-			if term.ExitCode != 0 {
-				// Newline required at end to prevent yaml parser from breaking the log help text at 80 chars
-				return fmt.Sprintf("%q exited with code %d (image: %q); for logs run: kubectl -n %s logs %s -c %s\n",
-					status.Name, term.ExitCode, status.ImageID,
-					pod.Namespace, pod.Name, status.Name)
-			}
+		if msg := extractContainerFailureMessage(logger, status, pod.ObjectMeta); len(msg) > 0 {
+			return msg
 		}
 	}
 	// Next, return the Pod's status message if it has one.
@@ -400,6 +450,31 @@ func getFailureMessage(logger *zap.SugaredLogger, pod *corev1.Pod) string {
 
 	// Lastly fall back on a generic error message.
 	return "build failed for unspecified reasons."
+}
+
+// extractContainerFailureMessage returns the container failure message by container status or init container status.
+func extractContainerFailureMessage(logger *zap.SugaredLogger, status corev1.ContainerStatus, podMetaData metav1.ObjectMeta) string {
+	term := status.State.Terminated
+	if term != nil {
+		msg := status.State.Terminated.Message
+		r, _ := termination.ParseMessage(logger, msg)
+		for _, result := range r {
+			if result.ResultType == v1beta1.InternalTektonResultType && result.Key == "Reason" && result.Value == "TimeoutExceeded" {
+				// Newline required at end to prevent yaml parser from breaking the log help text at 80 chars
+				return fmt.Sprintf("%q exited because the step exceeded the specified timeout limit; for logs run: kubectl -n %s logs %s -c %s\n",
+					status.Name,
+					podMetaData.Namespace, podMetaData.Name, status.Name)
+			}
+		}
+		if term.ExitCode != 0 {
+			// Newline required at end to prevent yaml parser from breaking the log help text at 80 chars
+			return fmt.Sprintf("%q exited with code %d (image: %q); for logs run: kubectl -n %s logs %s -c %s\n",
+				status.Name, term.ExitCode, status.ImageID,
+				podMetaData.Namespace, podMetaData.Name, status.Name)
+		}
+	}
+
+	return ""
 }
 
 // IsPodExceedingNodeResources returns true if the Pod's status indicates there

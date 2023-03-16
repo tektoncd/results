@@ -10,7 +10,6 @@ import (
 	resolverconfig "github.com/tektoncd/pipeline/pkg/apis/config/resolver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/system"
 )
 
@@ -20,6 +19,7 @@ import (
 // the test if it cannot get the feature-flag configmap.
 func requireAnyGate(gates map[string]string) func(context.Context, *testing.T, *clients, string) {
 	return func(ctx context.Context, t *testing.T, c *clients, namespace string) {
+		t.Helper()
 		featureFlagsCM, err := c.KubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
@@ -57,6 +57,7 @@ func requireAnyGate(gates map[string]string) func(context.Context, *testing.T, *
 // the test if it cannot get the feature-flag configmap.
 func requireAllGates(gates map[string]string) func(context.Context, *testing.T, *clients, string) {
 	return func(ctx context.Context, t *testing.T, c *clients, namespace string) {
+		t.Helper()
 		featureFlagsCM, err := c.KubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
@@ -86,18 +87,4 @@ func requireAllGates(gates map[string]string) func(context.Context, *testing.T, 
 			t.Skipf("One or more feature flags not matching required: %s", strings.Join(pairs, "; "))
 		}
 	}
-}
-
-// GetEmbeddedStatus gets the current value for the "embedded-status" feature flag.
-// If the flag is not set, it returns the default value.
-func GetEmbeddedStatus(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface) string {
-	featureFlagsCM, err := kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
-	}
-	val := featureFlagsCM.Data["embedded-status"]
-	if val == "" {
-		return config.DefaultEmbeddedStatus
-	}
-	return val
 }

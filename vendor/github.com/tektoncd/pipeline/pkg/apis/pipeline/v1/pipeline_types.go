@@ -283,9 +283,6 @@ func (pt *PipelineTask) validateMatrix(ctx context.Context) (errs *apis.FieldErr
 		// This is an alpha feature and will fail validation if it's used in a pipeline spec
 		// when the enable-api-fields feature gate is anything but "alpha".
 		errs = errs.Also(version.ValidateEnabledAPIFields(ctx, "matrix", config.AlphaAPIFields))
-		// Matrix requires "embedded-status" feature gate to be set to "minimal", and will fail
-		// validation if it is anything but "minimal".
-		errs = errs.Also(ValidateEmbeddedStatus(ctx, "matrix", config.MinimalEmbeddedStatus))
 		errs = errs.Also(pt.validateMatrixCombinationsCount(ctx))
 	}
 	errs = errs.Also(validateParameterInOneOfMatrixOrParams(pt.Matrix, pt.Params))
@@ -476,13 +473,11 @@ func (pt PipelineTask) Validate(ctx context.Context) (errs *apis.FieldError) {
 
 	errs = errs.Also(pt.validateEmbeddedOrType())
 
-	cfg := config.FromContextOrDefaults(ctx)
-	// If EnableCustomTasks feature flag is on, validate custom task specifications
-	// pipeline task having taskRef with APIVersion is classified as custom task
+	// Pipeline task having taskRef/taskSpec with APIVersion is classified as custom task
 	switch {
-	case cfg.FeatureFlags.EnableCustomTasks && pt.TaskRef != nil && pt.TaskRef.APIVersion != "":
+	case pt.TaskRef != nil && pt.TaskRef.APIVersion != "":
 		errs = errs.Also(pt.validateCustomTask())
-	case cfg.FeatureFlags.EnableCustomTasks && pt.TaskSpec != nil && pt.TaskSpec.APIVersion != "":
+	case pt.TaskSpec != nil && pt.TaskSpec.APIVersion != "":
 		errs = errs.Also(pt.validateCustomTask())
 	default:
 		errs = errs.Also(pt.validateTask(ctx))
