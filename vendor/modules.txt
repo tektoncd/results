@@ -1165,6 +1165,7 @@ gorm.io/gorm/logger
 gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
+gorm.io/gorm/utils/tests
 # k8s.io/api v0.25.10
 ## explicit; go 1.19
 k8s.io/api/admission/v1

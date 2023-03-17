@@ -15,10 +15,11 @@
 package record
 
 import (
-	"github.com/tektoncd/results/pkg/api/server/config"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tektoncd/results/pkg/api/server/config"
 
 	"github.com/google/go-cmp/cmp"
 	cw "github.com/jonboulle/clockwork"
@@ -276,11 +277,7 @@ func TestToAPI(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ToAPI(tc.in)
-			if err != nil {
-				t.Fatal(err)
-			}
-
+			got := ToAPI(tc.in)
 			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("-want,+got: %s", diff)
 			}

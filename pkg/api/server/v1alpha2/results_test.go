@@ -17,13 +17,17 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/results/pkg/api/server/config"
-	"github.com/tektoncd/results/pkg/api/server/logger"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/logger"
+
+	"sort"
+
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -358,278 +362,261 @@ func TestCascadeDelete(t *testing.T) {
 }
 
 func TestListResults(t *testing.T) {
-	// Reset so IDs match names
 	lastID = 0
-
-	// Create a temporary database
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	server, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
-		t.Fatalf("failed to setup db: %v", err)
+		t.Fatal(err)
 	}
-	ctx := context.Background()
 
 	parent := "foo"
-	results := make([]*pb.Result, 0, 5)
+	results := make([]*pb.Result, 0, 20)
+	ctx := context.Background()
 
 	for i := 1; i <= cap(results); i++ {
 		fakeClock.Advance(time.Second)
-		res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
-			Parent: "foo",
+		resultID := uuid.New().String()
+		result, err := server.CreateResult(ctx, &pb.CreateResultRequest{
+			Parent: parent,
 			Result: &pb.Result{
-				Name:        fmt.Sprintf("%s/results/%d", parent, i),
-				Annotations: map[string]string{"foo": fmt.Sprintf("bar-%d", i)},
+				Name: fmt.Sprintf("%s/results/%s", parent, resultID),
+				Annotations: map[string]string{
+					"foo": fmt.Sprintf("bar-%d", i),
+				},
+				Summary: &pb.RecordSummary{
+					Record:    fmt.Sprintf("%s/results/%s/records/%s", parent, resultID, uuid.New().String()),
+					Type:      "resource_type",
+					StartTime: timestamppb.New(fakeClock.Now()),
+					EndTime:   timestamppb.New(fakeClock.Now().Add(time.Minute)),
+				},
 			},
 		})
+
 		if err != nil {
-			t.Fatalf("could not create result: %v", err)
+			t.Fatalf("Error creating result: %v", err)
 		}
-		t.Logf("Created name: %s, id: %s", res.GetName(), res.GetId())
-		results = append(results, res)
+
+		results = append(results, result)
 	}
 
-	reversedResults := make([]*pb.Result, len(results))
-	for i := len(results); i > 0; i-- {
-		reversedResults[len(results)-i] = results[i-1]
+	reverse := func(in []*pb.Result) []*pb.Result {
+		out := make([]*pb.Result, len(in))
+		for i := len(in); i > 0; i-- {
+			out[len(in)-i] = in[i-1]
+		}
+		return out
 	}
 
-	tt := []struct {
-		name   string
-		req    *pb.ListResultsRequest
-		want   *pb.ListResultsResponse
-		status codes.Code
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].GetUid() < results[j].GetUid()
+	})
+	sortedResultsByTimestamp := make([]*pb.Result, len(results))
+	copy(sortedResultsByTimestamp, results)
+	sort.Slice(sortedResultsByTimestamp, func(i, j int) bool {
+		return sortedResultsByTimestamp[i].GetCreateTime().AsTime().Before(sortedResultsByTimestamp[j].CreateTime.AsTime())
+	})
+	reversedResultsByTimestamp := reverse(sortedResultsByTimestamp)
+
+	assertEqual := func(t *testing.T, want, got []*pb.Result, pageNumber int) {
+		t.Helper()
+		if diff := cmp.Diff(want, got,
+			protocmp.Transform()); diff != "" {
+			t.Fatalf("Mismatch comparing results in the page %d (-want +got):\n%s", pageNumber, diff)
+		}
+	}
+
+	tests := []struct {
+		name    string
+		request *pb.ListResultsRequest
+		want    *pb.ListResultsResponse
+		status  codes.Code
 	}{
 		{
-			name: "list all",
-			req: &pb.ListResultsRequest{
+			name: "list all results",
+			request: &pb.ListResultsRequest{
 				Parent: parent,
 			},
 			want: &pb.ListResultsResponse{
 				Results: results,
 			},
-			status: codes.OK,
 		},
 		{
 			name: "list all results without knowing the parent name",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: "-",
 			},
 			want: &pb.ListResultsResponse{
 				Results: results,
 			},
-			status: codes.OK,
-		},
-		{
-			name: "list all w/ pagination token",
-			req: &pb.ListResultsRequest{
-				Parent:   parent,
-				PageSize: int32(len(results)),
-			},
-			want: &pb.ListResultsResponse{
-				Results: results,
-			},
-			status: codes.OK,
 		},
 		{
 			name: "no results",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: fmt.Sprintf("%s-doesnotexist", parent),
 			},
-			want:   &pb.ListResultsResponse{},
-			status: codes.OK,
+			want: &pb.ListResultsResponse{Results: []*pb.Result{}},
 		},
 		{
-			name:   "missing parent",
-			req:    &pb.ListResultsRequest{},
-			status: codes.InvalidArgument,
+			name:    "missing parent",
+			request: &pb.ListResultsRequest{},
+			status:  codes.InvalidArgument,
 		},
 		{
 			name: "simple query",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `result.id == "1"`,
+				Filter: `uid == "1"`,
 			},
 			want: &pb.ListResultsResponse{
-				Results: results[:1],
-			},
-		},
-		{
-			name: "simple query - function",
-			req: &pb.ListResultsRequest{
-				Parent: parent,
-				Filter: `result.id.endsWith("1")`,
-			},
-			want: &pb.ListResultsResponse{
-				Results: results[:1],
+				Results: results[0:1],
 			},
 		},
 		{
 			name: "complex query",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `result.id == "1" || result.id == "2"`,
+				Filter: `uid == "1" || uid == "10"`,
 			},
 			want: &pb.ListResultsResponse{
-				Results: results[:2],
+				Results: results[0:2],
 			},
 		},
 		{
 			name: "filter all",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `result.id == "doesnotexist"`,
+				Filter: `uid == "doesnotexist"`,
 			},
-			want: &pb.ListResultsResponse{},
+			want: &pb.ListResultsResponse{Results: []*pb.Result{}},
 		},
 		{
 			name: "filter by annotations",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `result.annotations["foo"]=="bar-1"`,
+				Filter: `annotations["foo"].endsWith("-1")`,
 			},
 			want: &pb.ListResultsResponse{
-				Results: results[:1],
+				Results: results[0:1],
 			},
 		},
 		{
 			name: "non-boolean expression",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `result.id`,
+				Filter: `id`,
 			},
 			status: codes.InvalidArgument,
 		},
 		{
-			name: "wrong resource type",
-			req: &pb.ListResultsRequest{
+			name: "non-existing field",
+			request: &pb.ListResultsRequest{
 				Parent: parent,
-				Filter: `taskrun.api_version != ""`,
+				Filter: `unknown_field == "foo"`,
 			},
 			status: codes.InvalidArgument,
-		},
-		{
-			name: "partial response",
-			req: &pb.ListResultsRequest{
-				Parent:   parent,
-				PageSize: 1,
-			},
-			want: &pb.ListResultsResponse{
-				Results:       results[:1],
-				NextPageToken: pagetoken(t, results[1].GetId(), ""),
-			},
-		},
-		{
-			name: "partial response with filter",
-			req: &pb.ListResultsRequest{
-				Parent:   parent,
-				PageSize: 1,
-				Filter:   `result.id > "1"`,
-			},
-			want: &pb.ListResultsResponse{
-				Results:       results[1:2],
-				NextPageToken: pagetoken(t, results[2].GetId(), `result.id > "1"`),
-			},
-		},
-		{
-			name: "with page token",
-			req: &pb.ListResultsRequest{
-				Parent:    parent,
-				PageToken: pagetoken(t, results[0].GetId(), ""),
-			},
-			want: &pb.ListResultsResponse{
-				Results: results[1:],
-			},
-		},
-		{
-			name: "with page token and filter and page size",
-			req: &pb.ListResultsRequest{
-				Parent:    parent,
-				PageToken: pagetoken(t, results[0].GetId(), `result.id > "1"`),
-				Filter:    `result.id > "1"`,
-				PageSize:  1,
-			},
-			want: &pb.ListResultsResponse{
-				Results:       results[1:2],
-				NextPageToken: pagetoken(t, results[2].GetId(), `result.id > "1"`),
-			},
 		},
 		{
 			name: "invalid page size",
-			req: &pb.ListResultsRequest{
+			request: &pb.ListResultsRequest{
 				Parent:   parent,
 				PageSize: -1,
 			},
 			status: codes.InvalidArgument,
 		},
-		// Order By
 		{
-			name: "with order by desc",
-			req: &pb.ListResultsRequest{
+			name: "invalid order field name",
+			request: &pb.ListResultsRequest{
 				Parent:  parent,
-				OrderBy: `created_time desc`,
-			},
-			want: &pb.ListResultsResponse{
-				Results: reversedResults,
-			},
-		},
-		{
-			name: "with order by asc",
-			req: &pb.ListResultsRequest{
-				Parent:  parent,
-				OrderBy: `created_time asc`,
-			},
-			want: &pb.ListResultsResponse{
-				Results: results,
-			},
-		},
-		{
-			name: "with default order by direction",
-			req: &pb.ListResultsRequest{
-				Parent:  parent,
-				OrderBy: `created_time`,
-			},
-			want: &pb.ListResultsResponse{
-				Results: results,
-			},
-		},
-		{
-			name: "with invalid order field name",
-			req: &pb.ListResultsRequest{
-				Parent:  parent,
-				OrderBy: `name`,
+				OrderBy: "unknown",
 			},
 			status: codes.InvalidArgument,
 		},
 		{
-			name: "with invalid order clause",
-			req: &pb.ListResultsRequest{
+			name: "invalid order clause",
+			request: &pb.ListResultsRequest{
 				Parent:  parent,
-				OrderBy: `created_time asc foo`,
+				OrderBy: "create_time asc foo",
 			},
 			status: codes.InvalidArgument,
 		},
 		{
-			name: "with invalid order direction",
-			req: &pb.ListResultsRequest{
+			name: "invalid order direction",
+			request: &pb.ListResultsRequest{
 				Parent:  parent,
-				OrderBy: `created_time foo`,
+				OrderBy: "create_time foo",
 			},
 			status: codes.InvalidArgument,
 		},
 	}
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := srv.ListResults(ctx, tc.req)
-			if status.Code(err) != tc.status {
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := server.ListResults(ctx, test.request)
+			if status.Code(err) != test.status {
 				t.Fatal(err)
 			}
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
-				t.Errorf("-want,+got: %s", diff)
-				if name, filter, err := pagination.DecodeToken(got.GetNextPageToken()); err == nil {
-					t.Logf("Next (name, filter) = (%s, %s)", name, filter)
-				}
+			if got != nil {
+				assertEqual(t, test.want.Results, got.Results, 1)
 			}
 		})
 	}
+
+	testPagination := func(filter, orderBy string, results []*pb.Result) func(*testing.T) {
+		return func(t *testing.T) {
+			t.Helper()
+
+			nextPageToken := ""
+			pageSize := 5
+			for i := 0; i < len(results); i += pageSize {
+				got, err := server.ListResults(ctx, &pb.ListResultsRequest{
+					Parent:    parent,
+					Filter:    filter,
+					OrderBy:   orderBy,
+					PageSize:  int32(pageSize),
+					PageToken: nextPageToken,
+				})
+				if err != nil {
+					t.Fatalf("Error listing results: %v", err)
+				}
+
+				upperBound := i + pageSize
+				if upperBound > len(results) {
+					upperBound = len(results)
+				}
+				want := results[i:upperBound]
+				assertEqual(t, want, got.Results, i+1)
+				nextPageToken = got.NextPageToken
+			}
+		}
+	}
+
+	t.Run("paginate results using default order", testPagination("", "", results))
+
+	for _, fieldName := range []string{
+		"create_time",
+		"update_time",
+		"summary.start_time",
+		"summary.end_time",
+	} {
+		// Make sure that pagination works in both directions for each
+		// supported field
+		for _, test := range []struct {
+			orderBy          string
+			resultsToCompare []*pb.Result
+		}{{
+			orderBy:          fieldName + " " + "asc",
+			resultsToCompare: sortedResultsByTimestamp,
+		},
+			{
+				orderBy:          fieldName + " " + "desc",
+				resultsToCompare: reversedResultsByTimestamp,
+			},
+		} {
+			t.Run("paginate results sorting by "+test.orderBy, testPagination("", test.orderBy, test.resultsToCompare))
+		}
+	}
+
+	filter := fmt.Sprintf(`annotations["foo"] != %q && annotations["foo"] != %q`, results[0].Annotations["foo"], results[1].Annotations["foo"])
+	t.Run("paginate results using filter", testPagination(filter, "", results[2:]))
 }
 
 func pagetoken(t *testing.T, name, filter string) string {

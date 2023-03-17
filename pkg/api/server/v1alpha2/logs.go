@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/cel-go/cel"
 	celenv "github.com/tektoncd/results/pkg/api/server/cel"
@@ -14,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
-	"io"
 
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
@@ -164,13 +165,7 @@ func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *
 	if rec == nil || log == nil {
 		return returnErr
 	}
-	apiRec, err := record.ToAPI(rec)
-	if err != nil {
-		if !isNilOrEOF(returnErr) {
-			return returnErr
-		}
-		return err
-	}
+	apiRec := record.ToAPI(rec)
 	apiRec.UpdateTime = timestamppb.Now()
 	if written > 0 {
 		log.Status.Size = written
@@ -310,10 +305,7 @@ func (s *Server) getFilteredPaginatedSortedLogRecords(ctx context.Context, paren
 
 		// Only return results that match the filter.
 		for _, r := range dbrecords {
-			api, err := record.ToAPI(r)
-			if err != nil {
-				return nil, err
-			}
+			api := record.ToAPI(r)
 			ok, err := record.Match(api, prg)
 			if err != nil {
 				return nil, err

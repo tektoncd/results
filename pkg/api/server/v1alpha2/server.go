@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"go.uber.org/zap"
@@ -43,17 +44,14 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 type Server struct {
 	pb.UnimplementedResultsServer
 	pb.UnimplementedLogsServer
-	config *config.Config
-	logger *zap.SugaredLogger
-	env    *cel.Env
-	db     *gorm.DB
-	auth   auth.Checker
+	config     *config.Config
+	logger     *zap.SugaredLogger
+	env        *cel.Env
+	resultsEnv *cel.Env
+	recordsEnv *cel.Env
+	db         *gorm.DB
+	auth       auth.Checker
 
-	// enableDatabaseAutoMigration controls whether the API server will
-	// auto-migrate the database upon startup.
-	enableDatabaseAutoMigration bool
-
-	// Converts result names -> IDs configurable to allow overrides for
 	// testing.
 	getResultID getResultID
 }
@@ -64,12 +62,23 @@ func New(config *config.Config, logger *zap.SugaredLogger, db *gorm.DB, opts ...
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
+	// TODO: turn the func into a MustX that should panic on error.
+	resultsEnv, err := resultscel.NewResultsEnv()
+	if err != nil {
+		return nil, err
+	}
+	recordsEnv, err := resultscel.NewRecordsEnv()
+	if err != nil {
+		return nil, err
+	}
 
 	srv := &Server{
-		db:     db,
-		env:    env,
-		config: config,
-		logger: logger,
+		db:         db,
+		env:        env,
+		resultsEnv: resultsEnv,
+		recordsEnv: recordsEnv,
+		config:     config,
+		logger:     logger,
 		// Default open auth for easier testing.
 		auth: auth.AllowAll{},
 	}

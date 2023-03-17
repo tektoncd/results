@@ -21,12 +21,10 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"gorm.io/gorm"
 
-	"github.com/google/cel-go/cel"
-	celenv "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
-	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/lister"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/protoutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -181,106 +179,25 @@ func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
+
 	if err := s.auth.Check(ctx, req.GetParent(), auth.ResourceResults, auth.PermissionList); err != nil {
 		return nil, err
 	}
 
-	userPageSize, err := pageSize(int(req.GetPageSize()))
+	resultsLister, err := lister.OfResults(s.resultsEnv, req)
 	if err != nil {
 		return nil, err
 	}
 
-	start, err := pageStart(req.GetPageToken(), req.GetFilter())
+	results, nextPageToken, err := resultsLister.List(ctx, s.db)
 	if err != nil {
 		return nil, err
-	}
-
-	sortOrder, err := orderBy(req.GetOrderBy())
-	if err != nil {
-		return nil, err
-	}
-
-	prg, err := celenv.ParseFilter(s.env, req.GetFilter())
-	if err != nil {
-		return nil, err
-	}
-	// Fetch n+1 items to get the next token.
-	out, err := s.getFilteredPaginatedSortedResults(ctx, req.GetParent(), start, userPageSize+1, prg, sortOrder)
-	if err != nil {
-		return nil, err
-	}
-
-	// If we returned the full n+1 items, use the last element as the next page
-	// token.
-	var nextToken string
-	if len(out) > userPageSize {
-		next := out[len(out)-1]
-		var err error
-		nextToken, err = pagination.EncodeToken(next.GetId(), req.GetFilter())
-		if err != nil {
-			return nil, err
-		}
-		out = out[:len(out)-1]
 	}
 
 	return &pb.ListResultsResponse{
-		Results:       out,
-		NextPageToken: nextToken,
+		Results:       results,
+		NextPageToken: nextPageToken,
 	}, nil
-}
-
-// getFilteredPaginatedSortedResults returns the specified number of results that
-// match the given CEL program.
-func (s *Server) getFilteredPaginatedSortedResults(ctx context.Context, parent string, start string, pageSize int, prg cel.Program, sortOrder string) ([]*pb.Result, error) {
-	out := make([]*pb.Result, 0, pageSize)
-	batcher := pagination.NewBatcher(pageSize, minPageSize, maxPageSize)
-	for len(out) < pageSize {
-		batchSize := batcher.Next()
-		dbresults := make([]*db.Result, 0, batchSize)
-		q := s.db.WithContext(ctx).Where("id > ?", start)
-		// Specifying `-` allows users to read Results from any parent.
-		// See https://google.aip.dev/159 for more details.
-		if parent != "-" {
-			q = q.Where("parent = ?", parent)
-		}
-
-		if sortOrder != "" {
-			q.Order(sortOrder)
-		}
-		q.Limit(batchSize).Find(&dbresults)
-		if err := errors.Wrap(q.Error); err != nil {
-			return nil, err
-		}
-
-		// Only return results that match the filter.
-		for _, r := range dbresults {
-			api := result.ToAPI(r)
-			ok, err := result.Match(api, prg)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				continue
-			}
-
-			out = append(out, api)
-			if len(out) >= pageSize {
-				return out, nil
-			}
-		}
-
-		// We fetched fewer results than requested - this means we've exhausted
-		// all items.
-		if len(dbresults) < batchSize {
-			break
-		}
-
-		// Set params for next batch.
-		start = dbresults[len(dbresults)-1].ID
-		batcher.Update(len(dbresults), batchSize)
-
-	}
-	return out, nil
 }
 
 func getResultByParentName(gdb *gorm.DB, parent, name string) (*db.Result, error) {
