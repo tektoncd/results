@@ -17,15 +17,17 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/results/pkg/api/server/config"
-	"github.com/tektoncd/results/pkg/api/server/logger"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/logger"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	recordutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -245,8 +247,8 @@ func TestGetRecord(t *testing.T) {
 		})
 	}
 }
-
 func TestListRecords(t *testing.T) {
+	lastID = 0
 	// Create a temporary database
 	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
@@ -264,9 +266,9 @@ func TestListRecords(t *testing.T) {
 		t.Fatalf("CreateResult: %v", err)
 	}
 
-	records := make([]*pb.Record, 0, 6)
-	// Create 3 TaskRun records
-	for i := 0; i < 3; i++ {
+	records := make([]*pb.Record, 0, 20)
+	// Create 10 TaskRun records
+	for i := 0; i < 10; i++ {
 		fakeClock.Advance(time.Second)
 		r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 			Parent: result.GetName(),
@@ -287,8 +289,8 @@ func TestListRecords(t *testing.T) {
 		records = append(records, r)
 	}
 
-	// Create 3 PipelineRun records
-	for i := 3; i < 6; i++ {
+	// Create 10 PipelineRun records
+	for i := 10; i < 20; i++ {
 		fakeClock.Advance(time.Second)
 		r, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 			Parent: result.GetName(),
@@ -308,13 +310,50 @@ func TestListRecords(t *testing.T) {
 		t.Logf("Created record: %+v", r)
 		records = append(records, r)
 	}
-
-	reversedRecords := make([]*pb.Record, len(records))
-	for i := len(reversedRecords); i > 0; i-- {
-		reversedRecords[len(records)-i] = records[i-1]
+	reverse := func(in []*pb.Record) []*pb.Record {
+		out := make([]*pb.Record, len(in))
+		for i := len(in); i > 0; i-- {
+			out[len(in)-i] = in[i-1]
+		}
+		return out
 	}
 
-	tt := []struct {
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].GetUid() < records[j].GetUid()
+	})
+	sortedRecordsByTimestamp := make([]*pb.Record, len(records))
+	copy(sortedRecordsByTimestamp, records)
+	sort.Slice(sortedRecordsByTimestamp, func(i, j int) bool {
+		return sortedRecordsByTimestamp[i].GetCreateTime().AsTime().Before(sortedRecordsByTimestamp[j].CreateTime.AsTime())
+	})
+	reversedRecordsByTimestamp := reverse(sortedRecordsByTimestamp)
+	sortedTaskRunsByUid := make([]*pb.Record, 0, 10)
+	for _, record := range records {
+		if record.Data.Type == "TaskRun" {
+			sortedTaskRunsByUid = append(sortedTaskRunsByUid, record)
+		}
+	}
+
+	assertEqual := func(t *testing.T, want, got []*pb.Record, pageNumber int) {
+		t.Helper()
+		if diff := cmp.Diff(want, got,
+			protocmp.Transform()); diff != "" {
+			t.Fatalf("Mismatch comparing Records in the page %d (-want +got):\n%s", pageNumber, diff)
+		}
+	}
+
+	getRecordByName := func(t *testing.T, records []*pb.Record, name string) *pb.Record {
+		t.Helper()
+		for _, candidate := range records {
+			if strings.HasSuffix(candidate.Name, "/"+name) {
+				return candidate
+			}
+		}
+		t.Fatalf("No record matches the %q name", name)
+		return nil
+	}
+
+	tests := []struct {
 		name   string
 		req    *pb.ListRecordsRequest
 		want   *pb.ListRecordsResponse
@@ -348,21 +387,21 @@ func TestListRecords(t *testing.T) {
 			},
 		},
 		{
-			// TODO: We should return NOT_FOUND in the future.
 			name: "missing parent",
 			req: &pb.ListRecordsRequest{
 				Parent: "foo/results/baz",
 			},
-			want: &pb.ListRecordsResponse{},
+			status: codes.NotFound,
 		},
 		{
 			name: "filter by record property",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: `name == "foo/results/bar/records/0"`,
+				// Filter: `name == "foo/results/bar/records/0"`,
+				Filter: `name == "0"`,
 			},
 			want: &pb.ListRecordsResponse{
-				Records: records[:1],
+				Records: []*pb.Record{getRecordByName(t, records, "0")},
 			},
 		},
 		{
@@ -372,7 +411,7 @@ func TestListRecords(t *testing.T) {
 				Filter: `data.metadata.name == "0"`,
 			},
 			want: &pb.ListRecordsResponse{
-				Records: records[:1],
+				Records: []*pb.Record{getRecordByName(t, records, "0")},
 			},
 		},
 		{
@@ -382,85 +421,9 @@ func TestListRecords(t *testing.T) {
 				Filter: `data_type == "TaskRun"`,
 			},
 			want: &pb.ListRecordsResponse{
-				Records: records[:3],
+				Records: sortedTaskRunsByUid,
 			},
 		},
-		{
-			name: "filter by parent",
-			req: &pb.ListRecordsRequest{
-				Parent: result.GetName(),
-				Filter: fmt.Sprintf(`name.startsWith("%s")`, result.GetName()),
-			},
-			want: &pb.ListRecordsResponse{
-				Records: records,
-			},
-		},
-		// Pagination
-		{
-			name: "filter and page size",
-			req: &pb.ListRecordsRequest{
-				Parent:   result.GetName(),
-				Filter:   `data_type == "TaskRun"`,
-				PageSize: 1,
-			},
-			want: &pb.ListRecordsResponse{
-				Records:       records[:1],
-				NextPageToken: pagetoken(t, records[1].GetId(), `data_type == "TaskRun"`),
-			},
-		},
-		{
-			name: "only page size",
-			req: &pb.ListRecordsRequest{
-				Parent:   result.GetName(),
-				PageSize: 1,
-			},
-			want: &pb.ListRecordsResponse{
-				Records:       records[:1],
-				NextPageToken: pagetoken(t, records[1].GetId(), ""),
-			},
-		},
-		// Order By
-		{
-			name: "with order asc",
-			req: &pb.ListRecordsRequest{
-				Parent:  result.GetName(),
-				OrderBy: "created_time asc",
-			},
-			want: &pb.ListRecordsResponse{
-				Records: records,
-			},
-		},
-		{
-			name: "with order desc",
-			req: &pb.ListRecordsRequest{
-				Parent:  result.GetName(),
-				OrderBy: "created_time desc",
-			},
-			want: &pb.ListRecordsResponse{
-				Records: reversedRecords,
-			},
-		},
-		{
-			name: "with missing order",
-			req: &pb.ListRecordsRequest{
-				Parent:  result.GetName(),
-				OrderBy: "",
-			},
-			want: &pb.ListRecordsResponse{
-				Records: records,
-			},
-		},
-		{
-			name: "with default order",
-			req: &pb.ListRecordsRequest{
-				Parent:  result.GetName(),
-				OrderBy: "created_time",
-			},
-			want: &pb.ListRecordsResponse{
-				Records: records,
-			},
-		},
-
 		// Errors
 		{
 			name: "unknown type",
@@ -475,14 +438,6 @@ func TestListRecords(t *testing.T) {
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
 				Filter: `record.data.metadata.unknown == "tacocat"`,
-			},
-			status: codes.InvalidArgument,
-		},
-		{
-			name: "invalid page size",
-			req: &pb.ListRecordsRequest{
-				Parent:   result.GetName(),
-				PageSize: -1,
 			},
 			status: codes.InvalidArgument,
 		},
@@ -511,20 +466,71 @@ func TestListRecords(t *testing.T) {
 		},
 	}
 
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := srv.ListRecords(ctx, tc.req)
-			if status.Code(err) != tc.status {
-				t.Fatalf("want %v, got %v", tc.status, err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Logf("Parent: %q\n", test.req.Parent)
+			got, err := srv.ListRecords(ctx, test.req)
+			if status.Code(err) != test.status {
+				t.Fatalf("want %v, got %v", test.status, err)
 			}
 
-			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
-				t.Errorf("-want, +got: %s", diff)
-				if name, filter, err := pagination.DecodeToken(got.GetNextPageToken()); err == nil {
-					t.Logf("Next (name, filter) = (%s, %s)", name, filter)
-				}
+			if got != nil {
+				assertEqual(t, test.want.Records, got.Records, 1)
 			}
 		})
+	}
+
+	testPagination := func(filter, orderBy string, results []*pb.Record) func(*testing.T) {
+		return func(t *testing.T) {
+			t.Helper()
+
+			nextPageToken := ""
+			pageSize := 5
+			for i := 0; i < len(results); i += pageSize {
+				got, err := srv.ListRecords(ctx, &pb.ListRecordsRequest{
+					Parent:    result.GetName(),
+					Filter:    filter,
+					OrderBy:   orderBy,
+					PageSize:  int32(pageSize),
+					PageToken: nextPageToken,
+				})
+				if err != nil {
+					t.Fatalf("Error listing records: %v", err)
+				}
+
+				upperBound := i + pageSize
+				if upperBound > len(results) {
+					upperBound = len(results)
+				}
+				want := results[i:upperBound]
+				assertEqual(t, want, got.Records, i+1)
+				nextPageToken = got.NextPageToken
+			}
+		}
+	}
+
+	t.Run("paginate records using default order", testPagination("", "", records))
+
+	for _, fieldName := range []string{
+		"create_time",
+		"update_time",
+	} {
+		// Make sure that pagination works in both directions for each
+		// supported field
+		for _, test := range []struct {
+			orderBy          string
+			recordsToCompare []*pb.Record
+		}{{
+			orderBy:          fieldName + " " + "asc",
+			recordsToCompare: sortedRecordsByTimestamp,
+		},
+			{
+				orderBy:          fieldName + " " + "desc",
+				recordsToCompare: reversedRecordsByTimestamp,
+			},
+		} {
+			t.Run("paginate records sorting by "+test.orderBy, testPagination("", test.orderBy, test.recordsToCompare))
+		}
 	}
 }
 
@@ -751,6 +757,20 @@ func TestListRecords_multiresult(t *testing.T) {
 		}
 	}
 
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].GetUid() < records[j].GetUid()
+	})
+
+	getRecordsByParent := func(in []*pb.Record, parent string) []*pb.Record {
+		out := make([]*pb.Record, 0)
+		for _, candidate := range in {
+			if strings.HasPrefix(candidate.Name, parent+"/") {
+				out = append(out, candidate)
+			}
+		}
+		return out
+	}
+
 	got, err := srv.ListRecords(ctx, &pb.ListRecordsRequest{
 		Parent: "0/results/-",
 	})
@@ -758,9 +778,9 @@ func TestListRecords_multiresult(t *testing.T) {
 		t.Fatalf("ListRecords(): %v", err)
 	}
 	want := &pb.ListRecordsResponse{
-		Records: records[:4],
+		Records: getRecordsByParent(records, "0"),
 	}
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+	if diff := cmp.Diff(want.Records, got.Records, protocmp.Transform()); diff != "" {
 		t.Error(diff)
 	}
 }

@@ -18,10 +18,11 @@ package record
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
-	"regexp"
 
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -110,7 +111,7 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record, config *
 
 // ToAPI converts a database storage Record into its corresponding API
 // equivalent.
-func ToAPI(r *db.Record) (*pb.Record, error) {
+func ToAPI(r *db.Record) *pb.Record {
 	out := &pb.Record{
 		Name: fmt.Sprintf("%s/results/%s/records/%s", r.Parent, r.ResultName, r.Name),
 		Id:   r.ID,
@@ -134,7 +135,7 @@ func ToAPI(r *db.Record) (*pb.Record, error) {
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 // Match determines whether the given CEL filter matches the result.
