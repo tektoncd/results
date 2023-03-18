@@ -35,7 +35,7 @@ import (
 const (
 	certFile         = "tekton-results-cert.pem"
 	apiServerName    = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-	apiServerAddress = "localhost:50051"
+	apiServerAddress = "localhost:8080"
 	defCertFolder    = "/tmp/tekton-results/ssl"
 )
 
