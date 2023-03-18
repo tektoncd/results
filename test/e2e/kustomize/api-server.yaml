@@ -15,8 +15,8 @@
 - op: replace
   path: /spec/ports/0
   value:
-    name: grpc
-    port: 50051
+    name: server
+    port: 8080
     nodePort: 30000
 - op: add
   path: /spec/type

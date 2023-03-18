@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	apiAddr                 = flag.String("api_addr", "localhost:50051", "Address of API server to report to")
+	apiAddr                 = flag.String("api_addr", "localhost:8080", "Address of API server to report to")
 	authMode                = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
 	disableCRDUpdate        = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
 	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")

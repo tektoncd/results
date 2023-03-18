@@ -29,4 +29,4 @@ nodes:
   extraPortMappings:
     # API GRPC server
     - containerPort: 30000
-      hostPort: 50051
+      hostPort: 8080

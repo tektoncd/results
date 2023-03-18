@@ -13,8 +13,7 @@ type Config struct {
 	DB_NAME                  string `mapstructure:"DB_NAME"`
 	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
 	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
-	GRPC_PORT                string `mapstructure:"GRPC_PORT"`
-	REST_PORT                string `mapstructure:"REST_PORT"`
+	SERVER_PORT              string `mapstructure:"SERVER_PORT"`
 	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
 	TLS_HOSTNAME_OVERRIDE    string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
