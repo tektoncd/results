@@ -1,4 +1,4 @@
-# Copyright 2023 The Tekton Authors
+# Copyright 2022 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-- op: add
-  path: /spec/template/spec/containers/0/env/-
+- op: replace
+  path: /spec/ports/0
   value:
-    name: TLS_HOSTNAME_OVERRIDE
-    value: tekton-results-api-service.tekton-pipelines.svc.cluster.local
+    name: server
+    port: 8080
+    nodePort: 30080
+- op: add
+  path: /spec/type
+  value: NodePort

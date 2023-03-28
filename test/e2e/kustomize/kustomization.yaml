@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bases:
-- ../../../config/overlays/default-local-db
 resources:
+- ../../../config/overlays/default-local-db
 - rbac.yaml
+
 patchesJson6902:
 - target:
     group: apps
@@ -25,8 +25,15 @@ patchesJson6902:
     namespace: tekton-pipelines
   path: watcher.yaml
 - target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: tekton-results-api
+    namespace: tekton-pipelines
+  path: api-server.yaml
+- target:
     version: v1
     kind: Service
     name: tekton-results-api-service
     namespace: tekton-pipelines
-  path: api-server.yaml
+  path: api-service.yaml

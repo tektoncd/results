@@ -20,86 +20,111 @@ package e2e
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"github.com/google/go-cmp/cmp"
+	"github.com/tektoncd/results/test/e2e/client"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"io"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/transport"
+	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"time"
 
 	"os"
 	"path"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	clientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
+	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	tektonv1beta1client "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 )
 
 const (
-	ns = "default"
-
-	defTokenFolder                   = "/tmp/tekton-results/tokens"
-	allNamespacesReadAccessTknFile   = "all-namespaces-read-access"
-	singleNamespaceReadAccessTknFile = "single-namespace-read-access"
+	serverName                                  = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+	serverAddress                               = "https://localhost:8080"
+	certFileName                                = "tekton-results-cert.pem"
+	allNamespacesReadAccessTokenFileName        = "all-namespaces-read-access"
+	singleNamespaceReadAccessTokenFileName      = "single-namespace-read-access"
+	allNamespacesAdminAccessTokenFileName       = "all-namespaces-admin-access"
+	allNamespacesImpersonateAccessTokenFileName = "all-namespaces-impersonate-access"
+	defaultCertPath                             = "/tmp/tekton-results/ssl"
+	defaultTokenPath                            = "/tmp/tekton-results/tokens"
+	defaultNamespace                            = "default"
 )
 
 var (
-	allNamespacesReadAccessPath, singleNamespaceReadAccessPath string
+	allNamespacesReadAccessTokenFile,
+	singleNamespaceReadAccessTokenFile,
+	allNamespacesAdminAccessTokenFile,
+	allNamespacesImpersonateAccessTokenFile,
+	certFile string
 )
 
 func init() {
-	tokensFolder := os.Getenv("SA_TOKEN_PATH")
-	if len(tokensFolder) == 0 {
-		tokensFolder = defTokenFolder
+	certPath := os.Getenv("SSL_CERT_PATH")
+	if len(certPath) == 0 {
+		certPath = defaultCertPath
 	}
-	allNamespacesReadAccessPath = path.Join(tokensFolder, allNamespacesReadAccessTknFile)
-	singleNamespaceReadAccessPath = path.Join(tokensFolder, singleNamespaceReadAccessTknFile)
+	certFile = path.Join(certPath, certFileName)
+
+	tokenPath := os.Getenv("SA_TOKEN_PATH")
+	if len(tokenPath) == 0 {
+		tokenPath = defaultTokenPath
+	}
+	allNamespacesReadAccessTokenFile = path.Join(tokenPath, allNamespacesReadAccessTokenFileName)
+	singleNamespaceReadAccessTokenFile = path.Join(tokenPath, singleNamespaceReadAccessTokenFileName)
+	allNamespacesAdminAccessTokenFile = path.Join(tokenPath, allNamespacesAdminAccessTokenFileName)
+	allNamespacesImpersonateAccessTokenFile = path.Join(tokenPath, allNamespacesImpersonateAccessTokenFileName)
 }
 
 func TestTaskRun(t *testing.T) {
 	ctx := context.Background()
-	tr := new(v1beta1.TaskRun)
-	b, err := ioutil.ReadFile("testdata/taskrun.yaml")
+	tr := new(tektonv1beta1.TaskRun)
+	b, err := os.ReadFile("testdata/taskrun.yaml")
 	if err != nil {
-		t.Fatalf("ioutil.Readfile: %v", err)
+		t.Fatalf("Error reading file: %v", err)
 	}
 	if err := yaml.UnmarshalStrict(b, tr); err != nil {
-		t.Fatalf("yaml.Unmarshal: %v", err)
+		t.Fatalf("Erro unmarshalling: %v", err)
 	}
 
-	c := clientTekton(t)
+	tc := tektonClient(t)
 
 	// Best effort delete existing Run in case one already exists.
-	_ = c.TaskRuns(ns).Delete(ctx, tr.GetName(), metav1.DeleteOptions{})
+	_ = tc.TaskRuns(defaultNamespace).Delete(ctx, tr.GetName(), metav1.DeleteOptions{})
 
-	tr, err = c.TaskRuns(ns).Create(ctx, tr, metav1.CreateOptions{})
+	tr, err = tc.TaskRuns(defaultNamespace).Create(ctx, tr, metav1.CreateOptions{})
 	if err != nil {
-		t.Fatalf("Create: %v", err)
+		t.Fatalf("Error creating TaskRun: %v", err)
 	}
-	t.Logf("Created TaskRun %s", tr.GetName())
+
+	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+	var resName, recName string
 
 	// Wait for Result ID to show up.
-	t.Run("Result ID", func(t *testing.T) {
+	t.Run("check annotations", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			tr, err := c.TaskRuns(ns).Get(ctx, tr.GetName(), metav1.GetOptions{})
-			t.Logf("Get: %+v %v", tr.GetName(), err)
+			tr, err := tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if err != nil {
-				return false, nil
+				t.Fatalf("Error getting TaskRun: %v", err)
 			}
-			if r, ok := tr.GetAnnotations()["results.tekton.dev/result"]; ok {
-				t.Logf("Found Result: %s", r)
+			var resAnnotation, recAnnotation bool
+			resName, resAnnotation = tr.GetAnnotations()["results.tekton.dev/result"]
+			recName, recAnnotation = tr.GetAnnotations()["results.tekton.dev/record"]
+			if resAnnotation && recAnnotation {
 				return true, nil
 			}
 			return false, nil
@@ -108,68 +133,119 @@ func TestTaskRun(t *testing.T) {
 		}
 	})
 
-	t.Run("TaskRun Cleanup", func(t *testing.T) {
+	t.Run("check deletion", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			tr, err := c.TaskRuns(ns).Get(ctx, tr.GetName(), metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return true, nil
+			_, err = tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					return true, nil
+				}
+				t.Errorf("Error getting PipelineRun: %v", err)
+				return false, err
 			}
-			t.Logf("Get: %+v, %v", tr.GetName(), err)
 			return false, nil
 		}); err != nil {
-			t.Fatalf("error waiting TaskRun to be deleted: %v", err)
+			t.Fatalf("Error waiting for TaskRun deletion: %v", err)
+		}
+	})
+
+	t.Run("check result", func(t *testing.T) {
+		if resName == "" {
+			t.Skip("Result name not found")
+		}
+		_, err = gc.GetResult(context.Background(), &resultsv1alpha2.GetResultRequest{Name: resName})
+		if err != nil {
+			t.Errorf("Error getting Result: %v", err)
+		}
+	})
+
+	t.Run("check record", func(t *testing.T) {
+		if recName == "" {
+			t.Skip("Record name not found")
+		}
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: recName})
+		if err != nil {
+			t.Errorf("Error getting Record: %v", err)
 		}
 	})
 }
 
 func TestPipelineRun(t *testing.T) {
 	ctx := context.Background()
-	pr := new(v1beta1.PipelineRun)
-	b, err := ioutil.ReadFile("testdata/pipelinerun.yaml")
+	pr := new(tektonv1beta1.PipelineRun)
+	b, err := os.ReadFile("testdata/pipelinerun.yaml")
 	if err != nil {
-		t.Fatalf("ioutil.Readfile: %v", err)
+		t.Fatalf("Error reading file: %v", err)
 	}
 	if err := yaml.UnmarshalStrict(b, pr); err != nil {
-		t.Fatalf("yaml.Unmarshal: %v", err)
+		t.Fatalf("Error unmarshalling: %v", err)
 	}
 
-	c := clientTekton(t)
+	tc := tektonClient(t)
 
 	// Best effort delete existing Run in case one already exists.
-	_ = c.PipelineRuns(ns).Delete(ctx, pr.GetName(), metav1.DeleteOptions{})
+	_ = tc.PipelineRuns(defaultNamespace).Delete(ctx, pr.GetName(), metav1.DeleteOptions{})
 
-	if _, err = c.PipelineRuns(ns).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
-		t.Fatalf("Create: %v", err)
+	if _, err = tc.PipelineRuns(defaultNamespace).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Error creating PipelineRun: %v", err)
 	}
 
-	t.Run("result annotations", func(t *testing.T) {
+	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+	var resName, recName string
+
+	t.Run("check annotations", func(t *testing.T) {
 		// Wait for Result ID to show up.
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
+			pr, err := tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
 			if err != nil {
-				t.Logf("Get: %v", err)
-				return false, nil
+				t.Fatalf("Error getting PipelineRun: %v", err)
 			}
-			if r, ok := pr.GetAnnotations()["results.tekton.dev/result"]; ok {
-				t.Logf("Found Result: %s", r)
+			var resAnnotation, recAnnotation bool
+			resName, resAnnotation = pr.GetAnnotations()["results.tekton.dev/result"]
+			recName, recAnnotation = pr.GetAnnotations()["results.tekton.dev/record"]
+			if resAnnotation && recAnnotation {
 				return true, nil
 			}
 			return false, nil
 		}); err != nil {
-			t.Fatalf("error waiting for Result ID: %v", err)
+			t.Fatalf("Error waiting for PipelineRun creation: %v", err)
 		}
 	})
 
-	t.Run("PipelineRun cleanup", func(t *testing.T) {
+	t.Run("check deletion", func(t *testing.T) {
 		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
-			pr, err := c.PipelineRuns(ns).Get(ctx, pr.GetName(), metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return true, nil
+			_, err = tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					return true, nil
+				}
+				t.Errorf("Error getting PipelineRun: %v", err)
+				return false, err
 			}
-			t.Logf("Get: %+v, %v", pr.GetName(), err)
 			return false, nil
 		}); err != nil {
-			t.Fatalf("error waiting PipelineRun to be deleted: %v", err)
+			t.Fatalf("Error waiting for PipelineRun deletion: %v", err)
+		}
+	})
+
+	t.Run("check result", func(t *testing.T) {
+		if resName == "" {
+			t.Skip("Result name not found")
+		}
+		_, err := gc.GetResult(context.Background(), &resultsv1alpha2.GetResultRequest{Name: resName})
+		if err != nil {
+			t.Fatalf("Error getting Result: %v", err)
+		}
+	})
+
+	t.Run("check record", func(t *testing.T) {
+		if recName == "" {
+			t.Skip("Record name not found")
+		}
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: recName})
+		if err != nil {
+			t.Errorf("Error getting Record: %v", err)
 		}
 	})
 }
@@ -178,17 +254,69 @@ func clientConfig(t *testing.T) *rest.Config {
 	t.Helper()
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	kubeconfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{})
-	config, err := kubeconfig.ClientConfig()
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{})
+	config, err := clientConfig.ClientConfig()
 	if err != nil {
-		panic(err)
+		t.Fatalf("Error creating client config: %v", err)
 	}
 	return config
 }
 
-func clientTekton(t *testing.T) *clientset.TektonV1beta1Client {
+func tektonClient(t *testing.T) *tektonv1beta1client.TektonV1beta1Client {
 	t.Helper()
-	return clientset.NewForConfigOrDie(clientConfig(t))
+
+	return tektonv1beta1client.NewForConfigOrDie(clientConfig(t))
+}
+
+func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transport.ImpersonationConfig) (client.GRPCClient, client.RESTClient) {
+	t.Helper()
+
+	if impersonationConfig == nil {
+		impersonationConfig = &transport.ImpersonationConfig{}
+	}
+
+	transportCredentials, err := credentials.NewClientTLSFromFile(certFile, serverName)
+	if err != nil {
+		t.Fatalf("Error creating client TLS: %v", err)
+	}
+
+	callOptions := []grpc.CallOption{
+		grpc.PerRPCCredentials(&client.CustomCredentials{
+			TokenSource:         transport.NewCachedFileTokenSource(tokenFile),
+			ImpersonationConfig: impersonationConfig,
+		}),
+	}
+
+	grpcOptions := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(callOptions...),
+		grpc.WithTransportCredentials(transportCredentials),
+	}
+
+	grpcClient, err := client.NewGRPCClient(serverAddress, grpcOptions...)
+	if err != nil {
+		t.Fatalf("Error creating gRPC client: %v", err)
+	}
+
+	restConfig := &transport.Config{
+		TLS: transport.TLSConfig{
+			CAFile:     certFile,
+			ServerName: serverName,
+		},
+		BearerTokenFile: tokenFile,
+		Impersonate:     *impersonationConfig,
+	}
+
+	restOptions := []client.RestOption{
+		client.WithConfig(restConfig),
+	}
+
+	restClient, err := client.NewRESTClient(serverAddress, restOptions...)
+	if err != nil {
+		t.Fatalf("Error creating REST request: %v", err)
+	}
+
+	return grpcClient, restClient
 }
 
 func TestGRPCLogging(t *testing.T) {
@@ -202,36 +330,31 @@ func TestGRPCLogging(t *testing.T) {
 
 	matcher := "\"grpc.method\":\"ListResults\""
 
-	client := newResultsClient(t, allNamespacesReadAccessPath)
+	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-	t.Run("Log entry is found when not expected", func(t *testing.T) {
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !strings.Contains(resultsApiLogs, matcher) {
-			t.Logf("No log match %s when there should not be\n", matcher)
-		} else {
-			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsApiLogs)
-		}
-	})
-
-	t.Run("Log entry is found when expected", func(t *testing.T) {
-
-		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
-		if err != nil {
-			t.Fatal(err)
-		}
-
+	t.Run("log entry is found when not expected", func(t *testing.T) {
 		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if strings.Contains(resultsApiLogs, matcher) {
-			t.Logf("Found log match %s\n", matcher)
-		} else {
+			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsApiLogs)
+		}
+	})
+
+	t.Run("log entry is found when expected", func(t *testing.T) {
+		_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !strings.Contains(resultsApiLogs, matcher) {
 			t.Errorf("No match for %s in logs %s", matcher, resultsApiLogs)
 		}
 	})
@@ -263,7 +386,7 @@ func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions,
 				return "", err
 			}
 			defer stream.Close()
-			podLogBytes, err := ioutil.ReadAll(stream)
+			podLogBytes, err := io.ReadAll(stream)
 			if err != nil {
 				return "", err
 			}
@@ -272,7 +395,7 @@ func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions,
 	}
 
 	if numApiPods == 0 {
-		return "", errors.New("No " + apiPodBasename + "pod found")
+		return "", errors.New("no " + apiPodBasename + "pod found")
 	}
 
 	return strings.Join(apiPodsLogs, ""), nil
@@ -282,28 +405,27 @@ func TestListResults(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list results under the default parent", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccessPath)
-		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("Error listing Results: %v", err)
 		}
 
-		if length := len(resp.Results); length == 0 {
-			t.Error("No results returned by the API server")
-		} else {
-			t.Logf("Found %d results\n", length)
+		if length := len(res.Results); length == 0 {
+			t.Error("No Results returned by the API server")
 		}
 	})
 
 	t.Run("list results across parents", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccessPath)
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
 		// For the purposes of this test suite, listing results under
 		// the `default` parent or using the `-` symbol must return the
 		// same items. Therefore, let's run both queries and make sure
 		// that results are identical.
 
-		want, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+		want, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
 			Parent:  "default",
 			OrderBy: "created_time",
 		})
@@ -311,7 +433,7 @@ func TestListResults(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		got, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+		got, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
 			Parent:  "-",
 			OrderBy: "created_time",
 		})
@@ -325,8 +447,8 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccessPath)
-		_, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
 		}
@@ -337,16 +459,32 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("list results under the default parent using the identity with more limited access", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccessPath)
-		resp, err := client.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if length := len(resp.Results); length == 0 {
-			t.Error("No results returned by the API server")
-		} else {
-			t.Logf("Found %d results\n", length)
+		if length := len(res.Results); length == 0 {
+			t.Error("No Results returned by the API server")
+		}
+	})
+
+	t.Run("grpc and rest consistency", func(t *testing.T) {
+		parent := "default"
+		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		want, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Results: %v", err)
+		}
+
+		got, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Results: %v", err)
+		}
+
+		if diff := cmp.Diff(want.Results, got.Results, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
 		}
 	})
 }
@@ -355,28 +493,26 @@ func TestListRecords(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list records by omitting the result name", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccessPath)
-		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		res, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if length := len(resp.Records); length == 0 {
-			t.Error("No records returned by the API server")
-		} else {
-			t.Logf("Found %d records\n", length)
+		if length := len(res.Records); length == 0 {
+			t.Error("No Records returned by the API server")
 		}
 	})
 
 	t.Run("list records by omitting the parent and result names", func(t *testing.T) {
-		client := newResultsClient(t, allNamespacesReadAccessPath)
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
 		// For the purposes of this test suite, listing records under
 		// the `default/results/-` result or using the `-/results/-`
 		// form must return the same items. Therefore, let's run both
 		// queries and make sure that results are identical.
 
-		want, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+		want, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
 			Parent:  "default/results/-",
 			OrderBy: "created_time",
 		})
@@ -384,7 +520,7 @@ func TestListRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		got, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+		got, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
 			Parent:  "-/results/-",
 			OrderBy: "created_time",
 		})
@@ -392,36 +528,316 @@ func TestListRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Compare only record names. Comparing records data is susceptable to race conditions.
+		// Compare only record names. Comparing records data is susceptible to race conditions.
 		if diff := cmp.Diff(recordNames(t, want.Records), recordNames(t, got.Records), protocmp.Transform()); diff != "" {
 			t.Errorf("Mismatch (-want +got):\n%s", diff)
 		}
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccessPath)
-		_, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		_, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
 		}
-
 		if status.Code(err) != codes.Unauthenticated {
 			t.Errorf("API server returned an unexpected error: %v", err)
 		}
 	})
 
 	t.Run("list records using the identity with more limited access", func(t *testing.T) {
-		client := newResultsClient(t, singleNamespaceReadAccessPath)
-		resp, err := client.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		resp, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		if length := len(resp.Records); length == 0 {
-			t.Error("No records returned by the API server")
-		} else {
-			t.Logf("Found %d records\n", length)
+			t.Error("No Records returned by the API server")
 		}
+	})
+
+	t.Run("grpc and rest consistency", func(t *testing.T) {
+		parent := "default/results/-"
+		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		want, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Records: %v", err)
+		}
+
+		got, err := rc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Records: %v", err)
+		}
+
+		if diff := cmp.Diff(want.Records, got.Records, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestGetResult(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+	if err != nil {
+		t.Fatalf("Error listing Results: %v", err)
+	}
+
+	name := list.Results[0].GetName()
+	want, got := &resultsv1alpha2.Result{}, &resultsv1alpha2.Result{}
+
+	t.Run("get result", func(t *testing.T) {
+		t.Run("grpc", func(t *testing.T) {
+			want, err = gc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: name})
+			if err != nil {
+				t.Fatalf("Error getting Result: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			got, err = rc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: name})
+			if err != nil {
+				t.Fatalf("Error getting Result: %v", err)
+			}
+		})
+	})
+
+	t.Run("grpc and rest consistency", func(t *testing.T) {
+		if err != nil {
+			t.Skip("Required tests failed")
+		}
+		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestGetRecord(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+	if err != nil {
+		t.Fatalf("Error listing Records: %v", err)
+	}
+
+	name := list.Records[0].GetName()
+	want, got := &resultsv1alpha2.Record{}, &resultsv1alpha2.Record{}
+
+	t.Run("get record", func(t *testing.T) {
+		t.Run("grpc", func(t *testing.T) {
+			want, err = gc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: name})
+			if err != nil {
+				t.Fatalf("Error getting Record: %v", err)
+			}
+		})
+
+		t.Run("rest", func(t *testing.T) {
+			got, err = rc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: name})
+			if err != nil {
+				t.Fatalf("Error getting Record: %v", err)
+			}
+		})
+	})
+
+	t.Run("grpc and rest consistency", func(t *testing.T) {
+		if err != nil {
+			t.Skip("Required tests failed")
+		}
+		if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestDeleteRecord(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
+
+	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+	if err != nil {
+		t.Fatalf("Error listing Records: %v", err)
+	}
+
+	t.Run("delete record", func(t *testing.T) {
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.DeleteRecord(ctx, &resultsv1alpha2.DeleteRecordRequest{Name: list.Records[0].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Record: %v", err)
+			}
+			_, err = gc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: list.Records[0].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.NotFound {
+				t.Fatalf("Error getting Record: %v", err)
+			}
+		})
+
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.DeleteRecord(ctx, &resultsv1alpha2.DeleteRecordRequest{Name: list.Records[1].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Record: %v", err)
+			}
+			_, err = rc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: list.Records[1].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusNotFound) {
+				t.Fatalf("Error getting Record: %v", err)
+			}
+		})
+	})
+}
+
+func TestDeleteResult(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
+
+	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+	if err != nil {
+		t.Fatalf("Error listing Results: %v", err)
+	}
+
+	t.Run("delete result", func(t *testing.T) {
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.DeleteResult(ctx, &resultsv1alpha2.DeleteResultRequest{Name: list.Results[0].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Result: %v", err)
+			}
+			_, err = gc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: list.Results[0].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.NotFound {
+				t.Fatalf("Error getting Result: %v", err)
+			}
+		})
+
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.DeleteResult(ctx, &resultsv1alpha2.DeleteResultRequest{Name: list.Results[1].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Result: %v", err)
+			}
+			_, err = rc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: list.Results[1].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusNotFound) {
+				t.Fatalf("Error getting Result: %v", err)
+			}
+		})
+	})
+}
+
+func TestAuthentication(t *testing.T) {
+	ctx := context.Background()
+	invalidTokenFile := path.Join(defaultTokenPath, "invalid-token")
+	err := os.WriteFile(invalidTokenFile, []byte("invalid token"), 0666)
+	if err != nil {
+		t.Fatalf("Error writing file: %v", err)
+	}
+	p := "default"
+
+	t.Run("valid token", func(t *testing.T) {
+		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		t.Run("grpc", func(t *testing.T) {
+			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err != nil {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			_, err = rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err != nil {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		gc, rc := resultsClient(t, invalidTokenFile, nil)
+		t.Run("grpc", func(t *testing.T) {
+			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.Unauthenticated {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			_, err = rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+	})
+}
+
+func TestAuthorization(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+
+	t.Run("unauthorized token", func(t *testing.T) {
+		p := "tekton"
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.Unauthenticated {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+	})
+}
+
+func TestImpersonation(t *testing.T) {
+	ctx := context.Background()
+	p := "default"
+	t.Run("impersonate with user not having permission", func(t *testing.T) {
+		gc, rc := resultsClient(t, allNamespacesImpersonateAccessTokenFile, &transport.ImpersonationConfig{
+			UserName: "system:serviceaccount:default:default",
+		})
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.Unauthenticated {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+	})
+
+	t.Run("impersonate with user having permission", func(t *testing.T) {
+		gc, rc := resultsClient(t, allNamespacesImpersonateAccessTokenFile, &transport.ImpersonationConfig{
+			UserName: "system:serviceaccount:default:all-namespaces-read-access",
+		})
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err != nil {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			if err != nil {
+				t.Fatalf("Error listing Results: %v", err)
+			}
+		})
 	})
 }
 

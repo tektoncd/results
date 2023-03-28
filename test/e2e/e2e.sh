@@ -25,7 +25,7 @@ set -x;
 cleanup() {
     kind delete cluster || true
 }
-trap cleanup EXIT
+#trap cleanup EXIT
 
 main() {
     export KO_DOCKER_REPO="kind.local"
@@ -40,7 +40,7 @@ main() {
 
     # Build static binaries; otherwise go test complains.
     export CGO_ENABLED=0
-    go test -v -count=1 --tags=e2e ${REPO}/test/e2e/...
+    go test -v -count=1 --tags=e2e $(go list --tags=e2e ${REPO}/test/e2e/... | grep -v /client)
 }
 
 main

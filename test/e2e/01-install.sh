@@ -73,7 +73,7 @@ kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply --platform="$extra_ko_
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
-service_accounts=(all-namespaces-read-access single-namespace-read-access)
+service_accounts=(all-namespaces-read-access single-namespace-read-access all-namespaces-admin-access all-namespaces-impersonate-access)
 for service_account in "${service_accounts[@]}"; do
     kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account"
     echo "Created ${SA_TOKEN_PATH}/$service_account"
