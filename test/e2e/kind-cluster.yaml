@@ -27,6 +27,6 @@ nodes:
 - <<: *node
   role: worker
   extraPortMappings:
-    # API GRPC server
-    - containerPort: 30000
+    # API gRPC and REST server
+    - containerPort: 30080
       hostPort: 8080
