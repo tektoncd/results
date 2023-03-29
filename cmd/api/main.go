@@ -226,6 +226,7 @@ func determineAuth(ctx context.Context) (context.Context, error) {
 		ctxzap.AddFields(ctx,
 			zap.String("grpc.user", "unknown"),
 		)
+		return ctx, nil
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
