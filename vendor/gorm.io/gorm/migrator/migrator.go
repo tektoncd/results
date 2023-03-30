@@ -16,9 +16,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-var (
-	regFullDataType = regexp.MustCompile(`\D*(\d+)\D?`)
-)
+var regFullDataType = regexp.MustCompile(`\D*(\d+)\D?`)
 
 // Migrator m struct
 type Migrator struct {
@@ -120,7 +118,10 @@ func (m Migrator) AutoMigrate(values ...interface{}) error {
 				if err != nil {
 					return err
 				}
-
+				var (
+					parseIndexes          = stmt.Schema.ParseIndexes()
+					parseCheckConstraints = stmt.Schema.ParseCheckConstraints()
+				)
 				for _, dbName := range stmt.Schema.DBNames {
 					field := stmt.Schema.FieldsByDBName[dbName]
 					var foundColumn gorm.ColumnType
@@ -157,7 +158,7 @@ func (m Migrator) AutoMigrate(values ...interface{}) error {
 					}
 				}
 
-				for _, chk := range stmt.Schema.ParseCheckConstraints() {
+				for _, chk := range parseCheckConstraints {
 					if !queryTx.Migrator().HasConstraint(value, chk.Name) {
 						if err := execTx.Migrator().CreateConstraint(value, chk.Name); err != nil {
 							return err
@@ -165,7 +166,7 @@ func (m Migrator) AutoMigrate(values ...interface{}) error {
 					}
 				}
 
-				for _, idx := range stmt.Schema.ParseIndexes() {
+				for _, idx := range parseIndexes {
 					if !queryTx.Migrator().HasIndex(value, idx.Name) {
 						if err := execTx.Migrator().CreateIndex(value, idx.Name); err != nil {
 							return err
@@ -430,7 +431,8 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 	realDataType := strings.ToLower(columnType.DatabaseTypeName())
 
 	var (
-		alterColumn, isSameType bool
+		alterColumn bool
+		isSameType  = fullDataType == realDataType
 	)
 
 	if !field.PrimaryKey {
@@ -555,14 +557,44 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 	return columnTypes, execErr
 }
 
-// CreateView create view
+// CreateView create view from Query in gorm.ViewOption.
+// Query in gorm.ViewOption is a [subquery]
+//
+//	// CREATE VIEW `user_view` AS SELECT * FROM `users` WHERE age > 20
+//	q := DB.Model(&User{}).Where("age > ?", 20)
+//	DB.Debug().Migrator().CreateView("user_view", gorm.ViewOption{Query: q})
+//
+//	// CREATE OR REPLACE VIEW `users_view` AS SELECT * FROM `users` WITH CHECK OPTION
+//	q := DB.Model(&User{})
+//	DB.Debug().Migrator().CreateView("user_view", gorm.ViewOption{Query: q, Replace: true, CheckOption: "WITH CHECK OPTION"})
+//
+// [subquery]: https://gorm.io/docs/advanced_query.html#SubQuery
 func (m Migrator) CreateView(name string, option gorm.ViewOption) error {
-	return gorm.ErrNotImplemented
+	if option.Query == nil {
+		return gorm.ErrSubQueryRequired
+	}
+
+	sql := new(strings.Builder)
+	sql.WriteString("CREATE ")
+	if option.Replace {
+		sql.WriteString("OR REPLACE ")
+	}
+	sql.WriteString("VIEW ")
+	m.QuoteTo(sql, name)
+	sql.WriteString(" AS ")
+
+	m.DB.Statement.AddVar(sql, option.Query)
+
+	if option.CheckOption != "" {
+		sql.WriteString(" ")
+		sql.WriteString(option.CheckOption)
+	}
+	return m.DB.Exec(m.Explain(sql.String(), m.DB.Statement.Vars...)).Error
 }
 
 // DropView drop view
 func (m Migrator) DropView(name string) error {
-	return gorm.ErrNotImplemented
+	return m.DB.Exec("DROP VIEW IF EXISTS ?", clause.Table{Name: name}).Error
 }
 
 func buildConstraint(constraint *schema.Constraint) (sql string, results []interface{}) {
