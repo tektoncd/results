@@ -79,6 +79,8 @@ kind: Service
 metadata:
   name: api-service
   namespace: tekton-pipelines
+  labels:
+    app.kubernetes.io/name: tekton-results-api
 spec:
   selector:
     app.kubernetes.io/name: tekton-results-api

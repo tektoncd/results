@@ -84,6 +84,8 @@ kind: Service
 metadata:
   name: watcher
   namespace: tekton-pipelines
+  labels:
+    app.kubernetes.io/name: tekton-results-watcher
 spec:
   ports:
   - name: metrics
