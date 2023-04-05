@@ -63,7 +63,7 @@ var (
 	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
 	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
-	namespace               = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this values needs to be set to the namespace name otherwise leave it empty.")
+	namespace               = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
 )
 
 func main() {
