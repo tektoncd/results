@@ -21,6 +21,8 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 
+	_ "knative.dev/pkg/system/testing"
+
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	fakepipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client/fake"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipelinerun/fake"
@@ -33,7 +35,10 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
+	cminformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
+	"knative.dev/pkg/system"
 )
 
 // TestController starts a full TaskRun + PipelineRun controller and waits for
@@ -48,8 +53,10 @@ func TestController(t *testing.T) {
 	// Create reconcilers, start controller.
 	resultClient, _ := test.NewResultsClient(t, &config.Config{})
 
-	prctrl := pipelinerun.NewController(ctx, resultClient)
-	trctrl := taskrun.NewController(ctx, resultClient)
+	configMapWatcher := cminformer.NewInformedWatcher(fakekubeclient.Get(ctx), system.Namespace())
+
+	prctrl := pipelinerun.NewController(ctx, resultClient, configMapWatcher)
+	trctrl := taskrun.NewController(ctx, resultClient, configMapWatcher)
 	go controller.StartAll(ctx, trctrl, prctrl)
 
 	// Start informers - this notifies the controller of new events.
@@ -116,7 +123,7 @@ func TestController(t *testing.T) {
 
 type getFn func(ctx context.Context) (results.Object, error)
 
-func wait(ctx context.Context, t *testing.T, get getFn, o results.Object, want string) {
+func wait(ctx context.Context, t *testing.T, get getFn, _ results.Object, want string) {
 	// Wait for Result annotations to show up on the reconciled object.
 	var u results.Object
 	tick := time.NewTicker(1 * time.Second)

@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The Tekton Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -5,6 +21,20 @@ import (
 
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
+
+func (r Ref) convertTo(ctx context.Context, sink *v1.Ref) {
+	sink.Name = r.Name
+	new := v1.ResolverRef{}
+	r.ResolverRef.convertTo(ctx, &new)
+	sink.ResolverRef = new
+}
+
+func (r *Ref) convertFrom(ctx context.Context, source v1.Ref) {
+	r.Name = source.Name
+	new := ResolverRef{}
+	new.convertFrom(ctx, source.ResolverRef)
+	r.ResolverRef = new
+}
 
 func (s Step) convertTo(ctx context.Context, sink *v1.Step) {
 	sink.Name = s.Name
@@ -31,10 +61,17 @@ func (s Step) convertTo(ctx context.Context, sink *v1.Step) {
 	sink.OnError = (v1.OnErrorType)(s.OnError)
 	sink.StdoutConfig = (*v1.StepOutputConfig)(s.StdoutConfig)
 	sink.StderrConfig = (*v1.StepOutputConfig)(s.StderrConfig)
-
-	// TODO(#4546): Handle deprecated fields
-	// Ports, LivenessProbe, ReadinessProbe, StartupProbe, Lifecycle, TerminationMessagePath
-	// TerminationMessagePolicy, Stdin, StdinOnce, TTY
+	if s.Ref != nil {
+		sink.Ref = &v1.Ref{}
+		s.Ref.convertTo(ctx, sink.Ref)
+	}
+	sink.Params = nil
+	for _, p := range s.Params {
+		new := v1.Param{}
+		p.convertTo(ctx, &new)
+		sink.Params = append(sink.Params, new)
+	}
+	sink.Results = s.Results
 }
 
 func (s *Step) convertFrom(ctx context.Context, source v1.Step) {
@@ -62,6 +99,18 @@ func (s *Step) convertFrom(ctx context.Context, source v1.Step) {
 	s.OnError = (OnErrorType)(source.OnError)
 	s.StdoutConfig = (*StepOutputConfig)(source.StdoutConfig)
 	s.StderrConfig = (*StepOutputConfig)(source.StderrConfig)
+	if source.Ref != nil {
+		newRef := Ref{}
+		newRef.convertFrom(ctx, *source.Ref)
+		s.Ref = &newRef
+	}
+	s.Params = nil
+	for _, p := range source.Params {
+		new := Param{}
+		new.ConvertFrom(ctx, p)
+		s.Params = append(s.Params, new)
+	}
+	s.Results = source.Results
 }
 
 func (s StepTemplate) convertTo(ctx context.Context, sink *v1.StepTemplate) {

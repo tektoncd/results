@@ -24,29 +24,27 @@ import (
 
 	// Link in the fakes so they get injected into injection.Fake
 	"github.com/tektoncd/pipeline/pkg/apis/config"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	resolutionv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/resolution/v1beta1"
-	resourcev1alpha1 "github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
 	fakepipelineclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
+	informersv1 "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1"
 	informersv1alpha1 "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1alpha1"
 	informersv1beta1 "github.com/tektoncd/pipeline/pkg/client/informers/externalversions/pipeline/v1beta1"
 	fakepipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client/fake"
-	fakeruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1alpha1/run/fake"
+	fakepipelineinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipeline/fake"
+	fakepipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipelinerun/fake"
+	faketaskinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/task/fake"
+	faketaskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/taskrun/fake"
+	fakeverificationpolicyinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1alpha1/verificationpolicy/fake"
 	fakeclustertaskinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/clustertask/fake"
 	fakecustomruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/customrun/fake"
-	fakepipelineinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipeline/fake"
-	fakepipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun/fake"
-	faketaskinformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/task/fake"
-	faketaskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun/fake"
+	fakestepactioninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/stepaction/fake"
 	fakeresolutionclientset "github.com/tektoncd/pipeline/pkg/client/resolution/clientset/versioned/fake"
 	resolutioninformersv1alpha1 "github.com/tektoncd/pipeline/pkg/client/resolution/informers/externalversions/resolution/v1beta1"
 	fakeresolutionrequestclient "github.com/tektoncd/pipeline/pkg/client/resolution/injection/client/fake"
 	fakeresolutionrequestinformer "github.com/tektoncd/pipeline/pkg/client/resolution/injection/informers/resolution/v1beta1/resolutionrequest/fake"
-	fakeresourceclientset "github.com/tektoncd/pipeline/pkg/client/resource/clientset/versioned/fake"
-	resourceinformersv1alpha1 "github.com/tektoncd/pipeline/pkg/client/resource/informers/externalversions/resource/v1alpha1"
-	fakeresourceclient "github.com/tektoncd/pipeline/pkg/client/resource/injection/client/fake"
-	fakeresourceinformer "github.com/tektoncd/pipeline/pkg/client/resource/injection/informers/resource/v1alpha1/pipelineresource/fake"
 	cloudeventclient "github.com/tektoncd/pipeline/pkg/reconciler/events/cloudevent"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -63,6 +61,7 @@ import (
 	fakeconfigmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap/fake"
 	fakelimitrangeinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/limitrange/fake"
 	fakefilteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered/fake"
+	fakesecretinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/secret/fake"
 	fakeserviceaccountinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount/fake"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/system"
@@ -71,13 +70,12 @@ import (
 // Data represents the desired state of the system (i.e. existing resources) to seed controllers
 // with.
 type Data struct {
-	PipelineRuns            []*v1beta1.PipelineRun
-	Pipelines               []*v1beta1.Pipeline
-	TaskRuns                []*v1beta1.TaskRun
-	Tasks                   []*v1beta1.Task
+	PipelineRuns            []*v1.PipelineRun
+	Pipelines               []*v1.Pipeline
+	TaskRuns                []*v1.TaskRun
+	Tasks                   []*v1.Task
+	StepActions             []*v1beta1.StepAction
 	ClusterTasks            []*v1beta1.ClusterTask
-	PipelineResources       []*resourcev1alpha1.PipelineResource
-	Runs                    []*v1alpha1.Run
 	CustomRuns              []*v1beta1.CustomRun
 	Pods                    []*corev1.Pod
 	Namespaces              []*corev1.Namespace
@@ -86,12 +84,13 @@ type Data struct {
 	LimitRange              []*corev1.LimitRange
 	ResolutionRequests      []*resolutionv1alpha1.ResolutionRequest
 	ExpectedCloudEventCount int
+	VerificationPolicies    []*v1alpha1.VerificationPolicy
+	Secrets                 []*corev1.Secret
 }
 
 // Clients holds references to clients which are useful for reconciler tests.
 type Clients struct {
 	Pipeline           *fakepipelineclientset.Clientset
-	Resource           *fakeresourceclientset.Clientset
 	Kube               *fakekubeclientset.Clientset
 	CloudEvents        cloudeventclient.CEClient
 	ResolutionRequests *fakeresolutionclientset.Clientset
@@ -99,19 +98,21 @@ type Clients struct {
 
 // Informers holds references to informers which are useful for reconciler tests.
 type Informers struct {
-	PipelineRun       informersv1beta1.PipelineRunInformer
-	Pipeline          informersv1beta1.PipelineInformer
-	TaskRun           informersv1beta1.TaskRunInformer
-	Run               informersv1alpha1.RunInformer
-	CustomRun         informersv1beta1.CustomRunInformer
-	Task              informersv1beta1.TaskInformer
-	ClusterTask       informersv1beta1.ClusterTaskInformer
-	PipelineResource  resourceinformersv1alpha1.PipelineResourceInformer
-	Pod               coreinformers.PodInformer
-	ConfigMap         coreinformers.ConfigMapInformer
-	ServiceAccount    coreinformers.ServiceAccountInformer
-	LimitRange        coreinformers.LimitRangeInformer
-	ResolutionRequest resolutioninformersv1alpha1.ResolutionRequestInformer
+	PipelineRun        informersv1.PipelineRunInformer
+	Pipeline           informersv1.PipelineInformer
+	TaskRun            informersv1.TaskRunInformer
+	Run                informersv1alpha1.RunInformer
+	CustomRun          informersv1beta1.CustomRunInformer
+	Task               informersv1.TaskInformer
+	StepAction         informersv1beta1.StepActionInformer
+	ClusterTask        informersv1beta1.ClusterTaskInformer
+	Pod                coreinformers.PodInformer
+	ConfigMap          coreinformers.ConfigMapInformer
+	ServiceAccount     coreinformers.ServiceAccountInformer
+	LimitRange         coreinformers.LimitRangeInformer
+	ResolutionRequest  resolutioninformersv1alpha1.ResolutionRequestInformer
+	VerificationPolicy informersv1alpha1.VerificationPolicyInformer
+	Secret             coreinformers.SecretInformer
 }
 
 // Assets holds references to the controller, logs, clients, and informers.
@@ -126,6 +127,7 @@ type Assets struct {
 
 // AddToInformer returns a function to add ktesting.Actions to the cache store
 func AddToInformer(t *testing.T, store cache.Store) func(ktesting.Action) (bool, runtime.Object, error) {
+	t.Helper()
 	return func(action ktesting.Action) (bool, runtime.Object, error) {
 		switch a := action.(type) {
 		case ktesting.CreateActionImpl:
@@ -170,12 +172,13 @@ func AddToInformer(t *testing.T, store cache.Store) func(ktesting.Action) (bool,
 
 // SeedTestData returns Clients and Informers populated with the
 // given Data.
-// nolint: revive
+//
+//nolint:revive
 func SeedTestData(t *testing.T, ctx context.Context, d Data) (Clients, Informers) {
+	t.Helper()
 	c := Clients{
 		Kube:               fakekubeclient.Get(ctx),
 		Pipeline:           fakepipelineclient.Get(ctx),
-		Resource:           fakeresourceclient.Get(ctx),
 		CloudEvents:        cloudeventclient.Get(ctx),
 		ResolutionRequests: fakeresolutionrequestclient.Get(ctx),
 	}
@@ -183,19 +186,20 @@ func SeedTestData(t *testing.T, ctx context.Context, d Data) (Clients, Informers
 	PrependResourceVersionReactor(&c.Pipeline.Fake)
 
 	i := Informers{
-		PipelineRun:       fakepipelineruninformer.Get(ctx),
-		Pipeline:          fakepipelineinformer.Get(ctx),
-		TaskRun:           faketaskruninformer.Get(ctx),
-		Run:               fakeruninformer.Get(ctx),
-		CustomRun:         fakecustomruninformer.Get(ctx),
-		Task:              faketaskinformer.Get(ctx),
-		ClusterTask:       fakeclustertaskinformer.Get(ctx),
-		PipelineResource:  fakeresourceinformer.Get(ctx),
-		Pod:               fakefilteredpodinformer.Get(ctx, v1beta1.ManagedByLabelKey),
-		ConfigMap:         fakeconfigmapinformer.Get(ctx),
-		ServiceAccount:    fakeserviceaccountinformer.Get(ctx),
-		LimitRange:        fakelimitrangeinformer.Get(ctx),
-		ResolutionRequest: fakeresolutionrequestinformer.Get(ctx),
+		PipelineRun:        fakepipelineruninformer.Get(ctx),
+		Pipeline:           fakepipelineinformer.Get(ctx),
+		TaskRun:            faketaskruninformer.Get(ctx),
+		CustomRun:          fakecustomruninformer.Get(ctx),
+		Task:               faketaskinformer.Get(ctx),
+		StepAction:         fakestepactioninformer.Get(ctx),
+		ClusterTask:        fakeclustertaskinformer.Get(ctx),
+		Pod:                fakefilteredpodinformer.Get(ctx, v1.ManagedByLabelKey),
+		ConfigMap:          fakeconfigmapinformer.Get(ctx),
+		ServiceAccount:     fakeserviceaccountinformer.Get(ctx),
+		LimitRange:         fakelimitrangeinformer.Get(ctx),
+		ResolutionRequest:  fakeresolutionrequestinformer.Get(ctx),
+		VerificationPolicy: fakeverificationpolicyinformer.Get(ctx),
+		Secret:             fakesecretinformer.Get(ctx),
 	}
 
 	// Attach reactors that add resource mutations to the appropriate
@@ -204,28 +208,35 @@ func SeedTestData(t *testing.T, ctx context.Context, d Data) (Clients, Informers
 	c.Pipeline.PrependReactor("*", "pipelineruns", AddToInformer(t, i.PipelineRun.Informer().GetIndexer()))
 	for _, pr := range d.PipelineRuns {
 		pr := pr.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1beta1().PipelineRuns(pr.Namespace).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
+		if _, err := c.Pipeline.TektonV1().PipelineRuns(pr.Namespace).Create(ctx, pr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	c.Pipeline.PrependReactor("*", "pipelines", AddToInformer(t, i.Pipeline.Informer().GetIndexer()))
 	for _, p := range d.Pipelines {
 		p := p.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1beta1().Pipelines(p.Namespace).Create(ctx, p, metav1.CreateOptions{}); err != nil {
+		if _, err := c.Pipeline.TektonV1().Pipelines(p.Namespace).Create(ctx, p, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	c.Pipeline.PrependReactor("*", "taskruns", AddToInformer(t, i.TaskRun.Informer().GetIndexer()))
 	for _, tr := range d.TaskRuns {
 		tr := tr.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1beta1().TaskRuns(tr.Namespace).Create(ctx, tr, metav1.CreateOptions{}); err != nil {
+		if _, err := c.Pipeline.TektonV1().TaskRuns(tr.Namespace).Create(ctx, tr, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	c.Pipeline.PrependReactor("*", "tasks", AddToInformer(t, i.Task.Informer().GetIndexer()))
 	for _, ta := range d.Tasks {
 		ta := ta.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1beta1().Tasks(ta.Namespace).Create(ctx, ta, metav1.CreateOptions{}); err != nil {
+		if _, err := c.Pipeline.TektonV1().Tasks(ta.Namespace).Create(ctx, ta, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c.Pipeline.PrependReactor("*", "stepactions", AddToInformer(t, i.StepAction.Informer().GetIndexer()))
+	for _, sa := range d.StepActions {
+		sa := sa.DeepCopy() // Avoid assumptions that the informer's copy is modified.
+		if _, err := c.Pipeline.TektonV1beta1().StepActions(sa.Namespace).Create(ctx, sa, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -236,24 +247,10 @@ func SeedTestData(t *testing.T, ctx context.Context, d Data) (Clients, Informers
 			t.Fatal(err)
 		}
 	}
-	c.Resource.PrependReactor("*", "pipelineresources", AddToInformer(t, i.PipelineResource.Informer().GetIndexer()))
-	for _, r := range d.PipelineResources {
-		r := r.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Resource.TektonV1alpha1().PipelineResources(r.Namespace).Create(ctx, r, metav1.CreateOptions{}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	c.Pipeline.PrependReactor("*", "runs", AddToInformer(t, i.Run.Informer().GetIndexer()))
-	for _, run := range d.Runs {
-		run := run.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1alpha1().Runs(run.Namespace).Create(ctx, run, metav1.CreateOptions{}); err != nil {
-			t.Fatal(err)
-		}
-	}
 	c.Pipeline.PrependReactor("*", "customruns", AddToInformer(t, i.CustomRun.Informer().GetIndexer()))
 	for _, customRun := range d.CustomRuns {
-		run := customRun.DeepCopy() // Avoid assumptions that the informer's copy is modified.
-		if _, err := c.Pipeline.TektonV1beta1().CustomRuns(run.Namespace).Create(ctx, run, metav1.CreateOptions{}); err != nil {
+		customRun := customRun.DeepCopy() // Avoid assumptions that the informer's copy is modified.
+		if _, err := c.Pipeline.TektonV1beta1().CustomRuns(customRun.Namespace).Create(ctx, customRun, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -288,6 +285,22 @@ func SeedTestData(t *testing.T, ctx context.Context, d Data) (Clients, Informers
 	for _, rr := range d.ResolutionRequests {
 		rr := rr.DeepCopy() // Avoid assumptions that the informer's copy is modified.
 		if _, err := c.ResolutionRequests.ResolutionV1beta1().ResolutionRequests(rr.Namespace).Create(ctx, rr, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	c.Pipeline.PrependReactor("*", "verificationpolicies", AddToInformer(t, i.VerificationPolicy.Informer().GetIndexer()))
+	for _, vp := range d.VerificationPolicies {
+		vp := vp.DeepCopy() // Avoid assumptions that the informer's copy is modified.
+		if _, err := c.Pipeline.TektonV1alpha1().VerificationPolicies(vp.Namespace).Create(ctx, vp, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	c.Kube.PrependReactor("*", "secrets", AddToInformer(t, i.Secret.Informer().GetIndexer()))
+	for _, s := range d.Secrets {
+		s := s.DeepCopy() // Avoid assumptions that the informer's copy is modified.
+		if _, err := c.Kube.CoreV1().Secrets(s.Namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -340,7 +353,7 @@ func PrependResourceVersionReactor(f *ktesting.Fake) {
 
 // EnsureConfigurationConfigMapsExist makes sure all the configmaps exists.
 func EnsureConfigurationConfigMapsExist(d *Data) {
-	var defaultsExists, featureFlagsExists, artifactBucketExists, artifactPVCExists, metricsExists, trustedresourcesExists bool
+	var defaultsExists, featureFlagsExists, metricsExists, spireconfigExists, eventsExists, tracingExists bool
 	for _, cm := range d.ConfigMaps {
 		if cm.Name == config.GetDefaultsConfigName() {
 			defaultsExists = true
@@ -348,17 +361,17 @@ func EnsureConfigurationConfigMapsExist(d *Data) {
 		if cm.Name == config.GetFeatureFlagsConfigName() {
 			featureFlagsExists = true
 		}
-		if cm.Name == config.GetArtifactBucketConfigName() {
-			artifactBucketExists = true
-		}
-		if cm.Name == config.GetArtifactPVCConfigName() {
-			artifactPVCExists = true
-		}
 		if cm.Name == config.GetMetricsConfigName() {
 			metricsExists = true
 		}
-		if cm.Name == config.GetTrustedResourcesConfigName() {
-			trustedresourcesExists = true
+		if cm.Name == config.GetSpireConfigName() {
+			spireconfigExists = true
+		}
+		if cm.Name == config.GetEventsConfigName() {
+			eventsExists = true
+		}
+		if cm.Name == config.GetTracingConfigName() {
+			tracingExists = true
 		}
 	}
 	if !defaultsExists {
@@ -373,27 +386,27 @@ func EnsureConfigurationConfigMapsExist(d *Data) {
 			Data:       map[string]string{},
 		})
 	}
-	if !artifactBucketExists {
-		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: config.GetArtifactBucketConfigName(), Namespace: system.Namespace()},
-			Data:       map[string]string{},
-		})
-	}
-	if !artifactPVCExists {
-		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: config.GetArtifactPVCConfigName(), Namespace: system.Namespace()},
-			Data:       map[string]string{},
-		})
-	}
 	if !metricsExists {
 		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: config.GetMetricsConfigName(), Namespace: system.Namespace()},
 			Data:       map[string]string{},
 		})
 	}
-	if !trustedresourcesExists {
+	if !spireconfigExists {
 		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: config.GetTrustedResourcesConfigName(), Namespace: system.Namespace()},
+			ObjectMeta: metav1.ObjectMeta{Name: config.GetSpireConfigName(), Namespace: system.Namespace()},
+			Data:       map[string]string{},
+		})
+	}
+	if !eventsExists {
+		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: config.GetEventsConfigName(), Namespace: system.Namespace()},
+			Data:       map[string]string{},
+		})
+	}
+	if !tracingExists {
+		d.ConfigMaps = append(d.ConfigMaps, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: config.GetTracingConfigName(), Namespace: system.Namespace()},
 			Data:       map[string]string{},
 		})
 	}

@@ -18,22 +18,26 @@ package pod
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/internal/computeresources/tasklevel"
 	"github.com/tektoncd/pipeline/pkg/names"
+	"github.com/tektoncd/pipeline/pkg/spire"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/strings/slices"
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/kmeta"
 )
@@ -51,6 +55,26 @@ const (
 	// deadlineFactor is the factor we multiply the taskrun timeout with to determine the activeDeadlineSeconds of the Pod.
 	// It has to be higher than the timeout (to not be killed before)
 	deadlineFactor = 1.5
+
+	// SpiffeCsiDriver is the CSI storage plugin needed for injection of SPIFFE workload api.
+	SpiffeCsiDriver = "csi.spiffe.io"
+
+	// osSelectorLabel is the label Kubernetes uses for OS-specific workloads (https://kubernetes.io/docs/reference/labels-annotations-taints/#kubernetes-io-os)
+	osSelectorLabel = "kubernetes.io/os"
+
+	// TerminationReasonTimeoutExceeded indicates a step execution timed out.
+	TerminationReasonTimeoutExceeded = "TimeoutExceeded"
+
+	// TerminationReasonSkipped indicates a step execution was skipped due to previous step failed.
+	TerminationReasonSkipped = "Skipped"
+
+	// TerminationReasonContinued indicates a step errored but was ignored since onError was set to continue.
+	TerminationReasonContinued = "Continued"
+
+	// TerminationReasonCancelled indicates a step was cancelled.
+	TerminationReasonCancelled = "Cancelled"
+
+	StepArtifactPathPattern = "step.artifacts.path"
 )
 
 // These are effectively const, but Go doesn't have such an annotation.
@@ -58,8 +82,8 @@ var (
 	ReleaseAnnotation = "pipeline.tekton.dev/release"
 
 	groupVersionKind = schema.GroupVersionKind{
-		Group:   v1beta1.SchemeGroupVersion.Group,
-		Version: v1beta1.SchemeGroupVersion.Version,
+		Group:   v1.SchemeGroupVersion.Group,
+		Version: v1.SchemeGroupVersion.Version,
 		Kind:    "TaskRun",
 	}
 	// These are injected into all of the source/step containers.
@@ -93,6 +117,27 @@ var (
 
 	// MaxActiveDeadlineSeconds is a maximum permitted value to be used for a task with no timeout
 	MaxActiveDeadlineSeconds = int64(math.MaxInt32)
+
+	// Used in security context of pod init containers
+	allowPrivilegeEscalation = false
+	runAsNonRoot             = true
+
+	// The following security contexts allow init containers to run in namespaces
+	// with "restricted" pod security admission
+	// See https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+	linuxSecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		RunAsNonRoot: &runAsNonRoot,
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	windowsSecurityContext = &corev1.SecurityContext{
+		RunAsNonRoot: &runAsNonRoot,
+	}
 )
 
 // Builder exposes options to configure Pod construction from TaskSpecs/Runs.
@@ -109,7 +154,7 @@ type Transformer func(*corev1.Pod) (*corev1.Pod, error)
 // Build creates a Pod using the configuration options set on b and the TaskRun
 // and TaskSpec provided in its arguments. An error is returned if there are
 // any problems during the conversion.
-func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec v1beta1.TaskSpec, transformers ...Transformer) (*corev1.Pod, error) {
+func (b *Builder) Build(ctx context.Context, taskRun *v1.TaskRun, taskSpec v1.TaskSpec, transformers ...Transformer) (*corev1.Pod, error) {
 	var (
 		scriptsInit                                       *corev1.Container
 		initContainers, stepContainers, sidecarContainers []corev1.Container
@@ -118,7 +163,11 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	volumeMounts := []corev1.VolumeMount{binROMount}
 	implicitEnvVars := []corev1.EnvVar{}
 	featureFlags := config.FromContextOrDefaults(ctx).FeatureFlags
+	defaultForbiddenEnv := config.FromContextOrDefaults(ctx).Defaults.DefaultForbiddenEnv
 	alphaAPIEnabled := featureFlags.EnableAPIFields == config.AlphaAPIFields
+	sidecarLogsResultsEnabled := config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs
+	enableKeepPodOnCancel := featureFlags.EnableKeepPodOnCancel
+	setSecurityContext := config.FromContextOrDefaults(ctx).FeatureFlags.SetSecurityContext
 
 	// Add our implicit volumes first, so they can be overridden by the user if they prefer.
 	volumes = append(volumes, implicitVolumes...)
@@ -127,41 +176,60 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	// Create Volumes and VolumeMounts for any credentials found in annotated
 	// Secrets, along with any arguments needed by Step entrypoints to process
 	// those secrets.
-	credEntrypointArgs, credVolumes, credVolumeMounts, err := credsInit(ctx, taskRun.Spec.ServiceAccountName, taskRun.Namespace, b.KubeClient)
+	commonExtraEntrypointArgs := []string{}
+	// Entrypoint arg to enable or disable spire
+	if config.IsSpireEnabled(ctx) {
+		commonExtraEntrypointArgs = append(commonExtraEntrypointArgs, "-enable_spire")
+	}
+	credEntrypointArgs, credVolumes, credVolumeMounts, err := credsInit(ctx, taskRun, taskRun.Spec.ServiceAccountName, taskRun.Namespace, b.KubeClient)
 	if err != nil {
 		return nil, err
 	}
+	commonExtraEntrypointArgs = append(commonExtraEntrypointArgs, credEntrypointArgs...)
 	volumes = append(volumes, credVolumes...)
 	volumeMounts = append(volumeMounts, credVolumeMounts...)
 
 	// Merge step template with steps.
 	// TODO(#1605): Move MergeSteps to pkg/pod
-	steps, err := v1beta1.MergeStepsWithStepTemplate(taskSpec.StepTemplate, taskSpec.Steps)
+	steps, err := v1.MergeStepsWithStepTemplate(taskSpec.StepTemplate, taskSpec.Steps)
 	if err != nil {
 		return nil, err
 	}
-	steps, err = v1beta1.MergeStepsWithOverrides(steps, taskRun.Spec.StepOverrides)
+	steps, err = v1.MergeStepsWithSpecs(steps, taskRun.Spec.StepSpecs)
 	if err != nil {
 		return nil, err
 	}
-	if alphaAPIEnabled && taskRun.Spec.ComputeResources != nil {
+	if taskRun.Spec.ComputeResources != nil {
 		tasklevel.ApplyTaskLevelComputeResources(steps, taskRun.Spec.ComputeResources)
 	}
-	sidecars, err := v1beta1.MergeSidecarsWithOverrides(taskSpec.Sidecars, taskRun.Spec.SidecarOverrides)
+	windows := usesWindows(taskRun)
+	if sidecarLogsResultsEnabled {
+		if taskSpec.Results != nil || artifactsPathReferenced(steps) {
+			// create a results sidecar
+			resultsSidecar, err := createResultsSidecar(taskSpec, b.Images.SidecarLogResultsImage, setSecurityContext, windows)
+			if err != nil {
+				return nil, err
+			}
+			taskSpec.Sidecars = append(taskSpec.Sidecars, resultsSidecar)
+			commonExtraEntrypointArgs = append(commonExtraEntrypointArgs, "-result_from", config.ResultExtractionMethodSidecarLogs)
+		}
+	}
+
+	sidecars, err := v1.MergeSidecarsWithSpecs(taskSpec.Sidecars, taskRun.Spec.SidecarSpecs)
 	if err != nil {
 		return nil, err
 	}
 
 	initContainers = []corev1.Container{
-		entrypointInitContainer(b.Images.EntrypointImage, steps),
+		entrypointInitContainer(b.Images.EntrypointImage, steps, setSecurityContext, windows),
 	}
 
 	// Convert any steps with Script to command+args.
 	// If any are found, append an init container to initialize scripts.
 	if alphaAPIEnabled {
-		scriptsInit, stepContainers, sidecarContainers = convertScripts(b.Images.ShellImage, b.Images.ShellImageWin, steps, sidecars, taskRun.Spec.Debug)
+		scriptsInit, stepContainers, sidecarContainers = convertScripts(b.Images.ShellImage, b.Images.ShellImageWin, steps, sidecars, taskRun.Spec.Debug, setSecurityContext)
 	} else {
-		scriptsInit, stepContainers, sidecarContainers = convertScripts(b.Images.ShellImage, "", steps, sidecars, nil)
+		scriptsInit, stepContainers, sidecarContainers = convertScripts(b.Images.ShellImage, "", steps, sidecars, nil, setSecurityContext)
 	}
 
 	if scriptsInit != nil {
@@ -172,7 +240,7 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 		volumes = append(volumes, debugScriptsVolume, debugInfoVolume)
 	}
 	// Initialize any workingDirs under /workspace.
-	if workingDirInit := workingDirInit(b.Images.WorkingDirInitImage, stepContainers); workingDirInit != nil {
+	if workingDirInit := workingDirInit(b.Images.WorkingDirInitImage, stepContainers, setSecurityContext, windows); workingDirInit != nil {
 		initContainers = append(initContainers, *workingDirInit)
 	}
 
@@ -192,33 +260,50 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	readyImmediately := isPodReadyImmediately(*featureFlags, taskSpec.Sidecars)
 
 	if alphaAPIEnabled {
-		stepContainers, err = orderContainers(credEntrypointArgs, stepContainers, &taskSpec, taskRun.Spec.Debug, !readyImmediately)
+		stepContainers, err = orderContainers(ctx, commonExtraEntrypointArgs, stepContainers, &taskSpec, taskRun.Spec.Debug, !readyImmediately, enableKeepPodOnCancel)
 	} else {
-		stepContainers, err = orderContainers(credEntrypointArgs, stepContainers, &taskSpec, nil, !readyImmediately)
+		stepContainers, err = orderContainers(ctx, commonExtraEntrypointArgs, stepContainers, &taskSpec, nil, !readyImmediately, enableKeepPodOnCancel)
 	}
 	if err != nil {
 		return nil, err
 	}
 	volumes = append(volumes, binVolume)
-	if !readyImmediately {
-		volumes = append(volumes, downwardVolume)
+	if !readyImmediately || enableKeepPodOnCancel {
+		downwardVolumeDup := downwardVolume.DeepCopy()
+		if enableKeepPodOnCancel {
+			downwardVolumeDup.VolumeSource.DownwardAPI.Items = append(downwardVolumeDup.VolumeSource.DownwardAPI.Items, downwardCancelVolumeItem)
+		}
+		volumes = append(volumes, *downwardVolumeDup)
 	}
 
-	// Add implicit env vars.
-	// They're prepended to the list, so that if the user specified any
-	// themselves their value takes precedence.
+	// Order of precedence for envs
+	// implicit env vars
+	// Superceded by step env vars
+	// Superceded by config-default default-pod-template envs
+	// Superceded by podTemplate envs
 	if len(implicitEnvVars) > 0 {
 		for i, s := range stepContainers {
-			env := append(implicitEnvVars, s.Env...) //nolint
+			env := append(implicitEnvVars, s.Env...) //nolint:gocritic
 			stepContainers[i].Env = env
 		}
 	}
-
+	filteredEnvs := []corev1.EnvVar{}
+	for _, e := range podTemplate.Env {
+		if !slices.Contains(defaultForbiddenEnv, e.Name) {
+			filteredEnvs = append(filteredEnvs, e)
+		}
+	}
+	if len(podTemplate.Env) > 0 {
+		for i, s := range stepContainers {
+			env := append(s.Env, filteredEnvs...) //nolint:gocritic
+			stepContainers[i].Env = env
+		}
+	}
 	// Add env var if hermetic execution was requested & if the alpha API is enabled
 	if taskRun.Annotations[ExecutionModeAnnotation] == ExecutionModeHermetic && alphaAPIEnabled {
 		for i, s := range stepContainers {
 			// Add it at the end so it overrides
-			env := append(s.Env, corev1.EnvVar{Name: TektonHermeticEnvVar, Value: "1"}) //nolint
+			env := append(s.Env, corev1.EnvVar{Name: TektonHermeticEnvVar, Value: "1"}) //nolint:gocritic
 			stepContainers[i].Env = env
 		}
 	}
@@ -255,8 +340,35 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 				toAdd = append(toAdd, imp)
 			}
 		}
-		vms := append(s.VolumeMounts, toAdd...) //nolint
+		vms := append(s.VolumeMounts, toAdd...) //nolint:gocritic
 		stepContainers[i].VolumeMounts = vms
+	}
+
+	if sidecarLogsResultsEnabled {
+		// Mount implicit volumes onto sidecarContainers
+		// so that they can access /tekton/results and /tekton/run.
+		if taskSpec.Results != nil || artifactsPathReferenced(steps) {
+			for i, s := range sidecarContainers {
+				if s.Name != pipeline.ReservedResultsSidecarName {
+					continue
+				}
+				for j := 0; j < len(stepContainers); j++ {
+					s.VolumeMounts = append(s.VolumeMounts, runMount(j, true))
+				}
+				requestedVolumeMounts := map[string]bool{}
+				for _, vm := range s.VolumeMounts {
+					requestedVolumeMounts[filepath.Clean(vm.MountPath)] = true
+				}
+				var toAdd []corev1.VolumeMount
+				for _, imp := range volumeMounts {
+					if !requestedVolumeMounts[filepath.Clean(imp.MountPath)] {
+						toAdd = append(toAdd, imp)
+					}
+				}
+				vms := append(s.VolumeMounts, toAdd...) //nolint:gocritic
+				sidecarContainers[i].VolumeMounts = vms
+			}
+		}
 	}
 
 	// This loop:
@@ -271,8 +383,41 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	volumes = append(volumes, taskSpec.Volumes...)
 	volumes = append(volumes, podTemplate.Volumes...)
 
-	if err := v1beta1.ValidateVolumes(volumes); err != nil {
+	if err := v1.ValidateVolumes(volumes); err != nil {
 		return nil, err
+	}
+
+	readonly := true
+	if config.IsSpireEnabled(ctx) {
+		// add SPIRE's CSI volume to the explicitly declared use volumes
+		volumes = append(volumes, corev1.Volume{
+			Name: spire.WorkloadAPI,
+			VolumeSource: corev1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{
+					Driver:   SpiffeCsiDriver,
+					ReadOnly: &readonly,
+				},
+			},
+		})
+
+		// mount SPIRE's CSI volume to each Step Container
+		for i := range stepContainers {
+			c := &stepContainers[i]
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+				Name:      spire.WorkloadAPI,
+				MountPath: spire.VolumeMountPath,
+				ReadOnly:  readonly,
+			})
+		}
+		for i := range initContainers {
+			// mount SPIRE's CSI volume to each Init Container
+			c := &initContainers[i]
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+				Name:      spire.WorkloadAPI,
+				MountPath: spire.VolumeMountPath,
+				ReadOnly:  readonly,
+			})
+		}
 	}
 
 	mergedPodContainers := stepContainers
@@ -359,11 +504,108 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 		}
 	}
 
+	// update init container and containers resource requirements
+	// resource limits values are taken from a config map
+	configDefaults := config.FromContextOrDefaults(ctx).Defaults
+	updateResourceRequirements(configDefaults.DefaultContainerResourceRequirements, newPod)
+
 	return newPod, nil
 }
 
+// updates init containers and containers resource requirements of a pod base of config_defaults configmap.
+func updateResourceRequirements(resourceRequirementsMap map[string]corev1.ResourceRequirements, pod *corev1.Pod) {
+	if len(resourceRequirementsMap) == 0 {
+		return
+	}
+
+	// collect all the available container names from the resource requirement map
+	// some of the container names: place-scripts, prepare, working-dir-initializer
+	// some of the container names with prefix: prefix-scripts, prefix-sidecar-scripts
+	containerNames := []string{}
+	containerNamesWithPrefix := []string{}
+	for containerName := range resourceRequirementsMap {
+		// skip the default key
+		if containerName == config.ResourceRequirementDefaultContainerKey {
+			continue
+		}
+
+		if strings.HasPrefix(containerName, "prefix-") {
+			containerNamesWithPrefix = append(containerNamesWithPrefix, containerName)
+		} else {
+			containerNames = append(containerNames, containerName)
+		}
+	}
+
+	// update the containers resource requirements which does not have resource requirements
+	for _, containerName := range containerNames {
+		resourceRequirements := resourceRequirementsMap[containerName]
+		if resourceRequirements.Size() == 0 {
+			continue
+		}
+
+		// update init containers
+		for index := range pod.Spec.InitContainers {
+			targetContainer := pod.Spec.InitContainers[index]
+			if containerName == targetContainer.Name && targetContainer.Resources.Size() == 0 {
+				pod.Spec.InitContainers[index].Resources = resourceRequirements
+			}
+		}
+		// update containers
+		for index := range pod.Spec.Containers {
+			targetContainer := pod.Spec.Containers[index]
+			if containerName == targetContainer.Name && targetContainer.Resources.Size() == 0 {
+				pod.Spec.Containers[index].Resources = resourceRequirements
+			}
+		}
+	}
+
+	// update the containers resource requirements which does not have resource requirements with the mentioned prefix
+	for _, containerPrefix := range containerNamesWithPrefix {
+		resourceRequirements := resourceRequirementsMap[containerPrefix]
+		if resourceRequirements.Size() == 0 {
+			continue
+		}
+
+		// get actual container name, remove "prefix-" string and append "-" at the end
+		// append '-' in the container prefix
+		containerPrefix = strings.Replace(containerPrefix, "prefix-", "", 1)
+		containerPrefix += "-"
+
+		// update init containers
+		for index := range pod.Spec.InitContainers {
+			targetContainer := pod.Spec.InitContainers[index]
+			if strings.HasPrefix(targetContainer.Name, containerPrefix) && targetContainer.Resources.Size() == 0 {
+				pod.Spec.InitContainers[index].Resources = resourceRequirements
+			}
+		}
+		// update containers
+		for index := range pod.Spec.Containers {
+			targetContainer := pod.Spec.Containers[index]
+			if strings.HasPrefix(targetContainer.Name, containerPrefix) && targetContainer.Resources.Size() == 0 {
+				pod.Spec.Containers[index].Resources = resourceRequirements
+			}
+		}
+	}
+
+	// reset of the containers resource requirements which has empty resource requirements
+	if resourceRequirements, found := resourceRequirementsMap[config.ResourceRequirementDefaultContainerKey]; found && resourceRequirements.Size() != 0 {
+		// update init containers
+		for index := range pod.Spec.InitContainers {
+			if pod.Spec.InitContainers[index].Resources.Size() == 0 {
+				pod.Spec.InitContainers[index].Resources = resourceRequirements
+			}
+		}
+		// update containers
+		for index := range pod.Spec.Containers {
+			if pod.Spec.Containers[index].Resources.Size() == 0 {
+				pod.Spec.Containers[index].Resources = resourceRequirements
+			}
+		}
+	}
+}
+
 // makeLabels constructs the labels we will propagate from TaskRuns to Pods.
-func makeLabels(s *v1beta1.TaskRun) map[string]string {
+func makeLabels(s *v1.TaskRun) map[string]string {
 	labels := make(map[string]string, len(s.ObjectMeta.Labels)+1)
 	// NB: Set this *before* passing through TaskRun labels. If the TaskRun
 	// has a managed-by label, it should override this default.
@@ -383,7 +625,7 @@ func makeLabels(s *v1beta1.TaskRun) map[string]string {
 // controller should consider the Pod "Ready" as soon as it's deployed.
 // This will add the `Ready` annotation when creating the Pod,
 // and prevent the first step from waiting for the annotation to appear before starting.
-func isPodReadyImmediately(featureFlags config.FeatureFlags, sidecars []v1beta1.Sidecar) bool {
+func isPodReadyImmediately(featureFlags config.FeatureFlags, sidecars []v1.Sidecar) bool {
 	// If the TaskRun has sidecars, we must wait for them
 	if len(sidecars) > 0 || featureFlags.RunningInEnvWithInjectedSidecars {
 		if featureFlags.AwaitSidecarReadiness {
@@ -397,7 +639,7 @@ func isPodReadyImmediately(featureFlags config.FeatureFlags, sidecars []v1beta1.
 func runMount(i int, ro bool) corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      fmt.Sprintf("%s-%d", runVolumeName, i),
-		MountPath: filepath.Join(runDir, strconv.Itoa(i)),
+		MountPath: filepath.Join(RunDir, strconv.Itoa(i)),
 		ReadOnly:  ro,
 	}
 }
@@ -409,9 +651,11 @@ func runVolume(i int) corev1.Volume {
 	}
 }
 
-// entrypointInitContainer generates a few init containers based of a set of command (in images) and volumes to run
+// entrypointInitContainer generates a few init containers based of a set of command (in images), volumes to run, and whether the pod will run on a windows node
 // This should effectively merge multiple command and volumes together.
-func entrypointInitContainer(image string, steps []v1beta1.Step) corev1.Container {
+// If setSecurityContext is true, the init container will include a security context
+// allowing it to run in namespaces with restriced pod security admission.
+func entrypointInitContainer(image string, steps []v1.Step, setSecurityContext, windows bool) corev1.Container {
 	// Invoke the entrypoint binary in "cp mode" to copy itself
 	// into the correct location for later steps and initialize steps folder
 	command := []string{"/ko-app/entrypoint", "init", "/ko-app/entrypoint", entrypointBinary}
@@ -419,6 +663,10 @@ func entrypointInitContainer(image string, steps []v1beta1.Step) corev1.Containe
 		command = append(command, StepName(s.Name, i))
 	}
 	volumeMounts := []corev1.VolumeMount{binMount, internalStepsMount}
+	securityContext := linuxSecurityContext
+	if windows {
+		securityContext = windowsSecurityContext
+	}
 
 	// Rewrite steps with entrypoint binary. Append the entrypoint init
 	// container to place the entrypoint binary. Also add timeout flags
@@ -433,5 +681,113 @@ func entrypointInitContainer(image string, steps []v1beta1.Step) corev1.Containe
 		Command:      command,
 		VolumeMounts: volumeMounts,
 	}
+	if setSecurityContext {
+		prepareInitContainer.SecurityContext = securityContext
+	}
 	return prepareInitContainer
+}
+
+// createResultsSidecar creates a sidecar that will run the sidecarlogresults binary,
+// based on the spec of the Task, the image that should run in the results sidecar,
+// whether it will run on a windows node, and whether the sidecar should include a security context
+// that will allow it to run in namespaces with "restricted" pod security admission.
+// It will also provide arguments to the binary that allow it to surface the step results.
+func createResultsSidecar(taskSpec v1.TaskSpec, image string, setSecurityContext, windows bool) (v1.Sidecar, error) {
+	names := make([]string, 0, len(taskSpec.Results))
+	for _, r := range taskSpec.Results {
+		names = append(names, r.Name)
+	}
+
+	stepNames := make([]string, 0, len(taskSpec.Steps))
+	var artifactProducerSteps []string
+	for i, s := range taskSpec.Steps {
+		stepName := StepName(s.Name, i)
+		stepNames = append(stepNames, stepName)
+		if artifactPathReferencedInStep(s) {
+			artifactProducerSteps = append(artifactProducerSteps, GetContainerName(s.Name))
+		}
+	}
+
+	resultsStr := strings.Join(names, ",")
+	command := []string{"/ko-app/sidecarlogresults", "-results-dir", pipeline.DefaultResultPath, "-result-names", resultsStr, "-step-names", strings.Join(artifactProducerSteps, ",")}
+
+	// create a map of container Name to step results
+	stepResults := map[string][]string{}
+	for i, s := range taskSpec.Steps {
+		if len(s.Results) > 0 {
+			stepName := StepName(s.Name, i)
+			stepResults[stepName] = make([]string, 0, len(s.Results))
+			for _, r := range s.Results {
+				stepResults[stepName] = append(stepResults[stepName], r.Name)
+			}
+		}
+	}
+
+	stepResultsBytes, err := json.Marshal(stepResults)
+	if err != nil {
+		return v1.Sidecar{}, err
+	}
+	if len(stepResultsBytes) > 0 {
+		command = append(command, "-step-results", string(stepResultsBytes))
+	}
+	sidecar := v1.Sidecar{
+		Name:    pipeline.ReservedResultsSidecarName,
+		Image:   image,
+		Command: command,
+	}
+	securityContext := linuxSecurityContext
+	if windows {
+		securityContext = windowsSecurityContext
+	}
+	if setSecurityContext {
+		sidecar.SecurityContext = securityContext
+	}
+	return sidecar, nil
+}
+
+// usesWindows returns true if the TaskRun will run on a windows node,
+// based on its node selector.
+// See https://kubernetes.io/docs/concepts/windows/user-guide/ for more info.
+func usesWindows(tr *v1.TaskRun) bool {
+	if tr.Spec.PodTemplate == nil || tr.Spec.PodTemplate.NodeSelector == nil {
+		return false
+	}
+	osSelector := tr.Spec.PodTemplate.NodeSelector[osSelectorLabel]
+	return osSelector == "windows"
+}
+
+func artifactsPathReferenced(steps []v1.Step) bool {
+	for _, step := range steps {
+		if artifactPathReferencedInStep(step) {
+			return true
+		}
+	}
+	return false
+}
+
+func artifactPathReferencedInStep(step v1.Step) bool {
+	// `$(step.artifacts.path)` in  taskRun.Spec.TaskSpec.Steps and `taskSpec.steps` are substituted when building the pod while when setting status for taskRun
+	// neither of them is substituted, so we need two forms to check if artifactsPath is referenced in steps.
+	unresolvedPath := "$(" + StepArtifactPathPattern + ")"
+
+	path := filepath.Join(pipeline.StepsDir, GetContainerName(step.Name), "artifacts", "provenance.json")
+	if strings.Contains(step.Script, path) || strings.Contains(step.Script, unresolvedPath) {
+		return true
+	}
+	for _, arg := range step.Args {
+		if strings.Contains(arg, path) || strings.Contains(arg, unresolvedPath) {
+			return true
+		}
+	}
+	for _, c := range step.Command {
+		if strings.Contains(c, path) || strings.Contains(c, unresolvedPath) {
+			return true
+		}
+	}
+	for _, e := range step.Env {
+		if strings.Contains(e.Value, path) || strings.Contains(e.Value, unresolvedPath) {
+			return true
+		}
+	}
+	return false
 }

@@ -167,7 +167,7 @@ func (sc *SpoofingClient) Poll(req *http.Request, inState ResponseChecker, check
 	}
 
 	var resp *Response
-	err := wait.PollImmediate(sc.RequestInterval, sc.RequestTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), sc.RequestInterval, sc.RequestTimeout, true, func(ctx context.Context) (bool, error) {
 		// Starting span to capture zipkin trace.
 		traceContext, span := trace.StartSpan(req.Context(), "SpoofingClient-Trace")
 		defer span.End()
@@ -265,7 +265,7 @@ func DefaultResponseRetryChecker(resp *Response) (bool, error) {
 // logZipkinTrace provides support to log Zipkin Trace for param: spoofResponse
 // We only log Zipkin trace for HTTP server errors i.e for HTTP status codes between 500 to 600
 func (sc *SpoofingClient) logZipkinTrace(spoofResp *Response) {
-	if !zipkin.ZipkinTracingEnabled || spoofResp.StatusCode < http.StatusInternalServerError || spoofResp.StatusCode >= 600 {
+	if !zipkin.IsTracingEnabled() || spoofResp.StatusCode < http.StatusInternalServerError || spoofResp.StatusCode >= 600 {
 		return
 	}
 

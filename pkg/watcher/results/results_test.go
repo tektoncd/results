@@ -25,7 +25,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/internal/protoutil"
 	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -350,7 +349,7 @@ func TestAnnotations(t *testing.T) {
 	ctx := logtest.TestContextWithLogger(t)
 	client := client(t)
 
-	pipelineRun := &v1beta1.PipelineRun{
+	pipelineRun := &pipelinev1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Annotations: map[string]string{
