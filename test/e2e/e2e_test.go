@@ -45,9 +45,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	tektonv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	tektonv1beta1client "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
+	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	tektonv1client "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,7 +117,7 @@ func init() {
 
 func TestTaskRun(t *testing.T) {
 	ctx := context.Background()
-	tr := new(tektonv1beta1.TaskRun)
+	tr := new(tektonv1.TaskRun)
 	b, err := os.ReadFile("testdata/taskrun.yaml")
 	if err != nil {
 		t.Fatalf("Error reading file: %v", err)
@@ -209,7 +209,7 @@ func TestTaskRun(t *testing.T) {
 
 func TestPipelineRun(t *testing.T) {
 	ctx := context.Background()
-	pr := new(tektonv1beta1.PipelineRun)
+	pr := new(tektonv1.PipelineRun)
 	b, err := os.ReadFile("testdata/pipelinerun.yaml")
 	if err != nil {
 		t.Fatalf("Error reading file: %v", err)
@@ -334,7 +334,7 @@ func TestPipelineRun(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var pipelineRun v1beta1.PipelineRun
+			var pipelineRun v1.PipelineRun
 			if err := json.Unmarshal(record.Data.Value, &pipelineRun); err != nil {
 				t.Fatal(err)
 			}
@@ -343,8 +343,8 @@ func TestPipelineRun(t *testing.T) {
 				t.Fatal("Want PipelineRun to be done, but it isn't")
 			}
 
-			wantReason := v1beta1.PipelineRunReasonSuccessful
-			if gotReason := pipelineRun.Status.GetCondition(apis.ConditionSucceeded).GetReason(); wantReason != v1beta1.PipelineRunReason(gotReason) {
+			wantReason := v1.PipelineRunReasonSuccessful
+			if gotReason := pipelineRun.Status.GetCondition(apis.ConditionSucceeded).GetReason(); wantReason != v1.PipelineRunReason(gotReason) {
 				t.Fatalf("PipelineRun: want condition reason %s, but got %s", wantReason, gotReason)
 			}
 		})
@@ -363,10 +363,10 @@ func clientConfig(t *testing.T) *rest.Config {
 	return config
 }
 
-func tektonClient(t *testing.T) *tektonv1beta1client.TektonV1beta1Client {
+func tektonClient(t *testing.T) *tektonv1client.TektonV1Client {
 	t.Helper()
 
-	return tektonv1beta1client.NewForConfigOrDie(clientConfig(t))
+	return tektonv1client.NewForConfigOrDie(clientConfig(t))
 }
 
 func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transport.ImpersonationConfig) (client.GRPCClient, client.RESTClient) {

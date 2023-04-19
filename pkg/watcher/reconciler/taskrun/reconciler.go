@@ -8,7 +8,7 @@ import (
 	"github.com/tektoncd/results/pkg/taskrunmetrics"
 	"github.com/tektoncd/results/pkg/watcher/results"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/controller"
 	knativereconciler "knative.dev/pkg/reconciler"
 
@@ -77,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	dyn := dynamic.NewDynamicReconciler(r.kubeClientSet, r.resultsClient, r.logsClient, taskRunClient, r.cfg)
 	dyn.AfterDeletion = func(ctx context.Context, o results.Object) error {
-		tr := o.(*pipelinev1beta1.TaskRun)
+		tr := o.(*pipelinev1.TaskRun)
 		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
 	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)

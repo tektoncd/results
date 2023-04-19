@@ -472,7 +472,7 @@ func TestStatus(t *testing.T) {
 		{
 			cond: &apis.Condition{
 				Type:    apis.ConditionSucceeded,
-				Reason:  string(pod.ReasonCouldntGetTask),
+				Reason:  pod.ReasonFailedResolution,
 				Message: "Pod Failure",
 			},
 			want: rpb.RecordSummary_FAILURE,

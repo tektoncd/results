@@ -20,9 +20,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tektoncd/cli/pkg/actions"
 	"github.com/tektoncd/cli/pkg/pods"
-	tr "github.com/tektoncd/cli/pkg/taskrun"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	taskrunpkg "github.com/tektoncd/cli/pkg/taskrun"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -44,20 +45,20 @@ func (s *step) hasStarted() bool {
 }
 
 func (r *Reader) readTaskLog() (<-chan Log, <-chan error, error) {
-	tr, err := tr.Get(r.clients, r.run, metav1.GetOptions{}, r.ns)
+	tr, err := taskrunpkg.GetTaskRun(taskrunGroupResource, r.clients, r.run, r.ns)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %s", MsgTRNotFoundErr, err)
 	}
 
 	r.formTaskName(tr)
 
-	if !isDone(tr, r.retries) && r.follow {
+	if !tr.IsDone() && r.follow {
 		return r.readLiveTaskLogs(tr)
 	}
 	return r.readAvailableTaskLogs(tr)
 }
 
-func (r *Reader) formTaskName(tr *v1beta1.TaskRun) {
+func (r *Reader) formTaskName(tr *v1.TaskRun) {
 	if r.task != "" {
 		return
 	}
@@ -75,7 +76,7 @@ func (r *Reader) formTaskName(tr *v1beta1.TaskRun) {
 	r.task = fmt.Sprintf("Task %d", r.number)
 }
 
-func (r *Reader) readLiveTaskLogs(tr *v1beta1.TaskRun) (<-chan Log, <-chan error, error) {
+func (r *Reader) readLiveTaskLogs(tr *v1.TaskRun) (<-chan Log, <-chan error, error) {
 	podC, podErrC, err := r.getTaskRunPodNames(tr)
 	if err != nil {
 		return nil, nil, err
@@ -84,13 +85,13 @@ func (r *Reader) readLiveTaskLogs(tr *v1beta1.TaskRun) (<-chan Log, <-chan error
 	return logC, errC, nil
 }
 
-func (r *Reader) readAvailableTaskLogs(tr *v1beta1.TaskRun) (<-chan Log, <-chan error, error) {
+func (r *Reader) readAvailableTaskLogs(tr *v1.TaskRun) (<-chan Log, <-chan error, error) {
 	if !tr.HasStarted() {
 		return nil, nil, fmt.Errorf("task %s has not started yet", r.task)
 	}
 
 	// Check if taskrun failed on start up
-	if err := hasTaskRunFailed(tr, r.task, r.retries); err != nil {
+	if err := hasTaskRunFailed(tr, r.task); err != nil {
 		if r.stream != nil {
 			fmt.Fprintf(r.stream.Err, "%s\n", err.Error())
 		} else {
@@ -211,12 +212,12 @@ func (r *Reader) readPodLogs(podC <-chan string, podErrC <-chan error, follow, t
 // updated in the status. Open a watch channel on the task run
 // and keep checking the status until the taskrun completes
 // or the timeout is reached.
-func (r *Reader) getTaskRunPodNames(run *v1beta1.TaskRun) (<-chan string, <-chan error, error) {
+func (r *Reader) getTaskRunPodNames(run *v1.TaskRun) (<-chan string, <-chan error, error) {
 	opts := metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", r.run).String(),
 	}
 
-	watchRun, err := tr.Watch(r.clients, opts, r.ns)
+	watchRun, err := actions.Watch(taskrunGroupResource, r.clients, r.ns, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -261,24 +262,24 @@ func (r *Reader) getTaskRunPodNames(run *v1beta1.TaskRun) (<-chan string, <-chan
 				}
 				if run.Status.PodName != "" {
 					addPod(run.Status.PodName)
-					if areRetriesScheduled(run, r.retries) {
+					if !areRetriesScheduled(run, r.retries) {
 						return
 					}
 				}
 			case <-timeout:
 				// Check if taskrun failed on start up
-				if err := hasTaskRunFailed(run, r.task, r.retries); err != nil {
+				if err := hasTaskRunFailed(run, r.task); err != nil {
 					errC <- err
 					return
 				}
 				// check if pod has been started and has a name
 				if run.HasStarted() && run.Status.PodName != "" {
-					if !areRetriesScheduled(run, r.retries) {
+					if areRetriesScheduled(run, r.retries) {
 						continue
 					}
 					return
 				}
-				errC <- fmt.Errorf("task %s create has not started yet or pod for task not yet available", r.task)
+				errC <- fmt.Errorf("task %s has not started yet or pod for task not yet available", r.task)
 				return
 			}
 		}
@@ -350,15 +351,15 @@ func getSteps(pod *corev1.Pod) []*step {
 	return steps
 }
 
-func hasTaskRunFailed(tr *v1beta1.TaskRun, taskName string, retries int) error {
-	if isFailure(tr, retries) {
+func hasTaskRunFailed(tr *v1.TaskRun, taskName string) error {
+	if isFailure(tr) {
 		return fmt.Errorf("task %s has failed: %s", taskName, tr.Status.Conditions[0].Message)
 	}
 	return nil
 }
 
-func cast2taskrun(obj runtime.Object) (*v1beta1.TaskRun, error) {
-	var run *v1beta1.TaskRun
+func cast2taskrun(obj runtime.Object) (*v1.TaskRun, error) {
+	var run *v1.TaskRun
 	unstruct, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
@@ -369,16 +370,15 @@ func cast2taskrun(obj runtime.Object) (*v1beta1.TaskRun, error) {
 	return run, nil
 }
 
-func isDone(tr *v1beta1.TaskRun, retries int) bool {
-	return tr.IsDone() || !areRetriesScheduled(tr, retries)
-}
-
-func isFailure(tr *v1beta1.TaskRun, retries int) bool {
+func isFailure(tr *v1.TaskRun) bool {
 	conditions := tr.Status.Conditions
-	return len(conditions) != 0 && conditions[0].Status == corev1.ConditionFalse && areRetriesScheduled(tr, retries)
+	return len(conditions) != 0 && conditions[0].Status == corev1.ConditionFalse
 }
 
-func areRetriesScheduled(tr *v1beta1.TaskRun, retries int) bool {
+func areRetriesScheduled(tr *v1.TaskRun, retries int) bool {
+	if tr.IsDone() {
+		return false
+	}
 	retriesDone := len(tr.Status.RetriesStatus)
-	return retriesDone >= retries
+	return retriesDone < retries
 }

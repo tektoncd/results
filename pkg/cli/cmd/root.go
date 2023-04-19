@@ -16,7 +16,7 @@ import (
 	"github.com/tektoncd/results/pkg/cli/portforward"
 
 	// TODO: Dynamically discover other protos to allow custom record printing.
-	_ "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	_ "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 )
 
 var (
