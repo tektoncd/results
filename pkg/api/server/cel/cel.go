@@ -23,7 +23,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	ppb "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -24,7 +24,7 @@ import (
 	"github.com/tektoncd/cli/pkg/cli"
 	tknlog "github.com/tektoncd/cli/pkg/log"
 	tknopts "github.com/tektoncd/cli/pkg/options"
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
@@ -238,12 +238,12 @@ func getCompletionTime(object results.Object) (*time.Time, error) {
 
 	switch o := object.(type) {
 
-	case *pipelinev1beta1.PipelineRun:
+	case *pipelinev1.PipelineRun:
 		if o.Status.CompletionTime != nil {
 			completionTime = &o.Status.CompletionTime.Time
 		}
 
-	case *pipelinev1beta1.TaskRun:
+	case *pipelinev1.TaskRun:
 		if o.Status.CompletionTime != nil {
 			completionTime = &o.Status.CompletionTime.Time
 		}

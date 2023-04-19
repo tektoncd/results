@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	pipelinev1beta1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
+	pipelinev1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
@@ -41,8 +41,8 @@ type Reconciler struct {
 
 	resultsClient     pb.ResultsClient
 	logsClient        pb.LogsClient
-	pipelineRunLister pipelinev1beta1listers.PipelineRunLister
-	taskRunLister     pipelinev1beta1listers.TaskRunLister
+	pipelineRunLister pipelinev1listers.PipelineRunLister
+	taskRunLister     pipelinev1listers.TaskRunLister
 	pipelineClient    versioned.Interface
 	cfg               *reconciler.Config
 }
@@ -75,7 +75,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	pipelineRunClient := &dynamic.PipelineRunClient{
-		PipelineRunInterface: r.pipelineClient.TektonV1beta1().PipelineRuns(namespace),
+		PipelineRunInterface: r.pipelineClient.TektonV1().PipelineRuns(namespace),
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, pipelineRunClient, r.cfg)
@@ -93,15 +93,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 }
 
 func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Context, object results.Object) (bool, error) {
-	pipelineRun, ok := object.(*pipelinev1beta1.PipelineRun)
+	pipelineRun, ok := object.(*pipelinev1.PipelineRun)
 	if !ok {
-		return false, fmt.Errorf("unexpected object (must not happen): want %T, but got %T", &pipelinev1beta1.PipelineRun{}, object)
+		return false, fmt.Errorf("unexpected object (must not happen): want %T, but got %T", &pipelinev1.PipelineRun{}, object)
 	}
 
 	logger := logging.FromContext(ctx)
 
-	// Support both minimal and full embedded status (see the TODO comment
-	// below).
 	if len(pipelineRun.Status.ChildReferences) > 0 {
 		for _, reference := range pipelineRun.Status.ChildReferences {
 			taskRun, err := r.taskRunLister.TaskRuns(pipelineRun.Namespace).Get(reference.Name)
@@ -120,33 +118,12 @@ func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Contex
 				return false, nil
 			}
 		}
-	} else {
-		// TODO(alan-ghelardi): remove this else once we support only
-		// Tekton v1 API since the full embedded status will no longer
-		// be supported.
-		for taskRunName := range pipelineRun.Status.TaskRuns {
-			taskRun, err := r.taskRunLister.TaskRuns(pipelineRun.Namespace).Get(taskRunName)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					// Let's assume that the TaskRun in
-					// question is gone and therefore, we
-					// can safely ignore it.
-					logger.Debugf("TaskRun %s/%s is no longer available - ignoring", pipelineRun.Namespace, taskRunName)
-					continue
-				}
-				return false, fmt.Errorf("error reading TaskRun from the indexer: %w", err)
-			}
-			if !isMarkedAsReadyForDeletion(taskRun) {
-				logger.Debugf("TaskRun %s/%s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, resultsannotation.ChildReadyForDeletion)
-				return false, nil
-			}
-		}
 	}
 
 	return true, nil
 }
 
-func isMarkedAsReadyForDeletion(taskRun *pipelinev1beta1.TaskRun) bool {
+func isMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
 	if taskRun.Annotations == nil {
 		return false
 	}

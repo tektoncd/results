@@ -5,6 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
@@ -19,13 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
-	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"path/filepath"
-	"strconv"
-	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -438,7 +439,7 @@ func TestListLogs(t *testing.T) {
 			name: "unknown type",
 			req: &pb.ListRecordsRequest{
 				Parent: res.GetName(),
-				Filter: `type(record.data) == tekton.pipeline.v1beta1.Unknown`,
+				Filter: `type(record.data) == tekton.pipeline.v1.Unknown`,
 			},
 			status: codes.InvalidArgument,
 		},

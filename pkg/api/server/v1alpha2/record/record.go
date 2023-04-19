@@ -18,13 +18,14 @@ package record
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
-	"regexp"
 
 	"github.com/google/cel-go/cel"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -180,9 +181,9 @@ func validateData(m *pb.Any) error {
 	}
 	switch m.GetType() {
 	case "pipeline.tekton.dev/TaskRun":
-		return json.Unmarshal(m.GetValue(), &v1beta1.TaskRun{})
+		return json.Unmarshal(m.GetValue(), &v1.TaskRun{})
 	case "pipeline.tekton.dev/PipelineRun":
-		return json.Unmarshal(m.GetValue(), &v1beta1.PipelineRun{})
+		return json.Unmarshal(m.GetValue(), &v1.PipelineRun{})
 	case "results.tekton.dev/v1alpha2.Log":
 		return json.Unmarshal(m.GetValue(), &v1alpha2.Log{})
 	default:

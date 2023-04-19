@@ -17,14 +17,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/results/pkg/api/server/config"
-	"github.com/tektoncd/results/pkg/api/server/logger"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/logger"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -32,7 +33,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	resultutil "github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
-	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	ppb "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,7 +66,7 @@ func TestCreateRecord(t *testing.T) {
 			Name: recordutil.FormatName(result.GetName(), "baz"),
 			Data: &pb.Any{
 				Type:  "TaskRun",
-				Value: jsonutil.AnyBytes(t, &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}),
+				Value: jsonutil.AnyBytes(t, &pipelinev1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}),
 			},
 		},
 	}
@@ -274,7 +275,7 @@ func TestListRecords(t *testing.T) {
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
 				Data: &pb.Any{
 					Type: "TaskRun",
-					Value: jsonutil.AnyBytes(t, &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{
+					Value: jsonutil.AnyBytes(t, &pipelinev1.TaskRun{ObjectMeta: v1.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
 					}}),
 				},
@@ -296,7 +297,7 @@ func TestListRecords(t *testing.T) {
 				Name: fmt.Sprintf("%s/records/%d", result.GetName(), i),
 				Data: &pb.Any{
 					Type: "PipelineRun",
-					Value: jsonutil.AnyBytes(t, &v1beta1.PipelineRun{ObjectMeta: v1.ObjectMeta{
+					Value: jsonutil.AnyBytes(t, &pipelinev1.PipelineRun{ObjectMeta: v1.ObjectMeta{
 						Name: fmt.Sprintf("%d", i),
 					}}),
 				},
@@ -466,7 +467,7 @@ func TestListRecords(t *testing.T) {
 			name: "unknown type",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
-				Filter: `type(record.data) == tekton.pipeline.v1beta1.Unknown`,
+				Filter: `type(record.data) == tekton.pipeline.v1.Unknown`,
 			},
 			status: codes.InvalidArgument,
 		},

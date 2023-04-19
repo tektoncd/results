@@ -16,10 +16,11 @@ package taskrun
 
 import (
 	"context"
+
 	"github.com/tektoncd/results/pkg/watcher/logs"
 
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
-	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
+	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/leaderelection"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"

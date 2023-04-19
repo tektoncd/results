@@ -100,7 +100,8 @@ type Result struct {
 	// Encodes parent information.
 	//
 	// Examples: namespace/default/results/1234
-	//           cluster/<cluster-id>/namespace/tekton/results/1234
+	//
+	//	cluster/<cluster-id>/namespace/tekton/results/1234
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Server assigned identifier of the Result.
 	// DEPRECATED: use uid instead.

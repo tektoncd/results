@@ -8,7 +8,7 @@ import (
 	knativereconciler "knative.dev/pkg/reconciler"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	"github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -25,7 +25,7 @@ type Reconciler struct {
 
 	resultsClient  pb.ResultsClient
 	logsClient     pb.LogsClient
-	lister         v1beta1.TaskRunLister
+	lister         v1.TaskRunLister
 	pipelineClient versioned.Interface
 	cfg            *reconciler.Config
 }
@@ -59,7 +59,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	taskRunClient := &dynamic.TaskRunClient{
-		TaskRunInterface: r.pipelineClient.TektonV1beta1().TaskRuns(namespace),
+		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(namespace),
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, taskRunClient, r.cfg)
