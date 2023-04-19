@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -148,10 +148,10 @@ func TestMigrate(t *testing.T) {
 			Etag:        r.Etag,
 		}
 		if strings.Contains(r.Name, "taskrun") {
-			out.Type = "tekton.dev/v1beta1.TaskRun"
+			out.Type = "tekton.dev/v1.TaskRun"
 			out.Data = jsondata(t, taskrun)
 		} else {
-			out.Type = "tekton.dev/v1beta1.PipelineRun"
+			out.Type = "tekton.dev/v1.PipelineRun"
 			out.Data = jsondata(t, pipelinerun)
 		}
 		outRecords = append(outRecords, out)
@@ -292,7 +292,7 @@ func TestMigrate(t *testing.T) {
 			for _, r := range got {
 				t.Run(r.GetName(), func(t *testing.T) {
 					if strings.Contains(r.Name, "taskrun") {
-						tr := new(v1beta1.TaskRun)
+						tr := new(v1.TaskRun)
 						if err := json.Unmarshal(r.Data.Value, tr); err != nil {
 							t.Fatalf("error unmarshalling JSON: %v", err)
 						}
@@ -300,7 +300,7 @@ func TestMigrate(t *testing.T) {
 							t.Error(diff)
 						}
 					} else {
-						pr := new(v1beta1.PipelineRun)
+						pr := new(v1.PipelineRun)
 						if err := json.Unmarshal(r.Data.Value, pr); err != nil {
 							t.Fatalf("error unmarshalling JSON: %v", err)
 						}
