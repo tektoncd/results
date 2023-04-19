@@ -37,7 +37,8 @@ func (m *mockS3Client) CreateMultipartUpload(ctx context.Context, params *s3.Cre
 
 func (m *mockS3Client) DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
-	return &s3.DeleteObjectOutput{DeleteMarker: true}, nil
+	dm := true
+	return &s3.DeleteObjectOutput{DeleteMarker: &dm}, nil
 }
 
 func (m *mockS3Client) GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) { //nolint:revive

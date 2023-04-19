@@ -161,9 +161,9 @@ func Status(ca apis.ConditionAccessor) rpb.RecordSummary_Status {
 	}
 
 	switch c.Reason {
-	case pod.ReasonCouldntGetTask, pod.ReasonFailedResolution, pod.ReasonFailedValidation, pod.ReasonExceededResourceQuota, pod.ReasonExceededNodeResources, pod.ReasonCreateContainerConfigError, pod.ReasonPodCreationFailed:
+	case pod.ReasonFailedResolution, pod.ReasonFailedValidation, pod.ReasonTaskFailedValidation, pod.ReasonResourceVerificationFailed, pod.ReasonExceededResourceQuota, pod.ReasonExceededNodeResources, pod.ReasonPullImageFailed, pod.ReasonCreateContainerConfigError, pod.ReasonPodCreationFailed, pod.ReasonPodAdmissionFailed:
 		return rpb.RecordSummary_FAILURE
-	case pod.ReasonPending:
+	case pod.ReasonPodPending:
 		return rpb.RecordSummary_UNKNOWN
 	}
 	return rpb.RecordSummary_UNKNOWN

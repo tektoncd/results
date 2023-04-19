@@ -7,7 +7,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -107,7 +107,7 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
 }
 
 // DurationAndCountDeleted counts for deleted number and records duration PipelineRuns
-func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, pr *pipelinev1beta1.PipelineRun) error {
+func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, pr *pipelinev1.PipelineRun) error {
 	pipelineName := "anonymous"
 	now := r.clock.Now()
 
