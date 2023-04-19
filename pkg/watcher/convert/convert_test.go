@@ -26,7 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/pod"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -36,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 var (
@@ -45,9 +46,9 @@ var (
 	start  = metav1.Time{Time: time.Unix(3, 0)}
 	finish = metav1.Time{Time: time.Unix(4, 0)}
 
-	taskrun = &v1beta1.TaskRun{
+	taskrun = &pipelinev1.TaskRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "TaskRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -67,10 +68,10 @@ var (
 				"annotation-two": "two",
 			},
 		},
-		Spec: v1beta1.TaskRunSpec{
+		Spec: pipelinev1.TaskRunSpec{
 			Timeout: &metav1.Duration{Duration: time.Hour},
-			TaskSpec: &v1beta1.TaskSpec{
-				Steps: []v1beta1.Step{{
+			TaskSpec: &pipelinev1.TaskSpec{
+				Steps: []pipelinev1.Step{{
 					Script:     "script",
 					Name:       "name",
 					Image:      "image",
@@ -98,7 +99,7 @@ var (
 				}, {
 					Name: "step2",
 				}},
-				Sidecars: []v1beta1.Sidecar{{
+				Sidecars: []pipelinev1.Sidecar{{
 					Name: "sidecar1",
 				}, {
 					Name: "sidecar2",
@@ -112,8 +113,8 @@ var (
 				}},
 			},
 		},
-		Status: v1beta1.TaskRunStatus{
-			Status: duckv1beta1.Status{
+		Status: pipelinev1.TaskRunStatus{
+			Status: duckv1.Status{
 				ObservedGeneration: 23456,
 				Conditions: []apis.Condition{{
 					Type:               "type",
@@ -126,11 +127,11 @@ var (
 					Type: "another condition",
 				}},
 			},
-			TaskRunStatusFields: v1beta1.TaskRunStatusFields{
+			TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 				PodName:        "podname",
 				StartTime:      &start,
 				CompletionTime: &finish,
-				Steps: []v1beta1.StepState{{
+				Steps: []pipelinev1.StepState{{
 					ContainerState: corev1.ContainerState{
 						Terminated: &corev1.ContainerStateTerminated{
 							ExitCode:    123,
@@ -142,9 +143,9 @@ var (
 							ContainerID: "containerid",
 						},
 					},
-					Name:          "name",
-					ContainerName: "containername",
-					ImageID:       "imageid",
+					Name:      "name",
+					Container: "containername",
+					ImageID:   "imageid",
 				}, {
 					Name: "another state",
 				}},
@@ -152,9 +153,9 @@ var (
 		},
 	}
 
-	pipelinerun = &v1beta1.PipelineRun{
+	pipelinerun = &pipelinev1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "PipelineRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,18 +173,18 @@ var (
 				"ann-one": "one",
 			},
 		},
-		Spec: v1beta1.PipelineRunSpec{
-			Timeout: &metav1.Duration{Duration: time.Hour},
-			PipelineSpec: &v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
+		Spec: pipelinev1.PipelineRunSpec{
+			Timeouts: &v1.TimeoutFields{Pipeline: &metav1.Duration{Duration: time.Hour}},
+			PipelineSpec: &pipelinev1.PipelineSpec{
+				Tasks: []pipelinev1.PipelineTask{{
 					Name: "ptask",
-					TaskRef: &v1beta1.TaskRef{
+					TaskRef: &pipelinev1.TaskRef{
 						Name:       "ptask",
 						Kind:       "kind",
 						APIVersion: "api_version",
 					},
-					TaskSpec: &v1beta1.EmbeddedTask{
-						Metadata: v1beta1.PipelineTaskMetadata{
+					TaskSpec: &pipelinev1.EmbeddedTask{
+						Metadata: pipelinev1.PipelineTaskMetadata{
 							Labels: map[string]string{
 								"label-one": "one",
 							},
@@ -191,8 +192,8 @@ var (
 								"ann-one": "one",
 							},
 						},
-						TaskSpec: v1beta1.TaskSpec{
-							Steps: []v1beta1.Step{{
+						TaskSpec: pipelinev1.TaskSpec{
+							Steps: []pipelinev1.Step{{
 								Script:     "script",
 								Name:       "name",
 								Image:      "image",
@@ -218,7 +219,7 @@ var (
 									SubPath:   "subpath2",
 								}},
 							}},
-							Sidecars: []v1beta1.Sidecar{{}},
+							Sidecars: []pipelinev1.Sidecar{{}},
 							Volumes: []corev1.Volume{{
 								Name:         "volname1",
 								VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
@@ -227,30 +228,27 @@ var (
 					},
 					Timeout: &metav1.Duration{Duration: time.Hour},
 				}},
-				Results: []v1beta1.PipelineResult{{
+				Results: []pipelinev1.PipelineResult{{
 					Name:        "result",
 					Description: "desc",
-					Value:       *v1beta1.NewArrayOrString("value"),
+					Value:       *pipelinev1.NewStructuredValues("value"),
 				}},
-				Finally: []v1beta1.PipelineTask{{}},
+				Finally: []pipelinev1.PipelineTask{{}},
 			},
 		},
-		Status: v1beta1.PipelineRunStatus{
-			Status: duckv1beta1.Status{
+		Status: pipelinev1.PipelineRunStatus{
+			Status: duckv1.Status{
 				ObservedGeneration: 12345,
 				Conditions:         []apis.Condition{{}},
 				Annotations: map[string]string{
 					"ann-one": "one",
 				},
 			},
-			PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
-				TaskRuns: map[string]*v1beta1.PipelineRunTaskRunStatus{
-					"task": {
-						PipelineTaskName: "pipelineTaskName",
-						Status:           &v1beta1.TaskRunStatus{},
-					},
-				},
-				PipelineSpec: &v1beta1.PipelineSpec{},
+			PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+				ChildReferences: []v1.ChildStatusReference{{
+					Name: "pipelineTaskName",
+				}},
+				PipelineSpec: &pipelinev1.PipelineSpec{},
 			},
 		},
 	}
@@ -263,11 +261,11 @@ func TestToProto(t *testing.T) {
 	}{
 		{
 			in:       taskrun,
-			wantType: "tekton.dev/v1beta1.TaskRun",
+			wantType: "tekton.dev/v1.TaskRun",
 		},
 		{
 			in:       pipelinerun,
-			wantType: "tekton.dev/v1beta1.PipelineRun",
+			wantType: "tekton.dev/v1.PipelineRun",
 		},
 	} {
 		t.Run(fmt.Sprintf("%T", tc.wantType), func(t *testing.T) {
@@ -375,12 +373,12 @@ func TestTypeName(t *testing.T) {
 		want string
 	}{
 		{
-			i:    &v1beta1.TaskRun{},
-			want: "tekton.dev/v1beta1.TaskRun",
+			i:    &pipelinev1.TaskRun{},
+			want: "tekton.dev/v1.TaskRun",
 		},
 		{
-			i:    &v1beta1.PipelineRun{},
-			want: "tekton.dev/v1beta1.PipelineRun",
+			i:    &pipelinev1.PipelineRun{},
+			want: "tekton.dev/v1.PipelineRun",
 		},
 		// {
 		// 	i:    &v1alpha1.TaskRun{},
@@ -389,7 +387,7 @@ func TestTypeName(t *testing.T) {
 		{
 			// This shouldn't really happen, but serves as an example of what
 			// happens if clients manually override the TypeMeta in the object.
-			i: &v1beta1.TaskRun{
+			i: &pipelinev1.TaskRun{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "foo",
 					Kind:       "bar",
@@ -413,12 +411,12 @@ func TestInferGVK(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			o:    &v1beta1.TaskRun{},
-			want: schema.FromAPIVersionAndKind("tekton.dev/v1beta1", "TaskRun"),
+			o:    &pipelinev1.TaskRun{},
+			want: schema.FromAPIVersionAndKind("tekton.dev/v1", "TaskRun"),
 		},
 		{
-			o:    &v1beta1.PipelineRun{},
-			want: schema.FromAPIVersionAndKind("tekton.dev/v1beta1", "PipelineRun"),
+			o:    &pipelinev1.PipelineRun{},
+			want: schema.FromAPIVersionAndKind("tekton.dev/v1", "PipelineRun"),
 		},
 		// {
 		// 	o:    &v1alpha1.PipelineRun{},
@@ -458,7 +456,7 @@ func TestStatus(t *testing.T) {
 		{
 			cond: &apis.Condition{
 				Type:    apis.ConditionSucceeded,
-				Reason:  string(v1beta1.TaskRunReasonSuccessful),
+				Reason:  string(pipelinev1.TaskRunReasonSuccessful),
 				Message: "TaskRun Success",
 			},
 			want: rpb.RecordSummary_SUCCESS,
@@ -466,7 +464,7 @@ func TestStatus(t *testing.T) {
 		{
 			cond: &apis.Condition{
 				Type:    apis.ConditionSucceeded,
-				Reason:  string(v1beta1.PipelineRunReasonTimedOut),
+				Reason:  string(pipelinev1.PipelineRunReasonTimedOut),
 				Message: "PipelineRun Timeout",
 			},
 			want: rpb.RecordSummary_TIMEOUT,
@@ -484,7 +482,7 @@ func TestStatus(t *testing.T) {
 			// tells us the final state of the Run.
 			cond: &apis.Condition{
 				Type:    apis.ConditionReady,
-				Reason:  string(v1beta1.TaskRunReasonSuccessful),
+				Reason:  string(pipelinev1.TaskRunReasonSuccessful),
 				Message: "Ready Condition",
 			},
 			want: rpb.RecordSummary_UNKNOWN,

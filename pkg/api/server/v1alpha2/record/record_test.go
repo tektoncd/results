@@ -23,10 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	cw "github.com/jonboulle/clockwork"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
-	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	ppb "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -230,7 +230,7 @@ func TestToStorage(t *testing.T) {
 }
 
 func TestToAPI(t *testing.T) {
-	data := &v1beta1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}
+	data := &pipelinev1.TaskRun{ObjectMeta: v1.ObjectMeta{Name: "tacocat"}}
 	for _, tc := range []struct {
 		name string
 		in   *db.Record
