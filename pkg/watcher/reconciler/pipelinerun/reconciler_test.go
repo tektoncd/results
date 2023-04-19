@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pipelinev1beta1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"go.uber.org/zap/zaptest"
 	corev1 "k8s.io/api/core/v1"
@@ -31,14 +31,14 @@ import (
 func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *pipelinev1beta1.PipelineRun
+		in   *pipelinev1.PipelineRun
 		want bool
 	}{{
 		name: "all underlying TaskRuns are ready to be deleted",
-		in: &pipelinev1beta1.PipelineRun{
-			Status: pipelinev1beta1.PipelineRunStatus{
-				PipelineRunStatusFields: pipelinev1beta1.PipelineRunStatusFields{
-					ChildReferences: []pipelinev1beta1.ChildStatusReference{{
+		in: &pipelinev1.PipelineRun{
+			Status: pipelinev1.PipelineRunStatus{
+				PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+					ChildReferences: []pipelinev1.ChildStatusReference{{
 						Name: "foo",
 					},
 					},
@@ -49,10 +49,10 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	},
 		{
 			name: "one TaskRun is ready to be deleted whereas the other is not",
-			in: &pipelinev1beta1.PipelineRun{
-				Status: pipelinev1beta1.PipelineRunStatus{
-					PipelineRunStatusFields: pipelinev1beta1.PipelineRunStatusFields{
-						ChildReferences: []pipelinev1beta1.ChildStatusReference{{
+			in: &pipelinev1.PipelineRun{
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						ChildReferences: []pipelinev1.ChildStatusReference{{
 							Name: "foo",
 						},
 							{
@@ -66,10 +66,10 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 		},
 		{
 			name: "consider that missing TaskRuns can be deleted",
-			in: &pipelinev1beta1.PipelineRun{
-				Status: pipelinev1beta1.PipelineRunStatus{
-					PipelineRunStatusFields: pipelinev1beta1.PipelineRunStatusFields{
-						ChildReferences: []pipelinev1beta1.ChildStatusReference{{
+			in: &pipelinev1.PipelineRun{
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						ChildReferences: []pipelinev1.ChildStatusReference{{
 							Name: "foo",
 						},
 							{
@@ -81,25 +81,12 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "support full embedded status",
-			in: &pipelinev1beta1.PipelineRun{
-				Status: pipelinev1beta1.PipelineRunStatus{
-					PipelineRunStatusFields: pipelinev1beta1.PipelineRunStatusFields{
-						TaskRuns: map[string]*pipelinev1beta1.PipelineRunTaskRunStatus{
-							"bar": {},
-						},
-					},
-				},
-			},
-			want: false,
-		},
 	}
 
 	indexer := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 
 	// Put a few objects into the indexer.
-	if err := indexer.Add(&pipelinev1beta1.TaskRun{
+	if err := indexer.Add(&pipelinev1.TaskRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: corev1.NamespaceDefault,
@@ -111,7 +98,7 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := indexer.Add(&pipelinev1beta1.TaskRun{
+	if err := indexer.Add(&pipelinev1.TaskRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "bar",
 			Namespace: corev1.NamespaceDefault,
@@ -123,7 +110,7 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			reconciler := &Reconciler{
-				taskRunLister: pipelinev1beta1listers.NewTaskRunLister(indexer),
+				taskRunLister: pipelinev1listers.NewTaskRunLister(indexer),
 			}
 
 			test.in.Namespace = corev1.NamespaceDefault

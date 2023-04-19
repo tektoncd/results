@@ -519,7 +519,7 @@ func TestListLogs(t *testing.T) {
 			name: "unknown type",
 			req: &pb.ListRecordsRequest{
 				Parent: res.GetName(),
-				Filter: `type(record.data) == tekton.pipeline.v1beta1.Unknown`,
+				Filter: `type(record.data) == tekton.pipeline.v1.Unknown`,
 			},
 			status: codes.InvalidArgument,
 		},

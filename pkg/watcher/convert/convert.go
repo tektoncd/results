@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package convert provides a method to convert v1beta1 API objects to Results
+// Package convert provides a method to convert Pipeline v1 API objects to Results
 // API proto objects.
 package convert
 
@@ -27,7 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelineV1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
 	"github.com/tektoncd/pipeline/pkg/pod"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -93,7 +94,7 @@ func ToLogProto(in metav1.Object, kind, name string) (*rpb.Any, error) {
 // versions. Standard GVK string formatting does not produce something that's
 // payload friendly (i.e. includes spaces).
 // To get around this we append API Version + Kind
-// (e.g. tekton.dev/v1beta1.TaskRun).
+// (e.g. tekton.dev/v1.TaskRun).
 func TypeName(in runtime.Object) string {
 	gvk := in.GetObjectKind().GroupVersionKind()
 	if gvk.Empty() {
@@ -133,29 +134,29 @@ func Status(ca apis.ConditionAccessor) rpb.RecordSummary_Status {
 		return rpb.RecordSummary_UNKNOWN
 	}
 
-	switch v1beta1.TaskRunReason(c.Reason) {
-	case v1beta1.TaskRunReasonSuccessful:
+	switch pipelineV1.TaskRunReason(c.Reason) {
+	case pipelineV1.TaskRunReasonSuccessful:
 		return rpb.RecordSummary_SUCCESS
-	case v1beta1.TaskRunReasonFailed:
+	case pipelineV1.TaskRunReasonFailed:
 		return rpb.RecordSummary_FAILURE
-	case v1beta1.TaskRunReasonTimedOut:
+	case pipelineV1.TaskRunReasonTimedOut:
 		return rpb.RecordSummary_TIMEOUT
-	case v1beta1.TaskRunReasonCancelled:
+	case pipelineV1.TaskRunReasonCancelled:
 		return rpb.RecordSummary_CANCELLED
-	case v1beta1.TaskRunReasonRunning, v1beta1.TaskRunReasonStarted:
+	case pipelineV1.TaskRunReasonRunning, pipelineV1.TaskRunReasonStarted:
 		return rpb.RecordSummary_UNKNOWN
 	}
 
-	switch v1beta1.PipelineRunReason(c.Reason) {
-	case v1beta1.PipelineRunReasonSuccessful, v1beta1.PipelineRunReasonCompleted:
+	switch pipelineV1.PipelineRunReason(c.Reason) {
+	case pipelineV1.PipelineRunReasonSuccessful, pipelineV1.PipelineRunReasonCompleted:
 		return rpb.RecordSummary_SUCCESS
-	case v1beta1.PipelineRunReasonFailed:
+	case pipelineV1.PipelineRunReasonFailed:
 		return rpb.RecordSummary_FAILURE
-	case v1beta1.PipelineRunReasonTimedOut:
+	case pipelineV1.PipelineRunReasonTimedOut:
 		return rpb.RecordSummary_TIMEOUT
-	case v1beta1.PipelineRunReasonCancelled:
+	case pipelineV1.PipelineRunReasonCancelled:
 		return rpb.RecordSummary_CANCELLED
-	case v1beta1.PipelineRunReasonRunning, v1beta1.PipelineRunReasonStarted, v1beta1.PipelineRunReasonPending, v1beta1.PipelineRunReasonStopping, v1beta1.PipelineRunReasonCancelledRunningFinally, v1beta1.PipelineRunReasonStoppedRunningFinally:
+	case pipelineV1.PipelineRunReasonRunning, pipelineV1.PipelineRunReasonStarted, pipelineV1.PipelineRunReasonPending, pipelineV1.PipelineRunReasonStopping, pipelineV1.PipelineRunReasonCancelledRunningFinally, pipelineV1.PipelineRunReasonStoppedRunningFinally:
 		return rpb.RecordSummary_UNKNOWN
 	}
 
