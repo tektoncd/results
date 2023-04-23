@@ -1,6 +1,6 @@
 module github.com/tektoncd/results
 
-go 1.18
+go 1.19
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.17.8
@@ -41,7 +41,7 @@ require (
 	k8s.io/apiserver v0.25.4
 	k8s.io/client-go v0.25.4
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
-	knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7
+	knative.dev/pkg v0.0.0-20230414154551-53f04b373cc9
 	sigs.k8s.io/yaml v1.3.0
 )
 

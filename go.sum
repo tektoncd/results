@@ -1239,6 +1239,8 @@ knative.dev/eventing v0.30.1-0.20220407170245-58865afba92c h1:5QvWwe3uB7BefHGMg6
 knative.dev/networking v0.0.0-20220404212543-dde40b019aff h1:pqzWi29qb44TY+5xtc9vty4mSyUYvojXZGCp0y/91eo=
 knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7 h1:YaO4KgF1Kp8BTi1hxMXDRnvsxCFq/wpotOD3jzrHmzw=
 knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7/go.mod h1:IeUSNPPUpQnM35SjpnfCx0w5/V2RpEc+nmke6oPwpD0=
+knative.dev/pkg v0.0.0-20230414154551-53f04b373cc9 h1:ZozlfXh+jwr+KE/C60thPDOdAVQ3MNRfdsFHbajHIRk=
+knative.dev/pkg v0.0.0-20230414154551-53f04b373cc9/go.mod h1:Xa/jM3LpUnfQabS0kKR9sMTaDn4absCVvwkdNlwRwHc=
 knative.dev/serving v0.30.1-0.20220402124840-21c05dc9d9a4 h1:iRFWsFKsA5ddhi+eKZVJdf8gPBomTfjIyRAKk9Uh7Ko=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
