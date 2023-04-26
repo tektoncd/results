@@ -1,6 +1,10 @@
-bases:
-  - ../config/overlays/default-local-db
-commonLabels:
   # Leave this field as an environment variable - this is templated out during
   # the release process to label all resources with the proper version.
-  app.kubernetes.io/version: devel
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../config/overlays/default-local-db
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/version: devel

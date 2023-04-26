@@ -16,7 +16,7 @@ resources:
 - ../../../config/overlays/default-local-db
 - rbac.yaml
 
-patchesJson6902:
+patches:
 - target:
     group: apps
     version: v1

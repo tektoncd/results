@@ -22,5 +22,9 @@ kind: Component
 resources:
 - 201-sql-deployment.yaml
 
-patchesStrategicMerge:
-- api.yaml
+patches:
+- target:
+    kind: Deployment
+    name: api
+    namespace: tekton-pipelines
+  path: api.yaml
