@@ -79,6 +79,8 @@ spec:
             env:
               - name: KO_DOCKER_REPO
                 value: "$(params.repo)"
+              - name: RELEASE_VERSION
+                value: "$(params.tag)"
       params:
         - name: repo
           value: $(params.docker_repo)
