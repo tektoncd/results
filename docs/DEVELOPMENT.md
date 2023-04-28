@@ -5,7 +5,7 @@
 The following tools are used by the project:
 
 - [git](https://git-scm.com/doc)
-- [go](https://golang.org/doc/install)
+- [go](https://golang.org/doc/install) **>=go1.19**
 - [kind](https://kind.sigs.k8s.io)
 - [ko](https://github.com/google/ko)
 - [kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
