@@ -57,9 +57,9 @@ import (
 )
 
 const (
-	serverName                                  = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-	serverAddress                               = "https://localhost:8080"
-	certFileName                                = "tekton-results-cert.pem"
+	defaultServerName                           = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
+	defaultServerAddress                        = "https://localhost:8080"
+	defaultCertFileName                         = "tekton-results-cert.pem"
 	allNamespacesReadAccessTokenFileName        = "all-namespaces-read-access"
 	singleNamespaceReadAccessTokenFileName      = "single-namespace-read-access"
 	allNamespacesAdminAccessTokenFileName       = "all-namespaces-admin-access"
@@ -75,6 +75,8 @@ var (
 	allNamespacesAdminAccessTokenFile,
 	allNamespacesImpersonateAccessTokenFile,
 	certFile string
+	serverName    string
+	serverAddress string
 )
 
 func init() {
@@ -82,12 +84,30 @@ func init() {
 	if len(certPath) == 0 {
 		certPath = defaultCertPath
 	}
+
+	certFileName := os.Getenv("CERT_FILE_NAME")
+	if len(certFileName) == 0 {
+		certFileName = defaultCertFileName
+	}
 	certFile = path.Join(certPath, certFileName)
 
 	tokenPath := os.Getenv("SA_TOKEN_PATH")
 	if len(tokenPath) == 0 {
 		tokenPath = defaultTokenPath
 	}
+
+	apiServerName := os.Getenv("API_SERVER_NAME")
+	if len(apiServerName) == 0 {
+		apiServerName = defaultServerName
+	}
+	serverName = apiServerName
+
+	apiServerAddress := os.Getenv("API_SERVER_ADDR")
+	if len(apiServerAddress) == 0 {
+		apiServerAddress = defaultServerAddress
+	}
+	serverAddress = apiServerAddress
+
 	allNamespacesReadAccessTokenFile = path.Join(tokenPath, allNamespacesReadAccessTokenFileName)
 	singleNamespaceReadAccessTokenFile = path.Join(tokenPath, singleNamespaceReadAccessTokenFileName)
 	allNamespacesAdminAccessTokenFile = path.Join(tokenPath, allNamespacesAdminAccessTokenFileName)
