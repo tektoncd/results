@@ -6,7 +6,8 @@ import (
 )
 
 type Params struct {
-	Client pb.ResultsClient
+	ResultsClient pb.ResultsClient
+	LogsClient    pb.LogsClient
 }
 
 // ListOptions used on commands that list thing
@@ -23,4 +24,14 @@ func AddListFlags(options *ListOptions, cmd *cobra.Command) {
 	cmd.Flags().Int32VarP(&options.Limit, "limit", "l", 0, "number of items to return. Response may be truncated due to server limits.")
 	cmd.Flags().StringVarP(&options.PageToken, "page", "p", "", "pagination token to use for next page")
 	cmd.Flags().StringVarP(&options.Format, "output", "o", "tab", "output format. Valid values: tab|textproto|json")
+}
+
+// Options used on commands that list thing
+type GetOptions struct {
+	Format string
+}
+
+// This is a helper function that adds common flags for commands that list things
+func AddGetFlags(options *GetOptions, cmd *cobra.Command) {
+	cmd.Flags().StringVarP(&options.Format, "output", "o", "json", "output format. Valid values: textproto|json")
 }

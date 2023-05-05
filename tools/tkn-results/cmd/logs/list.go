@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package records
+package logs
 
 import (
 	"fmt"
@@ -24,20 +24,23 @@ import (
 	"github.com/tektoncd/results/tools/tkn-results/internal/format"
 )
 
-func GetRecordCommand(params *flags.Params) *cobra.Command {
-	opts := &flags.GetOptions{}
+func ListCommand(params *flags.Params) *cobra.Command {
+	opts := &flags.ListOptions{}
 
 	cmd := &cobra.Command{
-		Use: `get [flags] <record_path>
+		Use: `list [flags] <result parent>
 
-  <record name>: Fully qualified name of the record. This is typically "<namespace>/results/<result name>/records/<record uid>".`,
-		Short: "Get Record",
+  <result parent>: Result parent name to query. This is typically "<namespace>/results/<result name>", but may vary depending on the API Server. "-" may be used as <result name> to query all Logs for a given parent.`,
+		Short: "List Logs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := params.ResultsClient.GetRecord(cmd.Context(), &pb.GetRecordRequest{
-				Name: args[0],
+			resp, err := params.LogsClient.ListLogs(cmd.Context(), &pb.ListRecordsRequest{
+				Parent:    args[0],
+				Filter:    opts.Filter,
+				PageSize:  opts.Limit,
+				PageToken: opts.PageToken,
 			})
 			if err != nil {
-				fmt.Printf("GetRecord: %v\n", err)
+				fmt.Printf("List Logs: %v\n", err)
 				return err
 			}
 			return format.PrintProto(os.Stdout, resp, opts.Format)
@@ -48,7 +51,7 @@ func GetRecordCommand(params *flags.Params) *cobra.Command {
 		},
 	}
 
-	flags.AddGetFlags(opts, cmd)
+	flags.AddListFlags(opts, cmd)
 
 	return cmd
 }

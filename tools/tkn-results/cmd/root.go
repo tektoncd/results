@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/tektoncd/results/tools/tkn-results/cmd/logs"
 	"github.com/tektoncd/results/tools/tkn-results/cmd/records"
 	"github.com/tektoncd/results/tools/tkn-results/internal/client"
 	"github.com/tektoncd/results/tools/tkn-results/internal/config"
@@ -86,7 +87,7 @@ func Root() *cobra.Command {
 	cmd.PersistentFlags().Bool("portforward", true, "enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically")
 	cmd.PersistentFlags().Bool("insecure", false, "determines whether to run insecure GRPC tls request")
 
-	cmd.AddCommand(ListCommand(params), records.Command(params))
+	cmd.AddCommand(ListCommand(params), records.Command(params), logs.Command(params))
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	viper.BindPFlags(cmd.PersistentFlags())
