@@ -19,7 +19,7 @@ func ListCommand(params *flags.Params) *cobra.Command {
   <result parent>: Result parent name to query. This is typically "<namespace>/results/<result name>", but may vary depending on the API Server. "-" may be used as <result name> to query all Results for a given parent.`,
 		Short: "List Records",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := params.Client.ListRecords(cmd.Context(), &pb.ListRecordsRequest{
+			resp, err := params.ResultsClient.ListRecords(cmd.Context(), &pb.ListRecordsRequest{
 				Parent:    args[0],
 				Filter:    opts.Filter,
 				PageSize:  opts.Limit,

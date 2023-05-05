@@ -55,9 +55,9 @@ func NewDefaultFactory() (*ClientFactory, error) {
 	}, nil
 }
 
-// Client creates a new Results gRPC client for the given factory settings.
+// ResultsClient creates a new Results gRPC client for the given factory settings.
 // TODO: Refactor this with watcher client code?
-func (f *ClientFactory) Client(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
+func (f *ClientFactory) ResultsClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
 	token, err := f.token(ctx)
 	if err != nil {
 		return nil, err
@@ -95,16 +95,72 @@ func (f *ClientFactory) Client(ctx context.Context, overrideApiAddr string) (pb.
 	return pb.NewResultsClient(conn), nil
 }
 
-// DefaultClient creates a new results client.
+// DefaultResultsClient creates a new results client.
 // Will dial overrideApiAddr if overrideApiAddr is not empty
-func DefaultClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
+func DefaultResultsClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
 	f, err := NewDefaultFactory()
 
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := f.Client(ctx, overrideApiAddr)
+	client, err := f.ResultsClient(ctx, overrideApiAddr)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// Client creates a new Results gRPC client for the given factory settings.
+// TODO: Refactor this with watcher client code?
+func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (pb.LogsClient, error) {
+	token, err := f.token(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var creds credentials.TransportCredentials
+	if f.cfg.Insecure {
+		creds = credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+		})
+	} else {
+		certs, err := f.certs()
+		if err != nil {
+			return nil, err
+		}
+		creds = credentials.NewClientTLSFromCert(certs, f.cfg.SSL.ServerNameOverride)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	addr := f.cfg.Address
+	if overrideApiAddr != "" {
+		addr = overrideApiAddr
+	}
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
+			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}),
+		})),
+	)
+	if err != nil {
+		fmt.Printf("Dial: %v\n", err)
+		return nil, err
+	}
+	return pb.NewLogsClient(conn), nil
+}
+
+func DefaultLogsClient(ctx context.Context, overrideApiAddr string) (pb.LogsClient, error) {
+	f, err := NewDefaultFactory()
+
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := f.LogClient(ctx, overrideApiAddr)
 
 	if err != nil {
 		return nil, err
