@@ -20,7 +20,7 @@ func ListCommand(params *flags.Params) *cobra.Command {
 		Short: "List Results",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			resp, err := params.Client.ListResults(cmd.Context(), &pb.ListResultsRequest{
+			resp, err := params.ResultsClient.ListResults(cmd.Context(), &pb.ListResultsRequest{
 				Parent:    args[0],
 				Filter:    opts.Filter,
 				PageSize:  opts.Limit,

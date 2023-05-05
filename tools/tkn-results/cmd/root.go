@@ -51,13 +51,21 @@ func Root() *cobra.Command {
 				}
 			}
 
-			apiClient, err := client.DefaultClient(cmd.Context(), overrideApiAdr)
+			apiClient, err := client.DefaultResultsClient(cmd.Context(), overrideApiAdr)
 
 			if err != nil {
 				return err
 			}
 
-			params.Client = apiClient
+			params.ResultsClient = apiClient
+
+			logClient, err := client.DefaultLogsClient(cmd.Context(), overrideApiAdr)
+
+			if err != nil {
+				return err
+			}
+
+			params.LogsClient = logClient
 
 			return nil
 		},

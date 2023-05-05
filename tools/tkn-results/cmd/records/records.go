@@ -14,7 +14,7 @@ func Command(params *flags.Params) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(ListCommand(params))
+	cmd.AddCommand(ListCommand(params), GetRecordCommand(params))
 
 	return cmd
 }
