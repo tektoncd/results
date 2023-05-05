@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package records
+package logs
 
 import (
 	"fmt"
@@ -24,23 +24,28 @@ import (
 	"github.com/tektoncd/results/tools/tkn-results/internal/format"
 )
 
-func GetRecordCommand(params *flags.Params) *cobra.Command {
+func GetLogCommand(params *flags.Params) *cobra.Command {
 	opts := &flags.GetOptions{}
 
 	cmd := &cobra.Command{
-		Use: `get [flags] <record_path>
+		Use: `get [flags] <log>
 
-  <record name>: Fully qualified name of the record. This is typically "<namespace>/results/<result name>/records/<record uid>".`,
-		Short: "Get Record",
+  <log path>: Log full name to query. This is typically "<namespace>/results/<result name>/logs/<log name>".`,
+		Short: "Get Log",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := params.ResultsClient.GetRecord(cmd.Context(), &pb.GetRecordRequest{
+			resp, err := params.LogsClient.GetLog(cmd.Context(), &pb.GetLogRequest{
 				Name: args[0],
 			})
 			if err != nil {
-				fmt.Printf("GetRecord: %v\n", err)
+				fmt.Printf("GetLog: %v\n", err)
 				return err
 			}
-			return format.PrintProto(os.Stdout, resp, opts.Format)
+			data, err := resp.Recv()
+			if err != nil {
+				fmt.Printf("Get Log Client Resp: %v\n", err)
+				return err
+			}
+			return format.PrintProto(os.Stdout, data, opts.Format)
 		},
 		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
