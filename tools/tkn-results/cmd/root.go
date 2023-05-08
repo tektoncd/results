@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -64,6 +65,9 @@ func Root() *cobra.Command {
 			if portForwardCloseChan != nil {
 				close(portForwardCloseChan)
 			}
+		},
+		Annotations: map[string]string{
+			"commandType": "main",
 		},
 	}
 
