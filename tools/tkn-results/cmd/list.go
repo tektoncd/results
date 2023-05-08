@@ -33,6 +33,9 @@ func ListCommand(params *flags.Params) *cobra.Command {
 			return format.PrintProto(os.Stdout, resp, opts.Format)
 		},
 		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{
+			"commandType": "main",
+		},
 	}
 
 	flags.AddListFlags(opts, cmd)
