@@ -17,9 +17,6 @@ const (
 )
 
 var (
-	addr      = pflag.StringP("addr", "a", "", "Result API server address")
-	authToken = pflag.StringP("authtoken", "t", "", "authorization bearer token to use for authenticated requests")
-
 	env = map[string]string{
 		EnvSSLRootFilePath:       "Path to local SSL cert to use.",
 		EnvSSLServerNameOverride: "SSL server name override (useful if using with a proxy such as kubectl port-forward).",
@@ -58,6 +55,9 @@ func init() {
 	viper.SetConfigName("results")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("$HOME/.config/tkn")
+	pflag.StringP("addr", "a", "", "Result API server address")
+	pflag.StringP("authtoken", "t", "", "authorization bearer token to use for authenticated requests")
+	pflag.Parse()
 }
 
 func GetConfig() (*Config, error) {
