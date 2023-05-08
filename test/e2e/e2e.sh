@@ -25,7 +25,7 @@ set -x;
 cleanup() {
     kind delete cluster || true
 }
-#trap cleanup EXIT
+trap cleanup EXIT
 
 main() {
     export KO_DOCKER_REPO="kind.local"
