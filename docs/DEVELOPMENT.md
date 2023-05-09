@@ -87,7 +87,7 @@ export ACCESS_TOKEN=$(kubectl create token tekton-results-debug -n tekton-pipeli
 - Proxies the remote Service to localhost for gRPC. This will block, so run this in a separate shell or background the process.
 
 ```sh
-kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051
+kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 8080
 ```
 
 - If using self-signed certs, download the API Server certificate locally and configure gRPC. (if using a cert that's already present in your system pool, this can be skipped)
@@ -100,7 +100,7 @@ export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/results.crt
 - List the available gRPC services
 
 ```sh
-grpc_cli ls --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local localhost:50051
+grpc_cli ls --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local localhost:8080
 ```
 
 ```sh
@@ -114,12 +114,12 @@ tekton.results.v1alpha2.Results
 - Makes a request to the Results service
 
 ```sh
-grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$ACCESS_TOKEN localhost:50051 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$ACCESS_TOKEN localhost:8080 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
 ```
 
 ```sh
 # output: list of results
-connecting to localhost:50051
+connecting to localhost:8080
 results {
   name: "default/results/7afa9067-5001-4d93-b715-49854a770412"
   id: "b74a3317-e6c0-421c-85d9-54b0f3d4b4c6"
