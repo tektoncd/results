@@ -1,0 +1,210 @@
+# Documentation: https://golangci-lint.run/usage/configuration/
+linters-settings: {}
+linters:
+  enable:
+  - bodyclose
+  - containedctx
+  - decorder
+  - depguard
+  - dogsled
+  - dupword
+  - errcheck
+  - errchkjson
+  - errname
+  - errorlint
+  - exhaustive
+  - goconst
+  - gocritic
+  - gomodguard
+  - gosec
+  - gosimple
+  - govet
+  - maintidx
+  - makezero
+  - misspell
+  - musttag
+  - nakedret
+  - noctx
+  - nolintlint
+  - nosprintfhostport
+  - thelper
+  - typecheck
+  - unconvert
+  - unused
+  - usestdlibvars
+  disable:
+  # todo: discuss and enable it later if necessary
+  - goimports
+  - nilnil
+  - nilerr
+  - whitespace
+  - gofmt
+  - cyclop
+  - dupl
+  - exhaustruct
+  - forcetypeassert
+  - funlen
+  - gci
+  - gochecknoglobals
+  - gochecknoinits
+  - gocognit
+  - gocyclo
+  - godot
+  - godox
+  - goerr113
+  - gofumpt
+  - gomnd
+  - gomoddirectives
+  - ireturn
+  - lll
+  - nestif
+  - nlreturn
+  - nonamedreturns
+  - paralleltest
+  - prealloc
+  - predeclared
+  - revive
+  - staticcheck
+  - stylecheck
+  - tagliatelle
+  - testpackage
+  - tparallel
+  - unparam
+  - varnamelen
+  - wastedassign
+  - wrapcheck
+  - wsl
+  # Enabling presets means that new linters that we automatically adopt new
+  # linters that augment a preset. This also opts us in for replacement linters
+  # when a linter is deprecated.
+  presets:
+  - bugs
+  - comment
+  - complexity
+  - error
+  - format
+  - import
+  - metalinter
+  - module
+  - performance
+  - sql
+  - style
+  - test
+  - unused
+output:
+  uniq-by-line: false
+issues:
+  # Note: path identifiers are regular expressions, hence the \.go suffixes.
+  exclude-rules:
+  - path: _test\.go
+    linters:
+    - errcheck
+    - gosec
+  # todo handle this errors/warnings
+  - path: tools/postgres-migrate/testdata_test.go
+    linters:
+    - unused
+  - path: test/e2e/e2e_test.go
+    linters:
+    - contextcheck
+    - goconst
+    - makezero
+  - path: pkg/watcher/convert/convert.go
+    linters:
+    - exhaustive
+  - path: pkg/internal/test/clients.go
+    linters:
+    - gosec
+  - path: cmd/api/main.go
+    linters:
+    - errcheck
+    - gocritic
+    - gosec
+  - path: pkg/watcher/reconciler/dynamic/dynamic.go
+    linters:
+    - gocritic
+  - path: pkg/api/server/v1alpha2/pagination.go
+    linters:
+    - gocritic
+  - path: pkg/api/server/v1alpha2/server.go
+    linters:
+    - unused
+  - path: pkg/api/server/v1alpha2/logs_test
+    linters:
+    - containedctx
+  - path: pkg/api/server/v1alpha2/logs.go
+    linters:
+    - errorlint
+    - ineffassign
+  - path: pkg/watcher/results/results_test.go
+    linters:
+    - gocritic
+  - path: cmd/watcher/main.go
+    linters:
+    - gocritic
+  - path: pkg/watcher/reconciler/dynamic/dynamic_test.go
+    linters:
+    - maintidx
+  - path: pkg/api/server/v1alpha2/auth/rbac.go
+    linters:
+    - errorlint
+  - path: pkg/api/server/db/errors/sqlite/sqlite.go
+    linters:
+    - errorlint
+  - path: pkg/api/server/v1alpha2/auth/impersonation/impersonation_test
+    linters:
+    - errorlint
+  - path: pkg/api/server/v1alpha2/log/s3.go
+    linters:
+    - errcheck
+    - goconst
+    - containedctx
+  - path: pkg/api/server/v1alpha2/log/s3_test.go
+    linters:
+    - goconst
+    - ineffassign
+  - path: pkg/api/server/v1alpha2/log/file.go
+    linters:
+    - containedctx
+  - path: pkg/api/server/v1alpha2/log/log_test.go
+    linters:
+    - gosimple
+    - ineffassign
+  - path: tools/simpleui/main.go
+    linters:
+    - gocritic
+  - path: tools/simpleui/main.go
+    linters:
+    - gosec
+  - path: pkg/api/server/v1alpha2/logs_test.go
+    linters:
+    - ineffassign
+    - maintidx
+  - path: pkg/api/server/v1alpha2/records_test.go
+    linters:
+    - maintidx
+  - path: pkg/api/server/v1alpha2/results_test.go
+    linters:
+    - maintidx
+  - path: pkg/api/server/db/pagination/pagination.go
+    linters:
+    - unconvert
+  - path: test/e2e/client/rest.go
+    linters:
+    - durationcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  include:
+  # Enable off-by-default rules for revive requiring that all exported elements have a properly formatted comment.
+  - EXC0012 # https://golangci-lint.run/usage/false-positives/#exc0012
+  - EXC0014 # https://golangci-lint.run/usage/false-positives/#exc0014
+run:
+  issues-exit-code: 1
+  build-tags:
+  - e2e
+  skip-files: []
+  skip-dirs:
+  - vendor
+  - proto
+  timeout: 10m
+  modules-download-mode: vendor
