@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc/metadata"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -23,8 +24,8 @@ type Impersonation struct {
 }
 
 var (
-	ErrorNoImpersonationData     = errors.New("no impersonation data found")
-	ErrorImpersonateUserRequired = errors.New("impersonate user is required to impersonate groups, UID, extra")
+	ErrNoImpersonationData     = errors.New("no impersonation data found")
+	ErrImpersonateUserRequired = errors.New("impersonate user is required to impersonate groups, UID, extra")
 )
 
 // NewImpersonation returns an impersonation request if any impersonation data is found, returns error otherwise.
@@ -148,9 +149,9 @@ func (i *Impersonation) parseMetadata(md metadata.MD) error {
 		// Impersonate-User header is mandatory.
 		// https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation
 		if hasGroups || hasExtra || hasUID {
-			return ErrorImpersonateUserRequired
+			return ErrImpersonateUserRequired
 		} else {
-			return ErrorNoImpersonationData
+			return ErrNoImpersonationData
 		}
 	}
 
@@ -168,7 +169,7 @@ func unescapeExtraKey(encodedKey string) string {
 // Check checks if the requester has permission to impersonate every resource.
 func (i *Impersonation) Check(ctx context.Context, authorizer authorizationclient.AuthorizationV1Interface, requester string) error {
 	if i.resourceAttributes == nil {
-		return ErrorNoImpersonationData
+		return ErrNoImpersonationData
 	}
 	for _, resourceAttribute := range i.resourceAttributes {
 		sar, err := authorizer.SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{

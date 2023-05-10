@@ -49,11 +49,11 @@ func (*fileStream) Type() string {
 func (fs *fileStream) WriteTo(w io.Writer) (n int64, err error) {
 	_, err = os.Stat(fs.path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to stat %s: %v", fs.path, err)
+		return 0, fmt.Errorf("failed to stat %s: %w", fs.path, err)
 	}
 	file, err := os.Open(fs.path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open file %s: %v", fs.path, err)
+		return 0, fmt.Errorf("failed to open file %s: %w", fs.path, err)
 	}
 	defer func() {
 		closeErr := file.Close()
@@ -74,14 +74,14 @@ func (fs *fileStream) ReadFrom(r io.Reader) (n int64, err error) {
 	dir := filepath.Dir(fs.path)
 	err = os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create directory %s, %v", dir, err)
+		return 0, fmt.Errorf("failed to create directory %s, %w", dir, err)
 	}
 	// Open the file with Append + Create + WriteOnly modes.
 	// This ensures the file is created if it does not exist.
 	// If the file does exist, data is appended instead of overwritten/truncated
 	file, err := os.OpenFile(fs.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open file %s: %v", fs.path, err)
+		return 0, fmt.Errorf("failed to open file %s: %w", fs.path, err)
 	}
 	defer func() {
 		closeErr := file.Close()

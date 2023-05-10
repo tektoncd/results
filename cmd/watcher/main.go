@@ -50,7 +50,7 @@ import (
 
 const (
 	// Service Account token path. See https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod
-	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
 )
 
 var (
@@ -162,12 +162,12 @@ func loadCerts() (*x509.CertPool, error) {
 	defer f.Close()
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read TLS cert file: %v", err)
+		return nil, fmt.Errorf("unable to read TLS cert file: %w", err)
 	}
 
 	certs, err := x509.SystemCertPool()
 	if err != nil {
-		return nil, fmt.Errorf("error loading cert pool: %v", err)
+		return nil, fmt.Errorf("error loading cert pool: %w", err)
 	}
 	if ok := certs.AppendCertsFromPEM(b); !ok {
 		return nil, fmt.Errorf("unable to add cert to pool")

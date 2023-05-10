@@ -49,11 +49,11 @@ func (c *googleCreds) GetRequestMetadata(ctx context.Context, uri ...string) (ma
 	for _, u := range uri {
 		tokenSource, err := idtoken.NewTokenSource(ctx, u, c.opts...)
 		if err != nil {
-			return nil, fmt.Errorf("idtoken.NewTokenSource(%s): %v", u, err)
+			return nil, fmt.Errorf("idtoken.NewTokenSource(%s): %w", u, err)
 		}
 		token, err := tokenSource.Token()
 		if err != nil {
-			return nil, fmt.Errorf("TokenSource.Token(%s): %v", u, err)
+			return nil, fmt.Errorf("TokenSource.Token(%s): %w", u, err)
 		}
 		out["authorization"] = "Bearer " + token.AccessToken
 	}

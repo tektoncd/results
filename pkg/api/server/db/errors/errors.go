@@ -61,7 +61,7 @@ func Wrap(err error) error {
 // See https://pkg.go.dev/gorm.io/gorm@v1.20.7#pkg-variables for list of
 // errors.
 func gormCode(err error) (codes.Code, bool) {
-	switch {
+	switch { //nolint:gocritic
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		return codes.NotFound, true
 	}

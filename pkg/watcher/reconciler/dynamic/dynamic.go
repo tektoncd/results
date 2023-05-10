@@ -146,10 +146,10 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 		// Update object with Result Annotations.
 		patch, err := annotation.Patch(o, annotations...)
 		if err != nil {
-			return fmt.Errorf("error adding Result annotations: %v", err)
+			return fmt.Errorf("error adding Result annotations: %w", err)
 		}
 		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
-			return fmt.Errorf("error patching object: %v", err)
+			return fmt.Errorf("error patching object: %w", err)
 		}
 	}
 	return nil
@@ -338,7 +338,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 	logger := logging.FromContext(ctx)
 	logsClient, err := r.resultsClient.UpdateLog(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create UpdateLog client: %v", err)
+		return fmt.Errorf("failed to create UpdateLog client: %w", err)
 	}
 
 	writer := logs.NewBufferedWriter(logsClient, logName, logs.DefaultBufferSize)
@@ -360,11 +360,11 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create tkn reader: %v", err)
+		return fmt.Errorf("failed to create tkn reader: %w", err)
 	}
 	logChan, errChan, err := reader.Read()
 	if err != nil {
-		return fmt.Errorf("error reading from tkn reader: %v", err)
+		return fmt.Errorf("error reading from tkn reader: %w", err)
 	}
 
 	errChanRepeater := make(chan error)

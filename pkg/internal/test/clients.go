@@ -15,10 +15,10 @@
 package test
 
 import (
-	"fmt"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
 	"net"
 	"testing"
 
@@ -50,7 +50,7 @@ func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option
 	}
 	go func() {
 		if err := s.Serve(lis); err != nil {
-			fmt.Printf("error starting result server: %v\n", err)
+			log.Printf("error starting result server: %v\n", err)
 		}
 	}()
 	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())

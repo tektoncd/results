@@ -70,7 +70,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		impersonator, err = impersonation.NewImpersonation(md)
 		// Ignore ErrorNoImpersonationData errors. This means that the request does not have any
 		// impersonation headers and should be processed normally.
-		if err != nil && err != impersonation.ErrorNoImpersonationData {
+		if err != nil && err != impersonation.ErrNoImpersonationData {
 			log.Println(err)
 			return status.Error(codes.Unauthenticated, "invalid impersonation data")
 		}

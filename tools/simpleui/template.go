@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"strings"
 
 	"google.golang.org/protobuf/encoding/prototext"
@@ -13,7 +13,7 @@ import (
 func textproto(a *anypb.Any) (string, error) {
 	m, err := a.UnmarshalNew()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return "", err
 	}
 	return prototext.Format(m), nil

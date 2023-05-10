@@ -98,7 +98,7 @@ func ToStream(ctx context.Context, record *db.Record, config *config.Config) (St
 	log := &v1alpha2.Log{}
 	err := json.Unmarshal(record.Data, log)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not decode Log record: %v", err)
+		return nil, nil, fmt.Errorf("could not decode Log record: %w", err)
 	}
 	stream, err := NewStream(ctx, log, config)
 	return stream, log, err

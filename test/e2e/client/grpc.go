@@ -32,7 +32,7 @@ func NewGRPCClient(serverAddress string, opts ...grpc.DialOption) (GRPCClient, e
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	//target := net.JoinHostPort(u.Hostname(), u.Port())
+	// target := net.JoinHostPort(u.Hostname(), u.Port())
 	clientConn, err := grpc.DialContext(ctx, u.Host, opts...)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ type CustomCredentials struct {
 func (cc *CustomCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	ri, _ := credentials.RequestInfoFromContext(ctx)
 	if err := credentials.CheckSecurityLevel(ri.AuthInfo, credentials.PrivacyAndIntegrity); err != nil {
-		return nil, fmt.Errorf("unable to transfer TokenSource PerRPCCredentials: %v", err)
+		return nil, fmt.Errorf("unable to transfer TokenSource PerRPCCredentials: %w", err)
 	}
 
 	token, err := cc.Token()

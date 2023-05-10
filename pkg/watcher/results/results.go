@@ -319,7 +319,7 @@ func defaultName(o metav1.Object) string {
 // isTopLevelRecord determines whether an Object is a top level Record - e.g. a
 // Record that should be considered the primary record for the result for purposes
 // of timing, status, etc. For example, if a Result contains records for a PipelineRun
-// and TaskRun, the PipelineRun should take precendence.
+// and TaskRun, the PipelineRun should take precedence.
 // We define an Object to be top level if it does not have any OwnerReferences.
 func isTopLevelRecord(o Object) bool {
 	return len(o.GetOwnerReferences()) == 0

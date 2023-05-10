@@ -701,7 +701,7 @@ func TestDeleteRecord(t *testing.T) {
 		if _, err := srv.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: r.GetName()}); err != nil {
 			t.Fatalf("could not delete record: %v", err)
 		}
-		// Check if the the record is deleted
+		// Check if the record is deleted
 		if r, err := srv.GetRecord(ctx, &pb.GetRecordRequest{Name: r.GetName()}); status.Code(err) != codes.NotFound {
 			t.Fatalf("expected record to be deleted, got: %+v, %v", r, err)
 		}

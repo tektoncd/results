@@ -411,7 +411,7 @@ func TestGRPCLogging(t *testing.T) {
 	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
 	t.Run("log entry is found when not expected", func(t *testing.T) {
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		resultsApiLogs, err := getResultsApiLogs(ctx, t, &podLogOptions)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -427,7 +427,7 @@ func TestGRPCLogging(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		resultsApiLogs, err := getResultsApiLogs(ctx, t, &podLogOptions)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -439,7 +439,7 @@ func TestGRPCLogging(t *testing.T) {
 }
 
 // Returns a string of api pods logs concatenated
-func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions, t *testing.T) (string, error) {
+func getResultsApiLogs(ctx context.Context, t *testing.T, podLogOptions *corev1.PodLogOptions) (string, error) {
 	t.Helper()
 	const apiPodBasename = "tekton-results-api"
 	const nsResults = "tekton-pipelines"

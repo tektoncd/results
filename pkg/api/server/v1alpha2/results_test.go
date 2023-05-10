@@ -633,6 +633,8 @@ func TestListResults(t *testing.T) {
 }
 
 func pagetoken(t *testing.T, name, filter string) string {
+	t.Helper()
+
 	if token, err := pagination.EncodeToken(name, filter); err != nil {
 		t.Fatalf("Failed to get encoded token: %v", err)
 		return ""
