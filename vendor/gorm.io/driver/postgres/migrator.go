@@ -315,7 +315,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 						return err
 					}
 				} else {
-					if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ? USING ?::?",
+					if err := m.DB.Exec("ALTER TABLE ? ALTER COLUMN ? TYPE ?"+m.genUsingExpression(fileType.SQL, fieldColumnType.DatabaseTypeName()),
 						m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fileType, clause.Column{Name: field.DBName}, fileType).Error; err != nil {
 						return err
 					}
@@ -336,8 +336,11 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 
 			if uniq, _ := fieldColumnType.Unique(); !uniq && field.Unique {
 				idxName := clause.Column{Name: m.DB.Config.NamingStrategy.IndexName(stmt.Table, field.DBName)}
-				if err := m.DB.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
-					return err
+				// Not a unique constraint but a unique index
+				if !m.HasIndex(stmt.Table, idxName.Name) {
+					if err := m.DB.Exec("ALTER TABLE ? ADD CONSTRAINT ? UNIQUE(?)", m.CurrentTable(stmt), idxName, clause.Column{Name: field.DBName}).Error; err != nil {
+						return err
+					}
 				}
 			}
 
@@ -370,6 +373,16 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 	}
 	m.resetPreparedStmts()
 	return nil
+}
+
+func (m Migrator) genUsingExpression(targetType, sourceType string) string {
+	if targetType == "boolean" {
+		switch sourceType {
+		case "int2", "int8", "numeric":
+			return " USING ?::INT::?"
+		}
+	}
+	return " USING ?::?"
 }
 
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
