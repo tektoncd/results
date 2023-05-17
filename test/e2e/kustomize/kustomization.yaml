@@ -15,6 +15,7 @@
 resources:
 - ../../../config/overlays/default-local-db
 - rbac.yaml
+- persistent-volume.yaml
 
 patches:
 - target:

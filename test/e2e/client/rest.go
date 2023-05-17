@@ -23,6 +23,9 @@ const (
 	listRecordsPath   = "/apis/results.tekton.dev/v1alpha2/parents/%s/records"
 	getRecordPath     = "/apis/results.tekton.dev/v1alpha2/parents/%s"
 	deleteRecordPath  = "/apis/results.tekton.dev/v1alpha2/parents/%s"
+	listLogsPath      = "/apis/results.tekton.dev/v1alpha2/parents/%s/logs"
+	getLogPath        = "/apis/results.tekton.dev/v1alpha2/parents/%s"
+	deleteLogPath     = "/apis/results.tekton.dev/v1alpha2/parents/%s"
 )
 
 type RESTClient interface {
@@ -32,6 +35,9 @@ type RESTClient interface {
 	GetRecord(ctx context.Context, in *v1alpha2.GetRecordRequest) (*v1alpha2.Record, error)
 	ListRecords(ctx context.Context, in *v1alpha2.ListRecordsRequest) (*v1alpha2.ListRecordsResponse, error)
 	DeleteRecord(ctx context.Context, in *v1alpha2.DeleteRecordRequest) (*emptypb.Empty, error)
+	GetLog(ctx context.Context, in *v1alpha2.GetLogRequest) (*v1alpha2.Log, error)
+	ListLogs(ctx context.Context, in *v1alpha2.ListRecordsRequest) (*v1alpha2.ListRecordsResponse, error)
+	DeleteLog(ctx context.Context, in *v1alpha2.DeleteLogRequest) (*emptypb.Empty, error)
 }
 
 type restClient struct {
@@ -111,6 +117,21 @@ func (c *restClient) ListRecords(ctx context.Context, in *v1alpha2.ListRecordsRe
 func (c *restClient) DeleteRecord(ctx context.Context, in *v1alpha2.DeleteRecordRequest) (*emptypb.Empty, error) {
 	out := &emptypb.Empty{}
 	return &emptypb.Empty{}, c.send(ctx, http.MethodDelete, fmt.Sprintf(deleteRecordPath, in.Name), in, out)
+}
+
+func (c *restClient) GetLog(ctx context.Context, in *v1alpha2.GetLogRequest) (*v1alpha2.Log, error) {
+	out := &v1alpha2.Log{}
+	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(getLogPath, in.Name), in, out)
+}
+
+func (c *restClient) ListLogs(ctx context.Context, in *v1alpha2.ListRecordsRequest) (*v1alpha2.ListRecordsResponse, error) {
+	out := &v1alpha2.ListRecordsResponse{}
+	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(listLogsPath, in.Parent), in, out)
+}
+
+func (c *restClient) DeleteLog(ctx context.Context, in *v1alpha2.DeleteLogRequest) (*emptypb.Empty, error) {
+	out := &emptypb.Empty{}
+	return &emptypb.Empty{}, c.send(ctx, http.MethodDelete, fmt.Sprintf(deleteLogPath, in.Name), in, out)
 }
 
 func (c *restClient) send(ctx context.Context, method, path string, in, out proto.Message) error {

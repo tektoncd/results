@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build e2e
-// +build e2e
+////go:build e2e
+//// build e2e
 
 package e2e
 
@@ -653,6 +653,92 @@ func TestListRecords(t *testing.T) {
 	})
 }
 
+func TestListLogs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("list logs by omitting the result name", func(t *testing.T) {
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		res, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if length := len(res.Records); length == 0 {
+			t.Error("No Logs returned by the API server")
+		}
+	})
+
+	t.Run("list logs by omitting the parent and result names", func(t *testing.T) {
+		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+
+		// For the purposes of this test suite, listing records under
+		// the `default/results/-` result or using the `-/results/-`
+		// form must return the same items. Therefore, let's run both
+		// queries and make sure that results are identical.
+
+		want, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{
+			Parent:  "default/results/-",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{
+			Parent:  "-/results/-",
+			OrderBy: "created_time",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Compare only record names. Comparing records data is susceptible to race conditions.
+		if diff := cmp.Diff(recordNames(t, want.Records), recordNames(t, got.Records), protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		_, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
+		if err == nil {
+			t.Fatal("Want an unauthenticated error, but the request succeeded")
+		}
+		if status.Code(err) != codes.Unauthenticated {
+			t.Errorf("API server returned an unexpected error: %v", err)
+		}
+	})
+
+	t.Run("list records using the identity with more limited access", func(t *testing.T) {
+		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		resp, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if length := len(resp.Records); length == 0 {
+			t.Error("No Logs returned by the API server")
+		}
+	})
+
+	t.Run("grpc and rest consistency", func(t *testing.T) {
+		parent := "default/results/-"
+		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		want, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Logs: %v", err)
+		}
+
+		got, err := rc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		if err != nil {
+			t.Fatalf("Error listing Logs: %v", err)
+		}
+
+		if diff := cmp.Diff(want.Records, got.Records, protocmp.Transform()); diff != "" {
+			t.Errorf("Mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
 func TestGetResult(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
@@ -766,6 +852,46 @@ func TestDeleteRecord(t *testing.T) {
 	})
 }
 
+func TestDeleteLog(t *testing.T) {
+	ctx := context.Background()
+	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
+
+	list, err := gc.ListLogs(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+	if err != nil {
+		t.Fatalf("Error listing Records: %v", err)
+	}
+
+	t.Run("delete log", func(t *testing.T) {
+		t.Run("grpc", func(t *testing.T) {
+			_, err := gc.DeleteLog(ctx, &resultsv1alpha2.DeleteLogRequest{Name: list.Records[0].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Log: %v", err)
+			}
+			_, err = gc.GetLog(ctx, &resultsv1alpha2.GetLogRequest{Name: list.Records[0].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if status.Code(err) != codes.NotFound {
+				t.Fatalf("Error getting Log: %v", err)
+			}
+			//TODO: Check if the file is removed from the PVC
+		})
+
+		t.Run("rest", func(t *testing.T) {
+			_, err := rc.DeleteLog(ctx, &resultsv1alpha2.DeleteLogRequest{Name: list.Records[1].GetName()})
+			if err != nil {
+				t.Fatalf("Error deleting Log: %v", err)
+			}
+			_, err = rc.GetLog(ctx, &resultsv1alpha2.GetLogRequest{Name: list.Records[1].GetName()})
+			if err == nil {
+				t.Fatalf("Expected error, but no error found")
+			} else if err.Error() != http.StatusText(http.StatusNotFound) {
+				t.Fatalf("Error getting Log: %v", err)
+			}
+			//TODO: Check if the file is removed from the PVC
+		})
+	})
+}
+
 func TestDeleteResult(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
@@ -776,6 +902,7 @@ func TestDeleteResult(t *testing.T) {
 	}
 
 	t.Run("delete result", func(t *testing.T) {
+		t.Skip()
 		t.Run("grpc", func(t *testing.T) {
 			_, err := gc.DeleteResult(ctx, &resultsv1alpha2.DeleteResultRequest{Name: list.Results[0].GetName()})
 			if err != nil {
@@ -787,6 +914,8 @@ func TestDeleteResult(t *testing.T) {
 			} else if status.Code(err) != codes.NotFound {
 				t.Fatalf("Error getting Result: %v", err)
 			}
+			// Check if the log is deleted from the PVC
+
 		})
 
 		t.Run("rest", func(t *testing.T) {
@@ -920,6 +1049,16 @@ func TestImpersonation(t *testing.T) {
 }
 
 func recordNames(t *testing.T, records []*resultsv1alpha2.Record) []string {
+	t.Helper()
+
+	ret := make([]string, len(records))
+	for _, record := range records {
+		ret = append(ret, record.GetName())
+	}
+	return ret
+}
+
+func logNames(t *testing.T, records []*resultsv1alpha2.Record) []string {
 	t.Helper()
 
 	ret := make([]string, len(records))

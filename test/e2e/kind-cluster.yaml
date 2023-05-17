@@ -22,10 +22,13 @@ nodes:
   image: kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
 
 # Merge the same definition as the control-plane to reuse the same Kindest image
-# in the data-plane. We'll set specific values of the data-plane afterwards.
+# in the data-plane. We'll set specific values of the data-plane afterward.
 # For further details on merge keys, please refer to https://learnxinyminutes.com/docs/yaml/.
 - <<: *node
   role: worker
+  extraMounts:
+    - hostPath: /tmp/tekton-results/data
+      containerPath: /data
   extraPortMappings:
     # API gRPC and REST server
     - containerPort: 30080
