@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.5.2 (2023-03-16)
+
+- Support child control cgroups
+- Fix file descriptor leak
+- Update dependencies
+
+## v1.5.1 (2022-04-06)
+
+- Fix cgroups v2 mountpoint detection.
+
+## v1.5.0 (2022-04-05)
+
+- Add support for cgroups v2.
+
+Thanks to @emadolsky for their contribution to this release.
+
 ## v1.4.0 (2021-02-01)
 
 - Support colons in cgroup names.
