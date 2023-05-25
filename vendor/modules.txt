@@ -1165,7 +1165,7 @@ gorm.io/gorm/logger
 gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
-# k8s.io/api v0.25.9
+# k8s.io/api v0.25.10
 ## explicit; go 1.19
 k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
@@ -1218,7 +1218,7 @@ k8s.io/api/storage/v1beta1
 ## explicit; go 1.19
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-# k8s.io/apimachinery v0.25.9
+# k8s.io/apimachinery v0.25.10
 ## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
