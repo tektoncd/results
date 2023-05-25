@@ -26,7 +26,7 @@ spec:
       description: The Git revision to checkout.
       default: main
     - name: docker_repo
-      default: "ko.local"
+      default: "gcr.io/tekton-releases"
     - name: bucket
       description: "GCS bucket/folder to upload configs"
     - name: version
