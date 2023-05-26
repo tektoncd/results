@@ -17,7 +17,6 @@ package remote
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -39,12 +38,22 @@ var acceptableImageMediaTypes = []types.MediaType{
 // remoteImage accesses an image from a remote registry
 type remoteImage struct {
 	fetcher
+	ref          name.Reference
 	manifestLock sync.Mutex // Protects manifest
 	manifest     []byte
 	configLock   sync.Mutex // Protects config
 	config       []byte
 	mediaType    types.MediaType
 	descriptor   *v1.Descriptor
+}
+
+func (r *remoteImage) ArtifactType() (string, error) {
+	// kind of a hack, but RawManifest does appropriate locking/memoization
+	// and makes sure r.descriptor is populated.
+	if _, err := r.RawManifest(); err != nil {
+		return "", err
+	}
+	return r.descriptor.ArtifactType, nil
 }
 
 var _ partial.CompressedImageCore = (*remoteImage)(nil)
@@ -76,7 +85,7 @@ func (r *remoteImage) RawManifest() ([]byte, error) {
 	// NOTE(jonjohnsonjr): We should never get here because the public entrypoints
 	// do type-checking via remote.Descriptor. I've left this here for tests that
 	// directly instantiate a remoteImage.
-	manifest, desc, err := r.fetchManifest(r.Ref, acceptableImageMediaTypes)
+	manifest, desc, err := r.fetchManifest(r.context, r.ref, acceptableImageMediaTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +124,7 @@ func (r *remoteImage) RawConfigFile() ([]byte, error) {
 	}
 	defer body.Close()
 
-	r.config, err = ioutil.ReadAll(body)
+	r.config, err = io.ReadAll(body)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +138,21 @@ func (r *remoteImage) Descriptor() (*v1.Descriptor, error) {
 	// and makes sure r.descriptor is populated.
 	_, err := r.RawManifest()
 	return r.descriptor, err
+}
+
+func (r *remoteImage) ConfigLayer() (v1.Layer, error) {
+	if _, err := r.RawManifest(); err != nil {
+		return nil, err
+	}
+	m, err := partial.Manifest(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return partial.CompressedToLayer(&remoteImageLayer{
+		ri:     r,
+		digest: m.Config.Digest,
+	})
 }
 
 // remoteImageLayer implements partial.CompressedLayer
@@ -153,7 +177,7 @@ func (rl *remoteImageLayer) Compressed() (io.ReadCloser, error) {
 	}
 
 	if d.Data != nil {
-		return verify.ReadCloser(ioutil.NopCloser(bytes.NewReader(d.Data)), d.Size, d.Digest)
+		return verify.ReadCloser(io.NopCloser(bytes.NewReader(d.Data)), d.Size, d.Digest)
 	}
 
 	// We don't want to log binary layers -- this can break terminals.
@@ -178,7 +202,7 @@ func (rl *remoteImageLayer) Compressed() (io.ReadCloser, error) {
 			return nil, err
 		}
 
-		resp, err := rl.ri.Client.Do(req.WithContext(ctx))
+		resp, err := rl.ri.client.Do(req.WithContext(ctx))
 		if err != nil {
 			lastErr = err
 			continue

@@ -23,6 +23,7 @@ import (
 	"math"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
@@ -34,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/strings/slices"
 	"knative.dev/pkg/changeset"
 	"knative.dev/pkg/kmeta"
 )
@@ -118,7 +120,9 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	volumeMounts := []corev1.VolumeMount{binROMount}
 	implicitEnvVars := []corev1.EnvVar{}
 	featureFlags := config.FromContextOrDefaults(ctx).FeatureFlags
+	defaultForbiddenEnv := config.FromContextOrDefaults(ctx).Defaults.DefaultForbiddenEnv
 	alphaAPIEnabled := featureFlags.EnableAPIFields == config.AlphaAPIFields
+	sidecarLogsResultsEnabled := config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs
 
 	// Add our implicit volumes first, so they can be overridden by the user if they prefer.
 	volumes = append(volumes, implicitVolumes...)
@@ -127,10 +131,12 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	// Create Volumes and VolumeMounts for any credentials found in annotated
 	// Secrets, along with any arguments needed by Step entrypoints to process
 	// those secrets.
+	commonExtraEntrypointArgs := []string{}
 	credEntrypointArgs, credVolumes, credVolumeMounts, err := credsInit(ctx, taskRun.Spec.ServiceAccountName, taskRun.Namespace, b.KubeClient)
 	if err != nil {
 		return nil, err
 	}
+	commonExtraEntrypointArgs = append(commonExtraEntrypointArgs, credEntrypointArgs...)
 	volumes = append(volumes, credVolumes...)
 	volumeMounts = append(volumeMounts, credVolumeMounts...)
 
@@ -146,6 +152,12 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	}
 	if alphaAPIEnabled && taskRun.Spec.ComputeResources != nil {
 		tasklevel.ApplyTaskLevelComputeResources(steps, taskRun.Spec.ComputeResources)
+	}
+	if sidecarLogsResultsEnabled && taskSpec.Results != nil {
+		// create a results sidecar
+		resultsSidecar := createResultsSidecar(taskSpec, b.Images.SidecarLogResultsImage)
+		taskSpec.Sidecars = append(taskSpec.Sidecars, resultsSidecar)
+		commonExtraEntrypointArgs = append(commonExtraEntrypointArgs, "-result_from", config.ResultExtractionMethodSidecarLogs)
 	}
 	sidecars, err := v1beta1.MergeSidecarsWithOverrides(taskSpec.Sidecars, taskRun.Spec.SidecarOverrides)
 	if err != nil {
@@ -192,9 +204,9 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 	readyImmediately := isPodReadyImmediately(*featureFlags, taskSpec.Sidecars)
 
 	if alphaAPIEnabled {
-		stepContainers, err = orderContainers(credEntrypointArgs, stepContainers, &taskSpec, taskRun.Spec.Debug, !readyImmediately)
+		stepContainers, err = orderContainers(commonExtraEntrypointArgs, stepContainers, &taskSpec, taskRun.Spec.Debug, !readyImmediately)
 	} else {
-		stepContainers, err = orderContainers(credEntrypointArgs, stepContainers, &taskSpec, nil, !readyImmediately)
+		stepContainers, err = orderContainers(commonExtraEntrypointArgs, stepContainers, &taskSpec, nil, !readyImmediately)
 	}
 	if err != nil {
 		return nil, err
@@ -204,21 +216,34 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 		volumes = append(volumes, downwardVolume)
 	}
 
-	// Add implicit env vars.
-	// They're prepended to the list, so that if the user specified any
-	// themselves their value takes precedence.
+	// Order of precedence for envs
+	// implicit env vars
+	// Superceded by step env vars
+	// Superceded by config-default default-pod-template envs
+	// Superceded by podTemplate envs
 	if len(implicitEnvVars) > 0 {
 		for i, s := range stepContainers {
-			env := append(implicitEnvVars, s.Env...) //nolint
+			env := append(implicitEnvVars, s.Env...) //nolint:gocritic
 			stepContainers[i].Env = env
 		}
 	}
-
+	filteredEnvs := []corev1.EnvVar{}
+	for _, e := range podTemplate.Env {
+		if !slices.Contains(defaultForbiddenEnv, e.Name) {
+			filteredEnvs = append(filteredEnvs, e)
+		}
+	}
+	if len(podTemplate.Env) > 0 {
+		for i, s := range stepContainers {
+			env := append(s.Env, filteredEnvs...) //nolint:gocritic
+			stepContainers[i].Env = env
+		}
+	}
 	// Add env var if hermetic execution was requested & if the alpha API is enabled
 	if taskRun.Annotations[ExecutionModeAnnotation] == ExecutionModeHermetic && alphaAPIEnabled {
 		for i, s := range stepContainers {
 			// Add it at the end so it overrides
-			env := append(s.Env, corev1.EnvVar{Name: TektonHermeticEnvVar, Value: "1"}) //nolint
+			env := append(s.Env, corev1.EnvVar{Name: TektonHermeticEnvVar, Value: "1"}) //nolint:gocritic
 			stepContainers[i].Env = env
 		}
 	}
@@ -255,8 +280,30 @@ func (b *Builder) Build(ctx context.Context, taskRun *v1beta1.TaskRun, taskSpec 
 				toAdd = append(toAdd, imp)
 			}
 		}
-		vms := append(s.VolumeMounts, toAdd...) //nolint
+		vms := append(s.VolumeMounts, toAdd...) //nolint:gocritic
 		stepContainers[i].VolumeMounts = vms
+	}
+
+	if sidecarLogsResultsEnabled && taskSpec.Results != nil {
+		// Mount implicit volumes onto sidecarContainers
+		// so that they can access /tekton/results and /tekton/run.
+		for i, s := range sidecarContainers {
+			for j := 0; j < len(stepContainers); j++ {
+				s.VolumeMounts = append(s.VolumeMounts, runMount(j, true))
+			}
+			requestedVolumeMounts := map[string]bool{}
+			for _, vm := range s.VolumeMounts {
+				requestedVolumeMounts[filepath.Clean(vm.MountPath)] = true
+			}
+			var toAdd []corev1.VolumeMount
+			for _, imp := range volumeMounts {
+				if !requestedVolumeMounts[filepath.Clean(imp.MountPath)] {
+					toAdd = append(toAdd, imp)
+				}
+			}
+			vms := append(s.VolumeMounts, toAdd...) //nolint:gocritic
+			sidecarContainers[i].VolumeMounts = vms
+		}
 	}
 
 	// This loop:
@@ -397,7 +444,7 @@ func isPodReadyImmediately(featureFlags config.FeatureFlags, sidecars []v1beta1.
 func runMount(i int, ro bool) corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      fmt.Sprintf("%s-%d", runVolumeName, i),
-		MountPath: filepath.Join(runDir, strconv.Itoa(i)),
+		MountPath: filepath.Join(RunDir, strconv.Itoa(i)),
 		ReadOnly:  ro,
 	}
 }
@@ -434,4 +481,19 @@ func entrypointInitContainer(image string, steps []v1beta1.Step) corev1.Containe
 		VolumeMounts: volumeMounts,
 	}
 	return prepareInitContainer
+}
+
+// createResultsSidecar creates a sidecar that will run the sidecarlogresults binary.
+func createResultsSidecar(taskSpec v1beta1.TaskSpec, image string) v1beta1.Sidecar {
+	names := make([]string, 0, len(taskSpec.Results))
+	for _, r := range taskSpec.Results {
+		names = append(names, r.Name)
+	}
+	resultsStr := strings.Join(names, ",")
+	command := []string{"/ko-app/sidecarlogresults", "-results-dir", pipeline.DefaultResultPath, "-result-names", resultsStr}
+	return v1beta1.Sidecar{
+		Name:    pipeline.ReservedResultsSidecarName,
+		Image:   image,
+		Command: command,
+	}
 }

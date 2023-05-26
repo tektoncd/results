@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gomodules.xyz/jsonpatch/v2"
@@ -42,7 +43,12 @@ const (
 	entrypointBinary = binDir + "/entrypoint"
 
 	runVolumeName = "tekton-internal-run"
-	runDir        = "/tekton/run"
+
+	// RunDir is the directory that contains runtime variable data for TaskRuns.
+	// This includes files for handling container ordering, exit status codes, and more.
+	// See [https://github.com/tektoncd/pipeline/blob/main/docs/developers/taskruns.md#tekton]
+	// for more details.
+	RunDir = "/tekton/run"
 
 	downwardVolumeName     = "tekton-internal-downward"
 	downwardMountPoint     = "/tekton/downward"
@@ -125,13 +131,13 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 				)
 			}
 		} else { // Not the first step - wait for previous
-			argsForEntrypoint = append(argsForEntrypoint, "-wait_file", filepath.Join(runDir, strconv.Itoa(i-1), "out"))
+			argsForEntrypoint = append(argsForEntrypoint, "-wait_file", filepath.Join(RunDir, strconv.Itoa(i-1), "out"))
 		}
 		argsForEntrypoint = append(argsForEntrypoint,
 			// Start next step.
-			"-post_file", filepath.Join(runDir, idx, "out"),
+			"-post_file", filepath.Join(RunDir, idx, "out"),
 			"-termination_path", terminationPath,
-			"-step_metadata_dir", filepath.Join(runDir, idx, "status"),
+			"-step_metadata_dir", filepath.Join(RunDir, idx, "status"),
 		)
 		argsForEntrypoint = append(argsForEntrypoint, commonExtraEntrypointArgs...)
 		if taskSpec != nil {
@@ -247,6 +253,12 @@ func StopSidecars(ctx context.Context, nopImage string, kubeclient kubernetes.In
 	updated := false
 	if newPod.Status.Phase == corev1.PodRunning {
 		for _, s := range newPod.Status.ContainerStatuses {
+			// If the results-from is set to sidecar logs,
+			// a sidecar container with name `sidecar-log-results` is injected by the reconiler.
+			// Do not kill this sidecar. Let it exit gracefully.
+			if config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs && s.Name == pipeline.ReservedResultsSidecarContainerName {
+				continue
+			}
 			// Stop any running container that isn't a step.
 			// An injected sidecar container might not have the
 			// "sidecar-" prefix, so we can't just look for that
