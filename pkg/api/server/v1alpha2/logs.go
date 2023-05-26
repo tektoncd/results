@@ -35,7 +35,8 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 
 	if err := s.auth.Check(srv.Context(), parent, auth.ResourceLogs, auth.PermissionGet); err != nil {
 		s.logger.Error(err)
-		return status.Error(codes.Unauthenticated, "Permission denied")
+		// unauthenticated status code and debug message produced by Check
+		return err
 	}
 
 	rec, err := getRecord(s.db, parent, res, name)
@@ -223,7 +224,8 @@ func (s *Server) ListLogs(ctx context.Context, req *pb.ListRecordsRequest) (*pb.
 	}
 	if err := s.auth.Check(ctx, parent, auth.ResourceLogs, auth.PermissionList); err != nil {
 		s.logger.Debug(err)
-		return nil, status.Error(codes.Unauthenticated, "permission denied")
+		// unauthenticated status code and debug message produced by Check
+		return nil, err
 
 	}
 
