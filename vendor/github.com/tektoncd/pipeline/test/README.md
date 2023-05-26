@@ -30,6 +30,8 @@ in local kubeconfig file (~/.kube/config by default) in you local machine.
 is the difference of running environments. The envs that our presubmit test
 uses are stored in ./*.env files. Specifically,
 > - e2e-tests-kind-prow-alpha.env for [`pull-tekton-pipeline-alpha-integration-tests`](https://github.com/tektoncd/plumbing/blob/d2c8ccb63d02c6e72c62def788af32d63ff1981a/prow/config.yaml#L1304)
+> - e2e-tests-kind-prow-beta.env for [`pull-tekton-pipeline-beta-integration-tests`]
+(TODO: https://github.com/tektoncd/pipeline/issues/6048 Add permanent link after plumbing setup for prow)
 > - e2e-tests-kind-prow.env for [`pull-tekton-pipeline-integration-tests`](https://github.com/tektoncd/plumbing/blob/d2c8ccb63d02c6e72c62def788af32d63ff1981a/prow/config.yaml#L1249)
 
 ## Unit tests
@@ -316,7 +318,7 @@ The `Clients` struct contains initialized clients for accessing:
 For example, to create a `Pipeline`:
 
 ```bash
-_, err = clients.PipelineClient.Pipelines.Create(test.Route(namespaceName, pipelineName))
+_, err = clients.V1beta1PipelineClient.Pipelines.Create(test.Route(namespaceName, pipelineName))
 ```
 
 And you can use the client to clean up resources created by your test (e.g. in
@@ -366,7 +368,7 @@ err = WaitForTaskRunState(c, hwTaskRunName, func(tr *v1alpha1.TaskRun) (bool, er
         return true, nil
     }
     return false, nil
-}, "TaskRunHasCondition")
+}, "TaskRunHasCondition", v1beta1Version)
 ```
 
 _[Metrics will be emitted](https://github.com/knative/pkg/tree/master/test#emit-metrics)
