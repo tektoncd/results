@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"log"
 	"strings"
@@ -88,6 +89,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		namespace = corev1.NamespaceAll
 	}
 
+	retMsg := "permission denied"
 	for _, raw := range v {
 		// We expect tokens to be in the form "Bearer <token>". Parse the token out.
 		s := strings.SplitN(raw, " ", 2)
@@ -120,7 +122,8 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		if impersonator != nil {
 			if err := impersonator.Check(ctx, r.authz, user); err != nil {
 				log.Println(err)
-				return status.Error(codes.Unauthenticated, "permission denied")
+				retMsg = fmt.Sprintf("%s: %s", retMsg, err.Error())
+				return status.Error(codes.Unauthenticated, retMsg)
 			}
 			// Change user data to impersonated user
 			userInfo := impersonator.GetUserInfo()
@@ -146,6 +149,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 			},
 		}, metav1.CreateOptions{})
 		if err != nil {
+			retMsg = fmt.Sprintf("%s user %q in groups %q employing %q against %q: %s", retMsg, user, groups, verb, resource, err.Error())
 			log.Println(err)
 			continue
 		}
@@ -155,7 +159,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	}
 	// Return Unauthenticated - we don't know if we failed because of invalid
 	// token or unauthorized user, so this is safer to not leak any state.
-	return status.Error(codes.Unauthenticated, "permission denied")
+	return status.Error(codes.Unauthenticated, retMsg)
 }
 
 // convertExtra converts the map[string][]string to map[string]ExtraValue for Subject Access Review.
