@@ -147,7 +147,7 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 	}
 
 	log.Printf("dialing %s...\n", apiAddr)
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	return grpc.DialContext(ctx, apiAddr, opts...)
 }

@@ -57,6 +57,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func main() {
@@ -78,18 +79,28 @@ func main() {
 	if serverConfig.DB_USER == "" || serverConfig.DB_PASSWORD == "" {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
+
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
+	var db *gorm.DB
+	var err error
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE)
-
 	gormConfig := &gorm.Config{}
 	if log.Level() != zap.DebugLevel {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}
-	db, err := gorm.Open(postgres.Open(dbURI), gormConfig)
+	// Retry database connection, sometimes the database is not ready to accept connection
+	wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) {
+		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
+		if err != nil {
+			log.Warnf("Error connecting to database (retrying in 10s): %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
 	if err != nil {
-		log.Fatalf("Failed to open the results.db: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// Create the authorization authCheck
@@ -125,6 +136,9 @@ func main() {
 
 	// Shared options for the logger, with a custom gRPC code to log level function.
 	zapOpts := []grpc_zap.Option{
+		grpc_zap.WithDecider(func(fullMethodName string, err error) bool {
+			return fullMethodName != healthpb.Health_Check_FullMethodName
+		}),
 		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
 			return zap.Int64("grpc.time_duration_in_ms", duration.Milliseconds())
 		}),
@@ -161,6 +175,9 @@ func main() {
 	// Set up health checks.
 	hs := health.NewServer()
 	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
+	if serverConfig.LOGS_API {
+		hs.SetServingStatus("tekton.results.v1alpha2.Logs", healthpb.HealthCheckResponse_SERVING)
+	}
 	healthpb.RegisterHealthServer(gs, hs)
 
 	// Start prometheus metrics server
@@ -181,12 +198,21 @@ func main() {
 		}
 	}
 
-	// Register gRPC server endpoint for gRPC gateway
+	// Setup gRPC gateway to proxy request to gRPC health checks
+	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds))
+	if err != nil {
+		log.Fatalf("Error dialing gRPC endpoint: %v", err)
+	}
+	serverMuxOptions = append(serverMuxOptions, runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)))
+
+	// Create server for gRPC gateway
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	httpMux := runtime.NewServeMux(serverMuxOptions...)
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+
+	// Register gRPC server endpoint to gRPC gateway
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
 	if err != nil {
 		log.Fatal("Error registering gRPC server endpoint for Results API: ", err)

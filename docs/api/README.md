@@ -254,6 +254,27 @@ metrics. By default, the Service exposes metrics on port `:9090`. For more
 details on the structure of the metrics, see
 <https://github.com/grpc-ecosystem/go-grpc-prometheus#metrics>.
 
+## Health
+
+The API Server includes gRPC and REST endpoints for monitoring serving status of the API server as well as serving 
+status of individual services.
+
+### Checking Status
+
+````sh
+# Check status of API server using gRPC
+grpcurl --insecure localhost:8080 grpc.health.v1.Health/Check
+
+# Check status of individual service using gRPC
+grpcurl --insecure -d '{"service": "tekton.results.v1alpha2.Results"}' localhost:8080 grpc.health.v1.Health/Check
+
+# Check status of API server using REST
+curl -k https://localhost:8080/healthz
+
+# Check status of individual service using REST
+curl -k https://localhost:8080/healthz?service=tekton.results.v1alpha2.Results
+````
+
 ## References
 
 - [OpenAPI Specification](openapi.yaml)
