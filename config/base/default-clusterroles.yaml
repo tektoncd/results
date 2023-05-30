@@ -16,6 +16,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: readonly
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records", "logs"]
@@ -34,6 +37,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: admin
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups: ["results.tekton.dev"]
     resources: ["results", "records", "logs"]
