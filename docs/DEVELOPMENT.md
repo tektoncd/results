@@ -19,6 +19,7 @@ These tools are recommended, but not required:
 - [prettier](https://prettier.io/)
 - [sqlite3](https://www.sqlite.org/index.html)
 - [grpc_cli](https://github.com/grpc/grpc/blob/master/doc/command_line_tool.md)
+- [grpcurl](https://github.com/fullstorydev/grpcurl)
 - [curl](https://curl.se/download.html)
 
 ## Quickstart
