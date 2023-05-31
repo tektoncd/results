@@ -279,7 +279,7 @@ See [test/e2e/README.md](/test/e2e/README.md)
 You can change log level controllers for development purpose. Edit configmap:
 
 ```sh
-kubectl edit cm config-logging -n tekton-pipelines
+kubectl edit cm tekton-results-config-logging -n tekton-pipelines
 ```
 
 Change "zap-logger-config" field "level" and save it.
