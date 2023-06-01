@@ -1,0 +1,35 @@
+run:
+  modules-download-mode: vendor
+  build-tags:
+  - e2e
+  skip-dirs:
+  - vendor
+  - tools
+linters-settings:
+  errcheck:
+    exclude: .errcheck.txt
+linters:
+  enable:
+  - unused
+  - errcheck
+  - gofmt
+  - goimports
+  - gomodguard
+  - gosec
+  - gocritic
+  - revive
+  - misspell
+  - unconvert
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  include:
+  # Enable off-by-default rules for revive requiring that all exported elements have a properly formatted comment.
+  - EXC0012 # https://golangci-lint.run/usage/false-positives/#exc0012
+  - EXC0014 # https://golangci-lint.run/usage/false-positives/#exc0014
+  timeout: 20m
