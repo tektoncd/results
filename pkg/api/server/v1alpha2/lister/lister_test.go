@@ -23,7 +23,7 @@ import (
 	resultspb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/results/pkg/api/server/cel"
+	celview "github.com/tektoncd/results/pkg/api/server/cel/view"
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
@@ -32,14 +32,14 @@ import (
 )
 
 func TestBuildQuery(t *testing.T) {
-	env, err := cel.NewResultsEnv()
+	db, _ := gorm.Open(tests.DummyDialector{})
+	statement := &gorm.Statement{DB: db, Table: "testtable", Clauses: map[string]clause.Clause{}}
+	db.Statement = statement
+
+	view, err := celview.NewResultsView()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	db, _ := gorm.Open(tests.DummyDialector{})
-	statement := &gorm.Statement{DB: db, Clauses: map[string]clause.Clause{}}
-	db.Statement = statement
 
 	now := time.Now()
 
@@ -67,7 +67,7 @@ func TestBuildQuery(t *testing.T) {
 				pageToken: token,
 			},
 			&filter{
-				env: env,
+				view: view,
 				equalityClauses: []equalityClause{{
 					columnName: "parent",
 					value:      "foo",

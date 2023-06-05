@@ -36,19 +36,21 @@ var ErrUnsupportedExpression = errors.New("unsupported CEL")
 // filters in the Postgres dialect.
 type interpreter struct {
 	checkedExpr *exprpb.CheckedExpr
+	view        *View
 
 	query strings.Builder
 }
 
 // newInterpreter takes an abstract syntax tree and returns an Interpreter object capable
 // of converting it to a set of SQL filters.
-func newInterpreter(ast *cel.Ast) (*interpreter, error) {
+func newInterpreter(ast *cel.Ast, view *View) (*interpreter, error) {
 	checkedExpr, err := cel.AstToCheckedExpr(ast)
 	if err != nil {
 		return nil, err
 	}
 	return &interpreter{
 		checkedExpr: checkedExpr,
+		view:        view,
 	}, nil
 }
 
@@ -142,22 +144,18 @@ func (i *interpreter) interpretConstExpr(id int64, expr *exprpb.Constant) error 
 	return nil
 }
 
-var identToColumn = map[string]string{
-	"uid":         "id",
-	"create_time": "created_time",
-	"update_time": "updated_time",
-	"data_type":   "type",
-}
-
 func (i *interpreter) interpretIdentExpr(id int64, expr *exprpb.Expr_IdentExpr) error {
 	if reference, found := i.checkedExpr.ReferenceMap[id]; found && reference.GetValue() != nil {
 		return i.interpretConstExpr(id, reference.GetValue())
 	}
 	name := expr.IdentExpr.GetName()
-	if column, found := identToColumn[name]; found {
-		name = column
+
+	field, found := i.view.Fields[name]
+	if !found {
+		return i.unsupportedExprError(id, fmt.Sprintf("unexpected field %q", name))
 	}
-	i.query.WriteString(name)
+
+	i.query.WriteString(field.SQL)
 	return nil
 }
 
@@ -194,8 +192,9 @@ func (i *interpreter) getIndexKey(expr *exprpb.Expr) (fmt.Stringer, error) {
 	}
 }
 
-func (i *interpreter) getSelectFields(expr *exprpb.Expr) ([]fmt.Stringer, error) {
+func (i *interpreter) getSelectFields(expr *exprpb.Expr) ([]fmt.Stringer, *Field, error) {
 	var target *exprpb.Expr
+	var identField *Field
 	fields := []fmt.Stringer{}
 	switch node := expr.ExprKind.(type) {
 	case *exprpb.Expr_SelectExpr:
@@ -205,38 +204,45 @@ func (i *interpreter) getSelectFields(expr *exprpb.Expr) ([]fmt.Stringer, error)
 	case *exprpb.Expr_CallExpr:
 		if !isIndexExpr(expr) {
 			// TODO: return which function is not supported
-			return nil, i.unsupportedExprError(expr.Id, "function")
+			return nil, identField, i.unsupportedExprError(expr.Id, "function")
 		}
 		// Sanity check, index function should always have two arguments
 		if len(node.CallExpr.Args) != 2 {
-			return nil, ErrUnsupportedExpression
+			return nil, identField, ErrUnsupportedExpression
 		}
 		target = node.CallExpr.Args[0]
 		index, err := i.getIndexKey(expr)
 		if err != nil {
-			return nil, err
+			return nil, identField, err
 		}
 		fields = append(fields, index)
 	case *exprpb.Expr_IdentExpr:
-		fields = append(fields, &Unquoted{node.IdentExpr.GetName()})
+		name := node.IdentExpr.GetName()
+		field, found := i.view.Fields[name]
+		if !found {
+			return fields, identField, fmt.Errorf("unexpected field: %q", name)
+		}
+		fields = append(fields, &Unquoted{field.SQL})
+		identField = &field
 		target = nil
 	default:
-		return nil, ErrUnsupportedExpression
+		return nil, identField, ErrUnsupportedExpression
 	}
 
 	if target != nil {
-		newFields, err := i.getSelectFields(target)
+		newFields, field, err := i.getSelectFields(target)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		identField = field
 		fields = append(fields, newFields...)
 	}
 
-	return fields, nil
+	return fields, identField, nil
 }
 
 func (i *interpreter) interpretSelectExpr(id int64, expr *exprpb.Expr_SelectExpr, additionalExprs ...*exprpb.Expr) error {
-	fields, err := i.getSelectFields(&exprpb.Expr{Id: id, ExprKind: expr})
+	fields, identField, err := i.getSelectFields(&exprpb.Expr{Id: id, ExprKind: expr})
 	if err != nil {
 		return err
 	}
@@ -256,13 +262,12 @@ func (i *interpreter) interpretSelectExpr(id int64, expr *exprpb.Expr_SelectExpr
 		}
 	}
 
-	if i.isDyn(expr.SelectExpr.GetOperand()) {
-		i.translateToJSONAccessors(reversedFields)
-		return nil
+	if identField.ObjectType != nil {
+		return i.translateIntoStruct(reversedFields)
 	}
 
-	if i.isRecordSummary(expr.SelectExpr.GetOperand()) {
-		i.translateToRecordSummaryColumn(reversedFields)
+	if i.isDyn(expr.SelectExpr.GetOperand()) {
+		i.translateToJSONAccessors(reversedFields)
 		return nil
 	}
 

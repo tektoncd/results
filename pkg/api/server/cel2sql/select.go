@@ -15,7 +15,9 @@
 package cel2sql
 
 import (
+	"bytes"
 	"fmt"
+	"text/template"
 
 	"gorm.io/gorm/schema"
 )
@@ -35,13 +37,32 @@ func (i *interpreter) translateToJSONAccessors(fieldPath []fmt.Stringer) {
 	fmt.Fprintf(&i.query, ")")
 }
 
-// translateToRecordSummaryColumn
-func (i *interpreter) translateToRecordSummaryColumn(fieldPath []fmt.Stringer) {
-	namer := &schema.NamingStrategy{}
-	switch f := fieldPath[1].(type) {
+func getRawString(s fmt.Stringer) string {
+	switch f := s.(type) {
 	case *Unquoted:
-		fmt.Fprintf(&i.query, "recordsummary_%s", namer.ColumnName("", f.s))
+		return f.s
 	case *SingleQuoted:
-		fmt.Fprintf(&i.query, "recordsummary_%s", namer.ColumnName("", f.s))
+		return f.s
 	}
+	return s.String()
+}
+
+// translateIntoStruct
+func (i *interpreter) translateIntoStruct(fieldPath []fmt.Stringer) error {
+	namer := &schema.NamingStrategy{}
+	rawSQL := getRawString(fieldPath[0])
+	rawField := getRawString(fieldPath[1])
+	sqlTemplate, err := template.New("").Parse(rawSQL)
+	if err != nil {
+		return err
+	}
+	var sql bytes.Buffer
+	err = sqlTemplate.Execute(&sql, map[string]string{
+		"Field": namer.ColumnName("", rawField),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(&i.query, "%s", sql.String())
+	return err
 }
