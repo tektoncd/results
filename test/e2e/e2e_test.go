@@ -19,6 +19,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
@@ -353,9 +354,17 @@ func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transpor
 		impersonationConfig = &transport.ImpersonationConfig{}
 	}
 
+	var tlsConfig transport.TLSConfig
 	transportCredentials, err := credentials.NewClientTLSFromFile(certFile, serverName)
 	if err != nil {
-		t.Fatalf("Error creating client TLS: %v", err)
+		t.Logf("TLS certificate verification will be skipped, error creating client TLS: %v", err)
+		transportCredentials = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+		tlsConfig = transport.TLSConfig{Insecure: true}
+	} else {
+		tlsConfig = transport.TLSConfig{
+			CAFile:     certFile,
+			ServerName: serverName,
+		}
 	}
 
 	callOptions := []grpc.CallOption{
@@ -377,10 +386,7 @@ func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transpor
 	}
 
 	restConfig := &transport.Config{
-		TLS: transport.TLSConfig{
-			CAFile:     certFile,
-			ServerName: serverName,
-		},
+		TLS:             tlsConfig,
 		BearerTokenFile: tokenFile,
 		Impersonate:     *impersonationConfig,
 	}
