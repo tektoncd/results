@@ -27,7 +27,9 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -41,6 +43,7 @@ import (
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -158,6 +161,7 @@ func main() {
 			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
 			grpc_auth.UnaryServerInterceptor(determineAuth),
 			prometheus.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
 		grpc_middleware.WithStreamServerChain(
 			// The grpc_ctxtags context updater should be before everything else
@@ -165,6 +169,7 @@ func main() {
 			grpc_zap.StreamServerInterceptor(grpcLogger, zapOpts...),
 			grpc_auth.StreamServerInterceptor(determineAuth),
 			prometheus.StreamServerInterceptor,
+			recovery.StreamServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
 	)
 	v1alpha2pb.RegisterResultsServer(gs, v1a2)
@@ -231,13 +236,13 @@ func main() {
 	// Start server with gRPC and REST handler
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)
 	if tlsError != nil {
-		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandlerFunc(gs, httpMux)))
+		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandler(gs, httpMux)))
 	}
-	log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandlerFunc(gs, httpMux)))
+	log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandler(gs, httpMux)))
 }
 
-// grpcHandlerFunc forwards the request to gRPC server based on the Content-Type header.
-func grpcHandlerFunc(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler {
+// grpcHandler forwards the request to gRPC server based on the Content-Type header.
+func grpcHandler(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler {
 	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
 			grpcServer.ServeHTTP(w, r)
@@ -245,6 +250,11 @@ func grpcHandlerFunc(grpcServer *grpc.Server, httpHandler http.Handler) http.Han
 			httpHandler.ServeHTTP(w, r)
 		}
 	}), &http2.Server{})
+}
+
+// recoveryHandler returns custom messages when server panics
+func recoveryHandler(p any) error {
+	return status.Errorf(codes.Unknown, "Error: %v", p)
 }
 
 func determineAuth(ctx context.Context) (context.Context, error) {
