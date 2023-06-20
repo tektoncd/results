@@ -18,14 +18,11 @@
 # A RWO persistent volume claim of 1Gi is provided
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-
 resources:
-- pvc.yaml
-
+  - pvc.yaml
 patches:
-- path: api.yaml
-  target:
-    kind: Deployment
-    name: api
-    namespace: tekton-pipelines
-
+  - path: api.yaml
+    target:
+      kind: Deployment
+      name: api
+      namespace: tekton-pipelines

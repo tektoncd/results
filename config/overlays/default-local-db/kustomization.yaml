@@ -17,10 +17,8 @@
 # Creates a Kustomization that deploys Results with a local PostGres database.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 resources:
   - ../../base
-
 components:
   - ../../components/local-db
   - ../../components/metadata
