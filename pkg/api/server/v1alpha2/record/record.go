@@ -192,6 +192,7 @@ func validateData(m *pb.Any) error {
 	}
 }
 
+// ValidateType validates line t to ensure it can be stored in the database.
 func ValidateType(t string) error {
 	// Certain DBs like sqlite will massage CHAR types to TEXT, so enforce
 	// this in our code for consistency.

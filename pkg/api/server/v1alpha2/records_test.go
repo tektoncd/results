@@ -327,10 +327,10 @@ func TestListRecords(t *testing.T) {
 		return sortedRecordsByTimestamp[i].GetCreateTime().AsTime().Before(sortedRecordsByTimestamp[j].CreateTime.AsTime())
 	})
 	reversedRecordsByTimestamp := reverse(sortedRecordsByTimestamp)
-	sortedTaskRunsByUid := make([]*pb.Record, 0, 10)
+	sortedTaskRunsByUID := make([]*pb.Record, 0, 10)
 	for _, record := range records {
 		if record.Data.Type == "TaskRun" {
-			sortedTaskRunsByUid = append(sortedTaskRunsByUid, record)
+			sortedTaskRunsByUID = append(sortedTaskRunsByUID, record)
 		}
 	}
 
@@ -421,7 +421,7 @@ func TestListRecords(t *testing.T) {
 				Filter: `data_type == "TaskRun"`,
 			},
 			want: &pb.ListRecordsResponse{
-				Records: sortedTaskRunsByUid,
+				Records: sortedTaskRunsByUID,
 			},
 		},
 		// Errors
@@ -707,7 +707,7 @@ func TestDeleteRecord(t *testing.T) {
 		if _, err := srv.DeleteRecord(ctx, &pb.DeleteRecordRequest{Name: r.GetName()}); err != nil {
 			t.Fatalf("could not delete record: %v", err)
 		}
-		// Check if the the record is deleted
+		// Check if the record is deleted
 		if r, err := srv.GetRecord(ctx, &pb.GetRecordRequest{Name: r.GetName()}); status.Code(err) != codes.NotFound {
 			t.Fatalf("expected record to be deleted, got: %+v, %v", r, err)
 		}

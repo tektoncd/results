@@ -2,6 +2,7 @@ package results
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -69,6 +70,7 @@ func getLogRecordName(result *pb.Result, o Object) (string, error) {
 	return record.FormatName(result.GetName(), uuid.NewMD5(uid, []byte(o.GetUID())).String()), nil
 }
 
+// GetLogRecord returns log record using gRPC clients.
 func (c *Client) GetLogRecord(ctx context.Context, o Object) (*pb.Record, error) {
 	res, err := c.ensureResult(ctx, o)
 	if err != nil {

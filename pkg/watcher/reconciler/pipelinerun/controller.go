@@ -34,6 +34,7 @@ func NewController(ctx context.Context, resultsClient pb.ResultsClient) *control
 	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{})
 }
 
+// NewControllerWithConfig creates a Controller for watching PipelineRuns by config.
 func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineRunLister := pipelineRunInformer.Lister()

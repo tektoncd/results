@@ -77,7 +77,7 @@ func (i *interpreter) interpretExpr(expr *exprpb.Expr) error {
 		return i.interpretCallExpr(id, expr)
 
 	case *exprpb.Expr_ListExpr:
-		return i.interpretListExpr(id, node)
+		return i.interpretListExpr(node)
 
 	default:
 		return i.unsupportedExprError(id, "")
@@ -266,7 +266,7 @@ func (i *interpreter) interpretSelectExpr(id int64, expr *exprpb.Expr_SelectExpr
 		return nil
 	}
 
-	return fmt.Errorf("%w. %s: not recognized field.", i.unsupportedExprError(id, "select"), reversedFields[0])
+	return fmt.Errorf("%w. %s: not recognized field", i.unsupportedExprError(id, "select"), reversedFields[0])
 }
 
 func (i *interpreter) interpretCallExpr(id int64, expr *exprpb.Expr) error {
@@ -349,7 +349,7 @@ func (i *interpreter) interpretBinaryCallExpr(expr *exprpb.Expr) error {
 	return nil
 }
 
-func (i *interpreter) interpretListExpr(id int64, expr *exprpb.Expr_ListExpr) error {
+func (i *interpreter) interpretListExpr(expr *exprpb.Expr_ListExpr) error {
 	elements := expr.ListExpr.GetElements()
 	i.query.WriteString("(")
 	for index, elem := range elements {

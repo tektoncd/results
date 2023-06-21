@@ -40,7 +40,7 @@ type Config struct {
 	RequeueInterval time.Duration
 }
 
-// GetDisableAnnotationupdate returns whether annotation updates should be
+// GetDisableAnnotationUpdate returns whether annotation updates should be
 // disabled. This is safe to call for missing configs.
 func (c *Config) GetDisableAnnotationUpdate() bool {
 	if c == nil {
@@ -75,7 +75,7 @@ func (c *Config) GetLabelSelector() labels.Selector {
 
 // SetLabelSelector sets a label selector to match resources against in order to
 // determine whether they're eligible for deletion. The syntax obeys the same
-// format accepted by list operations peformed on the Kubernetes API server.
+// format accepted by list operations performed on the Kubernetes API server.
 func (c *Config) SetLabelSelector(selector string) error {
 	parsedSelector, err := labels.Parse(selector)
 	if err != nil {

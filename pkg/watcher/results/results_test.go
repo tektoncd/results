@@ -17,10 +17,11 @@ package results
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmeta"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -481,7 +482,9 @@ func TestUpsertRecord(t *testing.T) {
 			t.Run("update", func(t *testing.T) {
 				// Update the result on each TaskRun and PipelineRun.
 				var updated Object
-				if o.GetName() == "taskrun" {
+
+				switch o.GetName() {
+				case "taskrun":
 					updated = &v1beta1.TaskRun{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: "tekton.dev/v1beta1",
@@ -504,7 +507,7 @@ func TestUpsertRecord(t *testing.T) {
 							},
 						},
 					}
-				} else if o.GetName() == "pipelinerun" {
+				case "pipelinerun":
 					updated = &v1beta1.PipelineRun{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: "tekton.dev/v1beta1",
@@ -527,7 +530,7 @@ func TestUpsertRecord(t *testing.T) {
 							},
 						},
 					}
-				} else {
+				default:
 					t.Fatalf("upsertRecord: PipelineRun or TaskRun unsupported %v", o.GetName())
 				}
 				got, err := client.upsertRecord(ctx, result.GetName(), updated)

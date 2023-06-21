@@ -3,18 +3,21 @@ package logs
 import (
 	"context"
 	"errors"
+
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
 	reflectionv1alpha "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"knative.dev/pkg/logging"
 )
 
+// Key is key to store LogsClient in the context
 type Key struct{}
 
 const (
 	logsServiceName = "tekton.results.v1alpha2.Logs"
 )
 
+// WithContext includes the Logs client to the context.
 func WithContext(ctx context.Context, conn *grpc.ClientConn) (context.Context, error) {
 	reflectionInfo, err := reflectionv1alpha.NewServerReflectionClient(conn).ServerReflectionInfo(ctx)
 	if err != nil {

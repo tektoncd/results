@@ -87,7 +87,7 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 				Status: pipelinev1beta1.PipelineRunStatus{
 					PipelineRunStatusFields: pipelinev1beta1.PipelineRunStatusFields{
 						TaskRuns: map[string]*pipelinev1beta1.PipelineRunTaskRunStatus{
-							"bar": &pipelinev1beta1.PipelineRunTaskRunStatus{},
+							"bar": {},
 						},
 					},
 				},

@@ -19,14 +19,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -64,7 +65,9 @@ func main() {
 	serverConfig := config.Get()
 
 	log := logger.Get(serverConfig.LOG_LEVEL)
-	defer log.Sync()
+	// This defer statement will be executed at the end of the application lifecycle, so we do not lose
+	// any data in the event of an unhandled error.
+	defer log.Sync() //nolint:errcheck
 
 	// Load server TLS
 	certFile := path.Join(serverConfig.TLS_PATH, "tls.crt")
@@ -91,7 +94,7 @@ func main() {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}
 	// Retry database connection, sometimes the database is not ready to accept connection
-	wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) {
 		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
 		if err != nil {
 			log.Warnf("Error connecting to database (retrying in 10s): %v", err)
@@ -229,9 +232,8 @@ func main() {
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)
 	if tlsError != nil {
 		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandlerFunc(gs, httpMux)))
-	} else {
-		log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandlerFunc(gs, httpMux)))
 	}
+	log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandlerFunc(gs, httpMux)))
 }
 
 // grpcHandlerFunc forwards the request to gRPC server based on the Content-Type header.

@@ -32,7 +32,7 @@ type limit struct {
 }
 
 // validateToken implements the queryBuilder interface.
-func (l *limit) validateToken(token *pagetokenpb.PageToken) error {
+func (l *limit) validateToken(token *pagetokenpb.PageToken) error { //nolint:revive
 	return nil
 }
 

@@ -411,13 +411,13 @@ func TestGRPCLogging(t *testing.T) {
 	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
 	t.Run("log entry is found when not expected", func(t *testing.T) {
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		resultsAPILogs, err := getResultsAPILogs(ctx, &podLogOptions, t)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if strings.Contains(resultsApiLogs, matcher) {
-			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsApiLogs)
+		if strings.Contains(resultsAPILogs, matcher) {
+			t.Errorf("Found log match for %s in logs %s when there should not be", matcher, resultsAPILogs)
 		}
 	})
 
@@ -427,19 +427,19 @@ func TestGRPCLogging(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		resultsApiLogs, err := getResultsApiLogs(ctx, &podLogOptions, t)
+		resultsAPILogs, err := getResultsAPILogs(ctx, &podLogOptions, t)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if !strings.Contains(resultsApiLogs, matcher) {
-			t.Errorf("No match for %s in logs %s", matcher, resultsApiLogs)
+		if !strings.Contains(resultsAPILogs, matcher) {
+			t.Errorf("No match for %s in logs %s", matcher, resultsAPILogs)
 		}
 	})
 }
 
 // Returns a string of api pods logs concatenated
-func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions, t *testing.T) (string, error) {
+func getResultsAPILogs(ctx context.Context, podLogOptions *corev1.PodLogOptions, t *testing.T) (string, error) {
 	t.Helper()
 	const apiPodBasename = "tekton-results-api"
 	const nsResults = "tekton-pipelines"
@@ -451,12 +451,12 @@ func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions,
 		return "", err
 	}
 
-	numApiPods := 0
+	numAPIPods := 0
 	var apiPodsLogs []string
 	for _, pod := range pods.Items {
 		// find api pods
 		if strings.HasPrefix(pod.Name, apiPodBasename) {
-			numApiPods++
+			numAPIPods++
 			// read pod logs
 			podLogRequest := clientset.CoreV1().Pods(nsResults).GetLogs(pod.Name, podLogOptions)
 			stream, err := podLogRequest.Stream(ctx)
@@ -472,7 +472,7 @@ func getResultsApiLogs(ctx context.Context, podLogOptions *corev1.PodLogOptions,
 		}
 	}
 
-	if numApiPods == 0 {
+	if numAPIPods == 0 {
 		return "", errors.New("no " + apiPodBasename + "pod found")
 	}
 

@@ -171,10 +171,11 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 	}
 
 	// Delete the result.
-	delete := s.db.WithContext(ctx).Delete(&db.Result{}, r)
-	return &empty.Empty{}, errors.Wrap(delete.Error)
+	del := s.db.WithContext(ctx).Delete(&db.Result{}, r)
+	return &empty.Empty{}, errors.Wrap(del.Error)
 }
 
+// ListResults returns list results from the database.
 func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*pb.ListResultsResponse, error) {
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")

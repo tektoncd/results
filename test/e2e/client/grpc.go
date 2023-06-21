@@ -3,15 +3,17 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"time"
+
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/client-go/transport"
-	"net/url"
-	"time"
 )
 
+// GRPCClient represents GRPC API client to connect to Tekton results api server.
 type GRPCClient interface {
 	resultsv1alpha2.LogsClient
 	resultsv1alpha2.ResultsClient
@@ -32,7 +34,7 @@ func NewGRPCClient(serverAddress string, opts ...grpc.DialOption) (GRPCClient, e
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	//target := net.JoinHostPort(u.Hostname(), u.Port())
+	// target := net.JoinHostPort(u.Hostname(), u.Port())
 	clientConn, err := grpc.DialContext(ctx, u.Host, opts...)
 	if err != nil {
 		return nil, err
@@ -51,7 +53,7 @@ type CustomCredentials struct {
 }
 
 // GetRequestMetadata gets the request metadata as a map from a Custom.
-func (cc *CustomCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (cc *CustomCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) { //nolint:revive
 	ri, _ := credentials.RequestInfoFromContext(ctx)
 	if err := credentials.CheckSecurityLevel(ri.AuthInfo, credentials.PrivacyAndIntegrity); err != nil {
 		return nil, fmt.Errorf("unable to transfer TokenSource PerRPCCredentials: %v", err)

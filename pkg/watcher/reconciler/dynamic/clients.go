@@ -21,6 +21,7 @@ type TaskRunClient struct {
 	v1beta1.TaskRunInterface
 }
 
+// Patch patches TaskRun k8s resource
 func (c *TaskRunClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) error {
 	_, err := c.TaskRunInterface.Patch(ctx, name, pt, data, opts, subresources...)
 	return err
@@ -31,6 +32,7 @@ type PipelineRunClient struct {
 	v1beta1.PipelineRunInterface
 }
 
+// Patch patches pipelineRun Kubernetes resource.
 func (c *PipelineRunClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) error {
 	_, err := c.PipelineRunInterface.Patch(ctx, name, pt, data, opts, subresources...)
 	return err

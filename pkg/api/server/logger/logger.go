@@ -1,10 +1,12 @@
 package logger
 
 import (
-	"go.uber.org/zap"
 	"log"
+
+	"go.uber.org/zap"
 )
 
+// Get returns instance sugared zap logger with production configuration
 func Get(level string) *zap.SugaredLogger {
 	config := zap.NewProductionConfig()
 	if len(level) > 0 {

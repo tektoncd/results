@@ -5,15 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"time"
+
 	v1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"io"
 	"k8s.io/client-go/transport"
-	"net/http"
-	"net/url"
-	"time"
 )
 
 const (
@@ -25,6 +26,7 @@ const (
 	deleteRecordPath  = "/apis/results.tekton.dev/v1alpha2/parents/%s"
 )
 
+// RESTClient represents rest API client to connect to Tekton results api server.
 type RESTClient interface {
 	GetResult(ctx context.Context, in *v1alpha2.GetResultRequest) (*v1alpha2.Result, error)
 	ListResults(ctx context.Context, in *v1alpha2.ListResultsRequest) (*v1alpha2.ListResultsResponse, error)
@@ -59,6 +61,7 @@ func NewRESTClient(serverAddress string, opts ...RestOption) (RESTClient, error)
 	return rc, nil
 }
 
+// RestOption is customization of the HTTP Client.
 type RestOption func(client *restClient) error
 
 // WithConfig allows customization of the HTTP Client.
@@ -83,31 +86,37 @@ func WithTimeout(duration time.Duration) RestOption {
 
 // TODO: Get these methods from a generated client
 
+// GetResult makes request to get result
 func (c *restClient) GetResult(ctx context.Context, in *v1alpha2.GetResultRequest) (*v1alpha2.Result, error) {
 	out := &v1alpha2.Result{}
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(getResultsPath, in.Name), in, out)
 }
 
+// ListResults makes request and get result list
 func (c *restClient) ListResults(ctx context.Context, in *v1alpha2.ListResultsRequest) (*v1alpha2.ListResultsResponse, error) {
 	out := &v1alpha2.ListResultsResponse{}
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(listResultsPath, in.Parent), in, out)
 }
 
+// DeleteResult makes request to delete result
 func (c *restClient) DeleteResult(ctx context.Context, in *v1alpha2.DeleteResultRequest) (*emptypb.Empty, error) {
 	out := &emptypb.Empty{}
 	return &emptypb.Empty{}, c.send(ctx, http.MethodDelete, fmt.Sprintf(deleteResultsPath, in.Name), in, out)
 }
 
+// GetRecord makes request to get record
 func (c *restClient) GetRecord(ctx context.Context, in *v1alpha2.GetRecordRequest) (*v1alpha2.Record, error) {
 	out := &v1alpha2.Record{}
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(getRecordPath, in.Name), in, out)
 }
 
+// GetRecord makes request to get record list
 func (c *restClient) ListRecords(ctx context.Context, in *v1alpha2.ListRecordsRequest) (*v1alpha2.ListRecordsResponse, error) {
 	out := &v1alpha2.ListRecordsResponse{}
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(listRecordsPath, in.Parent), in, out)
 }
 
+// DeleteRecord makes request to delete record
 func (c *restClient) DeleteRecord(ctx context.Context, in *v1alpha2.DeleteRecordRequest) (*emptypb.Empty, error) {
 	out := &emptypb.Empty{}
 	return &emptypb.Empty{}, c.send(ctx, http.MethodDelete, fmt.Sprintf(deleteRecordPath, in.Name), in, out)

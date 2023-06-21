@@ -3,14 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
+	"strings"
+	"testing"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
-	"io"
-	"strings"
-	"testing"
 )
 
 func Test_determineAuth(t *testing.T) {

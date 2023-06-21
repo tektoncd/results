@@ -17,14 +17,22 @@ package auth
 import "context"
 
 const (
+	// ResourceResults - api results resource name
 	ResourceResults = "results"
+	// ResourceRecords - api record resource name
 	ResourceRecords = "records"
-	ResourceLogs    = "logs"
+	// ResourceLogs - api logs resource name
+	ResourceLogs = "logs"
 
+	// PermissionCreate - permission name to "create" resource
 	PermissionCreate = "create"
-	PermissionGet    = "get"
-	PermissionList   = "list"
+	// PermissionGet - permission name to "get" resource
+	PermissionGet = "get"
+	// PermissionList - permission name to "list" resource
+	PermissionList = "list"
+	// PermissionDelete - permission name to "delete" resource
 	PermissionDelete = "delete"
+	// PermissionUpdate - permission name to "update" resource
 	PermissionUpdate = "update"
 )
 

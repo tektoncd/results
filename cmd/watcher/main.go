@@ -50,7 +50,8 @@ import (
 
 const (
 	// Service Account token path. See https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod
-	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	// This is a fixed path which does not contain a hard-coded secret or credential
+	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
 )
 
 var (

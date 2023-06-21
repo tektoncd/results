@@ -99,8 +99,10 @@ func New(config *config.Config, logger *zap.SugaredLogger, db *gorm.DB, opts ...
 	return srv, nil
 }
 
+// Option is customization for server configuration.
 type Option func(*Server)
 
+// WithAuth is an option to enable auth checker for Server
 func WithAuth(c auth.Checker) Option {
 	return func(s *Server) {
 		s.auth = c

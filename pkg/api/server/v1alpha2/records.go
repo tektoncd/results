@@ -35,6 +35,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// CreateRecord creates a new record in the database.
 func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) (*pb.Record, error) {
 	r := req.GetRecord()
 
@@ -138,6 +139,7 @@ func getRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error) {
 	return store, nil
 }
 
+// ListRecords returns list records from the database.
 func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")

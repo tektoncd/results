@@ -90,7 +90,7 @@ func (b *Batcher) Update(matched, total int) {
 
 // Next returns the recommended next batch size to query.
 func (b *Batcher) Next() int {
-	n := int(math.Ceil(float64(b.want) / float64(b.ratio)))
+	n := int(math.Ceil(float64(b.want) / b.ratio))
 	if n > b.max {
 		return b.max
 	}
