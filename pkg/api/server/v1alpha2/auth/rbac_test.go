@@ -17,9 +17,10 @@ package auth_test
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"k8s.io/utils/strings/slices"
-	"testing"
 
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"

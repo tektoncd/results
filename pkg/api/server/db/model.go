@@ -91,10 +91,7 @@ func (ann *Annotations) Scan(value interface{}) error {
 	if !ok {
 		return fmt.Errorf("wanted []byte, got %T: %+v", value, value)
 	}
-	if err := json.Unmarshal(bytes, ann); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(bytes, ann)
 }
 
 // Value returns the value of Annotations for database driver. This implements driver.Valuer.

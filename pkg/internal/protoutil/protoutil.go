@@ -64,7 +64,7 @@ func ClearOutputOnly(pb proto.Message) {
 }
 
 // IgnoreResultOutputOnly ignores all fields marked OUTPUT_ONLY during cmp
-// comparisions.
+// comparisons.
 func IgnoreResultOutputOnly() cmp.Option {
 	// We might be able to something fancy with protocmp / cmp to filter
 	// by the actual extension value, but for now this is straightforward

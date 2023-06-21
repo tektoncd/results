@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// GetLog streams log record by log request
 func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 	parent, res, name, err := log.ParseName(req.GetName())
 	if err != nil {
@@ -89,6 +90,7 @@ func getLogRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error)
 	return store, nil
 }
 
+// UpdateLog updates log record content
 func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 	var name string
 	var bytesWritten int64
@@ -208,6 +210,7 @@ func isNilOrEOF(err error) bool {
 	return err == nil || err == io.EOF
 }
 
+// ListLogs returns list log records
 func (s *Server) ListLogs(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Parent missing")
@@ -363,6 +366,9 @@ func (s *Server) DeleteLog(ctx context.Context, req *pb.DeleteLogRequest) (*empt
 	}
 
 	streamer, _, err := log.ToStream(ctx, rec, s.config)
+	if err != nil {
+		return nil, err
+	}
 	err = streamer.Delete()
 	if err != nil {
 		return nil, err

@@ -620,12 +620,12 @@ func TestListResults(t *testing.T) {
 }
 
 func pagetoken(t *testing.T, name, filter string) string {
-	if token, err := pagination.EncodeToken(name, filter); err != nil {
+	token, err := pagination.EncodeToken(name, filter)
+	if err != nil {
 		t.Fatalf("Failed to get encoded token: %v", err)
 		return ""
-	} else {
-		return token
 	}
+	return token
 }
 
 func mockEtag(id uint32, t int64) string {

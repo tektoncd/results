@@ -138,7 +138,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 // annotation patching is enabled.
 func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object, annotations ...annotation.Annotation) error {
 	logger := logging.FromContext(ctx)
-	if r.cfg.GetDisableAnnotationUpdate() {
+	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
 		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
 	} else if annotation.IsPatched(o, annotations...) {
 		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
@@ -277,10 +277,7 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 			}
 			logName := log.FormatName(result.FormatName(parent, resName), recName)
 			// Update log annotation if it doesn't exist
-			if err := r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.Log, Value: logName}); err != nil {
-				return err
-			}
-			return nil
+			return r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.Log, Value: logName})
 		}
 
 		// Create a log record if the object has/supports logs.

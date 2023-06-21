@@ -17,9 +17,10 @@ package auth
 import (
 	"context"
 	"fmt"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"log"
 	"strings"
+
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -45,8 +46,10 @@ type RBAC struct {
 	authz              authzclient.AuthorizationV1Interface
 }
 
+// Option is configuration option for RBAC checker.
 type Option func(*RBAC)
 
+// NewRBAC returns new instance of the Kubernetes RBAC based auth checker.
 func NewRBAC(client kubernetes.Interface, options ...Option) *RBAC {
 	rbac := &RBAC{
 		authn: client.AuthenticationV1(),
@@ -58,6 +61,7 @@ func NewRBAC(client kubernetes.Interface, options ...Option) *RBAC {
 	return rbac
 }
 
+// Check determines if resource can be accessed with impersonation metadata stored in the context.
 func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -71,7 +75,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		impersonator, err = impersonation.NewImpersonation(md)
 		// Ignore ErrorNoImpersonationData errors. This means that the request does not have any
 		// impersonation headers and should be processed normally.
-		if err != nil && err != impersonation.ErrorNoImpersonationData {
+		if err != nil && err != impersonation.ErrNoImpersonationData {
 			log.Println(err)
 			return status.Error(codes.Unauthenticated, "invalid impersonation data")
 		}
@@ -164,7 +168,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 
 // convertExtra converts the map[string][]string to map[string]ExtraValue for Subject Access Review.
 func convertExtra(extra map[string][]string) map[string]authzv1.ExtraValue {
-	var newExtra map[string]authzv1.ExtraValue
+	var newExtra = make(map[string]authzv1.ExtraValue)
 	for key, value := range extra {
 		newExtra[key] = value
 	}

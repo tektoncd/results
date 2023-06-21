@@ -28,22 +28,25 @@ const (
 	// Record identifier.
 	Record = "results.tekton.dev/record"
 
+	// Log identifier.
 	Log = "results.tekton.dev/log"
 
-	// Integrators should add this annotation to objects in order to store
+	// ResultAnnotations is an annotation that integrators should add to objects in order to store
 	// arbitrary keys/values into the Result.Annotations field.
 	ResultAnnotations = "results.tekton.dev/resultAnnotations"
 
-	// Integrators should add this annotation to objects in order to store
-	// arbitrary keys/values into the Result.Summary.Annotations field.
+	// RecordSummaryAnnotations is an annotation that integrators should add to objects
+	// in order to store arbitrary keys/values into the Result.Summary.Annotations field.
+	// This allows for additional information to be associated with the summary of a record.
 	RecordSummaryAnnotations = "results.tekton.dev/recordSummaryAnnotations"
 
-	// Annotation that signals to the controller that a given child object
+	// ChildReadyForDeletion is an annotation that signals to the controller that a given child object
 	// (e.g. TaskRun owned by a PipelineRun) is done and up to date in the
 	// API server and therefore, ready to be garbage collected.
 	ChildReadyForDeletion = "results.tekton.dev/childReadyForDeletion"
 )
 
+// Annotation is wrapper for Kubernetes resource annotations stored in the metadata.
 type Annotation struct {
 	Name  string
 	Value string

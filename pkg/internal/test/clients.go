@@ -15,12 +15,13 @@
 package test
 
 import (
-	"fmt"
+	"log"
+	"net"
+	"testing"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
-	"testing"
 
 	"github.com/tektoncd/results/pkg/api/server/test"
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
@@ -32,6 +33,7 @@ const (
 	port = ":0"
 )
 
+// NewResultsClient creates new gRPC Results client for testing purpose
 func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option) (pb.ResultsClient, pb.LogsClient) {
 	t.Helper()
 	config.DB_ENABLE_AUTO_MIGRATION = true
@@ -50,7 +52,7 @@ func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option
 	}
 	go func() {
 		if err := s.Serve(lis); err != nil {
-			fmt.Printf("error starting result server: %v\n", err)
+			log.Printf("error starting result server: %v\n", err)
 		}
 	}()
 	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())

@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"path/filepath"
+	"regexp"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
-	"path/filepath"
-	"regexp"
 )
 
 const (
@@ -43,6 +44,7 @@ func FormatName(parent, name string) string {
 	return fmt.Sprintf("%s/logs/%s", parent, name)
 }
 
+// Stream is an interface that defines the behavior of a streaming log service.
 type Stream interface {
 	io.ReaderFrom
 	io.WriterTo
@@ -72,6 +74,7 @@ func NewStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (S
 	return nil, fmt.Errorf("log streamer type %s is not supported", log.Spec.Type)
 }
 
+// ToStorage converts log record to marshaled json bytes
 func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
 	log := &v1alpha2.Log{}
 	if len(record.GetData().Value) > 0 {
@@ -91,6 +94,10 @@ func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
 	return json.Marshal(log)
 }
 
+// ToStream returns three arguments.
+// First one is a new log streamer created by log record.
+// Second one is log API resource retrieved from log record.
+// Third argument is an error.
 func ToStream(ctx context.Context, record *db.Record, config *config.Config) (Stream, *v1alpha2.Log, error) {
 	if record.Type != v1alpha2.LogRecordType {
 		return nil, nil, fmt.Errorf("record type %s cannot stream logs", record.Type)
@@ -98,12 +105,14 @@ func ToStream(ctx context.Context, record *db.Record, config *config.Config) (St
 	log := &v1alpha2.Log{}
 	err := json.Unmarshal(record.Data, log)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not decode Log record: %v", err)
+		return nil, nil, fmt.Errorf("could not decode Log record: %w", err)
 	}
 	stream, err := NewStream(ctx, log, config)
 	return stream, log, err
 }
 
+// FilePath returns file path to store log. This file path can be
+// path in the real file system or virtual value depending on storage type.
 func FilePath(log *v1alpha2.Log) (string, error) {
 	filePath := filepath.Join(log.GetNamespace(), string(log.GetUID()), log.Name)
 	if filePath == "" {

@@ -2,6 +2,8 @@ package impersonation
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/metadata"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes/fake"
 	test "k8s.io/client-go/testing"
-	"testing"
 )
 
 func TestHeaderMatcher(t *testing.T) {
@@ -56,7 +57,7 @@ func TestHeaderMatcher(t *testing.T) {
 func TestNewImpersonation(t *testing.T) {
 
 	t.Run("missing all impersonation header", func(t *testing.T) {
-		want := ErrorNoImpersonationData
+		want := ErrNoImpersonationData
 		md := metadata.MD{}
 		_, err := NewImpersonation(md)
 		if err != want {
@@ -65,7 +66,7 @@ func TestNewImpersonation(t *testing.T) {
 	})
 
 	t.Run("missing impersonate user header only", func(t *testing.T) {
-		want := ErrorImpersonateUserRequired
+		want := ErrImpersonateUserRequired
 		md := metadata.MD{}
 		md.Append("Impersonate-Group", "authorized-group")
 		_, err := NewImpersonation(md)

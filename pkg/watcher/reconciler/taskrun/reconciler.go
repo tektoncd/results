@@ -19,6 +19,7 @@ import (
 	"knative.dev/pkg/logging"
 )
 
+// Reconciler represents taskRun watcher logic
 type Reconciler struct {
 	// Inline LeaderAwareFuncs to support leader election.
 	knativereconciler.LeaderAwareFuncs
@@ -33,6 +34,7 @@ type Reconciler struct {
 // Check that our Reconciler is LeaderAware.
 var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
 
+// Reconcile makes new watcher reconcile cycle to handle TaskRun.
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
 
@@ -63,9 +65,5 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, taskRunClient, r.cfg)
-	if err := dyn.Reconcile(logging.WithLogger(ctx, logger), tr); err != nil {
-		return err
-	}
-
-	return nil
+	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)
 }

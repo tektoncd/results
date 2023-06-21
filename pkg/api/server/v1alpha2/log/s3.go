@@ -3,8 +3,9 @@ package log
 import (
 	"bufio"
 	"bytes"
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"path/filepath"
+
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 
 	"context"
 	"fmt"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	DefaultS3MultiPartSize = 1024 * 1024 * 5
+	defaultS3MultiPartSize = 1024 * 1024 * 5
 )
 
 type s3Client interface {
@@ -42,11 +43,12 @@ type s3Stream struct {
 	key           string
 	partNumber    int32
 	partSize      int64
-	uploadId      string
+	uploadID      string
 	parts         []types.CompletedPart
 	multiPartSize int64
 }
 
+// NewS3Stream returns a log streamer for the S3 log storage type.
 func NewS3Stream(ctx context.Context, log *v1alpha2.Log, config *server.Config) (Stream, error) {
 	if log.Status.Path == "" {
 		filePath, err := FilePath(log)
@@ -75,7 +77,7 @@ func NewS3Stream(ctx context.Context, log *v1alpha2.Log, config *server.Config) 
 
 	multiPartSize := config.S3_MULTI_PART_SIZE
 	if multiPartSize == 0 {
-		multiPartSize = DefaultS3MultiPartSize
+		multiPartSize = defaultS3MultiPartSize
 	}
 
 	size := config.LOGS_BUFFER_SIZE
@@ -90,7 +92,7 @@ func NewS3Stream(ctx context.Context, log *v1alpha2.Log, config *server.Config) 
 		bucket:        config.S3_BUCKET_NAME,
 		key:           filePath,
 		buffer:        bytes.Buffer{},
-		uploadId:      *multipartUpload.UploadId,
+		uploadID:      *multipartUpload.UploadId,
 		client:        client,
 		partNumber:    1,
 		multiPartSize: multiPartSize,
@@ -173,7 +175,7 @@ func (s3s *s3Stream) ReadFrom(r io.Reader) (int64, error) {
 
 func (s3s *s3Stream) uploadMultiPart(reader io.Reader, partNumber int32, partSize int64) error {
 	part, err := s3s.client.UploadPart(s3s.ctx, &s3.UploadPartInput{
-		UploadId:      &s3s.uploadId,
+		UploadId:      &s3s.uploadID,
 		Bucket:        &s3s.bucket,
 		Key:           &s3s.key,
 		PartNumber:    partNumber,
@@ -184,16 +186,16 @@ func (s3s *s3Stream) uploadMultiPart(reader io.Reader, partNumber int32, partSiz
 	))
 
 	if err != nil {
-		s3s.client.AbortMultipartUpload(s3s.ctx, &s3.AbortMultipartUploadInput{
+		s3s.client.AbortMultipartUpload(s3s.ctx, &s3.AbortMultipartUploadInput{ //nolint:errcheck
 			Bucket:   &s3s.bucket,
 			Key:      &s3s.key,
-			UploadId: &s3s.uploadId,
+			UploadId: &s3s.uploadID,
 		})
 		return err
 	}
 
 	s3s.parts = append(s3s.parts, types.CompletedPart{PartNumber: partNumber, ETag: part.ETag})
-	s3s.partNumber += 1
+	s3s.partNumber++
 
 	return err
 }
@@ -206,7 +208,7 @@ func (s3s *s3Stream) Flush() error {
 	_, err := s3s.client.CompleteMultipartUpload(s3s.ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   &s3s.bucket,
 		Key:      &s3s.key,
-		UploadId: &s3s.uploadId,
+		UploadId: &s3s.uploadID,
 		MultipartUpload: &types.CompletedMultipartUpload{
 			Parts: s3s.parts,
 		},

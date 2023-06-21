@@ -21,6 +21,7 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +36,7 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+// ToProto converts k8s object to proto object.
 func ToProto(in runtime.Object) (*rpb.Any, error) {
 	if in == nil {
 		return nil, nil
@@ -51,6 +53,7 @@ func ToProto(in runtime.Object) (*rpb.Any, error) {
 	}, nil
 }
 
+// ToLogProto converts k8s object to log proto object.
 func ToLogProto(in metav1.Object, kind, name string) (*rpb.Any, error) {
 	if in == nil {
 		return nil, nil

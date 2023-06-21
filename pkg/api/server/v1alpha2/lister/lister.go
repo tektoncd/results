@@ -149,7 +149,7 @@ func newLister[M any, W wireObject](env *cel.Env, fieldsToColumns map[string]str
 		return nil, status.Errorf(codes.InvalidArgument, "invalid page token: provided parent (%s) differs from the parent used in the previous query (%s)", parent, pageToken.Parent)
 	}
 
-	order, err := newOrder(strings.TrimSpace(listObjectsRequest.GetOrderBy()), resultFieldsToColumns)
+	order, err := newOrder(strings.TrimSpace(listObjectsRequest.GetOrderBy()), fieldsToColumns)
 	if err != nil {
 		return nil, err
 	}

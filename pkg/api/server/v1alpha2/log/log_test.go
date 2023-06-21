@@ -5,14 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"testing"
+
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"io"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestFilePath(t *testing.T) {
@@ -125,6 +126,9 @@ func TestToStorage(t *testing.T) {
 	log.Default()
 
 	want, err := json.Marshal(log)
+	if err != nil {
+		t.Error(err)
+	}
 
 	rec := &pb.Record{
 		Name: "test-log",
@@ -135,7 +139,7 @@ func TestToStorage(t *testing.T) {
 	}
 
 	got, err := ToStorage(rec, &config.Config{})
-	if bytes.Compare(got, want) != 0 {
+	if bytes.Compare(got, want) != 0 { //nolint:gosimple
 		t.Error(err)
 	}
 }

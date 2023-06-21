@@ -5,6 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
@@ -19,13 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
-	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"path/filepath"
-	"strconv"
-	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -161,6 +162,9 @@ func TestGetLog(t *testing.T) {
 
 func TestUpdateLog(t *testing.T) {
 	testDir, err := os.MkdirTemp("", "test-logs-")
+	if err != nil {
+		t.Fatalf("failed to test temp folder: %v", err)
+	}
 	c := &config.Config{
 		LOGS_TYPE:                "File",
 		LOGS_API:                 true,

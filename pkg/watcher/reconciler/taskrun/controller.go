@@ -16,6 +16,7 @@ package taskrun
 
 import (
 	"context"
+
 	"github.com/tektoncd/results/pkg/watcher/logs"
 
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
@@ -33,6 +34,7 @@ func NewController(ctx context.Context, resultsClient pb.ResultsClient) *control
 	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{})
 }
 
+// NewControllerWithConfig creates a Controller for watching TaskRuns by config.
 func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
 	informer := taskruninformer.Get(ctx)
 	lister := informer.Lister()

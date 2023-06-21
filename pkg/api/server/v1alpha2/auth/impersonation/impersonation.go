@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc/metadata"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -12,19 +13,24 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
-	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"net/url"
 	"strings"
+
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 )
 
+// Impersonation represents component to add Kubernetes impersonation header processing,
+// make impersonation access check and RBAC for Tekton results resources with impersonated user data
 type Impersonation struct {
 	resourceAttributes []authorizationv1.ResourceAttributes
 	userInfo           *user.DefaultInfo
 }
 
 var (
-	ErrorNoImpersonationData     = errors.New("no impersonation data found")
-	ErrorImpersonateUserRequired = errors.New("impersonate user is required to impersonate groups, UID, extra")
+	// ErrNoImpersonationData is an error message for no impersonation data case
+	ErrNoImpersonationData = errors.New("no impersonation data found")
+	// ErrImpersonateUserRequired is an error message about required impersonate user to impersonate another info.
+	ErrImpersonateUserRequired = errors.New("impersonate user is required to impersonate groups, UID, extra")
 )
 
 // NewImpersonation returns an impersonation request if any impersonation data is found, returns error otherwise.
@@ -148,10 +154,9 @@ func (i *Impersonation) parseMetadata(md metadata.MD) error {
 		// Impersonate-User header is mandatory.
 		// https://kubernetes.io/docs/reference/access-authn-authz/authentication/#user-impersonation
 		if hasGroups || hasExtra || hasUID {
-			return ErrorImpersonateUserRequired
-		} else {
-			return ErrorNoImpersonationData
+			return ErrImpersonateUserRequired
 		}
+		return ErrNoImpersonationData
 	}
 
 	return nil
@@ -168,7 +173,7 @@ func unescapeExtraKey(encodedKey string) string {
 // Check checks if the requester has permission to impersonate every resource.
 func (i *Impersonation) Check(ctx context.Context, authorizer authorizationclient.AuthorizationV1Interface, requester string) error {
 	if i.resourceAttributes == nil {
-		return ErrorNoImpersonationData
+		return ErrNoImpersonationData
 	}
 	for _, resourceAttribute := range i.resourceAttributes {
 		sar, err := authorizer.SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{

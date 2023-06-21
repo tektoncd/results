@@ -28,7 +28,7 @@ const (
 )
 
 func pageSize(in int) (int, error) {
-	if in < 0 {
+	if in < 0 { //nolint:gocritic
 		return 0, status.Error(codes.InvalidArgument, "PageSize should be greater than 0")
 	} else if in == 0 {
 		return minPageSize, nil

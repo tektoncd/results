@@ -19,10 +19,11 @@ package convert
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
-	"k8s.io/apimachinery/pkg/types"
 	"testing"
 	"time"
+
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -40,7 +41,7 @@ import (
 
 var (
 	create = metav1.Time{Time: time.Unix(1, 0)}
-	delete = metav1.Time{Time: time.Unix(2, 0)}
+	del    = metav1.Time{Time: time.Unix(2, 0)}
 	start  = metav1.Time{Time: time.Unix(3, 0)}
 	finish = metav1.Time{Time: time.Unix(4, 0)}
 
@@ -56,7 +57,7 @@ var (
 			UID:               "uid",
 			Generation:        12345,
 			CreationTimestamp: create,
-			DeletionTimestamp: &delete,
+			DeletionTimestamp: &del,
 			Labels: map[string]string{
 				"label-one": "one",
 				"label-two": "two",
@@ -163,7 +164,7 @@ var (
 			UID:               "uid",
 			Generation:        12345,
 			CreationTimestamp: create,
-			DeletionTimestamp: &delete,
+			DeletionTimestamp: &del,
 			Labels: map[string]string{
 				"label-one": "one",
 			},

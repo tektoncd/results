@@ -13,10 +13,12 @@ const (
 	DefaultBufferSize = 32 * 1024
 )
 
+// Sender is an interface that defines the contract for sending log data.
 type Sender interface {
 	Send(log *pb.Log) error
 }
 
+// BufferedLog is in memory buffered log sender.
 type BufferedLog struct {
 	sender Sender
 	name   string
@@ -39,9 +41,12 @@ func NewBufferedWriter(sender Sender, name string, size int) *BufferedLog {
 	}
 }
 
+// Write sends bytes to the buffer and/or consumer (e.g., gRPC stream).
+// This method combines the bytes from the buffer with a new portion of p bytes in memory.
+// Bytes larger than the buffer size will be truncated and sent to the consumer,
+// while the remaining bytes will be stored in the buffer.
 func (w *BufferedLog) Write(p []byte) (n int, err error) {
-	allBts := make([]byte, 0)
-	allBts = append(allBts, w.buffer.Bytes()...)
+	allBts := w.buffer.Bytes()
 	allBts = append(allBts, p...)
 
 	btsLength := len(allBts)
@@ -71,6 +76,7 @@ func (w *BufferedLog) Write(p []byte) (n int, err error) {
 	return len(p), err
 }
 
+// Flush sends all remaining bytes in the buffer to consumer.
 func (w *BufferedLog) Flush() (int, error) {
 	if len(w.buffer.Bytes()) > 0 {
 		return w.sendBytes(w.buffer.Bytes())

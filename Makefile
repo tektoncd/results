@@ -85,7 +85,7 @@ golangci-lint: | $(GOLANGCILINT) ; $(info $(M) running golangci-lint…) @ ## Ru
 
 .PHONY: golangci-lint-check
 golangci-lint-check: | $(GOLANGCILINT) ; $(info $(M) Testing if golint has been done…) @ ## Run golangci-lint for build tests CI job
-	$Q $(GOLANGCILINT) run -j 1 --color=never
+	$Q $(GOLANGCILINT) run -j 1 --color=never --deadline 15m
 
 GOIMPORTS = $(BIN)/goimports
 $(BIN)/goimports: PACKAGE=golang.org/x/tools/cmd/goimports

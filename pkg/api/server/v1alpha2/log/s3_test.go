@@ -3,50 +3,51 @@ package log
 import (
 	"bytes"
 	"context"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	server "github.com/tektoncd/results/pkg/api/server/config"
 	"io"
 	"strconv"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	server "github.com/tektoncd/results/pkg/api/server/config"
 )
 
 type mockS3Client struct {
 	bucket     string
 	key        string
 	body       []byte
-	uploadId   string
+	uploadID   string
 	partNumber int32
 	t          *testing.T
 }
 
-func (m *mockS3Client) AbortMultipartUpload(ctx context.Context, params *s3.AbortMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.AbortMultipartUploadOutput, error) {
+func (m *mockS3Client) AbortMultipartUpload(ctx context.Context, params *s3.AbortMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.AbortMultipartUploadOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
 	return &s3.AbortMultipartUploadOutput{}, nil
 }
 
-func (m *mockS3Client) CompleteMultipartUpload(ctx context.Context, params *s3.CompleteMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.CompleteMultipartUploadOutput, error) {
+func (m *mockS3Client) CompleteMultipartUpload(ctx context.Context, params *s3.CompleteMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.CompleteMultipartUploadOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
 	return &s3.CompleteMultipartUploadOutput{}, nil
 }
 
-func (m *mockS3Client) CreateMultipartUpload(ctx context.Context, params *s3.CreateMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.CreateMultipartUploadOutput, error) {
+func (m *mockS3Client) CreateMultipartUpload(ctx context.Context, params *s3.CreateMultipartUploadInput, optFns ...func(*s3.Options)) (*s3.CreateMultipartUploadOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
-	return &s3.CreateMultipartUploadOutput{UploadId: &m.uploadId}, nil
+	return &s3.CreateMultipartUploadOutput{UploadId: &m.uploadID}, nil
 }
 
-func (m *mockS3Client) DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) {
+func (m *mockS3Client) DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
 	return &s3.DeleteObjectOutput{DeleteMarker: true}, nil
 }
 
-func (m *mockS3Client) GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+func (m *mockS3Client) GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error) { //nolint:revive
 	m.checkParams(params.Bucket, params.Key)
 	return &s3.GetObjectOutput{
 		Body: io.NopCloser(bytes.NewReader(m.body)),
 	}, nil
 }
 
-func (m *mockS3Client) UploadPart(ctx context.Context, params *s3.UploadPartInput, optFns ...func(*s3.Options)) (*s3.UploadPartOutput, error) {
+func (m *mockS3Client) UploadPart(ctx context.Context, params *s3.UploadPartInput, optFns ...func(*s3.Options)) (*s3.UploadPartOutput, error) { //nolint:revive
 	buffer := bytes.Buffer{}
 	_, err := buffer.ReadFrom(params.Body)
 	if err != nil {
@@ -120,7 +121,7 @@ func TestS3Stream_ReadFrom(t *testing.T) {
 			bucket:     c.S3_BUCKET_NAME,
 			key:        filePath,
 			partNumber: 1,
-			uploadId:   "test-upload-id",
+			uploadID:   "test-upload-id",
 		},
 	}
 
@@ -131,7 +132,7 @@ func TestS3Stream_ReadFrom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.uploadId = *u.UploadId
+	s.uploadID = *u.UploadId
 
 	data := []byte(want)
 	offset := 0
@@ -152,6 +153,9 @@ func TestS3Stream_ReadFrom(t *testing.T) {
 		Bucket: &c.S3_BUCKET_NAME,
 		Key:    &filePath,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	buffer := bytes.Buffer{}
 	_, err = buffer.ReadFrom(out.Body)
 	if err != nil {

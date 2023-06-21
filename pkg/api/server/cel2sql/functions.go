@@ -85,11 +85,7 @@ func (i *interpreter) translateToBinaryCall(expr *exprpb.Expr_Call, infixTerm st
 		return err
 	}
 	fmt.Fprintf(&i.query, " %s ", infixTerm)
-	if err := i.interpretExpr(expr.Args[0]); err != nil {
-		return err
-	}
-
-	return nil
+	return i.interpretExpr(expr.Args[0])
 }
 
 func (i *interpreter) translateToExtractFunctionCall(expr *exprpb.Expr_Call, field string, decrementReturnValue bool) error {
