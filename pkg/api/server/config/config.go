@@ -16,6 +16,7 @@ type Config struct {
 	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
 	SERVER_PORT              string `mapstructure:"SERVER_PORT"`
 	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
+	PROMETHEUS_HISTOGRAM     bool   `mapstructure:"PROMETHEUS_HISTOGRAM"`
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
 	TLS_HOSTNAME_OVERRIDE    string `mapstructure:"TLS_HOSTNAME_OVERRIDE"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`

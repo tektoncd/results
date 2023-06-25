@@ -189,6 +189,9 @@ func main() {
 	healthpb.RegisterHealthServer(gs, hs)
 
 	// Start prometheus metrics server
+	if serverConfig.PROMETHEUS_HISTOGRAM {
+		prometheus.EnableHandlingTimeHistogram()
+	}
 	prometheus.Register(gs)
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
