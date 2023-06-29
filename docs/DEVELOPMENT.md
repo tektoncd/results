@@ -201,8 +201,8 @@ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 8080
 
 ```sh
 curl --insecure \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-  -H "Accept: application/json"
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Accept: application/json" \
   https://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/default/results
 ```
 

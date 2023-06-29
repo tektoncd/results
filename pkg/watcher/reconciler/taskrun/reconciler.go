@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/taskrunmetrics"
+	"github.com/tektoncd/results/pkg/watcher/results"
+
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"knative.dev/pkg/controller"
 	knativereconciler "knative.dev/pkg/reconciler"
 
@@ -29,6 +34,8 @@ type Reconciler struct {
 	lister         v1beta1.TaskRunLister
 	pipelineClient versioned.Interface
 	cfg            *reconciler.Config
+	metrics        *taskrunmetrics.Recorder
+	configStore    *config.Store
 }
 
 // Check that our Reconciler is LeaderAware.
@@ -65,5 +72,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, taskRunClient, r.cfg)
+	dyn.AfterDeletion = func(ctx context.Context, o results.Object) error {
+		tr := o.(*pipelinev1beta1.TaskRun)
+		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
+	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)
 }

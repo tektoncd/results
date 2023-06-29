@@ -17,6 +17,10 @@ package pipelinerun
 import (
 	"context"
 
+	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/pipelinerunmetrics"
+	"knative.dev/pkg/configmap"
+
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
@@ -30,14 +34,18 @@ import (
 )
 
 // NewController creates a Controller for watching PipelineRuns.
-func NewController(ctx context.Context, resultsClient pb.ResultsClient) *controller.Impl {
-	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{})
+func NewController(ctx context.Context, resultsClient pb.ResultsClient, cmw configmap.Watcher) *controller.Impl {
+	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{}, cmw)
 }
 
 // NewControllerWithConfig creates a Controller for watching PipelineRuns by config.
-func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
+func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config, cmw configmap.Watcher) *controller.Impl {
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineRunLister := pipelineRunInformer.Lister()
+	logger := logging.FromContext(ctx)
+	configStore := config.NewStore(logger.Named("config-store"), pipelinerunmetrics.MetricsOnStore(logger))
+	configStore.WatchConfigs(cmw)
+
 	c := &Reconciler{
 		LeaderAwareFuncs:  leaderelection.NewLeaderAwareFuncs(pipelineRunLister.List),
 		resultsClient:     resultsClient,
@@ -46,6 +54,8 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		taskRunLister:     taskruninformer.Get(ctx).Lister(),
 		pipelineClient:    pipelineclient.Get(ctx),
 		cfg:               cfg,
+		configStore:       configStore,
+		metrics:           pipelinerunmetrics.NewRecorder(),
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
