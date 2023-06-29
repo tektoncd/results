@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/pipelinerunmetrics"
+
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	pipelinev1beta1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
@@ -46,6 +49,8 @@ type Reconciler struct {
 	taskRunLister     pipelinev1beta1listers.TaskRunLister
 	pipelineClient    versioned.Interface
 	cfg               *reconciler.Config
+	metrics           *pipelinerunmetrics.Recorder
+	configStore       *config.Store
 }
 
 // Check that our Reconciler is LeaderAware.
@@ -86,6 +91,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	// that the TaskRuns will not be deleted before their final state being
 	// properly archived into the API server.
 	dyn.IsReadyForDeletionFunc = r.areAllUnderlyingTaskRunsReadyForDeletion
+	dyn.AfterDeletion = func(ctx context.Context, object results.Object) error {
+		pr := object.(*pipelinev1beta1.PipelineRun)
+		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr)
+	}
 
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), pr)
 }

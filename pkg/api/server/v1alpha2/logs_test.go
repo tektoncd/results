@@ -184,10 +184,6 @@ func TestUpdateLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateResult: %v", err)
 	}
-
-	if err != nil {
-		t.Fatalf("failed to create temp directory: %v", err)
-	}
 	t.Logf("test storage directory: %s", testDir)
 	t.Cleanup(func() {
 		os.RemoveAll(testDir)

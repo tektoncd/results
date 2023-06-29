@@ -106,9 +106,9 @@ func main() {
 
 	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, *namespace), "watcher",
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			return pipelinerun.NewControllerWithConfig(ctx, results, cfg)
+			return pipelinerun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
-			return taskrun.NewControllerWithConfig(ctx, results, cfg)
+			return taskrun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		},
 	)
 }

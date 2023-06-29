@@ -55,6 +55,7 @@ type Reconciler struct {
 	objectClient           ObjectClient
 	cfg                    *reconciler.Config
 	IsReadyForDeletionFunc IsReadyForDeletion
+	AfterDeletion          AfterDeletion
 }
 
 func init() {
@@ -70,6 +71,9 @@ func init() {
 // PipelineRuns can verify whether all dependent TaskRuns are up to date in the
 // API server before deleting all objects in cascade.
 type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, error)
+
+// AfterDeletion is the function called after object is deleted
+type AfterDeletion func(ctx context.Context, object results.Object) error
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
 func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
@@ -224,6 +228,12 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 	}
 
 	logger.Debugw("Object has been successfully deleted", zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
+	if r.AfterDeletion != nil {
+		err = r.AfterDeletion(ctx, o)
+		if err != nil {
+			logger.Errorw("Failed to record deletion metrics", zap.Error(err))
+		}
+	}
 	return nil
 }
 

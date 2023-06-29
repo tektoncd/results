@@ -17,7 +17,10 @@ package taskrun
 import (
 	"context"
 
+	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/taskrunmetrics"
 	"github.com/tektoncd/results/pkg/watcher/logs"
+	"knative.dev/pkg/configmap"
 
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/taskrun"
@@ -30,14 +33,17 @@ import (
 )
 
 // NewController creates a Controller for watching TaskRuns.
-func NewController(ctx context.Context, resultsClient pb.ResultsClient) *controller.Impl {
-	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{})
+func NewController(ctx context.Context, resultsClient pb.ResultsClient, cmw configmap.Watcher) *controller.Impl {
+	return NewControllerWithConfig(ctx, resultsClient, &reconciler.Config{}, cmw)
 }
 
 // NewControllerWithConfig creates a Controller for watching TaskRuns by config.
-func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config) *controller.Impl {
+func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config, cmw configmap.Watcher) *controller.Impl {
 	informer := taskruninformer.Get(ctx)
 	lister := informer.Lister()
+	logger := logging.FromContext(ctx)
+	configStore := config.NewStore(logger.Named("config-store"), taskrunmetrics.MetricsOnStore(logger))
+	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
 		LeaderAwareFuncs: leaderelection.NewLeaderAwareFuncs(lister.List),
@@ -46,6 +52,8 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		lister:           lister,
 		pipelineClient:   pipelineclient.Get(ctx),
 		cfg:              cfg,
+		configStore:      configStore,
+		metrics:          taskrunmetrics.NewRecorder(),
 	}
 
 	impl := controller.NewContext(ctx, c, controller.ControllerOptions{
