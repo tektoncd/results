@@ -1,0 +1,40 @@
+---
+# Triggers Tekton Results api image build on push
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: tekton-results-api-on-push
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[push]"
+    # Use downstream branch since we are using openshift-pipeline/tektoncd-results and not upstream
+    pipelinesascode.tekton.dev/on-target-branch: "[downstream-*]"
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
+spec:
+  params:
+    - name: git-url
+      value: "{{repo_url}}"
+    - name: revision
+      value: "{{revision}}"
+    - name: output-image
+      value: "quay.io/konflux-ci/tekton-results-api:{{revision}}"
+    - name: dockerfile
+      value: images/api/Dockerfile
+  pipelineRef:
+    params:
+      - name: bundle
+        value: >-
+          quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
+      - name: name
+        value: docker-build
+      - name: kind
+        value: Pipeline
+    resolver: bundles
+  workspaces:
+    - name: workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

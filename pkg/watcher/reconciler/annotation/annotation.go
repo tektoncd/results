@@ -17,6 +17,7 @@ package annotation
 import (
 	"encoding/json"
 
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,18 +54,24 @@ const (
 	ChildReadyForDeletion = "results.tekton.dev/childReadyForDeletion"
 )
 
+// TaskRunSpec Fix for spec.resources webhook validation in v1 APIs
+type taskRunSpec struct {
+	Resources *pipelinev1beta1.TaskResources `json:"resources"`
+}
+
 // Annotation is wrapper for Kubernetes resource annotations stored in the metadata.
 type Annotation struct {
 	Name  string
 	Value string
 }
 
-type mergePatch struct {
-	Metadata metadata `json:"metadata"`
-}
-
 type metadata struct {
 	Annotations map[string]string `json:"annotations"`
+}
+
+type mergePatch struct {
+	Metadata metadata    `json:"metadata"`
+	Spec     taskRunSpec `json:"spec"`
 }
 
 // Patch creates a jsonpatch path used for adding result / record identifiers as
@@ -74,6 +81,8 @@ func Patch(object metav1.Object, annotations ...Annotation) ([]byte, error) {
 		Metadata: metadata{
 			Annotations: map[string]string{},
 		},
+		// Fix for spec.resources webhook validation in v1 APIs
+		Spec: taskRunSpec{Resources: nil},
 	}
 
 	for _, annotation := range annotations {

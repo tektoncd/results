@@ -1,0 +1,45 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: tekton-results-update-pipeline-service
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[push]"
+    # Use downstream branch since we are using openshift-pipeline/tektoncd-results and not upstream
+    pipelinesascode.tekton.dev/on-target-branch: "[downstream-*]"
+    pipelinesascode.tekton.dev/max-keep-runs: "5"
+spec:
+  params:
+    - name: git-url
+      value: "{{ repo_url }}"
+    - name: revision
+      value: "{{ revision }}"
+    - name: infra-deployment-update-script
+      value: |
+        sed -i -E 's/[0-9a-f]{40}/{{ revision }}/g' operator/gitops/argocd/pipeline-service/tekton-results/kustomization.yaml
+  pipelineSpec:
+    params:
+      - description: 'Source Repository URL'
+        name: git-url
+        type: string
+      - description: 'Revision of the Source Repository'
+        name: revision
+        type: string
+      - default: ""
+        name: infra-deployment-update-script
+    tasks:
+      - name: update-infra-repo
+        params:
+          - name: ORIGIN_REPO
+            value: $(params.git-url)
+          - name: REVISION
+            value: $(params.revision)
+          - name: SCRIPT
+            value: $(params.infra-deployment-update-script)
+          - name: TARGET_GH_REPO
+            value: openshift-pipelines/pipeline-service
+          - name: GITHUB_APP_INSTALLATION_ID
+            value: "35628851"
+        taskRef:
+          bundle: quay.io/redhat-appstudio-tekton-catalog/task-update-infra-deployments:0.1
+          name: update-infra-deployments
