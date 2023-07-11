@@ -39,6 +39,9 @@ type Config struct {
 
 	// SSL contains SSL configuration information.
 	SSL SSLConfig
+	// Portforward enable auto portforwarding to tekton-results-api-service
+	// When Address is set and Portforward is true, tkn-results will portforward tekton-results-api-service automatically
+	Portforward bool
 }
 
 type SSLConfig struct {
@@ -97,6 +100,7 @@ func GetConfig() (*Config, error) {
 	if s := viper.GetString("authtoken"); s != "" {
 		cfg.Token = viper.GetString("authtoken")
 	}
+	cfg.Portforward = viper.GetBool("portforward")
 
 	return cfg, nil
 }

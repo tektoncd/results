@@ -9,7 +9,7 @@ type Params struct {
 	Client pb.ResultsClient
 }
 
-// Options used on commands that list thing
+// ListOptions used on commands that list thing
 type ListOptions struct {
 	Filter    string
 	Limit     int32
@@ -17,7 +17,7 @@ type ListOptions struct {
 	Format    string
 }
 
-// This is a helper function that adds common flags for commands that list things
+// AddListFlags is a helper function that adds common flags for commands that list things
 func AddListFlags(options *ListOptions, cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&options.Filter, "filter", "f", "", "CEL Filter")
 	cmd.Flags().Int32VarP(&options.Limit, "limit", "l", 0, "number of items to return. Response may be truncated due to server limits.")
