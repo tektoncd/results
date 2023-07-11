@@ -51,7 +51,7 @@ func NewDefaultFactory() (*ClientFactory, error) {
 
 // Client creates a new Results gRPC client for the given factory settings.
 // TODO: Refactor this with watcher client code?
-func (f *ClientFactory) Client(ctx context.Context) (pb.ResultsClient, error) {
+func (f *ClientFactory) Client(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
 	token, err := f.token(ctx)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,11 @@ func (f *ClientFactory) Client(ctx context.Context) (pb.ResultsClient, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, f.cfg.Address, grpc.WithBlock(),
+	addr := f.cfg.Address
+	if overrideApiAddr != "" {
+		addr = overrideApiAddr
+	}
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(certs, f.cfg.SSL.ServerNameOverride)),
 		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
 			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}),
@@ -77,14 +81,16 @@ func (f *ClientFactory) Client(ctx context.Context) (pb.ResultsClient, error) {
 	return pb.NewResultsClient(conn), nil
 }
 
-func DefaultClient(ctx context.Context) (pb.ResultsClient, error) {
+// DefaultClient creates a new results client.
+// Will dial overrideApiAddr if overrideApiAddr is not empty
+func DefaultClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
 	f, err := NewDefaultFactory()
 
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := f.Client(ctx)
+	client, err := f.Client(ctx, overrideApiAddr)
 
 	if err != nil {
 		return nil, err
