@@ -64,6 +64,8 @@ spec:
               - ALL
             add:
               - NET_BIND_SERVICE
+      securityContext:
+        fsGroup: 1001
   volumeClaimTemplates:
   - metadata:
       name: postgredb
