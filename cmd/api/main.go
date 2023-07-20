@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"path"
@@ -203,10 +204,9 @@ func main() {
 
 	// Load client TLS to dial gRPC
 	if tlsError == nil {
-		creds, err = credentials.NewClientTLSFromFile(certFile, serverConfig.TLS_HOSTNAME_OVERRIDE)
-		if err != nil {
-			log.Fatalf("Error loading client TLS: %v", err)
-		}
+		// This is an internal client to proxy request from the REST listener to gRPC listener.
+		// So we don't need certificate verification here.
+		creds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
 	}
 
 	// Setup gRPC gateway to proxy request to gRPC health checks

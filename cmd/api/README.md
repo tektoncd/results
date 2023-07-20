@@ -13,7 +13,6 @@
 | SERVER_PORT              | gRPC and REST Server Port                                                                                                         | 8080  (default)                              |
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                              |
 | PROMETHEUS_HISTOGRAM     | Enable Prometheus histogram metrics to measure latency distributions of RPCs                                                      | false  (default)                             |
-| TLS_HOSTNAME_OVERRIDE    | Override the hostname used to serve TLS. This should not be set (or set to the empty string) in production environments.          | results.tekton.dev                           |
 | TLS_PATH                 | Path to TLS files                                                                                                                 | /etc/tls                                     |
 | AUTH_DISABLE             | Disable RBAC check for resources                                                                                                  | false (default)                              |
 | AUTH_IMPERSONATE         | Enable RBAC impersonation                                                                                                         | true (default)                               |
