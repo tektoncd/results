@@ -1,5 +1,8 @@
 # Installing Tekton Results
 
+This document explains how to install Tekton Results with local database. If you
+want to use an external database, please refer [this page](./external-database.md).
+
 ## Prerequisites
 
 1. [Tekton Pipelines](https://github.com/tektoncd/pipeline/blob/main/docs/install.md)
@@ -54,7 +57,7 @@
 ## Installing latest release
 
 ```sh
-$ kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
 ```
 
 ## Installing specific release
