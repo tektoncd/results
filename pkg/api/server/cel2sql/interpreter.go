@@ -293,7 +293,6 @@ func (i *interpreter) interpretUnaryCallExpr(expr *exprpb.Expr_Call) error {
 	if err := i.interpretExpr(expr.Args[0]); err != nil {
 		return err
 	}
-	i.query.WriteString(space)
 	return nil
 }
 

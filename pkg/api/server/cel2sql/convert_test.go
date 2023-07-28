@@ -75,6 +75,16 @@ func TestConvertRecordExpressions(t *testing.T) {
 			want: "POSITION('foo' IN (data->'metadata'->>'name')) <> 0",
 		},
 		{
+			name: "not contains string function",
+			in:   `!(data.metadata.annotations.contains("foo"))`,
+			want: "NOT POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0",
+		},
+		{
+			name: "complex not expressions",
+			in:   `!(data.metadata.annotations.contains("foo")) && data.metadata.name.endsWith("bar")`,
+			want: "NOT POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0 AND (data->'metadata'->>'name') LIKE '%' || 'bar'",
+		},
+		{
 			name: "endsWith string function",
 			in:   `data.metadata.name.endsWith("bar")`,
 			want: "(data->'metadata'->>'name') LIKE '%' || 'bar'",
@@ -225,6 +235,11 @@ func TestConvertResultExpressions(t *testing.T) {
 			name: "Result.Summary.Annotations",
 			in:   `summary.annotations["branch"] == "main"`,
 			want: `recordsummary_annotations @> '{"branch":"main"}'::jsonb`,
+		},
+		{
+			name: "not Result.Summary.Annotations",
+			in:   `!(summary.annotations["branch"] == "main")`,
+			want: `NOT recordsummary_annotations @> '{"branch":"main"}'::jsonb`,
 		},
 		{
 			name: "Result.Summary.Annotations",
