@@ -20,13 +20,12 @@ import (
 
 var (
 	unaryOperators = map[string]string{
-		operators.Negate: "NOT",
+		operators.LogicalNot: "NOT",
 	}
 
 	binaryOperators = map[string]string{
 		operators.LogicalAnd:    "AND",
 		operators.LogicalOr:     "OR",
-		operators.LogicalNot:    "NOT",
 		operators.Equals:        "=",
 		operators.NotEquals:     "<>",
 		operators.Less:          "<",
