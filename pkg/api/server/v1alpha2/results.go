@@ -185,7 +185,7 @@ func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*
 		return nil, err
 	}
 
-	resultsLister, err := lister.OfResults(s.resultsEnv, req)
+	resultsLister, err := lister.OfResults(s.resultsView, req)
 	if err != nil {
 		return nil, err
 	}

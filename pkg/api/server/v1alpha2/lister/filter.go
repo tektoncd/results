@@ -20,13 +20,12 @@ import (
 
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
 
-	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/results/pkg/api/server/cel2sql"
 	"gorm.io/gorm"
 )
 
 type filter struct {
-	env             *cel.Env
+	view            *cel2sql.View
 	expr            string
 	equalityClauses []equalityClause
 }
@@ -57,7 +56,7 @@ func (f *filter) build(db *gorm.DB) (*gorm.DB, error) {
 	}
 
 	if expr := strings.TrimSpace(f.expr); expr != "" {
-		sql, err := cel2sql.Convert(f.env, expr)
+		sql, err := cel2sql.Convert(f.view, expr)
 		if err != nil {
 			return nil, err
 		}

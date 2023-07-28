@@ -154,7 +154,7 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 		return nil, err
 	}
 
-	recordsLister, err := lister.OfRecords(s.recordsEnv, parent, resultName, req)
+	recordsLister, err := lister.OfRecords(s.recordsView, parent, resultName, req)
 	if err != nil {
 		return nil, err
 	}

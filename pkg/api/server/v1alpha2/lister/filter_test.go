@@ -21,7 +21,7 @@ import (
 
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
 
-	"github.com/tektoncd/results/pkg/api/server/cel"
+	celview "github.com/tektoncd/results/pkg/api/server/cel/view"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -45,14 +45,14 @@ func TestFilterValidateToken(t *testing.T) {
 }
 
 func TestFilterBuild(t *testing.T) {
-	env, err := cel.NewResultsEnv()
+	db, _ := gorm.Open(tests.DummyDialector{})
+	statement := &gorm.Statement{DB: db, Table: "testtable", Clauses: map[string]clause.Clause{}}
+	db.Statement = statement
+
+	view, err := celview.NewResultsView()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	db, _ := gorm.Open(tests.DummyDialector{})
-	statement := &gorm.Statement{DB: db, Clauses: map[string]clause.Clause{}}
-	db.Statement = statement
 
 	t.Run("no where clause", func(t *testing.T) {
 		filter := &filter{}
@@ -86,7 +86,7 @@ func TestFilterBuild(t *testing.T) {
 
 	t.Run("where clause with parent and id", func(t *testing.T) {
 		filter := &filter{
-			env: env,
+			view: view,
 			equalityClauses: []equalityClause{
 				{columnName: "parent", value: "foo"},
 				{columnName: "id", value: "bar"},
@@ -108,7 +108,7 @@ func TestFilterBuild(t *testing.T) {
 
 	t.Run("where clause with cel2sql filters", func(t *testing.T) {
 		filter := &filter{
-			env:  env,
+			view: view,
 			expr: `summary.status == SUCCESS`,
 		}
 
@@ -127,7 +127,7 @@ func TestFilterBuild(t *testing.T) {
 
 	t.Run("more complex filter", func(t *testing.T) {
 		filter := &filter{
-			env: env,
+			view: view,
 			equalityClauses: []equalityClause{
 				{columnName: "parent", value: "foo"},
 				{columnName: "id", value: "bar"},

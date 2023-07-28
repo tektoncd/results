@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/google/cel-go/cel"
+	"github.com/tektoncd/results/pkg/api/server/cel2sql"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
@@ -131,14 +131,14 @@ func (l *Lister[M, W]) List(ctx context.Context, db *gorm.DB) ([]W, string, erro
 }
 
 // OfResults creates a Lister for Result objects.
-func OfResults(env *cel.Env, request *resultspb.ListResultsRequest) (*Lister[*db.Result, *resultspb.Result], error) {
-	return newLister(env, resultFieldsToColumns, request, result.ToAPI, equalityClause{
+func OfResults(view *cel2sql.View, request *resultspb.ListResultsRequest) (*Lister[*db.Result, *resultspb.Result], error) {
+	return newLister(view, resultFieldsToColumns, request, result.ToAPI, equalityClause{
 		columnName: "parent",
 		value:      strings.TrimSpace(request.GetParent()),
 	})
 }
 
-func newLister[M any, W wireObject](env *cel.Env, fieldsToColumns map[string]string, listObjectsRequest request, convert Converter[M, W], clauses ...equalityClause) (*Lister[M, W], error) {
+func newLister[M any, W wireObject](view *cel2sql.View, fieldsToColumns map[string]string, listObjectsRequest request, convert Converter[M, W], clauses ...equalityClause) (*Lister[M, W], error) {
 	pageToken, err := decodePageToken(strings.TrimSpace(listObjectsRequest.GetPageToken()))
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func newLister[M any, W wireObject](env *cel.Env, fieldsToColumns map[string]str
 	}
 
 	filter := &filter{
-		env:             env,
+		view:            view,
 		expr:            strings.TrimSpace(listObjectsRequest.GetFilter()),
 		equalityClauses: clauses,
 	}
@@ -227,8 +227,8 @@ func getTimestamp(in wireObject, fieldName string) (timestamp *timestamppb.Times
 }
 
 // OfRecords creates a Lister for Record objects.
-func OfRecords(env *cel.Env, resultParent, resultName string, request *resultspb.ListRecordsRequest) (*Lister[*db.Record, *resultspb.Record], error) {
-	return newLister(env, recordFieldsToColumns, request, record.ToAPI, equalityClause{
+func OfRecords(view *cel2sql.View, resultParent, resultName string, request *resultspb.ListRecordsRequest) (*Lister[*db.Record, *resultspb.Record], error) {
+	return newLister(view, recordFieldsToColumns, request, record.ToAPI, equalityClause{
 		columnName: "parent",
 		value:      resultParent,
 	},

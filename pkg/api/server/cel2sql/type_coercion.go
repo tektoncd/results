@@ -40,15 +40,6 @@ func (i *interpreter) isString(expr *exprpb.Expr) bool {
 	return false
 }
 
-func (i *interpreter) isRecordSummary(expr *exprpb.Expr) bool {
-	if theType, found := i.checkedExpr.TypeMap[expr.GetId()]; found {
-		if messageType := theType.GetMessageType(); messageType == "tekton.results.v1alpha2.RecordSummary" {
-			return true
-		}
-	}
-	return false
-}
-
 // coerceToTypeOf writes a Postgres cast directive to the current position of
 // the SQL statement in the buffer, in order to cast the current SQL expression
 // to the SQL type of the provided CEL expression. This feature provides
