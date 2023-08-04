@@ -6,7 +6,7 @@ import (
 
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
-	reflectionv1alpha "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	reflectionv1 "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"knative.dev/pkg/logging"
 )
 
@@ -19,13 +19,13 @@ const (
 
 // WithContext includes the Logs client to the context.
 func WithContext(ctx context.Context, conn *grpc.ClientConn) (context.Context, error) {
-	reflectionInfo, err := reflectionv1alpha.NewServerReflectionClient(conn).ServerReflectionInfo(ctx)
+	reflectionInfo, err := reflectionv1.NewServerReflectionClient(conn).ServerReflectionInfo(ctx)
 	if err != nil {
 		return ctx, err
 	}
 
-	err = reflectionInfo.Send(&reflectionv1alpha.ServerReflectionRequest{
-		MessageRequest: &reflectionv1alpha.ServerReflectionRequest_ListServices{
+	err = reflectionInfo.Send(&reflectionv1.ServerReflectionRequest{
+		MessageRequest: &reflectionv1.ServerReflectionRequest_ListServices{
 			ListServices: "*",
 		},
 	})

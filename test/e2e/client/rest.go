@@ -110,7 +110,7 @@ func (c *restClient) GetRecord(ctx context.Context, in *v1alpha2.GetRecordReques
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(getRecordPath, in.Name), in, out)
 }
 
-// GetRecord makes request to get record list
+// ListRecords makes request to get record list
 func (c *restClient) ListRecords(ctx context.Context, in *v1alpha2.ListRecordsRequest) (*v1alpha2.ListRecordsResponse, error) {
 	out := &v1alpha2.ListRecordsResponse{}
 	return out, c.send(ctx, http.MethodGet, fmt.Sprintf(listRecordsPath, in.Parent), in, out)

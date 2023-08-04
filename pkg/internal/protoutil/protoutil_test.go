@@ -26,9 +26,9 @@ import (
 func TestClearOutputOnly(t *testing.T) {
 	m := &pb.Result{
 		Name:        "a",
-		Id:          "b",
-		CreatedTime: timestamppb.Now(),
-		UpdatedTime: timestamppb.Now(),
+		Uid:         "b",
+		CreateTime:  timestamppb.Now(),
+		UpdateTime:  timestamppb.Now(),
 		Annotations: map[string]string{"c": "d"},
 		Etag:        "f",
 	}

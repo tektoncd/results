@@ -5,7 +5,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	resultspb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
