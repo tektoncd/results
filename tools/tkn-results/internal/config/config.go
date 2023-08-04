@@ -10,7 +10,7 @@ const (
 	// EnvSSLRootFilePath is the environment variable name for the path to
 	// local SSL cert to use for requests.
 	EnvSSLRootFilePath = "TKN_RESULTS_SSL_ROOTS_FILE_PATH"
-	// EnvSSLRootFilePath is the environment variable name for the SSL server
+	// EnvSSLServerNameOverride is the environment variable name for the SSL server
 	// name override.
 	EnvSSLServerNameOverride = "TKN_RESULTS_SSL_SERVER_NAME_OVERRIDE"
 )

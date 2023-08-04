@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package leaderelection provides a few utilities to help us to enable leader
+// Package leaderelection provides a few utilities to help us to enable leader
 // election support in the Watcher controllers.
 package leaderelection
 

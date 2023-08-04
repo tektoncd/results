@@ -10,7 +10,7 @@ type Params struct {
 	LogsClient    pb.LogsClient
 }
 
-// ListOptions used on commands that list thing
+// ListOptions is used on commands that list Results or Records
 type ListOptions struct {
 	Filter    string
 	Limit     int32
@@ -26,12 +26,12 @@ func AddListFlags(options *ListOptions, cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&options.Format, "output", "o", "tab", "output format. Valid values: tab|textproto|json")
 }
 
-// Options used on commands that list thing
+// GetOptions used on commands that list thing
 type GetOptions struct {
 	Format string
 }
 
-// This is a helper function that adds common flags for commands that list things
+// AddGetFlags is a helper function that adds common flags for commands that list things
 func AddGetFlags(options *GetOptions, cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&options.Format, "output", "o", "json", "output format. Valid values: textproto|json")
 }

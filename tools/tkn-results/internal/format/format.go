@@ -23,8 +23,8 @@ func PrintProto(w io.Writer, m proto.Message, format string) error {
 			for _, r := range t.GetResults() {
 				fmt.Fprintln(tw, strings.Join([]string{
 					r.GetName(),
-					r.GetCreatedTime().AsTime().Truncate(time.Second).Local().String(),
-					r.GetUpdatedTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetCreateTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetUpdateTime().AsTime().Truncate(time.Second).Local().String(),
 				}, "\t"))
 			}
 		case *pb.ListRecordsResponse:
@@ -33,8 +33,8 @@ func PrintProto(w io.Writer, m proto.Message, format string) error {
 				fmt.Fprintln(tw, strings.Join([]string{
 					r.GetName(),
 					r.GetData().GetType(),
-					r.GetCreatedTime().AsTime().Truncate(time.Second).Local().String(),
-					r.GetUpdatedTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetCreateTime().AsTime().Truncate(time.Second).Local().String(),
+					r.GetUpdateTime().AsTime().Truncate(time.Second).Local().String(),
 				}, "\t"))
 			}
 		}

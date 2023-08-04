@@ -36,6 +36,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
 	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -144,7 +145,7 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 			grpc.WithTransportCredentials(cred),
 		)
 	case "insecure":
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	log.Printf("dialing %s...\n", apiAddr)

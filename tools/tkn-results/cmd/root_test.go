@@ -59,9 +59,9 @@ func TestPrintProto_Tab(t *testing.T) {
 		{
 			m: &pb.ListResultsResponse{
 				Results: []*pb.Result{{
-					Name:        "a",
-					CreatedTime: timestamppb.New(ts),
-					UpdatedTime: timestamppb.New(ts),
+					Name:       "a",
+					CreateTime: timestamppb.New(ts),
+					UpdateTime: timestamppb.New(ts),
 				}},
 			},
 			want: [][]string{
@@ -72,9 +72,9 @@ func TestPrintProto_Tab(t *testing.T) {
 		{
 			m: &pb.ListRecordsResponse{
 				Records: []*pb.Record{{
-					Name:        "a",
-					CreatedTime: timestamppb.New(ts),
-					UpdatedTime: timestamppb.New(ts),
+					Name:       "a",
+					CreateTime: timestamppb.New(ts),
+					UpdateTime: timestamppb.New(ts),
 					Data: &pb.Any{
 						Type: "tacocat",
 					},

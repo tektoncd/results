@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"time"
 
@@ -113,7 +113,7 @@ func DefaultResultsClient(ctx context.Context, overrideApiAddr string) (pb.Resul
 	return client, nil
 }
 
-// Client creates a new Results gRPC client for the given factory settings.
+// LogClient creates a new Results gRPC client for the given factory settings.
 // TODO: Refactor this with watcher client code?
 func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (pb.LogsClient, error) {
 	token, err := f.token(ctx)
@@ -180,7 +180,7 @@ func (f *ClientFactory) certs() (*x509.CertPool, error) {
 			return nil, err
 		}
 		defer f.Close()
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read TLS cert file: %v", err)
 		}
