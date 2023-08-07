@@ -70,6 +70,8 @@ func NewStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (S
 		return NewFileStream(ctx, log, config)
 	case v1alpha2.S3LogType:
 		return NewS3Stream(ctx, log, config)
+	case v1alpha2.GCSLogType:
+		return NewGCSStream(ctx, log, config)
 	}
 	return nil, fmt.Errorf("log streamer type %s is not supported", log.Spec.Type)
 }
