@@ -42,6 +42,9 @@ const (
 	FileLogType LogType = "File"
 	// S3LogType defines the log type for logs stored in the S3 object storage or S3 compatible alternatives.
 	S3LogType LogType = "S3"
+
+	// GCSLogType defines the log type for logs stored in the GCS object storage or GCS compatible alternatives.
+	GCSLogType LogType = "GCS"
 )
 
 // LogStatus defines the current status of the log resource.
