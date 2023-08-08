@@ -9,6 +9,7 @@ approvers:
 - khrm
 - sayan-biswas
 - enarha
+- avinal
 # alumni:
 # sbwsg
 
@@ -18,5 +19,8 @@ approvers:
 reviewers:
 - dibyom
 - alan-ghelardi
+- khrm
+- enarha
+- avinal
 # alumni:
 # sbwsg
