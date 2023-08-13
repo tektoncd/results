@@ -164,14 +164,6 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 		return nil, err
 	}
 
-	// If we found no records, check if result exists so we can return NotFound
-	if len(records) == 0 {
-		_, err := getResultByParentName(s.db, parent, resultName)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &pb.ListRecordsResponse{
 		Records:       records,
 		NextPageToken: nextPageToken,
