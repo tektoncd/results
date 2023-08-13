@@ -387,13 +387,6 @@ func TestListRecords(t *testing.T) {
 			},
 		},
 		{
-			name: "missing parent",
-			req: &pb.ListRecordsRequest{
-				Parent: "foo/results/baz",
-			},
-			status: codes.NotFound,
-		},
-		{
 			name: "filter by record property",
 			req: &pb.ListRecordsRequest{
 				Parent: result.GetName(),
@@ -423,6 +416,17 @@ func TestListRecords(t *testing.T) {
 			want: &pb.ListRecordsResponse{
 				Records: sortedTaskRunsByUID,
 			},
+		},
+		{
+			name: "filter doesn't match any records",
+			req: &pb.ListRecordsRequest{
+				Parent: "foo/results/-",
+				Filter: `data.metadata.name == "unknown"`,
+			},
+			want: &pb.ListRecordsResponse{
+				Records: []*pb.Record{},
+			},
+			status: codes.OK,
 		},
 		// Errors
 		{
