@@ -965,8 +965,8 @@ github.com/grpc-ecosystem/grpc-gateway v1.14.6/go.mod h1:zdiPV4Yse/1gnckTHtghG4G
 github.com/grpc-ecosystem/grpc-gateway v1.16.0/go.mod h1:BDjrQk3hbvj6Nolgz8mAMFbcEtjT1g+wF4CSlocrBnw=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0/go.mod h1:hgWBS7lorOAVIJEQMi4ZsPv9hVvWI6+ch50m39Pf2Ks=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.2/go.mod h1:chrfS3YoLAlKTRE5cFWvCbt8uGAjshktT4PveTUpsFQ=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1 h1:RoziI+96HlQWrbaVhgOOdFYUHtX81pwA6tCgDS9FNRo=
-github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1/go.mod h1:Rj8lEaVgLiPn1jTMVXEhATiZhuyXJq167bMYPbJM1CY=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2 h1:dygLcbEBA+t/P7ck6a8AkXv6juQ4cK0RHBoh32jxhHM=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2/go.mod h1:Ap9RLCIJVtgQg1/BBgVEfypOAySvvlcpcVQkSzJCH4Y=
 github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b h1:wDUNC2eKiL35DbLvsDhiblTUXHxcOPwQSCzi7xpQUN4=
 github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b/go.mod h1:VzxiSdG6j1pi7rwGm/xYI5RbtpBgM8sARDXlvEvxlu0=
 github.com/hanwen/go-fuse v1.0.0/go.mod h1:unqXarDXqzAk0rt98O2tVndEPIpUgLD9+rwFisZH3Ok=

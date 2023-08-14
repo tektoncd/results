@@ -18,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.5
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2
 	github.com/jackc/pgconn v1.13.0
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/mattn/go-sqlite3 v1.14.16
