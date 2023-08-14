@@ -22,7 +22,7 @@ require (
 	github.com/jackc/pgconn v1.13.0
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/mattn/go-sqlite3 v1.14.16
-	github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/viper v1.16.0
 	github.com/tektoncd/cli v0.29.0
 	github.com/tektoncd/pipeline v0.42.0
@@ -177,8 +177,8 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.39.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/common v0.42.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/rivo/uniseg v0.4.2 // indirect
 	github.com/sigstore/sigstore v1.5.0 // indirect
