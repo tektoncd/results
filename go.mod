@@ -20,7 +20,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1
 	github.com/jackc/pgconn v1.13.0
-	github.com/jonboulle/clockwork v0.3.0
+	github.com/jonboulle/clockwork v0.4.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/viper v1.16.0
