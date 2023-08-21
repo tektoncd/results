@@ -58,10 +58,7 @@ func TestFlagConfig(t *testing.T) {
 }
 
 func testConfig(t *testing.T, want *Config) {
-	cfg, err := GetConfig()
-	if err != nil {
-		t.Fatal(err)
-	}
+	cfg := GetConfig()
 	if diff := cmp.Diff(cfg, want); diff != "" {
 		t.Error(diff)
 	}

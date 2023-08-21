@@ -27,10 +27,7 @@ type ClientFactory struct {
 }
 
 func NewDefaultFactory() (*ClientFactory, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return nil, err
-	}
+	cfg := config.GetConfig()
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	kubeconfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, nil)
