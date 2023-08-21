@@ -34,7 +34,7 @@ func Root() *cobra.Command {
 			var overrideApiAdr string
 
 			// Prepare to port-forward if addr config is not set
-			if cfg, err := config.GetConfig(); err == nil && cfg.Portforward && cfg.Address == "" {
+			if cfg := config.GetConfig(); cfg.Portforward && cfg.Address == "" {
 				portForward, err := portforward.NewPortForward()
 				if err != nil {
 					return err
