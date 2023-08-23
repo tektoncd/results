@@ -18,10 +18,9 @@ package termination
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
-	v1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/result"
 )
 
 const (
@@ -31,12 +30,12 @@ const (
 )
 
 // WriteMessage writes the results to the termination message path.
-func WriteMessage(path string, pro []v1beta1.PipelineResourceResult) error {
+func WriteMessage(path string, pro []result.RunResult) error {
 	// if the file at path exists, concatenate the new values otherwise create it
 	// file at path already exists
-	fileContents, err := ioutil.ReadFile(path)
+	fileContents, err := os.ReadFile(path)
 	if err == nil {
-		var existingEntries []v1beta1.PipelineResourceResult
+		var existingEntries []result.RunResult
 		if err := json.Unmarshal(fileContents, &existingEntries); err == nil {
 			// append new entries to existing entries
 			pro = append(existingEntries, pro...)
@@ -50,7 +49,7 @@ func WriteMessage(path string, pro []v1beta1.PipelineResourceResult) error {
 	}
 
 	if len(jsonOutput) > MaxContainerTerminationMessageLength {
-		return aboveMax
+		return errTooLong
 	}
 
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
@@ -69,7 +68,7 @@ func WriteMessage(path string, pro []v1beta1.PipelineResourceResult) error {
 type MessageLengthError string
 
 const (
-	aboveMax MessageLengthError = "Termination message is above max allowed size 4096, caused by large task result."
+	errTooLong MessageLengthError = "Termination message is above max allowed size 4096, caused by large task result."
 )
 
 func (e MessageLengthError) Error() string {
