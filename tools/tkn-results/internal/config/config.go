@@ -39,6 +39,8 @@ type Config struct {
 	// Portforward enable auto portforwarding to tekton-results-api-service
 	// When Address is set and Portforward is true, tkn-results will portforward tekton-results-api-service automatically
 	Portforward bool
+	// Insecure determines whether to use insecure GRPC tls communication
+	Insecure bool
 }
 
 type SSLConfig struct {
@@ -98,6 +100,7 @@ func setConfig() error {
 		cfg.Token = viper.GetString("authtoken")
 	}
 	cfg.Portforward = viper.GetBool("portforward")
+	cfg.Insecure = viper.GetBool("insecure")
 	return nil
 }
 
