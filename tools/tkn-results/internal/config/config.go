@@ -99,6 +99,15 @@ func setConfig() error {
 	if s := viper.GetString("authtoken"); s != "" {
 		cfg.Token = viper.GetString("authtoken")
 	}
+	if s := viper.GetString("sa"); s != "" {
+		cfg.ServiceAccount = &ServiceAccount{}
+		cfg.ServiceAccount.Name = viper.GetString("sa")
+		if s := viper.GetString("sa-ns"); s != "" {
+			cfg.ServiceAccount.Namespace = viper.GetString("sa-ns")
+		}
+
+	}
+
 	cfg.Portforward = viper.GetBool("portforward")
 	cfg.Insecure = viper.GetBool("insecure")
 	return nil
