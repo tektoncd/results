@@ -73,6 +73,8 @@ func Root() *cobra.Command {
 
 	cmd.PersistentFlags().StringP("addr", "a", "", "Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically")
 	cmd.PersistentFlags().StringP("authtoken", "t", "", "authorization bearer token to use for authenticated requests")
+	cmd.PersistentFlags().String("sa", "", "ServiceAccount to use instead of token for authorization and authentication")
+	cmd.PersistentFlags().String("sa-ns", "", "ServiceAccount Namespace, if not given, it will be taken from current context")
 	cmd.PersistentFlags().Bool("portforward", true, "enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically")
 	cmd.PersistentFlags().Bool("insecure", false, "determines whether to run insecure GRPC tls request")
 

@@ -36,6 +36,14 @@ func NewDefaultFactory() (*ClientFactory, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.ServiceAccount != nil && cfg.ServiceAccount.Name != "" &&
+		cfg.ServiceAccount.Namespace == "" {
+		ns, _, err := kubeconfig.Namespace()
+		if err != nil {
+			return nil, err
+		}
+		cfg.ServiceAccount.Namespace = ns
+	}
 	client, err := kubernetes.NewForConfig(clientconfig)
 	if err != nil {
 		return nil, err
