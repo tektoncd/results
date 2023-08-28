@@ -42,10 +42,11 @@ type options struct {
 	jobs                           int
 	userAgent                      string
 	allowNondistributableArtifacts bool
-	updates                        chan<- v1.Update
+	progress                       *progress
 	pageSize                       int
 	retryBackoff                   Backoff
 	retryPredicate                 retry.Predicate
+	filter                         map[string]string
 }
 
 var defaultPlatform = v1.Platform{
@@ -59,7 +60,7 @@ type Backoff = retry.Backoff
 var defaultRetryPredicate retry.Predicate = func(err error) bool {
 	// Various failure modes here, as we're often reading from and writing to
 	// the network.
-	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+	if retry.IsTemporary(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, net.ErrClosed) {
 		logs.Warn.Printf("retrying %v", err)
 		return true
 	}
@@ -72,6 +73,23 @@ var defaultRetryBackoff = Backoff{
 	Factor:   3.0,
 	Jitter:   0.1,
 	Steps:    3,
+}
+
+// Useful for tests
+var fastBackoff = Backoff{
+	Duration: 1.0 * time.Millisecond,
+	Factor:   3.0,
+	Jitter:   0.1,
+	Steps:    3,
+}
+
+var retryableStatusCodes = []int{
+	http.StatusRequestTimeout,
+	http.StatusInternalServerError,
+	http.StatusBadGateway,
+	http.StatusServiceUnavailable,
+	http.StatusGatewayTimeout,
+	499,
 }
 
 const (
@@ -87,10 +105,7 @@ const (
 var DefaultTransport http.RoundTripper = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
-		// By default we wrap the transport in retries, so reduce the
-		// default dial timeout to 5s to avoid 5x 30s of connection
-		// timeouts when doing the "ping" on certain http registries.
-		Timeout:   5 * time.Second,
+		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}).DialContext,
 	ForceAttemptHTTP2:     true,
@@ -98,9 +113,11 @@ var DefaultTransport http.RoundTripper = &http.Transport{
 	IdleConnTimeout:       90 * time.Second,
 	TLSHandshakeTimeout:   10 * time.Second,
 	ExpectContinueTimeout: 1 * time.Second,
+	// We usually are dealing with 2 hosts (at most), split MaxIdleConns between them.
+	MaxIdleConnsPerHost: 50,
 }
 
-func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
+func makeOptions(opts ...Option) (*options, error) {
 	o := &options{
 		transport:      DefaultTransport,
 		platform:       defaultPlatform,
@@ -122,12 +139,6 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 		// It is a better experience to explicitly tell a caller their auth is misconfigured
 		// than potentially fail silently when the correct auth is overridden by option misuse.
 		return nil, errors.New("provide an option for either authn.Authenticator or authn.Keychain, not both")
-	case o.keychain != nil:
-		auth, err := o.keychain.Resolve(target)
-		if err != nil {
-			return nil, err
-		}
-		o.auth = auth
 	case o.auth == nil:
 		o.auth = authn.Anonymous
 	}
@@ -143,7 +154,7 @@ func makeOptions(target authn.Resource, opts ...Option) (*options, error) {
 		}
 
 		// Wrap the transport in something that can retry network flakes.
-		o.transport = transport.NewRetry(o.transport)
+		o.transport = transport.NewRetry(o.transport, transport.WithRetryPredicate(defaultRetryPredicate), transport.WithRetryStatusCodes(retryableStatusCodes...))
 
 		// Wrap this last to prevent transport.New from double-wrapping.
 		if o.userAgent != "" {
@@ -259,7 +270,8 @@ func WithNondistributable(o *options) error {
 // should provide a buffered channel to avoid potential deadlocks.
 func WithProgress(updates chan<- v1.Update) Option {
 	return func(o *options) error {
-		o.updates = updates
+		o.progress = &progress{updates: updates}
+		o.progress.lastUpdate = &v1.Update{}
 		return nil
 	}
 }
@@ -287,6 +299,17 @@ func WithRetryBackoff(backoff Backoff) Option {
 func WithRetryPredicate(predicate retry.Predicate) Option {
 	return func(o *options) error {
 		o.retryPredicate = predicate
+		return nil
+	}
+}
+
+// WithFilter sets the filter querystring for HTTP operations.
+func WithFilter(key string, value string) Option {
+	return func(o *options) error {
+		if o.filter == nil {
+			o.filter = map[string]string{}
+		}
+		o.filter[key] = value
 		return nil
 	}
 }
