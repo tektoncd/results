@@ -9,7 +9,7 @@ import (
 
 func TestParseFileConfig(t *testing.T) {
 	viper.SetConfigFile("./testdata/config.yaml")
-
+	setConfig()
 	testConfig(t, &Config{
 		Address: "a",
 		Token:   "b",
@@ -26,9 +26,9 @@ func TestParseFileConfig(t *testing.T) {
 
 func TestEnvVarConfig(t *testing.T) {
 	viper.SetConfigFile("./testdata/empty.yaml")
-
 	t.Setenv(EnvSSLRootFilePath, "a")
 	t.Setenv(EnvSSLServerNameOverride, "b")
+	setConfig()
 
 	testConfig(t, &Config{
 		SSL: SSLConfig{
@@ -39,9 +39,9 @@ func TestEnvVarConfig(t *testing.T) {
 }
 func TestFlagConfig(t *testing.T) {
 	viper.SetConfigFile("./testdata/config.yaml")
-
 	viper.Set("addr", "1")
 	viper.Set("token", "2")
+	setConfig()
 
 	testConfig(t, &Config{
 		Address: "1",

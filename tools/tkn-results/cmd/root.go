@@ -79,6 +79,7 @@ func Root() *cobra.Command {
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	viper.BindPFlags(cmd.PersistentFlags())
+	cobra.OnInitialize(config.Init)
 
 	return cmd
 }
