@@ -3,7 +3,6 @@ package config
 import (
 	"log"
 
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -52,7 +51,7 @@ type ServiceAccount struct {
 	Name      string
 }
 
-func init() {
+func Init() {
 	viper.SetConfigName("results")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("$HOME/.config/tkn")
@@ -63,10 +62,6 @@ func init() {
 }
 
 func setConfig() error {
-	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
-		return err
-	}
-
 	for k := range env {
 		if err := viper.BindEnv(k); err != nil {
 			return err
