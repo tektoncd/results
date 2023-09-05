@@ -1,4 +1,4 @@
-# Copyright 2021 The Tekton Authors
+# Copyright 2023 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-- op: add
-  path: "/spec/template/spec/containers/0/args/-"
-  value: "-completed_run_grace_period"
-- op: add
-  path: "/spec/template/spec/containers/0/args/-"
-  value: "15s"
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: hello-gcs
+  annotations:
+    results.tekton.dev/resultAnnotations: |-
+      {"repo": "tektoncd/results", "commit": "1a6b908"}
+    results.tekton.dev/recordSummaryAnnotations: |-
+      {"foo": "bar"}
+spec:
+  pipelineSpec:
+    tasks:
+      - name: hello
+        taskSpec:
+          steps:
+            - name: hello
+              image: ubuntu
+              script: "echo hello world!"
