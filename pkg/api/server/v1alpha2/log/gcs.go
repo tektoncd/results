@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	server "github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/apis/v1alpha2"
@@ -51,6 +52,9 @@ func NewGCSStream(ctx context.Context, log *v1alpha2.Log, config *server.Config)
 
 	filePath := filepath.Join(config.LOGS_PATH, log.Status.Path)
 
+	if config.STORAGE_EMULATOR_HOST != "" {
+		os.Setenv("STORAGE_EMULATOR_HOST", config.STORAGE_EMULATOR_HOST)
+	}
 	client, err := getGCSClient(ctx, config)
 	if err != nil {
 		return nil, err
