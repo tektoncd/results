@@ -20,17 +20,17 @@ func TestToken(t *testing.T) {
 	ctx := context.Background()
 	for _, tc := range []struct {
 		name    string
-		factory *ClientFactory
+		factory *Factory
 		want    string
 	}{
 		{
 			name:    "default",
-			factory: &ClientFactory{},
+			factory: &Factory{},
 			want:    "",
 		},
 		{
 			name: "token",
-			factory: &ClientFactory{
+			factory: &Factory{
 				cfg: &config.Config{
 					Token: "a",
 				},
@@ -39,7 +39,7 @@ func TestToken(t *testing.T) {
 		},
 		{
 			name: "serviceaccount",
-			factory: &ClientFactory{
+			factory: &Factory{
 				cfg: &config.Config{
 					ServiceAccount: &config.ServiceAccount{
 						Namespace: "foo",
@@ -64,7 +64,7 @@ func TestToken(t *testing.T) {
 		},
 		{
 			name: "token",
-			factory: &ClientFactory{
+			factory: &Factory{
 				cfg: &config.Config{
 					Token: "a",
 				},
@@ -73,7 +73,7 @@ func TestToken(t *testing.T) {
 		},
 		{
 			name: "token over serviceaccount",
-			factory: &ClientFactory{
+			factory: &Factory{
 				cfg: &config.Config{
 					Token: "a",
 					ServiceAccount: &config.ServiceAccount{
@@ -111,7 +111,7 @@ func TestCerts(t *testing.T) {
 		t.Fatalf("CreateCertificate: %v", err)
 	}
 
-	// Dump cert into file so that the ClientFactory can read it.
+	// Dump cert into file so that the Factory can read it.
 	f, err := os.CreateTemp("", "cert*")
 	if err != nil {
 		t.Fatalf("os.CreateTemp: %v", err)
@@ -122,7 +122,7 @@ func TestCerts(t *testing.T) {
 	}
 	f.Close()
 
-	factory := &ClientFactory{
+	factory := &Factory{
 		cfg: &config.Config{
 			SSL: config.SSLConfig{
 				RootsFilePath: f.Name(),

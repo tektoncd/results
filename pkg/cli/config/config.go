@@ -23,6 +23,7 @@ var (
 	cfg *Config
 )
 
+// Config contains configuration information for the Results CLI.
 type Config struct {
 	// Address is the server address to connect to.
 	Address string
@@ -43,16 +44,19 @@ type Config struct {
 	Insecure bool
 }
 
+// SSLConfig contains SSL configuration information.
 type SSLConfig struct {
 	RootsFilePath      string `mapstructure:"roots_file_path"`
 	ServerNameOverride string `mapstructure:"server_name_override"`
 }
 
+// ServiceAccount contains information about a Kubernetes ServiceAccount.
 type ServiceAccount struct {
 	Namespace string
 	Name      string
 }
 
+// Init sets defaults and reads in config from the config file.
 func Init() {
 	viper.SetConfigName("results")
 	viper.SetConfigType("yaml")
@@ -115,6 +119,7 @@ func setConfig() error {
 	return nil
 }
 
+// GetConfig returns the current config.
 func GetConfig() *Config {
 	return cfg
 }

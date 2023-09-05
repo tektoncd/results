@@ -24,6 +24,7 @@ var (
 	help string
 )
 
+// Root returns a cobra command for `tkn-results` root sub commands
 func Root() *cobra.Command {
 	params := &flags.Params{}
 	var portForwardCloseChan chan struct{}
@@ -32,7 +33,7 @@ func Root() *cobra.Command {
 		Short: "tkn CLI plugin for Tekton Results API",
 		Long:  help,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			var overrideApiAdr string
+			var overrideAPIAdr string
 
 			// Prepare to port-forward if addr config is not set
 			if cfg := config.GetConfig(); cfg.Portforward && cfg.Address == "" {
@@ -45,14 +46,14 @@ func Root() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				overrideApiAdr = fmt.Sprintf("localhost:%d", port)
+				overrideAPIAdr = fmt.Sprintf("localhost:%d", port)
 				portForwardCloseChan = make(chan struct{})
 				if err = portForward.ForwardPortBackground(portForwardCloseChan, port); err != nil {
 					return err
 				}
 			}
 
-			apiClient, err := client.DefaultResultsClient(cmd.Context(), overrideApiAdr)
+			apiClient, err := client.DefaultResultsClient(cmd.Context(), overrideAPIAdr)
 
 			if err != nil {
 				return err
@@ -60,7 +61,7 @@ func Root() *cobra.Command {
 
 			params.ResultsClient = apiClient
 
-			logClient, err := client.DefaultLogsClient(cmd.Context(), overrideApiAdr)
+			logClient, err := client.DefaultLogsClient(cmd.Context(), overrideAPIAdr)
 
 			if err != nil {
 				return err
@@ -90,7 +91,11 @@ func Root() *cobra.Command {
 	cmd.AddCommand(ListCommand(params), records.Command(params), logs.Command(params))
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	viper.BindPFlags(cmd.PersistentFlags())
+
+	err := viper.BindPFlags(cmd.PersistentFlags())
+	if err != nil {
+		return nil
+	}
 	cobra.OnInitialize(config.Init)
 
 	return cmd

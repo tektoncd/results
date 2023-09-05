@@ -3,6 +3,11 @@ package portforward
 import (
 	"context"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -10,10 +15,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	"log"
-	"net"
-	"net/http"
-	"os"
 )
 
 // PortForward provides port-forwarding functionality to results api service,
@@ -41,19 +42,19 @@ func NewPortForward() (*PortForward, error) {
 // ForwardPortBackground do port-forwarding in background.
 // stopChan control when port-forwarding stops, port specify which port on localhost port-forwarding will occupy
 func (pf *PortForward) ForwardPortBackground(stopChan <-chan struct{}, port int) error {
-	resultsApiService, err := pf.clientSet.CoreV1().Services("tekton-pipelines").Get(context.TODO(), "tekton-results-api-service", metav1.GetOptions{})
+	resultsAPIService, err := pf.clientSet.CoreV1().Services("tekton-pipelines").Get(context.TODO(), "tekton-results-api-service", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	resultsPodSelector := labels.Set(resultsApiService.Spec.Selector)
+	resultsPodSelector := labels.Set(resultsAPIService.Spec.Selector)
 	pods, err := pf.clientSet.CoreV1().Pods("tekton-pipelines").List(context.TODO(), metav1.ListOptions{
 		LabelSelector: resultsPodSelector.String(),
 	})
 	if err != nil {
 		return err
 	}
-	resultsApiPod := pods.Items[0]
-	req := pf.clientSet.CoreV1().RESTClient().Post().Namespace("tekton-pipelines").Resource("pods").Name(resultsApiPod.Name).SubResource("portforward")
+	resultsAPIPod := pods.Items[0]
+	req := pf.clientSet.CoreV1().RESTClient().Post().Namespace("tekton-pipelines").Resource("pods").Name(resultsAPIPod.Name).SubResource("portforward")
 
 	transport, upgrader, err := spdy.RoundTripperFor(pf.clientConfig)
 	if err != nil {
@@ -69,7 +70,7 @@ func (pf *PortForward) ForwardPortBackground(stopChan <-chan struct{}, port int)
 	go func() {
 		err := fw.ForwardPorts()
 		if err != nil {
-			log.Fatalf("err foward ports: %v", err)
+			log.Fatalf("err forward ports: %v", err)
 		}
 	}()
 

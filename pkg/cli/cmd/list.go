@@ -10,6 +10,7 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
+// ListCommand returns a cobra sub command that fetch a list of results given the parent name
 func ListCommand(params *flags.Params) *cobra.Command {
 	opts := &flags.ListOptions{}
 

@@ -98,6 +98,10 @@ goimports: | $(GOIMPORTS) ; $(info $(M) running goimports…) ## Run goimports
 fmt: ; $(info $(M) running gofmt…) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
+.PHONY: cli-docs
+cli-docs: ; $(info $(M) generating tkn-results docs) ## Generate tkn-results docs
+	$(GO) run ./cmd/cli-docs
+
 # Misc
 
 .PHONY: clean
