@@ -28,6 +28,8 @@
 | S3_ACCESS_KEY_ID         | S3 Access Key ID                                                                                                                  | <S3 Acces Key>                               |
 | S3_SECRET_ACCESS_KEY     | S3 Secret Access Key                                                                                                              | <S3 Access Secret>                           |
 | S3_MULTI_PART_SIZE       | S3 Multi part size                                                                                                                | 5242880 (default)                            |
+| GCS_BUCKET_NAME          | GCS Bucket Name                                                                                                                   | <GCS Bucket Name>                            |
+| STORAGE_EMULATOR_HOST    | GCS Storage Emulator Server                                                                                                       | http://localhost:9004                        |
 
 These values can also be set in the config file located in the `config/env/config` directory.
 
