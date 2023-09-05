@@ -19,6 +19,7 @@ import (
 	"github.com/tektoncd/results/pkg/cli/flags"
 )
 
+// Command returns a cobra command for `logs` sub commands
 func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs",
@@ -28,7 +29,7 @@ func Command(params *flags.Params) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(ListCommand(params), GetLogCommand(params))
+	cmd.AddCommand(ListLogsCommand(params), GetLogCommand(params))
 
 	return cmd
 }

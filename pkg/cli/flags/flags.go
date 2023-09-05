@@ -5,12 +5,13 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
+// Params contains a ResultsClient and LogsClient
 type Params struct {
 	ResultsClient pb.ResultsClient
 	LogsClient    pb.LogsClient
 }
 
-// ListOptions is used on commands that list Results or Records
+// ListOptions is used on commands that list Results, Records or Logs
 type ListOptions struct {
 	Filter    string
 	Limit     int32
@@ -26,12 +27,12 @@ func AddListFlags(options *ListOptions, cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&options.Format, "output", "o", "tab", "output format. Valid values: tab|textproto|json")
 }
 
-// GetOptions used on commands that list thing
+// GetOptions used on commands that get a single Result, Record or Log
 type GetOptions struct {
 	Format string
 }
 
-// AddGetFlags is a helper function that adds common flags for commands that list things
+// AddGetFlags is a helper function that adds common flags for get commands
 func AddGetFlags(options *GetOptions, cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&options.Format, "output", "o", "json", "output format. Valid values: textproto|json")
 }

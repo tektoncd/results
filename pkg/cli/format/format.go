@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// PrintProto prints the given proto message to the given writer in the given format.
+// Valid formats are: tab, textproto, json
 func PrintProto(w io.Writer, m proto.Message, format string) error {
 	switch format {
 	case "tab":

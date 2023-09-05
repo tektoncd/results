@@ -18,16 +18,20 @@ import (
 	v1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	// Load auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type ClientFactory struct {
+// Factory contains the configuration for creating a k8s client.
+type Factory struct {
 	k8s kubernetes.Interface
 	cfg *config.Config
 }
 
-func NewDefaultFactory() (*ClientFactory, error) {
+// NewDefaultFactory creates a new Factory with the default configuration.
+func NewDefaultFactory() (*Factory, error) {
 	cfg := config.GetConfig()
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -49,7 +53,7 @@ func NewDefaultFactory() (*ClientFactory, error) {
 		return nil, err
 	}
 
-	return &ClientFactory{
+	return &Factory{
 		k8s: client,
 		cfg: cfg,
 	}, nil
@@ -57,7 +61,7 @@ func NewDefaultFactory() (*ClientFactory, error) {
 
 // ResultsClient creates a new Results gRPC client for the given factory settings.
 // TODO: Refactor this with watcher client code?
-func (f *ClientFactory) ResultsClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
+func (f *Factory) ResultsClient(ctx context.Context, overrideAPIAddr string) (pb.ResultsClient, error) {
 	token, err := f.token(ctx)
 	if err != nil {
 		return nil, err
@@ -66,6 +70,7 @@ func (f *ClientFactory) ResultsClient(ctx context.Context, overrideApiAddr strin
 	var creds credentials.TransportCredentials
 	if f.cfg.Insecure {
 		creds = credentials.NewTLS(&tls.Config{
+			//nolint:gosec // needed for --insecure flag
 			InsecureSkipVerify: true,
 		})
 	} else {
@@ -79,8 +84,8 @@ func (f *ClientFactory) ResultsClient(ctx context.Context, overrideApiAddr strin
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	addr := f.cfg.Address
-	if overrideApiAddr != "" {
-		addr = overrideApiAddr
+	if overrideAPIAddr != "" {
+		addr = overrideAPIAddr
 	}
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
@@ -96,15 +101,15 @@ func (f *ClientFactory) ResultsClient(ctx context.Context, overrideApiAddr strin
 }
 
 // DefaultResultsClient creates a new results client.
-// Will dial overrideApiAddr if overrideApiAddr is not empty
-func DefaultResultsClient(ctx context.Context, overrideApiAddr string) (pb.ResultsClient, error) {
+// Will dial overrideAPIAddr if overrideAPIAddr is not empty
+func DefaultResultsClient(ctx context.Context, overrideAPIAddr string) (pb.ResultsClient, error) {
 	f, err := NewDefaultFactory()
 
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := f.ResultsClient(ctx, overrideApiAddr)
+	client, err := f.ResultsClient(ctx, overrideAPIAddr)
 
 	if err != nil {
 		return nil, err
@@ -115,7 +120,7 @@ func DefaultResultsClient(ctx context.Context, overrideApiAddr string) (pb.Resul
 
 // LogClient creates a new Results gRPC client for the given factory settings.
 // TODO: Refactor this with watcher client code?
-func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (pb.LogsClient, error) {
+func (f *Factory) LogClient(ctx context.Context, overrideAPIAddr string) (pb.LogsClient, error) {
 	token, err := f.token(ctx)
 	if err != nil {
 		return nil, err
@@ -124,6 +129,7 @@ func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (
 	var creds credentials.TransportCredentials
 	if f.cfg.Insecure {
 		creds = credentials.NewTLS(&tls.Config{
+			//nolint:gosec // needed for --insecure flag
 			InsecureSkipVerify: true,
 		})
 	} else {
@@ -137,8 +143,8 @@ func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	addr := f.cfg.Address
-	if overrideApiAddr != "" {
-		addr = overrideApiAddr
+	if overrideAPIAddr != "" {
+		addr = overrideAPIAddr
 	}
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
@@ -153,14 +159,15 @@ func (f *ClientFactory) LogClient(ctx context.Context, overrideApiAddr string) (
 	return pb.NewLogsClient(conn), nil
 }
 
-func DefaultLogsClient(ctx context.Context, overrideApiAddr string) (pb.LogsClient, error) {
+// DefaultLogsClient creates a new default logs client.
+func DefaultLogsClient(ctx context.Context, overrideAPIAddr string) (pb.LogsClient, error) {
 	f, err := NewDefaultFactory()
 
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := f.LogClient(ctx, overrideApiAddr)
+	client, err := f.LogClient(ctx, overrideAPIAddr)
 
 	if err != nil {
 		return nil, err
@@ -169,7 +176,7 @@ func DefaultLogsClient(ctx context.Context, overrideApiAddr string) (pb.LogsClie
 	return client, nil
 }
 
-func (f *ClientFactory) certs() (*x509.CertPool, error) {
+func (f *Factory) certs() (*x509.CertPool, error) {
 	certs, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err
@@ -191,7 +198,7 @@ func (f *ClientFactory) certs() (*x509.CertPool, error) {
 	return certs, nil
 }
 
-func (f *ClientFactory) token(ctx context.Context) (string, error) {
+func (f *Factory) token(ctx context.Context) (string, error) {
 	if f.cfg == nil {
 		return "", nil
 	}

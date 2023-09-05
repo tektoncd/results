@@ -24,14 +24,14 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
-func ListCommand(params *flags.Params) *cobra.Command {
+// ListLogsCommand returns a cobra sub command that fetch a list of logs given the parent and result name
+func ListLogsCommand(params *flags.Params) *cobra.Command {
 	opts := &flags.ListOptions{}
 
 	cmd := &cobra.Command{
-		Use: `list [flags] <result parent>
-
-  <result parent>: Result parent name to query. This is typically "<namespace>/results/<result name>", but may vary depending on the API Server. "-" may be used as <result name> to query all Logs for a given parent.`,
-		Short: "List Logs",
+		Use:   "list [flags] <result-name>",
+		Short: "List Logs for a given Result",
+		Long:  "List Logs for a given Result. <result-name> is typically of format <namespace>/results/<parent-run-uuid>. '-' may be used in place of <parent-run-uuid> to query all Logs for a given parent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := params.LogsClient.ListLogs(cmd.Context(), &pb.ListRecordsRequest{
 				Parent:    args[0],
@@ -49,6 +49,12 @@ func ListCommand(params *flags.Params) *cobra.Command {
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
+		Example: `  - List all Logs for PipelineRun with UUID 0dfc883d-722a-4489-9ab8-3cccc74ca4f6 in 'default' namespace:
+    tkn-results logs list default/results/0dfc883d-722a-4489-9ab8-3cccc74ca4f6
+  - List all logs for all Runs in 'default' namespace:
+    tkn-results logs list default/results/-
+  - List only TaskRuns logs in 'default' namespace:
+    tkn-results logs list default/results/- --filter="data.spec.resource.kind=TaskRun"`,
 	}
 
 	flags.AddListFlags(opts, cmd)
