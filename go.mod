@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/google/cel-go v0.17.6
 	github.com/google/go-cmp v0.5.9
-	github.com/google/go-replayers/httpreplay v1.1.1
+	github.com/google/go-replayers/httpreplay v1.2.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -29,7 +29,7 @@ require (
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.5.2
 	go.uber.org/zap v1.25.0
-	gocloud.dev v0.27.0
+	gocloud.dev v0.34.0
 	golang.org/x/net v0.14.0
 	golang.org/x/oauth2 v0.11.0
 	google.golang.org/api v0.134.0
@@ -50,11 +50,11 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.110.6 // indirect
+	cloud.google.com/go v0.110.7 // indirect
 	cloud.google.com/go/compute v1.23.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.1 // indirect
-	cloud.google.com/go/storage v1.30.1 // indirect
+	cloud.google.com/go/storage v1.31.0 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.6 // indirect

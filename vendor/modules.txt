@@ -1,4 +1,4 @@
-# cloud.google.com/go v0.110.6
+# cloud.google.com/go v0.110.7
 ## explicit; go 1.19
 cloud.google.com/go/internal
 cloud.google.com/go/internal/optional
@@ -17,12 +17,12 @@ cloud.google.com/go/iam/apiv1/iampb
 cloud.google.com/go/iam/credentials/apiv1
 cloud.google.com/go/iam/credentials/apiv1/credentialspb
 cloud.google.com/go/iam/internal
-# cloud.google.com/go/storage v1.30.1
+# cloud.google.com/go/storage v1.31.0
 ## explicit; go 1.19
 cloud.google.com/go/storage
 cloud.google.com/go/storage/internal
 cloud.google.com/go/storage/internal/apiv2
-cloud.google.com/go/storage/internal/apiv2/stubs
+cloud.google.com/go/storage/internal/apiv2/storagepb
 # contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d
 ## explicit; go 1.13
 contrib.go.opencensus.io/exporter/ocagent
@@ -449,7 +449,7 @@ github.com/google/go-containerregistry/pkg/authn/k8schain
 # github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20221017135236-9b4fdd506cdd
 ## explicit; go 1.17
 github.com/google/go-containerregistry/pkg/authn/kubernetes
-# github.com/google/go-replayers/httpreplay v1.1.1
+# github.com/google/go-replayers/httpreplay v1.2.0
 ## explicit; go 1.16
 github.com/google/go-replayers/httpreplay
 github.com/google/go-replayers/httpreplay/google
@@ -1011,8 +1011,8 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/ztest
 go.uber.org/zap/zapcore
 go.uber.org/zap/zaptest
-# gocloud.dev v0.27.0
-## explicit; go 1.12
+# gocloud.dev v0.34.0
+## explicit; go 1.20
 gocloud.dev/blob
 gocloud.dev/blob/driver
 gocloud.dev/blob/gcsblob
@@ -1147,7 +1147,6 @@ google.golang.org/appengine/socket
 google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20230731193218-e0aa005b6bdf
 ## explicit; go 1.19
-google.golang.org/genproto/googleapis/iam/credentials/v1
 google.golang.org/genproto/googleapis/type/date
 google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/internal
