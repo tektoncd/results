@@ -89,6 +89,9 @@ func setConfig() error {
 			return err
 		}
 	} else {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			return nil
+		}
 		return err
 	}
 
