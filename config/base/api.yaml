@@ -46,8 +46,6 @@ spec:
                 secretKeyRef:
                   name: tekton-results-postgres
                   key: POSTGRES_PASSWORD
-            - name: DB_NAME
-              value: tekton-results
           volumeMounts:
             - name: config
               mountPath: /etc/tekton/results
