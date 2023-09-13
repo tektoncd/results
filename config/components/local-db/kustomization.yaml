@@ -21,9 +21,3 @@ kind: Component
 
 resources:
 - 201-sql-deployment.yaml
-
-patches:
-- target:
-    kind: Deployment
-    name: api
-  path: api.yaml

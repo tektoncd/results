@@ -72,9 +72,9 @@ data:
   config: |
     DB_USER=
     DB_PASSWORD=
-    DB_HOST=
+    DB_HOST=tekton-results-postgres-service.tekton-pipelines.svc.cluster.local
     DB_PORT=5432
-    DB_NAME=
+    DB_NAME=tekton-results
     DB_SSLMODE=disable
     DB_ENABLE_AUTO_MIGRATION=true
     SERVER_PORT=8080
