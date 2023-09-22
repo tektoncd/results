@@ -89,10 +89,9 @@ func setConfig() error {
 			return err
 		}
 	} else {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return nil
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return err
 		}
-		return err
 	}
 
 	// Flags should override other values.
