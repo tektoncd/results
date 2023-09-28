@@ -343,6 +343,8 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 
 func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, logName string) error {
 	logger := logging.FromContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	logsClient, err := r.resultsClient.UpdateLog(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create UpdateLog client: %v", err)
