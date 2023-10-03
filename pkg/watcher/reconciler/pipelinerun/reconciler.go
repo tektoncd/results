@@ -59,18 +59,19 @@ var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
 // Reconcile makes new watcher reconcile cycle to handle PipelineRun.
 func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "PipelineRun"))
-	logger.Info("Reconciling PipelineRun")
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		logger.Errorf("invalid resource key: %s", key)
+		logger.Errorf("Invalid resource key provided: %s. Skipping reconciliation.", key)
 		return nil
 	}
 
 	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		logger.Debug("Skipping PipelineRun key because this instance isn't its leader")
+		logger.Debugf("Instance is not the leader for PipelineRun '%s/%s', skipping reconciliation.", namespace, name)
 		return controller.NewSkipKey(key)
 	}
+
+	logger.Infof("Initiating reconciliation for PipelineRun '%s/%s'", namespace, name)
 
 	pr, err := r.pipelineRunLister.PipelineRuns(namespace).Get(name)
 	if err != nil {
@@ -117,13 +118,13 @@ func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Contex
 					// Let's assume that the TaskRun in
 					// question is gone and therefore, we
 					// can safely ignore it.
-					logger.Debugf("TaskRun %s/%s is no longer available - ignoring", pipelineRun.Namespace, reference.Name)
+					logger.Debugf("TaskRun %s/%s associated with PipelineRun %s is no longer available. Skipping.", pipelineRun.Namespace, reference.Name, pipelineRun.Name)
 					continue
 				}
 				return false, fmt.Errorf("error reading TaskRun from the indexer: %w", err)
 			}
 			if !isMarkedAsReadyForDeletion(taskRun) {
-				logger.Debugf("TaskRun %s/%s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, resultsannotation.ChildReadyForDeletion)
+				logger.Debugf("TaskRun %s/%s associated with PipelineRun %s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, pipelineRun.Name, resultsannotation.ChildReadyForDeletion)
 				return false, nil
 			}
 		}
@@ -138,13 +139,13 @@ func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Contex
 					// Let's assume that the TaskRun in
 					// question is gone and therefore, we
 					// can safely ignore it.
-					logger.Debugf("TaskRun %s/%s is no longer available - ignoring", pipelineRun.Namespace, taskRunName)
+					logger.Debugf("TaskRun %s/%s associated with PipelineRun %s is no longer available. Skipping.", pipelineRun.Namespace, taskRunName, pipelineRun.Name)
 					continue
 				}
 				return false, fmt.Errorf("error reading TaskRun from the indexer: %w", err)
 			}
 			if !isMarkedAsReadyForDeletion(taskRun) {
-				logger.Debugf("TaskRun %s/%s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, resultsannotation.ChildReadyForDeletion)
+				logger.Debugf("TaskRun %s/%s associated with PipelineRun %s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRunName, pipelineRun.Name, resultsannotation.ChildReadyForDeletion)
 				return false, nil
 			}
 		}
