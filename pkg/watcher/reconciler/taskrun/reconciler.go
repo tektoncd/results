@@ -47,24 +47,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		logger.Errorf("invalid resource key: %s", key)
+		logger.Errorf("Received invalid resource key '%s', skipping reconciliation.", key)
 		return nil
 	}
 
 	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		logger.Debug("Skipping TaskRun key because this instance isn't its leader")
+		logger.Debugf("Instance is not the leader for TaskRun '%s/%s', skipping reconciliation.", namespace, name)
 		return controller.NewSkipKey(key)
 	}
 
-	logger.Info("Reconciling TaskRun")
+	logger.Infof("Initiating reconciliation for TaskRun '%s/%s'", namespace, name)
 
 	tr, err := r.lister.TaskRuns(namespace).Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Debug("Skipping key: object is no longer available")
+			logger.Debugf("TaskRun '%s/%s' is no longer available, skipping reconciliation.", namespace, name)
 			return controller.NewSkipKey(key)
 		}
-		return fmt.Errorf("error reading TaskRun from the indexer: %w", err)
+		return fmt.Errorf("error retrieving TaskRun '%s/%s' from indexer: %w", namespace, name, err)
 	}
 
 	taskRunClient := &dynamic.TaskRunClient{
