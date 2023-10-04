@@ -290,9 +290,11 @@ func (i *interpreter) interpretUnaryCallExpr(expr *exprpb.Expr_Call) error {
 	sqlOperator := unaryOperators[expr.GetFunction()]
 	i.query.WriteString(sqlOperator)
 	i.query.WriteString(space)
+	i.query.WriteString("(")
 	if err := i.interpretExpr(expr.Args[0]); err != nil {
 		return err
 	}
+	i.query.WriteString(")")
 	return nil
 }
 
@@ -316,8 +318,10 @@ func (i *interpreter) interpretBinaryCallExpr(expr *exprpb.Expr) error {
 
 	sqlOperator := binaryOperators[function]
 	if (i.isString(arg1) || i.isString(arg2)) && isAddOperator(function) {
-		sqlOperator = posgresqlConcatOperator
+		sqlOperator = postgresqlConcatOperator
 	}
+
+	i.query.WriteString("(")
 
 	if err := i.interpretExpr(arg1); err != nil {
 		return err
@@ -344,6 +348,7 @@ func (i *interpreter) interpretBinaryCallExpr(expr *exprpb.Expr) error {
 			return err
 		}
 	}
+	i.query.WriteString(")")
 
 	return nil
 }

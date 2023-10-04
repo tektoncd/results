@@ -119,7 +119,7 @@ func TestFilterBuild(t *testing.T) {
 
 		testDB.Statement.Build("WHERE")
 
-		want := "WHERE recordsummary_status = 1"
+		want := "WHERE (recordsummary_status = 1)"
 		if got := testDB.Statement.SQL.String(); want != got {
 			t.Errorf("Want %q, but got %q", want, got)
 		}
@@ -142,7 +142,7 @@ func TestFilterBuild(t *testing.T) {
 
 		testDB.Statement.Build("WHERE")
 
-		want := "WHERE parent = ? AND id = ? AND recordsummary_status <> 1"
+		want := "WHERE parent = ? AND id = ? AND (recordsummary_status <> 1)"
 		if got := testDB.Statement.SQL.String(); want != got {
 			t.Errorf("Want %q, but got %q", want, got)
 		}
