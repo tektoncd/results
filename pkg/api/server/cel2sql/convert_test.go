@@ -32,42 +32,42 @@ func TestConvertRecordExpressions(t *testing.T) {
 		{
 			name: "simple expression",
 			in:   `name == "foo"`,
-			want: "name = 'foo'",
+			want: "(name = 'foo')",
 		},
 		{
 			name: "select expression",
 			in:   `data.metadata.namespace == "default"`,
-			want: "(data->'metadata'->>'namespace') = 'default'",
+			want: "((data->'metadata'->>'namespace') = 'default')",
 		},
 		{
 			name: "type coercion with a dyn expression in the left hand side",
 			in:   `data.status.completionTime > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "(data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE",
+			want: "((data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
 		},
 		{
 			name: "type coercion with a dyn expression in the right hand side",
 			in:   `timestamp("2022/10/30T21:45:00.000Z") < data.status.completionTime`,
-			want: "'2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE < (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE",
+			want: "('2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE < (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE)",
 		},
 		{
 			name: "in operator",
 			in:   `data.metadata.namespace in ["foo", "bar"]`,
-			want: "(data->'metadata'->>'namespace') IN ('foo', 'bar')",
+			want: "((data->'metadata'->>'namespace') IN ('foo', 'bar'))",
 		},
 		{
 			name: "index operator",
 			in:   `data.metadata.labels["foo"] == "bar"`,
-			want: "(data->'metadata'->'labels'->>'foo') = 'bar'",
+			want: "((data->'metadata'->'labels'->>'foo') = 'bar')",
 		},
 		{
 			name: "concatenate strings",
 			in:   `name + "bar" == "foobar"`,
-			want: "CONCAT(name, 'bar') = 'foobar'",
+			want: "(CONCAT(name, 'bar') = 'foobar')",
 		},
 		{
 			name: "multiple concatenate strings",
 			in:   `name + "bar" + "baz" == "foobarbaz"`,
-			want: "CONCAT(name, 'bar', 'baz') = 'foobarbaz'",
+			want: "(CONCAT(name, 'bar', 'baz') = 'foobarbaz')",
 		},
 		{
 			name: "contains string function",
@@ -77,12 +77,12 @@ func TestConvertRecordExpressions(t *testing.T) {
 		{
 			name: "not contains string function",
 			in:   `!(data.metadata.annotations.contains("foo"))`,
-			want: "NOT POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0",
+			want: "NOT (POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0)",
 		},
 		{
 			name: "complex not expressions",
 			in:   `!(data.metadata.annotations.contains("foo")) && data.metadata.name.endsWith("bar")`,
-			want: "NOT POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0 AND (data->'metadata'->>'name') LIKE '%' || 'bar'",
+			want: "(NOT (POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0) AND (data->'metadata'->>'name') LIKE '%' || 'bar')",
 		},
 		{
 			name: "endsWith string function",
@@ -92,27 +92,27 @@ func TestConvertRecordExpressions(t *testing.T) {
 		{
 			name: "getDate function",
 			in:   `data.status.completionTime.getDate() == 2`,
-			want: "EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) = 2",
+			want: "(EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) = 2)",
 		},
 		{
 			name: "getDayOfMonth function",
 			in:   `data.status.completionTime.getDayOfMonth() == 2`,
-			want: "(EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) = 2",
+			want: "((EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) = 2)",
 		},
 		{
 			name: "getDayOfWeek function",
 			in:   `data.status.completionTime.getDayOfWeek() > 0`,
-			want: "EXTRACT(DOW FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) > 0",
+			want: "(EXTRACT(DOW FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) > 0)",
 		},
 		{
 			name: "getDayOfYear function",
 			in:   `data.status.completionTime.getDayOfYear() > 15`,
-			want: "(EXTRACT(DOY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) > 15",
+			want: "((EXTRACT(DOY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) > 15)",
 		},
 		{
 			name: "getFullYear function",
 			in:   `data.status.completionTime.getFullYear() >= 2022`,
-			want: "EXTRACT(YEAR FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) >= 2022",
+			want: "(EXTRACT(YEAR FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) >= 2022)",
 		},
 		{
 			name: "matches function",
@@ -127,22 +127,32 @@ func TestConvertRecordExpressions(t *testing.T) {
 		{
 			name: "data_type field",
 			in:   `data_type == PIPELINE_RUN`,
-			want: "type = 'tekton.dev/v1beta1.PipelineRun'",
+			want: "(type = 'tekton.dev/v1beta1.PipelineRun')",
 		},
 		{
 			name: "index operator with numeric argument in JSON arrays",
 			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data.status.conditions[0].status == "True"`,
-			want: "type = 'tekton.dev/v1beta1.TaskRun' AND (data->'status'->'conditions'->0->>'status') = 'True'",
+			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
 		},
 		{
 			name: "index operator as first operation in JSON object",
 			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data["status"].conditions[0].status == "True"`,
-			want: "type = 'tekton.dev/v1beta1.TaskRun' AND (data->'status'->'conditions'->0->>'status') = 'True'",
+			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
 		},
 		{
 			name: "index operator with string argument in JSON object",
 			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data.status["conditions"][0].status == "True"`,
-			want: "type = 'tekton.dev/v1beta1.TaskRun' AND (data->'status'->'conditions'->0->>'status') = 'True'",
+			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+		},
+		{
+			name: "complex expression with subgroups",
+			in:   `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz") || (data.metadata.name.startsWith("foo")))`,
+			want: `(((data->'metadata'->'annotations'->>'foo') = 'bar') AND NOT (((data->'metadata'->>'name') LIKE '%' || 'baz' OR (data->'metadata'->>'name') LIKE 'foo' || '%')))`,
+		},
+		{
+			name: "complex expression involving multiple subgroups and operators",
+			in:   `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz")) || (data.metadata.name.startsWith("foo") && data.metadata.name.contains("bar"))`,
+			want: `((((data->'metadata'->'annotations'->>'foo') = 'bar') AND NOT ((data->'metadata'->>'name') LIKE '%' || 'baz')) OR ((data->'metadata'->>'name') LIKE 'foo' || '%' AND POSITION('bar' IN (data->'metadata'->>'name')) <> 0))`,
 		},
 	}
 
@@ -179,7 +189,7 @@ func TestConvertResultExpressions(t *testing.T) {
 		{
 			name: "Result.Uid field",
 			in:   `uid == "foo"`,
-			want: "id = 'foo'",
+			want: "(id = 'foo')",
 		},
 		{
 			name: "Result.Annotations field",
@@ -199,37 +209,37 @@ func TestConvertResultExpressions(t *testing.T) {
 		{
 			name: "Result.CreateTime field",
 			in:   `create_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "created_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE",
+			want: "(created_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
 		},
 		{
 			name: "Result.UpdateTime field",
 			in:   `update_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "updated_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE",
+			want: "(updated_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
 		},
 		{
 			name: "Result.Summary.Record field",
 			in:   `summary.record == "foo/results/bar/records/baz"`,
-			want: "recordsummary_record = 'foo/results/bar/records/baz'",
+			want: "(recordsummary_record = 'foo/results/bar/records/baz')",
 		},
 		{
 			name: "Result.Summary.StartTime field",
 			in:   `summary.start_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "recordsummary_start_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE",
+			want: "(recordsummary_start_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
 		},
 		{
 			name: "comparison with the PIPELINE_RUN const value",
 			in:   `summary.type == PIPELINE_RUN`,
-			want: "recordsummary_type = 'tekton.dev/v1beta1.PipelineRun'",
+			want: "(recordsummary_type = 'tekton.dev/v1beta1.PipelineRun')",
 		},
 		{
 			name: "comparison with the TASK_RUN const value",
 			in:   `summary.type == TASK_RUN`,
-			want: "recordsummary_type = 'tekton.dev/v1beta1.TaskRun'",
+			want: "(recordsummary_type = 'tekton.dev/v1beta1.TaskRun')",
 		},
 		{
 			name: "RecordSummary_Status constants",
 			in:   `summary.status == CANCELLED || summary.status == TIMEOUT`,
-			want: "recordsummary_status = 4 OR recordsummary_status = 3",
+			want: "((recordsummary_status = 4) OR (recordsummary_status = 3))",
 		},
 		{
 			name: "Result.Summary.Annotations",
@@ -239,7 +249,7 @@ func TestConvertResultExpressions(t *testing.T) {
 		{
 			name: "not Result.Summary.Annotations",
 			in:   `!(summary.annotations["branch"] == "main")`,
-			want: `NOT recordsummary_annotations @> '{"branch":"main"}'::jsonb`,
+			want: `NOT (recordsummary_annotations @> '{"branch":"main"}'::jsonb)`,
 		},
 		{
 			name: "Result.Summary.Annotations",
@@ -249,7 +259,7 @@ func TestConvertResultExpressions(t *testing.T) {
 		{
 			name: "more complex expression",
 			in:   `summary.annotations["actor"] == "john-doe" && summary.annotations["branch"] == "feat/amazing" && summary.status == SUCCESS`,
-			want: `recordsummary_annotations @> '{"actor":"john-doe"}'::jsonb AND recordsummary_annotations @> '{"branch":"feat/amazing"}'::jsonb AND recordsummary_status = 1`,
+			want: `((recordsummary_annotations @> '{"actor":"john-doe"}'::jsonb AND recordsummary_annotations @> '{"branch":"feat/amazing"}'::jsonb) AND (recordsummary_status = 1))`,
 		},
 	}
 

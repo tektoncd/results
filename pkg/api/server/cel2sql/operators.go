@@ -39,7 +39,7 @@ var (
 		operators.Modulo:        "%",
 		operators.In:            "IN",
 	}
-	posgresqlConcatOperator = "||"
+	postgresqlConcatOperator = "||"
 )
 
 // isUnaryOperator returns true if the symbol in question is a CEL unary
