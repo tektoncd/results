@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	"google.golang.org/genproto/googleapis/api/httpbody"
+
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
@@ -19,8 +21,24 @@ func (m *mockGetLogServer) Send(log *pb.Log) error {
 	return err
 }
 
+type mockGetLogHTTPServer struct {
+	receivedData *bytes.Buffer
+}
+
+func (m *mockGetLogHTTPServer) Send(log *httpbody.HttpBody) error {
+	if m.receivedData == nil {
+		m.receivedData = &bytes.Buffer{}
+	}
+	_, err := m.receivedData.Write(log.GetData())
+	return err
+}
+
 func TestBufferedLog_Write(t *testing.T) {
 	sender := &mockGetLogServer{
+		receivedData: &bytes.Buffer{},
+	}
+
+	httpSender := &mockGetLogHTTPServer{
 		receivedData: &bytes.Buffer{},
 	}
 
@@ -28,6 +46,15 @@ func TestBufferedLog_Write(t *testing.T) {
 	size := 10
 	writer := NewBufferedWriter(sender, "test-result", size)
 	bytes, err := writer.Write([]byte(data))
+	if err != nil {
+		t.Errorf("failed to write bytes: %v", err)
+	}
+	if bytes != len(data) {
+		t.Errorf("writer should record %d bytes, but recorded %d", len(data), bytes)
+	}
+
+	writer = NewBufferedHTTPWriter(httpSender, "test-result", size)
+	bytes, err = writer.Write([]byte(data))
 	if err != nil {
 		t.Errorf("failed to write bytes: %v", err)
 	}
@@ -74,6 +101,11 @@ func TestBufferedLog_Flush(t *testing.T) {
 			sender := &mockGetLogServer{
 				receivedData: &bytes.Buffer{},
 			}
+
+			httpSender := &mockGetLogHTTPServer{
+				receivedData: &bytes.Buffer{},
+			}
+
 			writer := NewBufferedWriter(sender, "test-result", tc.size)
 			_, err := writer.Write([]byte(tc.data))
 			if err != nil {
@@ -86,6 +118,22 @@ func TestBufferedLog_Flush(t *testing.T) {
 			}
 
 			received := sender.receivedData.String()
+			if received != tc.data {
+				t.Errorf("expected to receive %q, but received %q", tc.data, received)
+			}
+
+			writer = NewBufferedHTTPWriter(httpSender, "test-result", tc.size)
+			_, err = writer.Write([]byte(tc.data))
+			if err != nil {
+				t.Errorf("failed to write bytes: %v", err)
+			}
+
+			_, err = writer.Flush()
+			if err != nil {
+				t.Error("failed to write remaining bytes")
+			}
+
+			received = sender.receivedData.String()
 			if received != tc.data {
 				t.Errorf("expected to receive %q, but received %q", tc.data, received)
 			}

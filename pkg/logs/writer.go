@@ -4,23 +4,29 @@ import (
 	"bytes"
 
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 )
 
 const (
 	// DefaultBufferSize is the default buffer size. This based on the recommended
 	// gRPC message size for streamed content, which ranges from 16 to 64 KiB. Choosing 32 KiB as a
 	// middle ground between the two.
-	DefaultBufferSize = 32 * 1024
+	DefaultBufferSize = 64 * 1024
 )
 
-// Sender is an interface that defines the contract for sending log data.
-type Sender interface {
-	Send(log *pb.Log) error
+// LogSender is an interface that defines the contract for sending log data.
+type LogSender interface {
+	Send(*pb.Log) error
+}
+
+// HTTPSender is an interface that defines the contract for sending log data in HTTP body.
+type HTTPSender interface {
+	Send(*httpbody.HttpBody) error
 }
 
 // BufferedLog is in memory buffered log sender.
 type BufferedLog struct {
-	sender Sender
+	sender any
 	name   string
 	size   int
 	buffer bytes.Buffer
@@ -29,10 +35,27 @@ type BufferedLog struct {
 // NewBufferedWriter returns an io.Writer that writes log chunk messages to the gRPC sender for the
 // named Tekton result. The chunk size determines the maximum size of a single sent message - if
 // less than zero, this defaults to DefaultBufferSize.
-func NewBufferedWriter(sender Sender, name string, size int) *BufferedLog {
+func NewBufferedWriter(sender LogSender, name string, size int) *BufferedLog {
 	if size < 1 {
 		size = DefaultBufferSize
 	}
+
+	return &BufferedLog{
+		sender: sender,
+		name:   name,
+		size:   size,
+		buffer: *bytes.NewBuffer(make([]byte, 0)),
+	}
+}
+
+// NewBufferedHTTPWriter returns an io.Writer that writes log chunk messages to the gRPC sender for the
+// named Tekton result. The chunk size determines the maximum size of a single sent message - if
+// less than zero, this defaults to DefaultBufferSize.
+func NewBufferedHTTPWriter(sender HTTPSender, name string, size int) *BufferedLog {
+	if size < 1 {
+		size = DefaultBufferSize
+	}
+
 	return &BufferedLog{
 		sender: sender,
 		name:   name,
@@ -86,11 +109,19 @@ func (w *BufferedLog) Flush() (int, error) {
 
 // sendBytes sends the provided byte array over gRPC.
 func (w *BufferedLog) sendBytes(p []byte) (int, error) {
-	log := &pb.Log{
-		Name: w.name,
-		Data: p,
+	var err error
+	switch t := w.sender.(type) {
+	case HTTPSender:
+		err = t.Send(&httpbody.HttpBody{
+			ContentType: "text/plain",
+			Data:        p,
+		})
+	case LogSender:
+		err = t.Send(&pb.Log{
+			Name: w.name,
+			Data: p,
+		})
 	}
-	err := w.sender.Send(log)
 	if err != nil {
 		return 0, err
 	}

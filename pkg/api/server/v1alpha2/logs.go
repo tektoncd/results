@@ -65,7 +65,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		return status.Error(codes.NotFound, "Log doesn't exist")
 	}
 
-	writer := logs.NewBufferedWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
+	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
 	if _, err = stream.WriteTo(writer); err != nil {
 		s.logger.Error(err)
 		return status.Error(codes.Internal, "Error streaming log")

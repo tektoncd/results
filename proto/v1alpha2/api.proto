@@ -24,6 +24,7 @@ import "google/api/client.proto";
 import "google/api/resource.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/api/httpbody.proto";
 
 option go_package = "github.com/tektoncd/results/proto/v1alpha2/results_go_proto";
 
@@ -94,7 +95,7 @@ service Results {
 }
 
 service Logs {
-  rpc GetLog(GetLogRequest) returns (stream Log) {
+  rpc GetLog(GetLogRequest) returns (stream google.api.HttpBody) {
     option (google.api.http) = {
       get: "/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/logs/*}"
     };
