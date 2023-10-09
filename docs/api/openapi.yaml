@@ -300,7 +300,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 description: ""
                 type: object
@@ -404,12 +404,12 @@ components:
     Log:
       description: Log is a chunk of a log.
       required:
-        - name
+        - contentType
         - data
       type: object
       properties:
-        name:
-          description: Resource name for the log.
+        contentType:
+          description: Resource content type header for the log.
           type: string
         data:
           format: byte

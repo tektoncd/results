@@ -460,3 +460,14 @@ Get list of records
   "nextPageToken": ""
 }
 ```
+
+### Get Log Response
+REST implementation of GetLog directly sends the bytes with content type "text/plain"
+```shell
+[prepare] 2023/10/09 11:30:04 Entrypoint initialization
+
+[hello] hello
+
+%!s(<nil>)
+
+```

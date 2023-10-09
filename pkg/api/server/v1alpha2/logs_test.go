@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/genproto/googleapis/api/httpbody"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db/pagination"
@@ -37,7 +39,7 @@ type mockGetLogServer struct {
 	receivedData *bytes.Buffer
 }
 
-func (m *mockGetLogServer) Send(chunk *pb.Log) error {
+func (m *mockGetLogServer) Send(chunk *httpbody.HttpBody) error {
 	if m.receivedData == nil {
 		m.receivedData = &bytes.Buffer{}
 	}
