@@ -16,6 +16,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -75,7 +76,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		impersonator, err = impersonation.NewImpersonation(md)
 		// Ignore ErrorNoImpersonationData errors. This means that the request does not have any
 		// impersonation headers and should be processed normally.
-		if err != nil && err != impersonation.ErrNoImpersonationData {
+		if err != nil && !errors.Is(err, impersonation.ErrNoImpersonationData) {
 			log.Println(err)
 			return status.Error(codes.Unauthenticated, "invalid impersonation data")
 		}
@@ -119,8 +120,8 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 
 		user := tr.Status.User.Username
 		UID := tr.Status.User.UID
-		groups := []string{"tekton.dev"}
-		extra := map[string]authzv1.ExtraValue{}
+		groups := tr.Status.User.Groups
+		extra := convertExtra[authnv1.ExtraValue](tr.Status.User.Extra)
 
 		// Check whether the authenticated user has permission to impersonate
 		if impersonator != nil {
@@ -134,7 +135,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 			user = userInfo.GetName()
 			UID = userInfo.GetUID()
 			groups = userInfo.GetGroups()
-			extra = convertExtra(userInfo.GetExtra())
+			extra = convertExtra[[]string](userInfo.GetExtra())
 		}
 
 		// Authorize the request by checking the RBAC permissions for the resource.
@@ -166,11 +167,11 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 	return status.Error(codes.Unauthenticated, retMsg)
 }
 
-// convertExtra converts the map[string][]string to map[string]ExtraValue for Subject Access Review.
-func convertExtra(extra map[string][]string) map[string]authzv1.ExtraValue {
+// convertExtra converts the map[string][]string or authnv1.ExtraValue to map[string]ExtraValue for Subject Access Review.
+func convertExtra[T []string | authnv1.ExtraValue](extra map[string]T) map[string]authzv1.ExtraValue {
 	var newExtra = make(map[string]authzv1.ExtraValue)
 	for key, value := range extra {
-		newExtra[key] = value
+		newExtra[key] = authzv1.ExtraValue(value)
 	}
 	return newExtra
 }

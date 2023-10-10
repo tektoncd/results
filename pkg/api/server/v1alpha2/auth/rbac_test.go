@@ -39,8 +39,22 @@ import (
 func TestRBAC(t *testing.T) {
 	// Map of users -> tokens. The 'authorized' user has full permissions.
 	users := map[string]string{
-		"authorized":   "a",
-		"unauthorized": "b",
+		"authorized":         "a",
+		"unauthorized":       "b",
+		"authorized-group":   "c",
+		"unauthorized-group": "d",
+		"authorized-extra":   "e",
+		"unauthorized-extra": "f",
+	}
+	// Map of users -> groups. The 'authorized' group has full permissions.
+	groups := map[string][]string{
+		"authorized-group":   {"authorized"},
+		"unauthorized-group": {"unauthorized"},
+	}
+	// Map of users -> extra. The 'authorized' scope has full permissions.
+	extra := map[string]map[string]authnv1.ExtraValue{
+		"authorized-extra":   {"scope": {"authorized", "stage"}},
+		"unauthorized-extra": {"scope": {"unauthorized", "stage"}},
 	}
 	k8s := fake.NewSimpleClientset()
 	k8s.PrependReactor("create", "tokenreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
@@ -51,6 +65,8 @@ func TestRBAC(t *testing.T) {
 					Authenticated: true,
 					User: authnv1.UserInfo{
 						Username: user,
+						Groups:   groups[user],
+						Extra:    extra[user],
 					},
 				}
 				return true, tr, nil
@@ -63,7 +79,7 @@ func TestRBAC(t *testing.T) {
 	})
 	k8s.PrependReactor("create", "subjectaccessreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
 		sar := action.(test.CreateActionImpl).Object.(*authzv1.SubjectAccessReview)
-		if sar.Spec.User == "authorized" || slices.Contains(sar.Spec.Groups, "authorized") {
+		if sar.Spec.User == "authorized" || slices.Contains(sar.Spec.Groups, "authorized") || slices.Contains(sar.Spec.Extra["scope"], "authorized") {
 			sar.Status = authzv1.SubjectAccessReviewStatus{
 				Allowed: true,
 			}
@@ -81,7 +97,6 @@ func TestRBAC(t *testing.T) {
 	record := "foo/results/bar/records/baz"
 	for _, tc := range []struct {
 		name             string
-		user             string
 		token            string
 		impersonateUser  string
 		impersonateGroup string
@@ -89,39 +104,53 @@ func TestRBAC(t *testing.T) {
 	}{
 		{
 			name:  "authorized user",
-			user:  "authorized",
 			token: users["authorized"],
 			want:  codes.OK,
 		},
 		{
 			name:  "unauthorized user",
-			user:  "unauthorized",
 			token: users["unauthorized"],
 			want:  codes.Unauthenticated,
 		},
 		{
+			name:  "authorized group",
+			token: users["authorized-group"],
+			want:  codes.OK,
+		},
+		{
+			name:  "unauthorized group",
+			token: users["unauthorized-group"],
+			want:  codes.Unauthenticated,
+		},
+		{
+			name:  "authorized extra",
+			token: users["authorized-extra"],
+			want:  codes.OK,
+		},
+		{
+			name:  "unauthorized extra",
+			token: users["unauthorized-extra"],
+			want:  codes.Unauthenticated,
+		},
+		{
 			name:  "unauthenticated user",
-			user:  "unauthenticated",
 			token: "",
 			want:  codes.Unauthenticated,
 		},
 		{
 			name:            "authorized impersonated user",
-			user:            "authorized",
 			token:           users["authorized"],
 			impersonateUser: "authorized",
 			want:            codes.OK,
 		},
 		{
 			name:            "unauthorized impersonated user",
-			user:            "authorized",
 			token:           users["authorized"],
 			impersonateUser: "unauthorized",
 			want:            codes.Unauthenticated,
 		},
 		{
 			name:             "authorized impersonated group",
-			user:             "authorized",
 			token:            users["authorized"],
 			impersonateUser:  "unauthorized",
 			impersonateGroup: "authorized",
@@ -129,7 +158,6 @@ func TestRBAC(t *testing.T) {
 		},
 		{
 			name:             "unauthorized impersonated group",
-			user:             "authorized",
 			token:            users["authorized"],
 			impersonateUser:  "unauthorized",
 			impersonateGroup: "unauthorized",
@@ -137,7 +165,7 @@ func TestRBAC(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// Simulates a oauth.TokenSource. We avoid using the real
+			// Simulates an oauth.TokenSource. We avoid using the real
 			// oauth.TokenSource here since it requires a higher SecurityLevel
 			// + TLS.
 			ctx := metadata.AppendToOutgoingContext(ctx, "authorization", fmt.Sprintf("Bearer %s", tc.token))
