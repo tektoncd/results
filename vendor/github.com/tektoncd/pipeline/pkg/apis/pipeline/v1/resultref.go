@@ -39,19 +39,26 @@ const (
 	objectResultExpressionFormat = "tasks.<taskName>.results.<objectResultName>.<individualAttribute>"
 	// ResultTaskPart Constant used to define the "tasks" part of a pipeline result reference
 	ResultTaskPart = "tasks"
-	// ResultFinallyPart Constant used to define the "finally" part of a task result reference
+	// ResultFinallyPart Constant used to define the "finally" part of a pipeline result reference
 	ResultFinallyPart = "finally"
 	// ResultResultPart Constant used to define the "results" part of a pipeline result reference
 	ResultResultPart = "results"
 	// TODO(#2462) use one regex across all substitutions
 	// variableSubstitutionFormat matches format like $result.resultname, $result.resultname[int] and $result.resultname[*]
 	variableSubstitutionFormat = `\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)`
+	// exactVariableSubstitutionFormat matches strings that only contain a single reference to result or param variables, but nothing else
+	// i.e. `$(result.resultname)` is a match, but `foo $(result.resultname)` is not.
+	exactVariableSubstitutionFormat = `^\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)$`
 	// arrayIndexing will match all `[int]` and `[*]` for parseExpression
 	arrayIndexing = `\[([0-9])*\*?\]`
+	// ResultNameFormat Constant used to define the regex Result.Name should follow
+	ResultNameFormat = `^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$`
 )
 
 // VariableSubstitutionRegex is a regex to find all result matching substitutions
 var VariableSubstitutionRegex = regexp.MustCompile(variableSubstitutionFormat)
+var exactVariableSubstitutionRegex = regexp.MustCompile(exactVariableSubstitutionFormat)
+var resultNameFormatRegex = regexp.MustCompile(ResultNameFormat)
 
 // arrayIndexingRegex is used to match `[int]` and `[*]`
 var arrayIndexingRegex = regexp.MustCompile(arrayIndexing)
@@ -96,41 +103,6 @@ func LooksLikeContainsResultRefs(expressions []string) bool {
 func looksLikeResultRef(expression string) bool {
 	subExpressions := strings.Split(expression, ".")
 	return len(subExpressions) >= 4 && (subExpressions[0] == ResultTaskPart || subExpressions[0] == ResultFinallyPart) && subExpressions[2] == ResultResultPart
-}
-
-// GetVarSubstitutionExpressionsForParam extracts all the value between "$(" and ")"" for a parameter
-func GetVarSubstitutionExpressionsForParam(param Param) ([]string, bool) {
-	var allExpressions []string
-	switch param.Value.Type {
-	case ParamTypeArray:
-		// array type
-		for _, value := range param.Value.ArrayVal {
-			allExpressions = append(allExpressions, validateString(value)...)
-		}
-	case ParamTypeString:
-		// string type
-		allExpressions = append(allExpressions, validateString(param.Value.StringVal)...)
-	case ParamTypeObject:
-		// object type
-		for _, value := range param.Value.ObjectVal {
-			allExpressions = append(allExpressions, validateString(value)...)
-		}
-	default:
-		return nil, false
-	}
-	return allExpressions, len(allExpressions) != 0
-}
-
-// GetVarSubstitutionExpressionsForPipelineResult extracts all the value between "$(" and ")"" for a pipeline result
-func GetVarSubstitutionExpressionsForPipelineResult(result PipelineResult) ([]string, bool) {
-	allExpressions := validateString(result.Value.StringVal)
-	for _, v := range result.Value.ArrayVal {
-		allExpressions = append(allExpressions, validateString(v)...)
-	}
-	for _, v := range result.Value.ObjectVal {
-		allExpressions = append(allExpressions, validateString(v)...)
-	}
-	return allExpressions, len(allExpressions) != 0
 }
 
 func validateString(value string) []string {
@@ -180,7 +152,7 @@ func parseExpression(substitutionExpression string) (string, string, int, string
 			return subExpressions[1], subExpressions[3], 0, subExpressions[4], nil
 		}
 	}
-	return "", "", 0, "", fmt.Errorf("Must be one of the form 1). %q; 2). %q", resultExpressionFormat, objectResultExpressionFormat)
+	return "", "", 0, "", fmt.Errorf("must be one of the form 1). %q; 2). %q", resultExpressionFormat, objectResultExpressionFormat)
 }
 
 // ParseResultName parse the input string to extract resultName and result index.
@@ -200,19 +172,13 @@ func ParseResultName(resultName string) (string, string) {
 // in a PipelineTask and returns a list of any references that are found.
 func PipelineTaskResultRefs(pt *PipelineTask) []*ResultRef {
 	refs := []*ResultRef{}
-	var matrixParams []Param
-	if pt.IsMatrixed() {
-		matrixParams = pt.Matrix.Params
-	}
-	for _, p := range append(pt.Params, matrixParams...) {
-		expressions, _ := GetVarSubstitutionExpressionsForParam(p)
+	for _, p := range pt.extractAllParams() {
+		expressions, _ := p.GetVarSubstitutionExpressions()
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
 	for _, whenExpression := range pt.When {
 		expressions, _ := whenExpression.GetVarSubstitutionExpressions()
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
 	return refs
 }
