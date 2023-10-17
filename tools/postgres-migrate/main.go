@@ -183,7 +183,7 @@ func convertRecord(r *db.Record) error {
 	//   for more details). We handle this by stripping out the problematic fields,
 	//   converting the type, then resetting the fields later.
 	var gen, observedGen int64
-	var wantType interface{}
+	var wantType any
 	switch m := out.(type) {
 	case *pb.TaskRun:
 		r.Type = "tekton.dev/v1beta1.TaskRun"
@@ -203,7 +203,7 @@ func convertRecord(r *db.Record) error {
 		m.Status.ObservedGeneration = 0
 	default:
 		r.Type = any.TypeUrl
-		wantType = map[string]interface{}{}
+		wantType = map[string]any{}
 	}
 
 	// Sanity check that the converted JSON can be safely marshalled into

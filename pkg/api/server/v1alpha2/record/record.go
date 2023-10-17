@@ -144,14 +144,14 @@ func Match(r *pb.Record, prg cel.Program) (bool, error) {
 		return false, nil
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if d := r.GetData().GetValue(); d != nil {
 		if err := json.Unmarshal(r.GetData().GetValue(), &m); err != nil {
 			return false, err
 		}
 	}
 
-	return resultscel.Match(prg, map[string]interface{}{
+	return resultscel.Match(prg, map[string]any{
 		"name":      r.GetName(),
 		"data_type": r.GetData().GetType(),
 		"data":      m,

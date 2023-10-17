@@ -60,16 +60,16 @@ func ParseFilter(env *cel.Env, filter string) (cel.Program, error) {
 // allowAll is a CEL program implementation that always returns true.
 type allowAll struct{}
 
-func (allowAll) ContextEval(context.Context, interface{}) (ref.Val, *cel.EvalDetails, error) {
+func (allowAll) ContextEval(context.Context, any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
 
-func (allowAll) Eval(interface{}) (ref.Val, *cel.EvalDetails, error) {
+func (allowAll) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
 }
 
 // Match determines whether the given CEL filter matches the result.
-func Match(prg cel.Program, data map[string]interface{}) (bool, error) {
+func Match(prg cel.Program, data map[string]any) (bool, error) {
 	if prg == nil {
 		return true, nil
 	}

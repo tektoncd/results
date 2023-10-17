@@ -65,6 +65,6 @@ type testLogger struct {
 	t *testing.T
 }
 
-func (t *testLogger) Printf(format string, args ...interface{}) {
+func (t *testLogger) Printf(format string, args ...any) {
 	t.t.Logf(format, args...)
 }

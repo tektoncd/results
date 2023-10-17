@@ -314,7 +314,7 @@ func TestMigrate(t *testing.T) {
 	})
 }
 
-func clearDB(db *gorm.DB, types ...interface{}) error {
+func clearDB(db *gorm.DB, types ...any) error {
 	for _, t := range types {
 		out := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(t)
 		if out.Error != nil {
@@ -342,8 +342,8 @@ func protodata(t *testing.T, m proto.Message) []byte {
 	return b
 }
 
-func jsondata(t *testing.T, i interface{}) []byte {
-	b, err := json.Marshal(i)
+func jsondata(t *testing.T, v any) []byte {
+	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatalf("error marshinalling json: %v", err)
 	}

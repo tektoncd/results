@@ -155,7 +155,7 @@ func Match(r *pb.Result, prg cel.Program) (bool, error) {
 	if r == nil {
 		return false, nil
 	}
-	return resultscel.Match(prg, map[string]interface{}{
+	return resultscel.Match(prg, map[string]any{
 		"result": r,
 	})
 }
