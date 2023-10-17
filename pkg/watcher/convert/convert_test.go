@@ -311,8 +311,8 @@ func TestToProto(t *testing.T) {
 
 }
 
-func toJSON(i interface{}) []byte {
-	b, err := json.Marshal(i)
+func toJSON(v any) []byte {
+	b, err := json.Marshal(v)
 	if err != nil {
 		panic(fmt.Sprintf("error marshalling json: %v", err))
 	}

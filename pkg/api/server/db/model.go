@@ -83,7 +83,7 @@ type Annotations map[string]string
 
 // Scan resolves serialized data read from database into an Annotation.
 // This implements the sql.Scanner interface.
-func (ann *Annotations) Scan(value interface{}) error {
+func (ann *Annotations) Scan(value any) error {
 	if ann == nil {
 		return errors.New("the annotation pointer mustn't be nil")
 	}
