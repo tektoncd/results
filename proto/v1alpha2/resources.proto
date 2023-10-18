@@ -19,6 +19,7 @@ package tekton.results.v1alpha2;
 import "google/api/field_behavior.proto";
 import "google/api/resource.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "github.com/tektoncd/results/proto/v1alpha2/results_go_proto";
 
@@ -177,18 +178,9 @@ message LogSummary {
   int64 bytesReceived = 2;
 }
 
-message Summary {
-  // The query that was used to generate this summary
-  string query = 1;
-
-  // The criteria for grouping
-  string group_by = 2;
-
-  // The aggregated results of the query. It is a map of the form "group-name" : <map-of-aggregations>
-  // for a non grouped response it is "default": <map-of-aggregations>
-  map<string, Aggregations> data = 3;
+// RecordListSummary is an array of summaries where each summary represents a grouped aggreagtion.
+message RecordListSummary {
+  repeated google.protobuf.Struct summary = 1;
 }
 
-message Aggregations {
-  map<string, string> aggregations = 1;
-}
+

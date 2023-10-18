@@ -23,6 +23,8 @@ const (
 	ResourceRecords = "records"
 	// ResourceLogs - api logs resource name
 	ResourceLogs = "logs"
+	// ResourceSummary - api summary
+	ResourceSummary = "summary"
 
 	// PermissionCreate - permission name to "create" resource
 	PermissionCreate = "create"
