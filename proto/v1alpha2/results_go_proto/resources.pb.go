@@ -647,6 +647,120 @@ func (x *LogSummary) GetBytesReceived() int64 {
 	return 0
 }
 
+type Summary struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The query that was used to generate this summary
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	// The criteria for grouping
+	GroupBy string `protobuf:"bytes,2,opt,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
+	// The aggregated results of the query. It is a map of the form "group-name" : <map-of-aggregations>
+	// for a non grouped response it is "default": <map-of-aggregations>
+	Data map[string]*Aggregations `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *Summary) Reset() {
+	*x = Summary{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_resources_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Summary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Summary) ProtoMessage() {}
+
+func (x *Summary) ProtoReflect() protoreflect.Message {
+	mi := &file_resources_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Summary.ProtoReflect.Descriptor instead.
+func (*Summary) Descriptor() ([]byte, []int) {
+	return file_resources_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Summary) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *Summary) GetGroupBy() string {
+	if x != nil {
+		return x.GroupBy
+	}
+	return ""
+}
+
+func (x *Summary) GetData() map[string]*Aggregations {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type Aggregations struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Aggregations map[string]string `protobuf:"bytes,1,rep,name=aggregations,proto3" json:"aggregations,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *Aggregations) Reset() {
+	*x = Aggregations{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_resources_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Aggregations) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Aggregations) ProtoMessage() {}
+
+func (x *Aggregations) ProtoReflect() protoreflect.Message {
+	mi := &file_resources_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Aggregations.ProtoReflect.Descriptor instead.
+func (*Aggregations) Descriptor() ([]byte, []int) {
+	return file_resources_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Aggregations) GetAggregations() map[string]string {
+	if x != nil {
+		return x.Aggregations
+	}
+	return nil
+}
+
 var File_resources_proto protoreflect.FileDescriptor
 
 var file_resources_proto_rawDesc = []byte{
@@ -772,12 +886,36 @@ var file_resources_proto_rawDesc = []byte{
 	0x6b, 0x74, 0x6f, 0x6e, 0x2e, 0x64, 0x65, 0x76, 0x2f, 0x52, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x52,
 	0x06, 0x72, 0x65, 0x63, 0x6f, 0x72, 0x64, 0x12, 0x24, 0x0a, 0x0d, 0x62, 0x79, 0x74, 0x65, 0x73,
 	0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0d,
-	0x62, 0x79, 0x74, 0x65, 0x73, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x64, 0x42, 0x3d, 0x5a,
-	0x3b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74, 0x65, 0x6b, 0x74,
-	0x6f, 0x6e, 0x63, 0x64, 0x2f, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x2f, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2f, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x32, 0x2f, 0x72, 0x65, 0x73, 0x75,
-	0x6c, 0x74, 0x73, 0x5f, 0x67, 0x6f, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x62, 0x79, 0x74, 0x65, 0x73, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x64, 0x22, 0xda, 0x01,
+	0x0a, 0x07, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x71, 0x75, 0x65,
+	0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x71, 0x75, 0x65, 0x72, 0x79, 0x12,
+	0x19, 0x0a, 0x08, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x5f, 0x62, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x07, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x42, 0x79, 0x12, 0x3e, 0x0a, 0x04, 0x64, 0x61,
+	0x74, 0x61, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2a, 0x2e, 0x74, 0x65, 0x6b, 0x74, 0x6f,
+	0x6e, 0x2e, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68,
+	0x61, 0x32, 0x2e, 0x53, 0x75, 0x6d, 0x6d, 0x61, 0x72, 0x79, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x45,
+	0x6e, 0x74, 0x72, 0x79, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x1a, 0x5e, 0x0a, 0x09, 0x44, 0x61,
+	0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x3b, 0x0a, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x25, 0x2e, 0x74, 0x65, 0x6b, 0x74, 0x6f,
+	0x6e, 0x2e, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68,
+	0x61, 0x32, 0x2e, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x52,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0xac, 0x01, 0x0a, 0x0c, 0x41,
+	0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x5b, 0x0a, 0x0c, 0x61,
+	0x67, 0x67, 0x72, 0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x37, 0x2e, 0x74, 0x65, 0x6b, 0x74, 0x6f, 0x6e, 0x2e, 0x72, 0x65, 0x73, 0x75, 0x6c,
+	0x74, 0x73, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x32, 0x2e, 0x41, 0x67, 0x67, 0x72,
+	0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x41, 0x67, 0x67, 0x72, 0x65, 0x67, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0c, 0x61, 0x67, 0x67, 0x72,
+	0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x1a, 0x3f, 0x0a, 0x11, 0x41, 0x67, 0x67, 0x72,
+	0x65, 0x67, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a,
+	0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12,
+	0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x3d, 0x5a, 0x3b, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x74, 0x65, 0x6b, 0x74, 0x6f, 0x6e, 0x63, 0x64,
+	0x2f, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76,
+	0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x32, 0x2f, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x5f,
+	0x67, 0x6f, 0x5f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -793,7 +931,7 @@ func file_resources_proto_rawDescGZIP() []byte {
 }
 
 var file_resources_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_resources_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_resources_proto_goTypes = []interface{}{
 	(RecordSummary_Status)(0),     // 0: tekton.results.v1alpha2.RecordSummary.Status
 	(*Result)(nil),                // 1: tekton.results.v1alpha2.Result
@@ -802,31 +940,38 @@ var file_resources_proto_goTypes = []interface{}{
 	(*RecordSummary)(nil),         // 4: tekton.results.v1alpha2.RecordSummary
 	(*Log)(nil),                   // 5: tekton.results.v1alpha2.Log
 	(*LogSummary)(nil),            // 6: tekton.results.v1alpha2.LogSummary
-	nil,                           // 7: tekton.results.v1alpha2.Result.AnnotationsEntry
-	nil,                           // 8: tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*Summary)(nil),               // 7: tekton.results.v1alpha2.Summary
+	(*Aggregations)(nil),          // 8: tekton.results.v1alpha2.Aggregations
+	nil,                           // 9: tekton.results.v1alpha2.Result.AnnotationsEntry
+	nil,                           // 10: tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
+	nil,                           // 11: tekton.results.v1alpha2.Summary.DataEntry
+	nil,                           // 12: tekton.results.v1alpha2.Aggregations.AggregationsEntry
+	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
 }
 var file_resources_proto_depIdxs = []int32{
-	9,  // 0: tekton.results.v1alpha2.Result.created_time:type_name -> google.protobuf.Timestamp
-	9,  // 1: tekton.results.v1alpha2.Result.create_time:type_name -> google.protobuf.Timestamp
-	9,  // 2: tekton.results.v1alpha2.Result.updated_time:type_name -> google.protobuf.Timestamp
-	9,  // 3: tekton.results.v1alpha2.Result.update_time:type_name -> google.protobuf.Timestamp
-	7,  // 4: tekton.results.v1alpha2.Result.annotations:type_name -> tekton.results.v1alpha2.Result.AnnotationsEntry
+	13, // 0: tekton.results.v1alpha2.Result.created_time:type_name -> google.protobuf.Timestamp
+	13, // 1: tekton.results.v1alpha2.Result.create_time:type_name -> google.protobuf.Timestamp
+	13, // 2: tekton.results.v1alpha2.Result.updated_time:type_name -> google.protobuf.Timestamp
+	13, // 3: tekton.results.v1alpha2.Result.update_time:type_name -> google.protobuf.Timestamp
+	9,  // 4: tekton.results.v1alpha2.Result.annotations:type_name -> tekton.results.v1alpha2.Result.AnnotationsEntry
 	4,  // 5: tekton.results.v1alpha2.Result.summary:type_name -> tekton.results.v1alpha2.RecordSummary
 	3,  // 6: tekton.results.v1alpha2.Record.data:type_name -> tekton.results.v1alpha2.Any
-	9,  // 7: tekton.results.v1alpha2.Record.created_time:type_name -> google.protobuf.Timestamp
-	9,  // 8: tekton.results.v1alpha2.Record.create_time:type_name -> google.protobuf.Timestamp
-	9,  // 9: tekton.results.v1alpha2.Record.updated_time:type_name -> google.protobuf.Timestamp
-	9,  // 10: tekton.results.v1alpha2.Record.update_time:type_name -> google.protobuf.Timestamp
-	9,  // 11: tekton.results.v1alpha2.RecordSummary.start_time:type_name -> google.protobuf.Timestamp
-	9,  // 12: tekton.results.v1alpha2.RecordSummary.end_time:type_name -> google.protobuf.Timestamp
+	13, // 7: tekton.results.v1alpha2.Record.created_time:type_name -> google.protobuf.Timestamp
+	13, // 8: tekton.results.v1alpha2.Record.create_time:type_name -> google.protobuf.Timestamp
+	13, // 9: tekton.results.v1alpha2.Record.updated_time:type_name -> google.protobuf.Timestamp
+	13, // 10: tekton.results.v1alpha2.Record.update_time:type_name -> google.protobuf.Timestamp
+	13, // 11: tekton.results.v1alpha2.RecordSummary.start_time:type_name -> google.protobuf.Timestamp
+	13, // 12: tekton.results.v1alpha2.RecordSummary.end_time:type_name -> google.protobuf.Timestamp
 	0,  // 13: tekton.results.v1alpha2.RecordSummary.status:type_name -> tekton.results.v1alpha2.RecordSummary.Status
-	8,  // 14: tekton.results.v1alpha2.RecordSummary.annotations:type_name -> tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	10, // 14: tekton.results.v1alpha2.RecordSummary.annotations:type_name -> tekton.results.v1alpha2.RecordSummary.AnnotationsEntry
+	11, // 15: tekton.results.v1alpha2.Summary.data:type_name -> tekton.results.v1alpha2.Summary.DataEntry
+	12, // 16: tekton.results.v1alpha2.Aggregations.aggregations:type_name -> tekton.results.v1alpha2.Aggregations.AggregationsEntry
+	8,  // 17: tekton.results.v1alpha2.Summary.DataEntry.value:type_name -> tekton.results.v1alpha2.Aggregations
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_resources_proto_init() }
@@ -907,6 +1052,30 @@ func file_resources_proto_init() {
 				return nil
 			}
 		}
+		file_resources_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Summary); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_resources_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Aggregations); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -914,7 +1083,7 @@ func file_resources_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_resources_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

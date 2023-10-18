@@ -176,3 +176,19 @@ message LogSummary {
   // Number of bytes received while streaming
   int64 bytesReceived = 2;
 }
+
+message Summary {
+  // The query that was used to generate this summary
+  string query = 1;
+
+  // The criteria for grouping
+  string group_by = 2;
+
+  // The aggregated results of the query. It is a map of the form "group-name" : <map-of-aggregations>
+  // for a non grouped response it is "default": <map-of-aggregations>
+  map<string, Aggregations> data = 3;
+}
+
+message Aggregations {
+  map<string, string> aggregations = 1;
+}

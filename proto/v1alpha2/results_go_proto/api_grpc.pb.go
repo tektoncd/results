@@ -35,16 +35,18 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Results_CreateResult_FullMethodName = "/tekton.results.v1alpha2.Results/CreateResult"
-	Results_UpdateResult_FullMethodName = "/tekton.results.v1alpha2.Results/UpdateResult"
-	Results_GetResult_FullMethodName    = "/tekton.results.v1alpha2.Results/GetResult"
-	Results_DeleteResult_FullMethodName = "/tekton.results.v1alpha2.Results/DeleteResult"
-	Results_ListResults_FullMethodName  = "/tekton.results.v1alpha2.Results/ListResults"
-	Results_CreateRecord_FullMethodName = "/tekton.results.v1alpha2.Results/CreateRecord"
-	Results_UpdateRecord_FullMethodName = "/tekton.results.v1alpha2.Results/UpdateRecord"
-	Results_GetRecord_FullMethodName    = "/tekton.results.v1alpha2.Results/GetRecord"
-	Results_ListRecords_FullMethodName  = "/tekton.results.v1alpha2.Results/ListRecords"
-	Results_DeleteRecord_FullMethodName = "/tekton.results.v1alpha2.Results/DeleteRecord"
+	Results_CreateResult_FullMethodName          = "/tekton.results.v1alpha2.Results/CreateResult"
+	Results_UpdateResult_FullMethodName          = "/tekton.results.v1alpha2.Results/UpdateResult"
+	Results_GetResult_FullMethodName             = "/tekton.results.v1alpha2.Results/GetResult"
+	Results_DeleteResult_FullMethodName          = "/tekton.results.v1alpha2.Results/DeleteResult"
+	Results_ListResults_FullMethodName           = "/tekton.results.v1alpha2.Results/ListResults"
+	Results_CreateRecord_FullMethodName          = "/tekton.results.v1alpha2.Results/CreateRecord"
+	Results_UpdateRecord_FullMethodName          = "/tekton.results.v1alpha2.Results/UpdateRecord"
+	Results_GetRecord_FullMethodName             = "/tekton.results.v1alpha2.Results/GetRecord"
+	Results_ListRecords_FullMethodName           = "/tekton.results.v1alpha2.Results/ListRecords"
+	Results_DeleteRecord_FullMethodName          = "/tekton.results.v1alpha2.Results/DeleteRecord"
+	Results_GetResultSummary_FullMethodName      = "/tekton.results.v1alpha2.Results/GetResultSummary"
+	Results_GetResultsListSummary_FullMethodName = "/tekton.results.v1alpha2.Results/GetResultsListSummary"
 )
 
 // ResultsClient is the client API for Results service.
@@ -61,6 +63,8 @@ type ResultsClient interface {
 	GetRecord(ctx context.Context, in *GetRecordRequest, opts ...grpc.CallOption) (*Record, error)
 	ListRecords(ctx context.Context, in *ListRecordsRequest, opts ...grpc.CallOption) (*ListRecordsResponse, error)
 	DeleteRecord(ctx context.Context, in *DeleteRecordRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetResultSummary(ctx context.Context, in *GetResultRequest, opts ...grpc.CallOption) (*Summary, error)
+	GetResultsListSummary(ctx context.Context, in *ResultListSummaryRequest, opts ...grpc.CallOption) (*Summary, error)
 }
 
 type resultsClient struct {
@@ -161,6 +165,24 @@ func (c *resultsClient) DeleteRecord(ctx context.Context, in *DeleteRecordReques
 	return out, nil
 }
 
+func (c *resultsClient) GetResultSummary(ctx context.Context, in *GetResultRequest, opts ...grpc.CallOption) (*Summary, error) {
+	out := new(Summary)
+	err := c.cc.Invoke(ctx, Results_GetResultSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *resultsClient) GetResultsListSummary(ctx context.Context, in *ResultListSummaryRequest, opts ...grpc.CallOption) (*Summary, error) {
+	out := new(Summary)
+	err := c.cc.Invoke(ctx, Results_GetResultsListSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ResultsServer is the server API for Results service.
 // All implementations must embed UnimplementedResultsServer
 // for forward compatibility
@@ -175,6 +197,8 @@ type ResultsServer interface {
 	GetRecord(context.Context, *GetRecordRequest) (*Record, error)
 	ListRecords(context.Context, *ListRecordsRequest) (*ListRecordsResponse, error)
 	DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error)
+	GetResultSummary(context.Context, *GetResultRequest) (*Summary, error)
+	GetResultsListSummary(context.Context, *ResultListSummaryRequest) (*Summary, error)
 	mustEmbedUnimplementedResultsServer()
 }
 
@@ -211,6 +235,12 @@ func (UnimplementedResultsServer) ListRecords(context.Context, *ListRecordsReque
 }
 func (UnimplementedResultsServer) DeleteRecord(context.Context, *DeleteRecordRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRecord not implemented")
+}
+func (UnimplementedResultsServer) GetResultSummary(context.Context, *GetResultRequest) (*Summary, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetResultSummary not implemented")
+}
+func (UnimplementedResultsServer) GetResultsListSummary(context.Context, *ResultListSummaryRequest) (*Summary, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetResultsListSummary not implemented")
 }
 func (UnimplementedResultsServer) mustEmbedUnimplementedResultsServer() {}
 
@@ -405,6 +435,42 @@ func _Results_DeleteRecord_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Results_GetResultSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetResultRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResultsServer).GetResultSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Results_GetResultSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResultsServer).GetResultSummary(ctx, req.(*GetResultRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Results_GetResultsListSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResultListSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ResultsServer).GetResultsListSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Results_GetResultsListSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ResultsServer).GetResultsListSummary(ctx, req.(*ResultListSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Results_ServiceDesc is the grpc.ServiceDesc for Results service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -451,6 +517,14 @@ var Results_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRecord",
 			Handler:    _Results_DeleteRecord_Handler,
+		},
+		{
+			MethodName: "GetResultSummary",
+			Handler:    _Results_GetResultSummary_Handler,
+		},
+		{
+			MethodName: "GetResultsListSummary",
+			Handler:    _Results_GetResultsListSummary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
