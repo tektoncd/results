@@ -93,15 +93,9 @@ service Results {
     };
   }
 
-  rpc GetResultSummary(GetResultRequest) returns (Summary) {
+  rpc GetRecordListSummary(RecordListSummaryRequest) returns (RecordListSummary) {
     option (google.api.http) = {
-      get: "/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*}/summary"
-    };
-  }
-
-  rpc GetResultsListSummary(ResultListSummaryRequest) returns (Summary) {
-    option (google.api.http) = {
-      get: "/apis/results.tekton.dev/v1alpha2/parents/{parent=*}/results/summary"
+      get: "/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/records/summary"
     };
   }
 }
@@ -175,16 +169,15 @@ message GetResultRequest {
     }];
 }
 
-message ResultListSummaryRequest {
+message RecordListSummaryRequest {
   string parent = 1 [
-    (google.api.field_behavior) = REQUIRED,
-    (google.api.resource_reference) = {
-      child_type: "tekton.results.v1alpha2/Result"
-    }];
+    (google.api.field_behavior) = REQUIRED
+    ];
 
-  string filter = 2;
-
-  string group_by = 3;
+  string summary = 2;
+  string filter = 3;
+  string group_by = 4;
+  string order_by = 5;
 }
 
 message ListResultsRequest {
