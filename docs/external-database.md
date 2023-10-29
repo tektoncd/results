@@ -100,7 +100,7 @@ in the `tekton-pipelines` namespace and containing `POSTGRES_USER` and
 
  ```sh
  kubectl create secret generic tekton-results-postgres \
-  --namespace="tekton-pieplines" \
+  --namespace="tekton-pipelines" \
   --from-literal=POSTGRES_USER=<your-db-username> \
   --from-literal=POSTGRES_PASSWORD=<your-db-password>
  ```
