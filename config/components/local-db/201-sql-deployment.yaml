@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: bitnami/postgresql@sha256:23b9a21460fefdd83accd0f864e734c88bebc67c86ee752a97b77dd4843907f0  # 13.3.0
+        image: bitnami/postgresql@sha256:35c57c2abb3775004d4a247b1119b2e436b0ef620c9236c64aebce373b58ff9a # 13.12.0
         envFrom:
           - configMapRef:
               name: tekton-results-postgres
