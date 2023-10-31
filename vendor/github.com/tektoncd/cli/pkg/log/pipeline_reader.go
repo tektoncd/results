@@ -19,19 +19,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tektoncd/cli/pkg/pipeline"
-	"github.com/tektoncd/cli/pkg/pipelinerun"
-	trh "github.com/tektoncd/cli/pkg/taskrun"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/cli/pkg/actions"
+	pipelinepkg "github.com/tektoncd/cli/pkg/pipeline"
+	pipelinerunpkg "github.com/tektoncd/cli/pkg/pipelinerun"
+	taskrunpkg "github.com/tektoncd/cli/pkg/taskrun"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 func (r *Reader) readPipelineLog() (<-chan Log, <-chan error, error) {
-	pr, err := pipelinerun.Get(r.clients, r.run, metav1.GetOptions{}, r.ns)
+	pr, err := pipelinerunpkg.GetPipelineRun(pipelineRunGroupResource, r.clients, r.run, r.ns)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -42,7 +43,7 @@ func (r *Reader) readPipelineLog() (<-chan Log, <-chan error, error) {
 	return r.readAvailablePipelineLogs(pr)
 }
 
-func (r *Reader) readLivePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log, <-chan error, error) {
+func (r *Reader) readLivePipelineLogs(pr *v1.PipelineRun) (<-chan Log, <-chan error, error) {
 	logC := make(chan Log)
 	errC := make(chan error)
 
@@ -50,7 +51,7 @@ func (r *Reader) readLivePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log, <-ch
 		defer close(logC)
 		defer close(errC)
 
-		prTracker := pipelinerun.NewTracker(pr.Name, r.ns, r.clients.Tekton)
+		prTracker := pipelinerunpkg.NewTracker(pr.Name, r.ns, r.clients)
 		trC := prTracker.Monitor(r.tasks)
 
 		wg := sync.WaitGroup{}
@@ -62,12 +63,12 @@ func (r *Reader) readLivePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log, <-ch
 			for _, run := range trs {
 				taskIndex++
 				// NOTE: passing tr, taskIdx to avoid data race
-				go func(tr trh.Run, taskNum int) {
+				go func(tr taskrunpkg.Run, taskNum int) {
 					defer wg.Done()
 
 					// clone the object to keep task number and name separately
 					c := r.clone()
-					c.setUpTask(int(taskNum), tr)
+					c.setUpTask(taskNum, tr)
 					c.pipeLogs(logC, errC)
 				}(run, taskIndex)
 			}
@@ -83,7 +84,7 @@ func (r *Reader) readLivePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log, <-ch
 	return logC, errC, nil
 }
 
-func (r *Reader) readAvailablePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log, <-chan error, error) {
+func (r *Reader) readAvailablePipelineLogs(pr *v1.PipelineRun) (<-chan Log, <-chan error, error) {
 	if err := r.waitUntilAvailable(); err != nil {
 		return nil, nil, err
 	}
@@ -93,7 +94,14 @@ func (r *Reader) readAvailablePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log,
 		return nil, nil, err
 	}
 
-	taskRuns := trh.Filter(ordered, r.tasks)
+	taskRuns := taskrunpkg.Filter(ordered, r.tasks)
+	if len(taskRuns) == 0 && len(r.tasks) != 0 {
+		availTasks := []string{}
+		for _, o := range ordered {
+			availTasks = append(availTasks, o.Task)
+		}
+		return nil, nil, fmt.Errorf("passed filtered tasks: %v is not available, available tasks are: %v", r.tasks, availTasks)
+	}
 
 	logC := make(chan Log)
 	errC := make(chan error)
@@ -122,11 +130,11 @@ func (r *Reader) readAvailablePipelineLogs(pr *v1beta1.PipelineRun) (<-chan Log,
 // and keep checking the status until it changes to true|false
 // or the reach timeout
 func (r *Reader) waitUntilAvailable() error {
-	var first = true
+	first := true
 	opts := metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", r.run).String(),
 	}
-	run, err := pipelinerun.Get(r.clients, r.run, metav1.GetOptions{}, r.ns)
+	run, err := pipelinerunpkg.GetPipelineRun(pipelineRunGroupResource, r.clients, r.run, r.ns)
 	if err != nil {
 		return err
 	}
@@ -137,7 +145,7 @@ func (r *Reader) waitUntilAvailable() error {
 		return nil
 	}
 
-	watchRun, err := pipelinerun.Watch(r.clients, opts, r.ns)
+	watchRun, err := actions.Watch(pipelineRunGroupResource, r.clients, r.ns, opts)
 	if err != nil {
 		return err
 	}
@@ -196,7 +204,7 @@ func (r *Reader) pipeLogs(logC chan<- Log, errC chan<- error) {
 	}
 }
 
-func (r *Reader) setUpTask(taskNumber int, tr trh.Run) {
+func (r *Reader) setUpTask(taskNumber int, tr taskrunpkg.Run) {
 	r.setNumber(taskNumber)
 	r.setRun(tr.Name)
 	r.setTask(tr.Task)
@@ -205,17 +213,24 @@ func (r *Reader) setUpTask(taskNumber int, tr trh.Run) {
 
 // getOrderedTasks get Tasks in order from Spec.PipelineRef or Spec.PipelineSpec
 // and return trh.Run after converted taskruns into trh.Run.
-func (r *Reader) getOrderedTasks(pr *v1beta1.PipelineRun) ([]trh.Run, error) {
-	var tasks []v1beta1.PipelineTask
-
+func (r *Reader) getOrderedTasks(pr *v1.PipelineRun) ([]taskrunpkg.Run, error) {
+	var tasks []v1.PipelineTask
 	switch {
 	case pr.Spec.PipelineRef != nil:
-		pl, err := pipeline.Get(r.clients, pr.Spec.PipelineRef.Name, metav1.GetOptions{}, r.ns)
-		if err != nil {
-			return nil, err
+		if pr.Spec.PipelineRef.Resolver != "" {
+			if pr.Status.PipelineSpec != nil {
+				tasks = append(tasks, pr.Status.PipelineSpec.Tasks...)
+			} else {
+				return nil, fmt.Errorf("pipelinerun %s does not have the PipelineRunSpec", pr.Name)
+			}
+		} else {
+			pl, err := pipelinepkg.GetPipeline(pipelineGroupResource, r.clients, pr.Spec.PipelineRef.Name, r.ns)
+			if err != nil {
+				return nil, err
+			}
+			tasks = pl.Spec.Tasks
+			tasks = append(tasks, pl.Spec.Finally...)
 		}
-		tasks = pl.Spec.Tasks
-		tasks = append(tasks, pl.Spec.Finally...)
 	case pr.Spec.PipelineSpec != nil:
 		tasks = pr.Spec.PipelineSpec.Tasks
 		tasks = append(tasks, pr.Spec.PipelineSpec.Finally...)
@@ -223,33 +238,38 @@ func (r *Reader) getOrderedTasks(pr *v1beta1.PipelineRun) ([]trh.Run, error) {
 		return nil, fmt.Errorf("pipelinerun %s did not provide PipelineRef or PipelineSpec", pr.Name)
 	}
 
+	trsMap, err := pipelinerunpkg.GetTaskRunsWithStatus(pr, r.clients, r.ns)
+	if err != nil {
+		return nil, err
+	}
+
 	// Sort taskruns, to display the taskrun logs as per pipeline tasks order
-	return trh.SortTasksBySpecOrder(tasks, pr.Status.TaskRuns), nil
+	return taskrunpkg.SortTasksBySpecOrder(tasks, trsMap), nil
 }
 
-func empty(status v1beta1.PipelineRunStatus) bool {
+func empty(status v1.PipelineRunStatus) bool {
 	if status.Conditions == nil {
 		return true
 	}
 	return len(status.Conditions) == 0
 }
 
-func hasPipelineRunFailed(prConditions duckv1beta1.Conditions) error {
+func hasPipelineRunFailed(prConditions duckv1.Conditions) error {
 	if len(prConditions) != 0 && prConditions[0].Status == corev1.ConditionFalse {
 		return fmt.Errorf("pipelinerun has failed: %s", prConditions[0].Message)
 	}
 	return nil
 }
 
-func isPipelineRunRunning(prConditions duckv1beta1.Conditions) bool {
+func isPipelineRunRunning(prConditions duckv1.Conditions) bool {
 	if len(prConditions) != 0 && prConditions[0].Status == corev1.ConditionUnknown {
 		return true
 	}
 	return false
 }
 
-func cast2pipelinerun(obj runtime.Object) (*v1beta1.PipelineRun, error) {
-	var run *v1beta1.PipelineRun
+func cast2pipelinerun(obj runtime.Object) (*v1.PipelineRun, error) {
+	var run *v1.PipelineRun
 	unstruct, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return nil, err
