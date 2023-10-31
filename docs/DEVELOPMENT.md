@@ -189,7 +189,11 @@ is because we do not have health checking set up yet. Please refer <https://gith
 
 ### Using `curl` + `kubectl port-forward`
 
-See the available REST endpoints in the [OpenAPI specification](api/rest-api-spec.md) docs. The API request URL is of the format `https://{server_url}/apis/results.tekton.dev/v1alpha2/parents/{name/path-to-the-resource}`. For debugging server_url is `localhost:port-exposed`.
+See the available REST endpoints in
+the [OpenAPI specification](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/tektoncd/results/main/docs/api/openapi.yaml).
+The API request URL is of the
+format `https://{server_url}/apis/results.tekton.dev/v1alpha2/parents/{name/path-to-the-resource}`. For debugging
+server_url is `localhost:port-exposed`.
 
 - Proxy the remote Service to localhost for REST. This will block, so run this in a separate shell or background the process.
 
