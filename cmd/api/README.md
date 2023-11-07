@@ -9,6 +9,7 @@
 | DB_HOST                  | Postgres Database host                                                                                                            | /cloudsql/my-project:us-east1:tekton-results |
 | DB_NAME                  | Postgres Database name                                                                                                            | tekton_results                               |
 | DB_SSLMODE               | Database SSL mode                                                                                                                 | verify-full                                  |
+| DB_SSLROOTCERT           | Path to CA cert used to validate Database cert                                                                                    | /etc/tls/db/ca.crt                           |
 | DB_ENABLE_AUTO_MIGRATION | Auto-migrate the database on startup (create/update schemas). For further details, refer to <https://gorm.io/docs/migration.html> | true (default)                               |
 | SERVER_PORT              | gRPC and REST Server Port                                                                                                         | 8080  (default)                              |
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                              |

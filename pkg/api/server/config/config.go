@@ -13,6 +13,7 @@ type Config struct {
 	DB_PORT                  string `mapstructure:"DB_PORT"`
 	DB_NAME                  string `mapstructure:"DB_NAME"`
 	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
+	DB_SSLROOTCERT           string `mapstructure:"DB_SSLROOTCERT"`
 	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
 	SERVER_PORT              string `mapstructure:"SERVER_PORT"`
 	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
