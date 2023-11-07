@@ -36,12 +36,10 @@ spec:
         - name: watcher
           image: ko://github.com/tektoncd/results/cmd/watcher
           args:
-            [
-              "-api_addr",
-              "tekton-results-api-service.tekton-pipelines.svc.cluster.local:8080",
-              "-auth_mode",
-              "token",
-            ]
+            - -api_addr
+            - $(TEKTON_RESULTS_API_SERVICE)
+            - -auth_mode
+            - $(AUTH_MODE)
           env:
             - name: SYSTEM_NAMESPACE
               valueFrom:
@@ -55,6 +53,10 @@ spec:
               value: tekton-results-config-observability
             - name: METRICS_DOMAIN
               value: tekton.dev/results
+            - name: TEKTON_RESULTS_API_SERVICE
+              value: tekton-results-api-service.tekton-pipelines.svc.cluster.local:8080
+            - name: AUTH_MODE
+              value: token
           ports:
             - name: metrics
               containerPort: 9090
