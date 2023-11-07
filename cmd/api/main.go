@@ -87,12 +87,19 @@ func main() {
 		log.Fatal("Must provide both DB_USER and DB_PASSWORD")
 	}
 
+	// From all available sslmodes, "require", "verify-ca" and "verify-full" require CA cert
+	// configured on the client side. We check and fail early if one is not provided.
+	if (serverConfig.DB_SSLMODE == "require" || serverConfig.DB_SSLMODE == "verify-ca" || serverConfig.DB_SSLMODE == "verify-full") && serverConfig.DB_SSLROOTCERT == "" {
+		log.Fatalf("DB_SSLROOTCERT can't be empty when DB_SSLMODE=%s", serverConfig.DB_SSLMODE)
+	}
+
 	// Connect to the database.
 	// DSN derived from https://pkg.go.dev/gorm.io/driver/postgres
 
 	var db *gorm.DB
 	var err error
-	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE)
+
+	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s sslrootcert=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE, serverConfig.DB_SSLROOTCERT)
 	gormConfig := &gorm.Config{}
 	if log.Level() != zap.DebugLevel {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
