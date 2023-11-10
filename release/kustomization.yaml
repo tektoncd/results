@@ -2,6 +2,7 @@
   # the release process to label all resources with the proper version.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: tekton-pipelines
 resources:
 - ../config/overlays/default-local-db
 labels:
