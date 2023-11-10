@@ -17,6 +17,7 @@
 # Creates a Kustomization that deploys Results with no database or logs storage.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: tekton-pipelines
 resources:
   - ../../base
 components:

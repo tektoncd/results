@@ -25,4 +25,3 @@ patches:
     target:
       kind: Deployment
       name: api
-      namespace: tekton-pipelines
