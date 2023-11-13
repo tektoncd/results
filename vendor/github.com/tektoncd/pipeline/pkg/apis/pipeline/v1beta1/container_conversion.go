@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The Tekton Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package v1beta1
 
 import (
@@ -31,10 +47,6 @@ func (s Step) convertTo(ctx context.Context, sink *v1.Step) {
 	sink.OnError = (v1.OnErrorType)(s.OnError)
 	sink.StdoutConfig = (*v1.StepOutputConfig)(s.StdoutConfig)
 	sink.StderrConfig = (*v1.StepOutputConfig)(s.StderrConfig)
-
-	// TODO(#4546): Handle deprecated fields
-	// Ports, LivenessProbe, ReadinessProbe, StartupProbe, Lifecycle, TerminationMessagePath
-	// TerminationMessagePolicy, Stdin, StdinOnce, TTY
 }
 
 func (s *Step) convertFrom(ctx context.Context, source v1.Step) {

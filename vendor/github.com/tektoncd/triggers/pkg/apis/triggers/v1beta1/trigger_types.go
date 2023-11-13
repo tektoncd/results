@@ -155,40 +155,6 @@ type WebhookInterceptor struct {
 	Header []v1beta1.Param `json:"header,omitempty"`
 }
 
-// BitbucketInterceptor provides a webhook to intercept and pre-process events
-type BitbucketInterceptor struct {
-	SecretRef *SecretRef `json:"secretRef,omitempty"`
-	// +listType=atomic
-	EventTypes []string `json:"eventTypes,omitempty"`
-}
-
-// GitHubInterceptor provides a webhook to intercept and pre-process events
-type GitHubInterceptor struct {
-	SecretRef *SecretRef `json:"secretRef,omitempty"`
-	// +listType=atomic
-	EventTypes []string `json:"eventTypes,omitempty"`
-}
-
-// GitLabInterceptor provides a webhook to intercept and pre-process events
-type GitLabInterceptor struct {
-	SecretRef *SecretRef `json:"secretRef,omitempty"`
-	// +listType=atomic
-	EventTypes []string `json:"eventTypes,omitempty"`
-}
-
-// CELInterceptor provides a webhook to intercept and pre-process events
-type CELInterceptor struct {
-	Filter string `json:"filter,omitempty"`
-	// +listType=atomic
-	Overlays []CELOverlay `json:"overlays,omitempty"`
-}
-
-// CELOverlay provides a way to modify the request body using CEL expressions
-type CELOverlay struct {
-	Key        string `json:"key,omitempty"`
-	Expression string `json:"expression,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // TriggerList contains a list of Triggers.
