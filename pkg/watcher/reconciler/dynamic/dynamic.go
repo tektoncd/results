@@ -273,7 +273,7 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 		(GVK.Kind == "TaskRun" || GVK.Kind == "PipelineRun") &&
 		condition != nil &&
 		condition.Type == "Succeeded" &&
-		(condition.Reason == "Succeeded" || condition.Reason == "Failed") {
+		(condition.Reason == "Succeeded" || condition.Reason == "Completed" || condition.Reason == "Failed") {
 
 		rec, err := r.resultsClient.GetLogRecord(ctx, o)
 		if err != nil {
