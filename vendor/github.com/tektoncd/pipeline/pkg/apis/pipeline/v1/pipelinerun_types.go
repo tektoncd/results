@@ -18,22 +18,22 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	apisconfig "github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	pod "github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
-	runv1alpha1 "github.com/tektoncd/pipeline/pkg/apis/run/v1alpha1"
+	runv1beta1 "github.com/tektoncd/pipeline/pkg/apis/run/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/clock"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // +genclient
@@ -98,7 +98,7 @@ func (pr *PipelineRun) IsGracefullyStopped() bool {
 	return pr.Spec.Status == PipelineRunSpecStatusStoppedRunFinally
 }
 
-// PipelineTimeout returns the the applicable timeout for the PipelineRun
+// PipelineTimeout returns the applicable timeout for the PipelineRun
 func (pr *PipelineRun) PipelineTimeout(ctx context.Context) time.Duration {
 	if pr.Spec.Timeouts != nil && pr.Spec.Timeouts.Pipeline != nil {
 		return pr.Spec.Timeouts.Pipeline.Duration
@@ -106,7 +106,7 @@ func (pr *PipelineRun) PipelineTimeout(ctx context.Context) time.Duration {
 	return time.Duration(config.FromContextOrDefaults(ctx).Defaults.DefaultTimeoutMinutes) * time.Minute
 }
 
-// TasksTimeout returns the the tasks timeout for the PipelineRun, if set,
+// TasksTimeout returns the tasks timeout for the PipelineRun, if set,
 // or the tasks timeout computed from the Pipeline and Finally timeouts, if those are set.
 func (pr *PipelineRun) TasksTimeout() *metav1.Duration {
 	t := pr.Spec.Timeouts
@@ -125,7 +125,7 @@ func (pr *PipelineRun) TasksTimeout() *metav1.Duration {
 	return nil
 }
 
-// FinallyTimeout returns the the finally timeout for the PipelineRun, if set,
+// FinallyTimeout returns the finally timeout for the PipelineRun, if set,
 // or the finally timeout computed from the Pipeline and Tasks timeouts, if those are set.
 func (pr *PipelineRun) FinallyTimeout() *metav1.Duration {
 	t := pr.Spec.Timeouts
@@ -154,6 +154,22 @@ func (pr *PipelineRun) GetNamespacedName() types.NamespacedName {
 	return types.NamespacedName{Namespace: pr.Namespace, Name: pr.Name}
 }
 
+// IsTimeoutConditionSet returns true when the pipelinerun has the pipelinerun timed out reason
+func (pr *PipelineRun) IsTimeoutConditionSet() bool {
+	condition := pr.Status.GetCondition(apis.ConditionSucceeded)
+	return condition.IsFalse() && condition.Reason == PipelineRunReasonTimedOut.String()
+}
+
+// SetTimeoutCondition sets the status of the PipelineRun to timed out.
+func (pr *PipelineRun) SetTimeoutCondition(ctx context.Context) {
+	pr.Status.SetCondition(&apis.Condition{
+		Type:    apis.ConditionSucceeded,
+		Status:  corev1.ConditionFalse,
+		Reason:  PipelineRunReasonTimedOut.String(),
+		Message: fmt.Sprintf("PipelineRun %q failed to finish within %q", pr.Name, pr.PipelineTimeout(ctx).String()),
+	})
+}
+
 // HasTimedOut returns true if a pipelinerun has exceeded its spec.Timeout based on its status.Timeout
 func (pr *PipelineRun) HasTimedOut(ctx context.Context, c clock.PassiveClock) bool {
 	timeout := pr.PipelineTimeout(ctx)
@@ -169,6 +185,19 @@ func (pr *PipelineRun) HasTimedOut(ctx context.Context, c clock.PassiveClock) bo
 		}
 	}
 	return false
+}
+
+// HasTimedOutForALongTime returns true if a pipelinerun has exceeed its spec.Timeout based its status.StartTime
+// by a large margin
+func (pr *PipelineRun) HasTimedOutForALongTime(ctx context.Context, c clock.PassiveClock) bool {
+	if !pr.HasTimedOut(ctx, c) {
+		return false
+	}
+	timeout := pr.PipelineTimeout(ctx)
+	startTime := pr.Status.StartTime
+	runtime := c.Since(startTime.Time)
+	// We are arbitrarily defining large margin as doubling the spec.timeout
+	return runtime >= 2*timeout
 }
 
 // HaveTasksTimedOut returns true if a pipelinerun has exceeded its spec.Timeouts.Tasks
@@ -224,7 +253,7 @@ type PipelineRunSpec struct {
 	PipelineSpec *PipelineSpec `json:"pipelineSpec,omitempty"`
 	// Params is a list of parameter names and values.
 	// +listType=atomic
-	Params []Param `json:"params,omitempty"`
+	Params Params `json:"params,omitempty"`
 
 	// Used for cancelling a pipelinerun (and maybe more later on)
 	// +optional
@@ -285,7 +314,7 @@ const (
 
 // PipelineRunStatus defines the observed state of PipelineRun
 type PipelineRunStatus struct {
-	duckv1beta1.Status `json:",inline"`
+	duckv1.Status `json:",inline"`
 
 	// PipelineRunStatusFields inlines the status fields.
 	PipelineRunStatusFields `json:",inline"`
@@ -322,6 +351,64 @@ const (
 	// PipelineRunReasonStoppedRunningFinally indicates that pipeline has been gracefully stopped
 	// and no new Tasks will be scheduled by the controller, but final tasks are now running
 	PipelineRunReasonStoppedRunningFinally PipelineRunReason = "StoppedRunningFinally"
+	// ReasonCouldntGetPipeline indicates that the reason for the failure status is that the
+	// associated Pipeline couldn't be retrieved
+	PipelineRunReasonCouldntGetPipeline PipelineRunReason = "CouldntGetPipeline"
+	// ReasonInvalidBindings indicates that the reason for the failure status is that the
+	// PipelineResources bound in the PipelineRun didn't match those declared in the Pipeline
+	PipelineRunReasonInvalidBindings PipelineRunReason = "InvalidPipelineResourceBindings"
+	// ReasonInvalidWorkspaceBinding indicates that a Pipeline expects a workspace but a
+	// PipelineRun has provided an invalid binding.
+	PipelineRunReasonInvalidWorkspaceBinding PipelineRunReason = "InvalidWorkspaceBindings"
+	// ReasonInvalidTaskRunSpec indicates that PipelineRun.Spec.TaskRunSpecs[].PipelineTaskName is defined with
+	// a not exist taskName in pipelineSpec.
+	PipelineRunReasonInvalidTaskRunSpec PipelineRunReason = "InvalidTaskRunSpecs"
+	// ReasonParameterTypeMismatch indicates that the reason for the failure status is that
+	// parameter(s) declared in the PipelineRun do not have the some declared type as the
+	// parameters(s) declared in the Pipeline that they are supposed to override.
+	PipelineRunReasonParameterTypeMismatch PipelineRunReason = "ParameterTypeMismatch"
+	// ReasonObjectParameterMissKeys indicates that the object param value provided from PipelineRun spec
+	// misses some keys required for the object param declared in Pipeline spec.
+	PipelineRunReasonObjectParameterMissKeys PipelineRunReason = "ObjectParameterMissKeys"
+	// ReasonParamArrayIndexingInvalid indicates that the use of param array indexing is not under correct api fields feature gate
+	// or the array is out of bound.
+	PipelineRunReasonParamArrayIndexingInvalid PipelineRunReason = "ParamArrayIndexingInvalid"
+	// ReasonCouldntGetTask indicates that the reason for the failure status is that the
+	// associated Pipeline's Tasks couldn't all be retrieved
+	PipelineRunReasonCouldntGetTask PipelineRunReason = "CouldntGetTask"
+	// ReasonParameterMissing indicates that the reason for the failure status is that the
+	// associated PipelineRun didn't provide all the required parameters
+	PipelineRunReasonParameterMissing PipelineRunReason = "ParameterMissing"
+	// ReasonFailedValidation indicates that the reason for failure status is
+	// that pipelinerun failed runtime validation
+	PipelineRunReasonFailedValidation PipelineRunReason = "PipelineValidationFailed"
+	// ReasonInvalidGraph indicates that the reason for the failure status is that the
+	// associated Pipeline is an invalid graph (a.k.a wrong order, cycle, …)
+	PipelineRunReasonInvalidGraph PipelineRunReason = "PipelineInvalidGraph"
+	// ReasonCouldntCancel indicates that a PipelineRun was cancelled but attempting to update
+	// all of the running TaskRuns as cancelled failed.
+	PipelineRunReasonCouldntCancel PipelineRunReason = "PipelineRunCouldntCancel"
+	// ReasonCouldntTimeOut indicates that a PipelineRun was timed out but attempting to update
+	// all of the running TaskRuns as timed out failed.
+	PipelineRunReasonCouldntTimeOut PipelineRunReason = "PipelineRunCouldntTimeOut"
+	// ReasonInvalidMatrixParameterTypes indicates a matrix contains invalid parameter types
+	PipelineRunReasonInvalidMatrixParameterTypes PipelineRunReason = "InvalidMatrixParameterTypes"
+	// ReasonInvalidTaskResultReference indicates a task result was declared
+	// but was not initialized by that task
+	PipelineRunReasonInvalidTaskResultReference PipelineRunReason = "InvalidTaskResultReference"
+	// ReasonRequiredWorkspaceMarkedOptional indicates an optional workspace
+	// has been passed to a Task that is expecting a non-optional workspace
+	PipelineRunReasonRequiredWorkspaceMarkedOptional PipelineRunReason = "RequiredWorkspaceMarkedOptional"
+	// ReasonResolvingPipelineRef indicates that the PipelineRun is waiting for
+	// its pipelineRef to be asynchronously resolved.
+	PipelineRunReasonResolvingPipelineRef PipelineRunReason = "ResolvingPipelineRef"
+	// ReasonResourceVerificationFailed indicates that the pipeline fails the trusted resource verification,
+	// it could be the content has changed, signature is invalid or public key is invalid
+	PipelineRunReasonResourceVerificationFailed PipelineRunReason = "ResourceVerificationFailed"
+	// ReasonCreateRunFailed indicates that the pipeline fails to create the taskrun or other run resources
+	PipelineRunReasonCreateRunFailed PipelineRunReason = "CreateRunFailed"
+	// ReasonCELEvaluationFailed indicates the pipeline fails the CEL evaluation
+	PipelineRunReasonCELEvaluationFailed PipelineRunReason = "CELEvaluationFailed"
 )
 
 func (t PipelineRunReason) String() string {
@@ -399,11 +486,9 @@ type ChildStatusReference struct {
 // consume these fields via duck typing.
 type PipelineRunStatusFields struct {
 	// StartTime is the time the PipelineRun is actually started.
-	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
 	// CompletionTime is the time the PipelineRun completed.
-	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
 	// Results are the list of results written out by the pipeline task's containers
@@ -429,7 +514,11 @@ type PipelineRunStatusFields struct {
 	FinallyStartTime *metav1.Time `json:"finallyStartTime,omitempty"`
 
 	// Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).
+	// +optional
 	Provenance *Provenance `json:"provenance,omitempty"`
+
+	// SpanContext contains tracing span context fields
+	SpanContext map[string]string `json:"spanContext,omitempty"`
 }
 
 // SkippedTask is used to describe the Tasks that were skipped due to their When Expressions
@@ -468,6 +557,8 @@ const (
 	TasksTimedOutSkip SkippingReason = "PipelineRun Tasks timeout has been reached"
 	// FinallyTimedOutSkip means the task was skipped because the PipelineRun has passed its Timeouts.Finally.
 	FinallyTimedOutSkip SkippingReason = "PipelineRun Finally timeout has been reached"
+	// EmptyArrayInMatrixParams means the task was skipped because Matrix parameters contain empty array.
+	EmptyArrayInMatrixParams SkippingReason = "Matrix Parameters have an empty array"
 	// None means the task was not skipped
 	None SkippingReason = "None"
 )
@@ -500,7 +591,7 @@ type PipelineRunRunStatus struct {
 	PipelineTaskName string `json:"pipelineTaskName,omitempty"`
 	// Status is the RunStatus for the corresponding Run
 	// +optional
-	Status *runv1alpha1.RunStatus `json:"status,omitempty"`
+	Status *runv1beta1.CustomRunStatus `json:"status,omitempty"`
 	// WhenExpressions is the list of checks guarding the execution of the PipelineTask
 	// +optional
 	// +listType=atomic
@@ -552,9 +643,9 @@ func (pr *PipelineRun) GetTaskRunSpec(pipelineTaskName string) PipelineTaskRunSp
 	}
 	for _, task := range pr.Spec.TaskRunSpecs {
 		if task.PipelineTaskName == pipelineTaskName {
-			if task.PodTemplate != nil {
-				s.PodTemplate = task.PodTemplate
-			}
+			// merge podTemplates specified in pipelineRun.spec.taskRunSpecs[].podTemplate and pipelineRun.spec.podTemplate
+			// with taskRunSpecs taking higher precedence
+			s.PodTemplate = pod.MergePodTemplateWithDefault(task.PodTemplate, s.PodTemplate)
 			if task.ServiceAccountName != "" {
 				s.ServiceAccountName = task.ServiceAccountName
 			}

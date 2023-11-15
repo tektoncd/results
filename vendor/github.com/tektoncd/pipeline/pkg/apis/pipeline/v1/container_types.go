@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@ import (
 
 // Step runs a subcomponent of a Task
 type Step struct {
-
 	// Name of the Step specified as a DNS_LABEL.
 	// Each Step in a Task must have a unique name.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
@@ -189,9 +188,38 @@ func (s *Step) SetContainerFields(c corev1.Container) {
 	s.SecurityContext = c.SecurityContext
 }
 
+// GetVarSubstitutionExpressions walks all the places a substitution reference can be used
+func (s *Step) GetVarSubstitutionExpressions() []string {
+	var allExpressions []string
+	allExpressions = append(allExpressions, validateString(s.Name)...)
+	allExpressions = append(allExpressions, validateString(s.Image)...)
+	allExpressions = append(allExpressions, validateString(string(s.ImagePullPolicy))...)
+	allExpressions = append(allExpressions, validateString(s.Script)...)
+	allExpressions = append(allExpressions, validateString(s.WorkingDir)...)
+	for _, cmd := range s.Command {
+		allExpressions = append(allExpressions, validateString(cmd)...)
+	}
+	for _, arg := range s.Args {
+		allExpressions = append(allExpressions, validateString(arg)...)
+	}
+	for _, env := range s.Env {
+		allExpressions = append(allExpressions, validateString(env.Value)...)
+		if env.ValueFrom != nil {
+			if env.ValueFrom.SecretKeyRef != nil {
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.SecretKeyRef.Key)...)
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.SecretKeyRef.LocalObjectReference.Name)...)
+			}
+			if env.ValueFrom.ConfigMapKeyRef != nil {
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.ConfigMapKeyRef.Key)...)
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name)...)
+			}
+		}
+	}
+	return allExpressions
+}
+
 // StepTemplate is a template for a Step
 type StepTemplate struct {
-
 	// Image reference name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
 	// This field is optional to allow higher level config management to default or override
@@ -308,7 +336,6 @@ func (s *StepTemplate) ToK8sContainer() *corev1.Container {
 
 // Sidecar has nearly the same data structure as Step but does not have the ability to timeout.
 type Sidecar struct {
-
 	// Name of the Sidecar specified as a DNS_LABEL.
 	// Each Sidecar in a Task must have a unique name (DNS_LABEL).
 	// Cannot be updated.
@@ -543,4 +570,34 @@ func (s *Sidecar) SetContainerFields(c corev1.Container) {
 	s.Stdin = c.Stdin
 	s.StdinOnce = c.StdinOnce
 	s.TTY = c.TTY
+}
+
+// GetVarSubstitutionExpressions walks all the places a substitution reference can be used
+func (s *Sidecar) GetVarSubstitutionExpressions() []string {
+	var allExpressions []string
+	allExpressions = append(allExpressions, validateString(s.Name)...)
+	allExpressions = append(allExpressions, validateString(s.Image)...)
+	allExpressions = append(allExpressions, validateString(string(s.ImagePullPolicy))...)
+	allExpressions = append(allExpressions, validateString(s.Script)...)
+	allExpressions = append(allExpressions, validateString(s.WorkingDir)...)
+	for _, cmd := range s.Command {
+		allExpressions = append(allExpressions, validateString(cmd)...)
+	}
+	for _, arg := range s.Args {
+		allExpressions = append(allExpressions, validateString(arg)...)
+	}
+	for _, env := range s.Env {
+		allExpressions = append(allExpressions, validateString(env.Value)...)
+		if env.ValueFrom != nil {
+			if env.ValueFrom.SecretKeyRef != nil {
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.SecretKeyRef.Key)...)
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.SecretKeyRef.LocalObjectReference.Name)...)
+			}
+			if env.ValueFrom.ConfigMapKeyRef != nil {
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.ConfigMapKeyRef.Key)...)
+				allExpressions = append(allExpressions, validateString(env.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name)...)
+			}
+		}
+	}
+	return allExpressions
 }

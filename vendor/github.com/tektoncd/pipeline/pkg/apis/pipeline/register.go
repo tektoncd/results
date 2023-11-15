@@ -25,6 +25,9 @@ const (
 	// ClusterTaskLabelKey is used as the label identifier for a ClusterTask
 	ClusterTaskLabelKey = GroupName + "/clusterTask"
 
+	// StepActionLabelKey is used as the label identifier for a StepAction
+	StepActionLabelKey = GroupName + "/stepAction"
+
 	// TaskLabelKey is used as the label identifier for a Task
 	TaskLabelKey = GroupName + "/task"
 
@@ -43,12 +46,20 @@ const (
 	// RunKey is used as the label identifier for a Run
 	RunKey = GroupName + "/run"
 
+	// CustomRunKey is used as the label identifier for a CustomRun
+	CustomRunKey = GroupName + "/customRun"
+
 	// MemberOfLabelKey is used as the label identifier for a PipelineTask
 	// Set to Tasks/Finally depending on the position of the PipelineTask
 	MemberOfLabelKey = GroupName + "/memberOf"
 )
 
 var (
+	// StepActionResource represents a Tekton StepAction
+	StepActionResource = schema.GroupResource{
+		Group:    GroupName,
+		Resource: "stepactions",
+	}
 	// TaskResource represents a Tekton Task
 	TaskResource = schema.GroupResource{
 		Group:    GroupName,
@@ -80,9 +91,9 @@ var (
 		Resource: "pipelineruns",
 	}
 
-	// PipelineResourceResource represents a Tekton PipelineResource
-	PipelineResourceResource = schema.GroupResource{
+	// CustomRunResource represents a Tekton CustomRun
+	CustomRunResource = schema.GroupResource{
 		Group:    GroupName,
-		Resource: "pipelineresources",
+		Resource: "customruns",
 	}
 )
