@@ -57,3 +57,9 @@ metadata:
     results.tekton.dev/recordSummaryAnnotations: |-
       {"foo": "bar"}
 ```
+
+## Resource Deletion
+
+When the command line flag is `completed_run_grace_period` is set to any value other than `0`, resources will be deleted after the specified duration in the flag, calculated from the time of completion. If the value is < `0`, Runs will be deleted immediately after completion or failure.
+
+The flag `check_owner` allows additional check before deleting a resource. If set `true`, resources with any owner references set will not be deleted. When the flag is `false`, owner references will be not be checked before deletion. 

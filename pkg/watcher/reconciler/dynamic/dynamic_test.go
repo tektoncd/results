@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	watcherresults "github.com/tektoncd/results/pkg/watcher/results"
 
 	"github.com/google/uuid"
@@ -324,6 +326,55 @@ func TestReconcile_TaskRun(t *testing.T) {
 		// Make sure that the resource no longer exists
 		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); !apierrors.IsNotFound(err) {
 			t.Fatalf("Want NotFound, but got %v", err)
+		}
+	})
+
+	t.Run("delete object with owner references when owner check is disabled", func(t *testing.T) {
+		r.cfg.CheckOwner = false
+
+		taskrun.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "test",
+			Name:       "test-parent",
+		}}
+
+		// Recreate the object to retest the deletion
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		// Make sure that the resource no longer exists
+		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); !apierrors.IsNotFound(err) {
+			t.Fatalf("Want NotFound, but got %v", err)
+		}
+	})
+
+	t.Run("do not delete object with owner references when owner check is enabled", func(t *testing.T) {
+		r.cfg.CheckOwner = true
+
+		taskrun.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "test",
+			Name:       "test-parent",
+			UID:        types.UID(uuid.NewString()),
+		}}
+
+		// Recreate the object to retest the deletion
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		// Make sure that the resource no longer exists
+		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); apierrors.IsNotFound(err) {
+			t.Fatalf("Want Found, but got %v", err)
 		}
 	})
 }
