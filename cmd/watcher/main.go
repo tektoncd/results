@@ -66,6 +66,7 @@ var (
 	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
 	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
 	namespace               = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
+	checkOwner              = flag.Bool("check_owner", true, "If enabled, owner references will be checked while deleting objects")
 )
 
 func main() {
@@ -97,6 +98,7 @@ func main() {
 		DisableAnnotationUpdate:      *disableCRDUpdate,
 		CompletedResourceGracePeriod: *completedRunGracePeriod,
 		RequeueInterval:              *requeueInterval,
+		CheckOwner:                   *checkOwner,
 	}
 
 	if selector := *labelSelector; selector != "" {

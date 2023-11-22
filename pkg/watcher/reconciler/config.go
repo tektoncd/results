@@ -38,6 +38,9 @@ type Config struct {
 	// How long the controller waits to reprocess keys on certain events
 	// (e.g. an object doesn't match the provided label selectors).
 	RequeueInterval time.Duration
+
+	// Check owner reference when deleting objects. By default, objects having owner references set won't be deleted.
+	CheckOwner bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

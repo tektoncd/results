@@ -182,7 +182,7 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		return nil
 	}
 
-	if ownerReferences := o.GetOwnerReferences(); len(ownerReferences) > 0 {
+	if ownerReferences := o.GetOwnerReferences(); r.cfg.CheckOwner && len(ownerReferences) > 0 {
 		logger.Debugw("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
 		return nil
 	}
