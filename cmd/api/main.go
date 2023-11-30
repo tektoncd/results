@@ -228,7 +228,10 @@ func main() {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	httpMux := runtime.NewServeMux(serverMuxOptions...)
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100 * 1024 * 1024)),
+	}
 
 	// Register gRPC server endpoint to gRPC gateway
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
