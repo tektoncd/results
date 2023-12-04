@@ -12,6 +12,7 @@ type Config struct {
 	DB_HOST                  string `mapstructure:"DB_HOST"`
 	DB_PORT                  string `mapstructure:"DB_PORT"`
 	DB_NAME                  string `mapstructure:"DB_NAME"`
+	DB_SCHEMA                string `mapstructure:"DB_SCHEMA"`
 	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
 	DB_SSLROOTCERT           string `mapstructure:"DB_SSLROOTCERT"`
 	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`

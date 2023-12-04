@@ -75,6 +75,7 @@ data:
     DB_HOST=
     DB_PORT=5432
     DB_NAME=
+    DB_SCHEMA=public
     DB_SSLMODE=disable
     DB_ENABLE_AUTO_MIGRATION=true
     SERVER_PORT=8080
