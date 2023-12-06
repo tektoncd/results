@@ -581,16 +581,16 @@ To request a list of objects with a specific order, include a `order_by` query
 parameter in your request. Pass it the name of the field to be ordered on.
 Multiple fields can be specified with a comma-separated list. Examples:
 
-- `created_time`
-- `updated_time asc`
-- `created_time desc, updated_time asc`
+- `create_time`
+- `update_time asc`
+- `create_time desc, update_time asc`
 
 Fields supported in `order_by`:
 
 | Field Name     |
 | -------------- |
-| `created_time` |
-| `updated_time` |
+| `create_time` |
+| `update_time` |
 
 ## Pagination
 
