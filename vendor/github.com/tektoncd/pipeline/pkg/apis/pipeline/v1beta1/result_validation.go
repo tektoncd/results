@@ -18,7 +18,8 @@ import (
 	"fmt"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
-	"github.com/tektoncd/pipeline/pkg/apis/version"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
 
@@ -27,25 +28,19 @@ func (tr TaskResult) Validate(ctx context.Context) (errs *apis.FieldError) {
 	if !resultNameFormatRegex.MatchString(tr.Name) {
 		return apis.ErrInvalidKeyName(tr.Name, "name", fmt.Sprintf("Name must consist of alphanumeric characters, '-', '_', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my-name',  or 'my_name', regex used for validation is '%s')", ResultNameFormat))
 	}
-	// Array and Object is alpha feature
-	if tr.Type == ResultsTypeArray || tr.Type == ResultsTypeObject {
-		errs := validateObjectResult(tr)
-		errs = errs.Also(version.ValidateEnabledAPIFields(ctx, "results type", config.AlphaAPIFields))
-		return errs
-	}
 
+	switch {
+	case tr.Type == ResultsTypeObject:
+		errs = errs.Also(validateObjectResult(tr))
+	case tr.Type == ResultsTypeArray:
 	// Resources created before the result. Type was introduced may not have Type set
 	// and should be considered valid
-	if tr.Type == "" {
-		return nil
+	case tr.Type == "":
+	// By default, the result type is string
+	case tr.Type != ResultsTypeString:
+		errs = errs.Also(apis.ErrInvalidValue(tr.Type, "type", "type must be string"))
 	}
-
-	// By default the result type is string
-	if tr.Type != ResultsTypeString {
-		return apis.ErrInvalidValue(tr.Type, "type", fmt.Sprintf("type must be string"))
-	}
-
-	return nil
+	return errs.Also(tr.validateValue(ctx))
 }
 
 // validateObjectResult validates the object result and check if the Properties is missing
@@ -69,4 +64,49 @@ func validateObjectResult(tr TaskResult) (errs *apis.FieldError) {
 		}
 	}
 	return nil
+}
+
+// validateValue validates the value of the TaskResult.
+// It requires that enable-step-actions is true, the value is of type string
+// and format $(steps.<stepName>.results.<resultName>)
+func (tr TaskResult) validateValue(ctx context.Context) (errs *apis.FieldError) {
+	if tr.Value == nil {
+		return nil
+	}
+	if !config.FromContextOrDefaults(ctx).FeatureFlags.EnableStepActions {
+		return apis.ErrGeneric("feature flag %s should be set to true to fetch Results from Steps using StepActions.", config.EnableStepActions)
+	}
+	if tr.Value.Type != ParamTypeString {
+		return &apis.FieldError{
+			Message: fmt.Sprintf(
+				"Invalid Type. Wanted string but got: \"%v\"", tr.Value.Type),
+			Paths: []string{
+				fmt.Sprintf("%s.type", tr.Name),
+			},
+		}
+	}
+	if tr.Value.StringVal != "" {
+		stepName, resultName, err := v1.ExtractStepResultName(tr.Value.StringVal)
+		if err != nil {
+			return &apis.FieldError{
+				Message: fmt.Sprintf("%v", err),
+				Paths:   []string{fmt.Sprintf("%s.value", tr.Name)},
+			}
+		}
+		if e := validation.IsDNS1123Label(stepName); len(e) > 0 {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("invalid extracted step name %q", stepName),
+				Paths:   []string{fmt.Sprintf("%s.value", tr.Name)},
+				Details: "stepName in $(steps.<stepName>.results.<resultName>) must be a valid DNS Label, For more info refer to https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+			})
+		}
+		if !resultNameFormatRegex.MatchString(resultName) {
+			errs = errs.Also(&apis.FieldError{
+				Message: fmt.Sprintf("invalid extracted result name %q", resultName),
+				Paths:   []string{fmt.Sprintf("%s.value", tr.Name)},
+				Details: fmt.Sprintf("resultName in $(steps.<stepName>.results.<resultName>) must consist of alphanumeric characters, '-', '_', and must start and end with an alphanumeric character (e.g. 'MyName',  or 'my-name',  or 'my_name', regex used for validation is '%s')", ResultNameFormat),
+			})
+		}
+	}
+	return errs
 }

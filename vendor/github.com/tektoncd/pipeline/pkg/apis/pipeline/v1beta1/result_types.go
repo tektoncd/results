@@ -32,6 +32,10 @@ type TaskResult struct {
 	// Description is a human-readable description of the result
 	// +optional
 	Description string `json:"description,omitempty"`
+
+	// Value the expression used to retrieve the value of the result from an underlying Step.
+	// +optional
+	Value *ResultValue `json:"value,omitempty"`
 }
 
 // TaskRunResult used to describe the results of a task
@@ -48,13 +52,16 @@ type TaskRunResult struct {
 	Value ResultValue `json:"value"`
 }
 
+// TaskRunStepResult is a type alias of TaskRunResult
+type TaskRunStepResult = TaskRunResult
+
 // ResultValue is a type alias of ParamValue
 type ResultValue = ParamValue
 
 // ResultsType indicates the type of a result;
 // Used to distinguish between a single string and an array of strings.
 // Note that there is ResultType used to find out whether a
-// PipelineResourceResult is from a task result or not, which is different from
+// RunResult is from a task result or not, which is different from
 // this ResultsType.
 type ResultsType string
 
