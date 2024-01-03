@@ -98,9 +98,12 @@ func main() {
 	var err error
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s sslrootcert=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE, serverConfig.DB_SSLROOTCERT)
-	gormConfig := &gorm.Config{NamingStrategy: schema.NamingStrategy{
-		TablePrefix: serverConfig.DB_SCHEMA,
-	}}
+
+	gormConfig := &gorm.Config{}
+	if serverConfig.DB_SCHEMA != "" {
+		gormConfig.NamingStrategy = schema.NamingStrategy{TablePrefix: serverConfig.DB_SCHEMA}
+	}
+
 	if log.Level() != zap.DebugLevel {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}
