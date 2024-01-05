@@ -335,8 +335,11 @@ func TestReconcile_TaskRun(t *testing.T) {
 		taskrun.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion: "v1",
 			Kind:       "test",
-			Name:       "test-parent",
+			Name:       "test-owner",
 		}}
+
+		// delete taskrun before creating
+		trclient.Delete(ctx, taskrun.GetName(), metav1.DeleteOptions{})
 
 		// Recreate the object to retest the deletion
 		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
@@ -353,15 +356,46 @@ func TestReconcile_TaskRun(t *testing.T) {
 		}
 	})
 
+	t.Run("do not delete object with owner references has PipelineRun object and owner check is disabled", func(t *testing.T) {
+		r.cfg.CheckOwner = false
+
+		taskrun.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: "tekton.dev/v1",
+			Kind:       "PipelineRun",
+			Name:       "test-pipelinerun",
+			UID:        types.UID(uuid.NewString()),
+		}}
+
+		// Delete taskrun before creating
+		trclient.Delete(ctx, taskrun.GetName(), metav1.DeleteOptions{})
+
+		// Recreate TaskRun object to retest the deletion
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := r.Reconcile(ctx, taskrun); err != nil {
+			t.Fatal(err)
+		}
+
+		// Make sure that the TaskRun is not deleted
+		if _, err := trclient.Get(ctx, taskrun.GetName(), metav1.GetOptions{}); apierrors.IsNotFound(err) {
+			t.Fatalf("Want Found, but got %v", err)
+		}
+	})
+
 	t.Run("do not delete object with owner references when owner check is enabled", func(t *testing.T) {
 		r.cfg.CheckOwner = true
 
 		taskrun.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion: "v1",
 			Kind:       "test",
-			Name:       "test-parent",
+			Name:       "test-owner",
 			UID:        types.UID(uuid.NewString()),
 		}}
+
+		// delete taskrun before creating
+		trclient.Delete(ctx, taskrun.GetName(), metav1.DeleteOptions{})
 
 		// Recreate the object to retest the deletion
 		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
