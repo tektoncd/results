@@ -182,9 +182,21 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		return nil
 	}
 
-	if ownerReferences := o.GetOwnerReferences(); r.cfg.CheckOwner && len(ownerReferences) > 0 {
-		logger.Debugw("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
-		return nil
+	if ownerReferences := o.GetOwnerReferences(); len(ownerReferences) > 0 {
+		// do not delete if the object is owned by a PipelineRun object
+		// This can be removed once the PipelineRun controller is patched to stop updating the PipelineRun object
+		// when child TaskRuns are deleted
+		for _, or := range ownerReferences {
+			if or.Kind == "PipelineRun" {
+				logger.Debugw("Resource is owned by a PipelineRun, deferring deletion to parent PipelineRun", zap.Any("tekton.dev/PipelineRun", or.Name))
+				return nil
+			}
+		}
+		// do not delete if CheckOwner flag is enabled and the object has some owner references
+		if r.cfg.CheckOwner {
+			logger.Debugw("Resource is owned by another object, deferring deletion to parent resource(s)", zap.Any("results.tekton.dev/ownerReferences", ownerReferences))
+			return nil
+		}
 	}
 
 	completionTime, err := getCompletionTime(o)
