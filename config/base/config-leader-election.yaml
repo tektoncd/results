@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config-leader-election
+  name: tekton-results-config-leader-election
   labels:
     app.kubernetes.io/name: tekton-results-leader-election
 data:
