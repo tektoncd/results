@@ -172,6 +172,10 @@ type LoadOptions struct {
 	// the region, the client's requests are sent to.
 	S3UseARNRegion *bool
 
+	// S3DisableMultiRegionAccessPoints specifies if the S3 service should disable
+	// the S3 Multi-Region access points feature.
+	S3DisableMultiRegionAccessPoints *bool
+
 	// EnableEndpointDiscovery specifies if endpoint discovery is enable for
 	// the client.
 	EnableEndpointDiscovery aws.EndpointDiscoveryEnableState
@@ -202,6 +206,9 @@ type LoadOptions struct {
 
 	// The sdk app ID retrieved from env var or shared config to be added to request user agent header
 	AppID string
+
+	// Whether S3 Express auth is disabled.
+	S3DisableExpressAuth *bool
 }
 
 func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
@@ -876,6 +883,26 @@ func WithS3UseARNRegion(v bool) LoadOptionsFunc {
 	}
 }
 
+// GetS3DisableMultiRegionAccessPoints returns whether to disable
+// the S3 multi-region access points feature.
+func (o LoadOptions) GetS3DisableMultiRegionAccessPoints(ctx context.Context) (v bool, found bool, err error) {
+	if o.S3DisableMultiRegionAccessPoints == nil {
+		return false, false, nil
+	}
+	return *o.S3DisableMultiRegionAccessPoints, true, nil
+}
+
+// WithS3DisableMultiRegionAccessPoints is a helper function to construct functional options
+// that can be used to set S3DisableMultiRegionAccessPoints on LoadOptions.
+// If multiple WithS3DisableMultiRegionAccessPoints calls are made, the last call overrides
+// the previous call values.
+func WithS3DisableMultiRegionAccessPoints(v bool) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.S3DisableMultiRegionAccessPoints = &v
+		return nil
+	}
+}
+
 // GetEnableEndpointDiscovery returns if the EnableEndpointDiscovery flag is set.
 func (o LoadOptions) GetEnableEndpointDiscovery(ctx context.Context) (value aws.EndpointDiscoveryEnableState, ok bool, err error) {
 	if o.EnableEndpointDiscovery == aws.EndpointDiscoveryUnset {
@@ -1017,6 +1044,25 @@ func WithDefaultsMode(mode aws.DefaultsMode, optFns ...func(options *DefaultsMod
 	}
 	return func(options *LoadOptions) error {
 		options.DefaultsModeOptions = do
+		return nil
+	}
+}
+
+// GetS3DisableExpressAuth returns the configured value for
+// [EnvConfig.S3DisableExpressAuth].
+func (o LoadOptions) GetS3DisableExpressAuth() (value, ok bool) {
+	if o.S3DisableExpressAuth == nil {
+		return false, false
+	}
+
+	return *o.S3DisableExpressAuth, true
+}
+
+// WithS3DisableExpressAuth sets [LoadOptions.S3DisableExpressAuth]
+// to the value provided.
+func WithS3DisableExpressAuth(v bool) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.S3DisableExpressAuth = &v
 		return nil
 	}
 }
