@@ -27,7 +27,7 @@ import (
 type ResultRef struct {
 	PipelineTask string `json:"pipelineTask"`
 	Result       string `json:"result"`
-	ResultsIndex int    `json:"resultsIndex"`
+	ResultsIndex *int   `json:"resultsIndex"`
 	Property     string `json:"property"`
 }
 
@@ -39,19 +39,26 @@ const (
 	objectResultExpressionFormat = "tasks.<taskName>.results.<objectResultName>.<individualAttribute>"
 	// ResultTaskPart Constant used to define the "tasks" part of a pipeline result reference
 	ResultTaskPart = "tasks"
-	// ResultFinallyPart Constant used to define the "finally" part of a task result reference
+	// ResultFinallyPart Constant used to define the "finally" part of a pipeline result reference
 	ResultFinallyPart = "finally"
 	// ResultResultPart Constant used to define the "results" part of a pipeline result reference
 	ResultResultPart = "results"
 	// TODO(#2462) use one regex across all substitutions
 	// variableSubstitutionFormat matches format like $result.resultname, $result.resultname[int] and $result.resultname[*]
 	variableSubstitutionFormat = `\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)`
+	// exactVariableSubstitutionFormat matches strings that only contain a single reference to result or param variables, but nothing else
+	// i.e. `$(result.resultname)` is a match, but `foo $(result.resultname)` is not.
+	exactVariableSubstitutionFormat = `^\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)$`
 	// arrayIndexing will match all `[int]` and `[*]` for parseExpression
 	arrayIndexing = `\[([0-9])*\*?\]`
+	// ResultNameFormat Constant used to define the regex Result.Name should follow
+	ResultNameFormat = `^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$`
 )
 
 // VariableSubstitutionRegex is a regex to find all result matching substitutions
 var VariableSubstitutionRegex = regexp.MustCompile(variableSubstitutionFormat)
+var exactVariableSubstitutionRegex = regexp.MustCompile(exactVariableSubstitutionFormat)
+var resultNameFormatRegex = regexp.MustCompile(ResultNameFormat)
 
 // arrayIndexingRegex is used to match `[int]` and `[*]`
 var arrayIndexingRegex = regexp.MustCompile(arrayIndexing)
@@ -98,41 +105,6 @@ func looksLikeResultRef(expression string) bool {
 	return len(subExpressions) >= 4 && (subExpressions[0] == ResultTaskPart || subExpressions[0] == ResultFinallyPart) && subExpressions[2] == ResultResultPart
 }
 
-// GetVarSubstitutionExpressionsForParam extracts all the value between "$(" and ")"" for a parameter
-func GetVarSubstitutionExpressionsForParam(param Param) ([]string, bool) {
-	var allExpressions []string
-	switch param.Value.Type {
-	case ParamTypeArray:
-		// array type
-		for _, value := range param.Value.ArrayVal {
-			allExpressions = append(allExpressions, validateString(value)...)
-		}
-	case ParamTypeString:
-		// string type
-		allExpressions = append(allExpressions, validateString(param.Value.StringVal)...)
-	case ParamTypeObject:
-		// object type
-		for _, value := range param.Value.ObjectVal {
-			allExpressions = append(allExpressions, validateString(value)...)
-		}
-	default:
-		return nil, false
-	}
-	return allExpressions, len(allExpressions) != 0
-}
-
-// GetVarSubstitutionExpressionsForPipelineResult extracts all the value between "$(" and ")"" for a pipeline result
-func GetVarSubstitutionExpressionsForPipelineResult(result PipelineResult) ([]string, bool) {
-	allExpressions := validateString(result.Value.StringVal)
-	for _, v := range result.Value.ArrayVal {
-		allExpressions = append(allExpressions, validateString(v)...)
-	}
-	for _, v := range result.Value.ObjectVal {
-		allExpressions = append(allExpressions, validateString(v)...)
-	}
-	return allExpressions, len(allExpressions) != 0
-}
-
 func validateString(value string) []string {
 	expressions := VariableSubstitutionRegex.FindAllString(value, -1)
 	if expressions == nil {
@@ -150,37 +122,40 @@ func stripVarSubExpression(expression string) string {
 }
 
 // parseExpression parses "task name", "result name", "array index" (iff it's an array result) and "object key name" (iff it's an object result)
-// Valid Example 1:
+// 1. Reference string result
 // - Input: tasks.myTask.results.aStringResult
-// - Output: "myTask", "aStringResult", -1, "", nil
-// Valid Example 2:
+// - Output: "myTask", "aStringResult", nil, "", nil
+// 2. Reference Object value with key:
 // - Input: tasks.myTask.results.anObjectResult.key1
-// - Output: "myTask", "anObjectResult", 0, "key1", nil
-// Valid Example 3:
+// - Output: "myTask", "anObjectResult", nil, "key1", nil
+// 3. Reference array elements with array indexing :
 // - Input: tasks.myTask.results.anArrayResult[1]
 // - Output: "myTask", "anArrayResult", 1, "", nil
-// Invalid Example 1:
+// 4. Referencing whole array or object result:
+// - Input: tasks.myTask.results.Result[*]
+// - Output: "myTask", "Result", nil, "", nil
+// Invalid Case:
 // - Input: tasks.myTask.results.resultName.foo.bar
-// - Output: "", "", 0, "", error
+// - Output: "", "", nil, "", error
 // TODO: may use regex for each type to handle possible reference formats
-func parseExpression(substitutionExpression string) (string, string, int, string, error) {
+func parseExpression(substitutionExpression string) (string, string, *int, string, error) {
 	if looksLikeResultRef(substitutionExpression) {
 		subExpressions := strings.Split(substitutionExpression, ".")
 		// For string result: tasks.<taskName>.results.<stringResultName>
 		// For array result: tasks.<taskName>.results.<arrayResultName>[index]
 		if len(subExpressions) == 4 {
 			resultName, stringIdx := ParseResultName(subExpressions[3])
-			if stringIdx != "" {
+			if stringIdx != "" && stringIdx != "*" {
 				intIdx, _ := strconv.Atoi(stringIdx)
-				return subExpressions[1], resultName, intIdx, "", nil
+				return subExpressions[1], resultName, &intIdx, "", nil
 			}
-			return subExpressions[1], resultName, 0, "", nil
+			return subExpressions[1], resultName, nil, "", nil
 		} else if len(subExpressions) == 5 {
 			// For object type result: tasks.<taskName>.results.<objectResultName>.<individualAttribute>
-			return subExpressions[1], subExpressions[3], 0, subExpressions[4], nil
+			return subExpressions[1], subExpressions[3], nil, subExpressions[4], nil
 		}
 	}
-	return "", "", 0, "", fmt.Errorf("Must be one of the form 1). %q; 2). %q", resultExpressionFormat, objectResultExpressionFormat)
+	return "", "", nil, "", fmt.Errorf("must be one of the form 1). %q; 2). %q", resultExpressionFormat, objectResultExpressionFormat)
 }
 
 // ParseResultName parse the input string to extract resultName and result index.
@@ -200,19 +175,17 @@ func ParseResultName(resultName string) (string, string) {
 // in a PipelineTask and returns a list of any references that are found.
 func PipelineTaskResultRefs(pt *PipelineTask) []*ResultRef {
 	refs := []*ResultRef{}
-	var matrixParams []Param
-	if pt.IsMatrixed() {
-		matrixParams = pt.Matrix.Params
-	}
-	for _, p := range append(pt.Params, matrixParams...) {
-		expressions, _ := GetVarSubstitutionExpressionsForParam(p)
+	// TODO move the whenExpression.GetVarSubstitutionExpressions() and GetVarSubstitutionExpressionsForParam(p) as well
+	// separate cleanup, reference https://github.com/tektoncd/pipeline/pull/7121
+	for _, p := range pt.extractAllParams() {
+		expressions, _ := p.GetVarSubstitutionExpressions()
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
 	for _, whenExpression := range pt.When {
 		expressions, _ := whenExpression.GetVarSubstitutionExpressions()
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
+	taskSubExpressions := pt.GetVarSubstitutionExpressions()
+	refs = append(refs, NewResultRefs(taskSubExpressions)...)
 	return refs
 }
