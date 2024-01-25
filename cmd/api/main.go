@@ -25,19 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
-
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/golang-jwt/jwt/v4"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -52,17 +39,28 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	_ "go.uber.org/automaxprocs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func main() {
@@ -100,7 +98,12 @@ func main() {
 	var err error
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s sslrootcert=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE, serverConfig.DB_SSLROOTCERT)
+
 	gormConfig := &gorm.Config{}
+	if serverConfig.DB_SCHEMA != "" {
+		gormConfig.NamingStrategy = schema.NamingStrategy{TablePrefix: serverConfig.DB_SCHEMA}
+	}
+
 	if log.Level() != zap.DebugLevel {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}

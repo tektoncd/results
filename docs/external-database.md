@@ -57,7 +57,7 @@ patches:
   - path: delete-database-configmap.yaml
 ```
 
-## Modifying DB_HOST and DB_NAME
+## Modifying DB_HOST, DB_NAME, DB_SCHEMA
 
 You may add patches to modify them. Here, we will utilize env/config. If you
 want to securely store these variables, consider adding patches to fetch these
@@ -68,6 +68,7 @@ Copy the [config](../config/base/env/config) and change these values.
 ```cfg
 DB_HOST=
 DB_NAME=
+DB_SCHEMA=
 ```
 
 Here is the required patch if you want to use Kubernetes Secret for passing
@@ -89,6 +90,8 @@ spec:
               value: <put-your-external-db-host-here>
             - name: DB_NAME
               value: <your-db-name default:tekton-results>
+            - name: DB_SCHEMA
+              value: <your-db-schema default:public>
 ```
 
 ## Create Secret for storing database username and password
