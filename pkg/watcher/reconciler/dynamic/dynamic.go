@@ -333,6 +333,11 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 		)
 
 		go func() {
+			logger.Infow("GGM1 sendLog go func start",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+			)
 			err := r.streamLogs(ctx, o, logType, logName)
 			if err != nil {
 				logger.Errorw("Error streaming log",
@@ -343,6 +348,11 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 				)
 			}
 			logger.Debugw("Streaming log completed",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+			)
+			logger.Infow("GGM2 sendLog go func end",
 				zap.String("namespace", o.GetNamespace()),
 				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 				zap.String("name", o.GetName()),
@@ -388,19 +398,55 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return fmt.Errorf("error reading from tkn reader: %w", err)
 	}
 
-	errChanRepeater := make(chan error)
-	go func(echan <-chan error, o metav1.Object) {
-		writeErr := <-echan
-		errChanRepeater <- writeErr
+	errChanRepeater := make(chan error, 100) // some stuff on the internet says buffered channels are better for GC
 
-		_, err := writer.Flush()
-		if err != nil {
-			logger.Error(err)
+	// logctx is derived from ctx. Therefore, if ctx is cancelled (either explicitly through a call to its cancel
+	// function or when it reaches its deadline), logctx will be cancelled automatically.
+	// TODO: Implement configurable timeout based on user feedback analysis.
+	logctx, logcancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer logcancel()
+
+	go func(ctx context.Context, echan <-chan error, o metav1.Object) {
+		defer close(errChanRepeater)
+		logger.Infow("GGM3 streamLogs go func start",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+		select {
+		case <-ctx.Done():
+			logger.Warnw("Context done streaming log",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("name", o.GetName()),
+			)
+		case writeErr := <-echan:
+			errChanRepeater <- writeErr
 		}
-		if err = logsClient.CloseSend(); err != nil {
-			logger.Error(err)
+		logger.Infow("GGM4 streamLogs go func start",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+
+		var gofuncerr error
+		_, gofuncerr = writer.Flush()
+		if gofuncerr != nil {
+			logger.Error(gofuncerr)
 		}
-	}(errChan, o)
+		if gofuncerr = logsClient.CloseSend(); gofuncerr != nil {
+			logger.Error(gofuncerr)
+		}
+		logger.Debugw("Flush in streamLogs done",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+		logger.Infow("GGM5 streamLogs go func end",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+		logger.Debugw("Gofunc in streamLogs done",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+	}(logctx, errChan, o)
 
 	// errChanRepeater receives stderr from the TaskRun containers.
 	// This will be forwarded as combined output (stdout and stderr)
@@ -409,6 +455,11 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		Out: writer,
 		Err: writer,
 	}, logChan, errChanRepeater)
+
+	logger.Debugw("Exiting streamLogs",
+		zap.String("namespace", o.GetNamespace()),
+		zap.String("name", o.GetName()),
+	)
 
 	return nil
 }
