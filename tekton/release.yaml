@@ -106,6 +106,8 @@ spec:
             script: |
               gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/previous/$(params.version)/release.yaml
               gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/latest/release.yaml
+              gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/previous/$(params.version)/release_base.yaml
+              gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/latest/release_base.yaml
       params:
         - name: version
           value: $(params.version)
