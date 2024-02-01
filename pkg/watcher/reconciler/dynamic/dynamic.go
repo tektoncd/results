@@ -388,18 +388,38 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return fmt.Errorf("error reading from tkn reader: %w", err)
 	}
 
-	errChanRepeater := make(chan error)
+	errChanRepeater := make(chan error, 100) //some stuff on the internet says buffered channels are better for GC
 	go func(echan <-chan error, o metav1.Object) {
-		writeErr := <-echan
-		errChanRepeater <- writeErr
-
-		_, err := writer.Flush()
-		if err != nil {
-			logger.Error(err)
+		select {
+		case <-ctx.Done():
+			logger.Warnw("Context done streaming log",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("name", o.GetName()),
+			)
+		case <-time.After(10 * time.Minute): //TODO could make this time configurable, but let's see how useful it is first
+			logger.Warnw("10 minute timer expired streaming log",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("name", o.GetName()),
+			)
+		case writeErr := <-echan:
+			errChanRepeater <- writeErr
+			var gofuncerr error
+			_, gofuncerr = writer.Flush()
+			if gofuncerr != nil {
+				logger.Error(gofuncerr)
+			}
+			if gofuncerr = logsClient.CloseSend(); gofuncerr != nil {
+				logger.Error(gofuncerr)
+			}
+			logger.Debugw("Flush in streamLogs done",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("name", o.GetName()),
+			)
 		}
-		if err = logsClient.CloseSend(); err != nil {
-			logger.Error(err)
-		}
+		logger.Debugw("Gofunc in streamLogs done",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
 	}(errChan, o)
 
 	// errChanRepeater receives stderr from the TaskRun containers.
@@ -409,6 +429,11 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		Out: writer,
 		Err: writer,
 	}, logChan, errChanRepeater)
+
+	logger.Debugw("Exiting streamLogs",
+		zap.String("namespace", o.GetNamespace()),
+		zap.String("name", o.GetName()),
+	)
 
 	return nil
 }
