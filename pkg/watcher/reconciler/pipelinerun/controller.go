@@ -29,6 +29,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/leaderelection"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"k8s.io/client-go/tools/cache"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
@@ -42,12 +43,14 @@ func NewController(ctx context.Context, resultsClient pb.ResultsClient, cmw conf
 func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient, cfg *reconciler.Config, cmw configmap.Watcher) *controller.Impl {
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineRunLister := pipelineRunInformer.Lister()
+	kubeclientset := kubeclient.Get(ctx)
 	logger := logging.FromContext(ctx)
 	configStore := config.NewStore(logger.Named("config-store"), pipelinerunmetrics.MetricsOnStore(logger))
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
 		LeaderAwareFuncs:  leaderelection.NewLeaderAwareFuncs(pipelineRunLister.List),
+		kubeClientSet:     kubeclientset,
 		resultsClient:     resultsClient,
 		logsClient:        logs.Get(ctx),
 		pipelineRunLister: pipelineRunLister,

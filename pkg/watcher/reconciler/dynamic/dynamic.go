@@ -15,19 +15,22 @@
 package dynamic
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"runtime/pprof"
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/fatih/color"
 	"github.com/jonboulle/clockwork"
-	"github.com/tektoncd/cli/pkg/cli"
-	tknlog "github.com/tektoncd/cli/pkg/log"
-	tknopts "github.com/tektoncd/cli/pkg/options"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
@@ -57,6 +60,7 @@ var (
 // Reconciler implements common reconciler behavior across different Tekton Run
 // Object types.
 type Reconciler struct {
+	kubernetesClientset    kubernetes.Interface
 	resultsClient          *results.Client
 	objectClient           ObjectClient
 	cfg                    *reconciler.Config
@@ -82,11 +86,12 @@ type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, 
 type AfterDeletion func(ctx context.Context, object results.Object) error
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
-func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
+func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, kc kubernetes.Interface, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
-		resultsClient: results.NewClient(rc, lc),
-		objectClient:  oc,
-		cfg:           cfg,
+		kubernetesClientset: kc,
+		resultsClient:       results.NewClient(rc, lc),
+		objectClient:        oc,
+		cfg:                 cfg,
 		// Always true predicate.
 		IsReadyForDeletionFunc: func(_ context.Context, _ results.Object) (bool, error) {
 			return true, nil
@@ -416,25 +421,20 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 		}
 		logName := log.FormatName(result.FormatName(parent, resName), recName)
 
-		var logType string
+		var labelKey string
 		switch o.GetObjectKind().GroupVersionKind().Kind {
 		case "TaskRun":
-			logType = tknlog.LogTypeTask
+			labelKey = pipeline.TaskRunLabelKey
 		case "PipelineRun":
-			logType = tknlog.LogTypePipeline
+			labelKey = pipeline.PipelineRunLabelKey
 		}
 
 		if err := r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.Log, Value: logName}); err != nil {
 			return err
 		}
 
-		logger.Debugw("Streaming log started",
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()),
-		)
+		err = r.streamLogs(ctx, o, labelKey, logName)
 
-		err = r.streamLogs(ctx, o, logType, logName)
 		if err != nil {
 			logger.Errorw("Error streaming log",
 				zap.String("namespace", o.GetNamespace()),
@@ -442,6 +442,7 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 				zap.String("name", o.GetName()),
 				zap.Error(err),
 			)
+			return err
 		}
 		logger.Debugw("Streaming log completed",
 			zap.String("namespace", o.GetNamespace()),
@@ -454,8 +455,57 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 	return nil
 }
 
-func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, logName string) error {
+func (r *Reconciler) getPodLogs(ctx context.Context, ns, pod, container, labelKey, task string) ([]byte, error) {
+	podLogOpts := corev1.PodLogOptions{
+		Container: container,
+	}
+	req := r.kubernetesClientset.CoreV1().Pods(ns).GetLogs(pod, &podLogOpts)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer podLogs.Close()
+
+	if err != nil && errors.IsNotFound(err) {
+		msg := fmt.Sprintf("error getting logs for pod %s container %s: %s", pod, container, err.Error())
+		msgBytes := []byte(msg)
+		return msgBytes, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rdr := bufio.NewReader(podLogs)
+	buf := new(bytes.Buffer)
+	for {
+		var line []byte
+		line, _, err = rdr.ReadLine()
+		if err != nil && err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		s := ""
+		stepName := strings.TrimPrefix(container, "step-")
+		s = fmt.Sprintf("[%s : %s] %s", task, stepName, string(line))
+		if labelKey == pipeline.TaskRunLabelKey {
+			s = fmt.Sprintf("[%s] %s", stepName, string(line))
+		}
+		_, err = buf.Write([]byte(s))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, labelKey, logName string) error {
 	logger := logging.FromContext(ctx)
+	logger.Debugw("Streaming log started",
+		zap.String("namespace", o.GetNamespace()),
+		zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+		zap.String("name", o.GetName()),
+	)
 	logsClient, err := r.resultsClient.UpdateLog(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create UpdateLog client: %w", err)
@@ -464,43 +514,35 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 	writer := logs.NewBufferedWriter(logsClient, logName, logs.DefaultBufferSize)
 
 	inMemWriteBufferStdout := bytes.NewBuffer(make([]byte, 0))
-	inMemWriteBufferStderr := bytes.NewBuffer(make([]byte, 0))
-	tknParams := &cli.TektonParams{}
-	tknParams.SetNamespace(o.GetNamespace())
-	// KLUGE: tkn reader.Read() will raise an error if a step in the TaskRun failed and there is no
-	// Err writer in the Stream object. This will result in some "error" messages being written to
-	// the log.  That, coupled with the fact that the tkn client wrappers and oftent masks errors
-	// makes it impossible to differentiate between retryable and permanent k8s errors wrt retrying
-	// reconciliation in this controller
 
-	reader, err := tknlog.NewReader(logType, &tknopts.LogOptions{
-		AllSteps:        true,
-		Params:          tknParams,
-		PipelineRunName: o.GetName(),
-		TaskrunName:     o.GetName(),
-		Stream: &cli.Stream{
-			Out: inMemWriteBufferStdout,
-			Err: inMemWriteBufferStderr,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create tkn reader: %w", err)
+	lo := metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", labelKey, o.GetName()),
 	}
-	logChan, errChan, err := reader.Read()
+	var pods *corev1.PodList
+	pods, err = r.kubernetesClientset.CoreV1().Pods(o.GetNamespace()).List(ctx, lo)
 	if err != nil {
-		return fmt.Errorf("error reading from tkn reader: %w", err)
+		return err
 	}
 
-	tknlog.NewWriter(logType, true).Write(&cli.Stream{
-		Out: inMemWriteBufferStdout,
-		Err: inMemWriteBufferStderr,
-	}, logChan, errChan)
+	for _, pod := range pods.Items {
+		// fyi gocritic complained about employing 'containers := append(pod.Spec.InitContainers, pod.Spec.Containers...)'
+		containers := []corev1.Container{}
+		copy(containers, pod.Spec.InitContainers)
+		containers = append(containers, pod.Spec.Containers...)
+		for _, container := range containers {
+			pipelineTaskName := pod.Labels[pipeline.PipelineTaskLabelKey]
+			taskName := pod.Labels[pipeline.TaskLabelKey]
 
-	// pull the first error that occurred and return on that; reminder - per https://golang.org/ref/spec#Channel_types
-	// channels act as FIFO queues
-	chanErr, ok := <-errChan
-	if ok && chanErr != nil {
-		return fmt.Errorf("error occurred while calling tkn client write: %w", chanErr)
+			task := taskName
+			if len(task) == 0 {
+				task = pipelineTaskName
+			}
+			ba, podLogsErr := r.getPodLogs(ctx, o.GetNamespace(), pod.Name, container.Name, labelKey, task)
+			if podLogsErr != nil {
+				return podLogsErr
+			}
+			inMemWriteBufferStdout.Write(ba)
+		}
 	}
 
 	bufStdout := inMemWriteBufferStdout.Bytes()
@@ -511,6 +553,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			zap.String("namespace", o.GetNamespace()),
 			zap.String("name", o.GetName()),
 		)
+		return writeStdOutErr
 	}
 	if cntStdout != len(bufStdout) {
 		logger.Warnw("streamLogs bufStdout write len inconsistent",
@@ -521,20 +564,9 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		)
 
 	}
-	bufStderr := inMemWriteBufferStderr.Bytes()
-	// we do not write these errors to the results api server
-
-	// TODO we may need somehow discern the precise nature of the errors here and adjust how
-	// we return accordingly
-	if len(bufStderr) > 0 {
-		errStr := string(bufStderr)
-		logger.Warnw("tkn client std error output",
-			zap.String("name", o.GetName()),
-			zap.String("errStr", errStr))
-	}
 
 	flushCount, flushErr := writer.Flush()
-	logger.Warnw("flush ret count",
+	logger.Debugw("flush ret count",
 		zap.String("name", o.GetName()),
 		zap.Int("flushCount", flushCount))
 	if flushErr != nil {
@@ -565,8 +597,9 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return closeErr
 	}
 
-	logger.Debugw("Exiting streamLogs",
+	logger.Debugw("Streaming log completed",
 		zap.String("namespace", o.GetNamespace()),
+		zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 		zap.String("name", o.GetName()),
 	)
 

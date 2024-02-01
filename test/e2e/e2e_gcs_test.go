@@ -115,6 +115,7 @@ func TestGCSLog(t *testing.T) {
 				t.Logf("Error getting Log for %s: %v", logName, cerr)
 				return false, nil
 			}
+
 			want := "[hello : hello] hello world!"
 			if log == nil {
 				t.Logf("Nil return from logClient.Recv()")
