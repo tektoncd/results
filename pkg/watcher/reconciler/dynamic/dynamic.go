@@ -15,6 +15,7 @@
 package dynamic
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -355,8 +356,6 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 
 func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, logName string) error {
 	logger := logging.FromContext(ctx)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	logsClient, err := r.resultsClient.UpdateLog(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create UpdateLog client: %w", err)
@@ -364,11 +363,15 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 
 	writer := logs.NewBufferedWriter(logsClient, logName, logs.DefaultBufferSize)
 
+	inMemWriteBufferStdout := bytes.NewBuffer(make([]byte, 0))
+	inMemWriteBufferStderr := bytes.NewBuffer(make([]byte, 0))
 	tknParams := &cli.TektonParams{}
 	tknParams.SetNamespace(o.GetNamespace())
 	// KLUGE: tkn reader.Read() will raise an error if a step in the TaskRun failed and there is no
 	// Err writer in the Stream object. This will result in some "error" messages being written to
-	// the log.
+	// the log.  That, coupled with the fact that the tkn client wrappers and oftent masks errors
+	// makes it impossible to differentiate between retryable and permanent k8s errors wrt retrying
+	// reconciliation in this controller
 
 	reader, err := tknlog.NewReader(logType, &tknopts.LogOptions{
 		AllSteps:        true,
@@ -376,8 +379,8 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		PipelineRunName: o.GetName(),
 		TaskrunName:     o.GetName(),
 		Stream: &cli.Stream{
-			Out: writer,
-			Err: writer,
+			Out: inMemWriteBufferStdout,
+			Err: inMemWriteBufferStderr,
 		},
 	})
 	if err != nil {
@@ -388,27 +391,63 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return fmt.Errorf("error reading from tkn reader: %w", err)
 	}
 
-	errChanRepeater := make(chan error)
-	go func(echan <-chan error, o metav1.Object) {
-		writeErr := <-echan
-		errChanRepeater <- writeErr
-
-		_, err := writer.Flush()
-		if err != nil {
-			logger.Error(err)
-		}
-		if err = logsClient.CloseSend(); err != nil {
-			logger.Error(err)
-		}
-	}(errChan, o)
-
-	// errChanRepeater receives stderr from the TaskRun containers.
-	// This will be forwarded as combined output (stdout and stderr)
-
 	tknlog.NewWriter(logType, true).Write(&cli.Stream{
-		Out: writer,
-		Err: writer,
-	}, logChan, errChanRepeater)
+		Out: inMemWriteBufferStdout,
+		Err: inMemWriteBufferStderr,
+	}, logChan, errChan)
+
+	bufStdout := inMemWriteBufferStdout.Bytes()
+	cntStdout, writeStdOutErr := writer.Write(bufStdout)
+	if writeStdOutErr != nil {
+		logger.Warnw("streamLogs in mem bufStdout write err",
+			zap.String("error", writeStdOutErr.Error()),
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+	}
+	if cntStdout != len(bufStdout) {
+		logger.Warnw("streamLogs bufStdout write len inconsistent",
+			zap.Int("in", len(bufStdout)),
+			zap.Int("out", cntStdout),
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
+
+	}
+	bufStderr := inMemWriteBufferStderr.Bytes()
+	// we do not write these errors to the results api server
+
+	// TODO we may need somehow discern the precise nature of the errors here and adjust how
+	// we return accordingly
+	if len(bufStderr) > 0 {
+		errStr := string(bufStderr)
+		logger.Warnw("tkn client std error output",
+			zap.String("name", o.GetName()),
+			zap.String("errStr", errStr))
+	}
+
+	flushCount, flushErr := writer.Flush()
+	logger.Warnw("flush ret count",
+		zap.String("name", o.GetName()),
+		zap.Int("flushCount", flushCount))
+	if flushErr != nil {
+		logger.Warnw("flush ret err",
+			zap.String("error", flushErr.Error()))
+		logger.Error(flushErr)
+		return flushErr
+	}
+	if closeErr := logsClient.CloseSend(); closeErr != nil {
+		logger.Warnw("CloseSend ret err",
+			zap.String("name", o.GetName()),
+			zap.String("error", closeErr.Error()))
+		logger.Error(closeErr)
+		return closeErr
+	}
+
+	logger.Debugw("Exiting streamLogs",
+		zap.String("namespace", o.GetNamespace()),
+		zap.String("name", o.GetName()),
+	)
 
 	return nil
 }

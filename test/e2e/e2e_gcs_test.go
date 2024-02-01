@@ -18,10 +18,15 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"io"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"testing"
 
 	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"strings"
 	"time"
@@ -75,6 +80,10 @@ func TestGCSLog(t *testing.T) {
 			}
 			return false, nil
 		}); err != nil {
+			t.Log("dumping watcher logs")
+			podLogs(t, "tekton-pipelines", "watcher")
+			t.Log("dumping api logs")
+			podLogs(t, "tekton-pipelines", "api")
 			t.Fatalf("Error waiting for PipelineRun creation: %v", err)
 		}
 	})
@@ -93,17 +102,79 @@ func TestGCSLog(t *testing.T) {
 		if logName == "" {
 			t.Skip("log name not found")
 		}
-		logClient, err := gc.GetLog(context.Background(), &resultsv1alpha2.GetLogRequest{Name: logName})
-		if err != nil {
-			t.Errorf("Error getting Log Client: %v", err)
-		}
-		log, err := logClient.Recv()
-		if err != nil {
-			t.Errorf("Error getting Log: %v", err)
-		}
-		want := "[hello : hello] hello world!"
-		if !strings.Contains(string(log.Data), want) {
-			t.Errorf("Log Data inconsistent got: %s, doesn't have: %s", string(log.Data), want)
+		if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
+			logClient, err := gc.GetLog(context.Background(), &resultsv1alpha2.GetLogRequest{Name: logName})
+			if err != nil {
+				t.Logf("Error getting Log Client: %v", err)
+				return false, nil
+			}
+			var log *httpbody.HttpBody
+			var cerr error
+			log, cerr = logClient.Recv()
+			if cerr != nil {
+				t.Logf("Error getting Log for %s: %v", logName, cerr)
+				return false, nil
+			}
+			want := "[hello : hello] hello world!"
+			if log == nil {
+				t.Logf("Nil return from logClient.Recv()")
+				return false, nil
+			}
+			if !strings.Contains(string(log.Data), want) {
+				t.Logf("Log Data inconsistent for %s got: %s, doesn't have: %s", logName, string(log.Data), want)
+				return false, nil
+			}
+			return true, nil
+
+		}); err != nil {
+			t.Log("dumping watcher logs")
+			podLogs(t, "tekton-pipelines", "watcher")
+			t.Log("dumping api logs")
+			podLogs(t, "tekton-pipelines", "api")
+			t.Fatalf("Error waiting for check log: %v", err)
 		}
 	})
+}
+
+func podLogs(t *testing.T, ns string, name string) {
+	t.Logf("getting pod logs for the pattern %s", name)
+	clientset := kubernetes.NewForConfigOrDie(clientConfig(t))
+	ctx := context.Background()
+	list, err := clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		t.Errorf("pod list error %s", err)
+	}
+	for _, pod := range list.Items {
+		if strings.Contains(pod.Name, name) {
+			t.Logf("found pod %s matcher pattern %s", pod.Name, name)
+			for _, c := range pod.Spec.Containers {
+				containerLogs(t, ctx, ns, pod.Name, c.Name)
+			}
+			break
+		}
+	}
+}
+
+func containerLogs(t *testing.T, ctx context.Context, ns, podName, containerName string) {
+	podLogOpts := corev1.PodLogOptions{}
+	podLogOpts.Container = containerName
+	t.Logf("print container %s from pod %s:", containerName, podName)
+	clientset := kubernetes.NewForConfigOrDie(clientConfig(t))
+	req := clientset.CoreV1().Pods(ns).GetLogs(podName, &podLogOpts)
+	logs, err := req.Stream(ctx)
+	if err != nil {
+		t.Errorf("error streaming pod logs %s", err.Error())
+		return
+	}
+	defer logs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, logs)
+	if err != nil {
+		t.Errorf("error copying pod logs %s", err.Error())
+		return
+	}
+	str := buf.String()
+	t.Logf("%s", str)
+
 }
