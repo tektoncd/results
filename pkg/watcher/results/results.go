@@ -146,7 +146,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 				return nil, err
 			}
 			var annotations map[string]string
-			if curr != nil && len(curr.Summary.Annotations) != 0 {
+			if curr != nil && curr.Summary != nil && len(curr.Summary.Annotations) != 0 {
 				copyKeys(recordSummaryAnnotations, curr.Summary.Annotations)
 				annotations = curr.Summary.Annotations
 			} else {
