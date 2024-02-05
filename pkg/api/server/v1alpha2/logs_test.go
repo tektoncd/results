@@ -139,8 +139,9 @@ func TestGetLog(t *testing.T) {
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
 					Status: v1alpha2.LogStatus{
-						Path: logFile.Name(),
-						Size: 1024,
+						Path:     logFile.Name(),
+						Size:     1024,
+						IsStored: true,
 					},
 				}),
 			},

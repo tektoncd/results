@@ -60,7 +60,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		s.logger.Error(err)
 		return status.Error(codes.Internal, "Error streaming log")
 	}
-	if object.Status.Size == 0 {
+	if !object.Status.IsStored {
 		s.logger.Errorf("no logs exist for %s", req.GetName())
 		return status.Error(codes.NotFound, "Log doesn't exist")
 	}
@@ -169,9 +169,10 @@ func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *
 	}
 	apiRec := record.ToAPI(rec)
 	apiRec.UpdateTime = timestamppb.Now()
-	if written > 0 {
-		log.Status.Size = written
-	}
+
+	log.Status.Size = written
+	log.Status.IsStored = returnErr == io.EOF
+
 	data, err := json.Marshal(log)
 	if err != nil {
 		if !isNilOrEOF(returnErr) {
