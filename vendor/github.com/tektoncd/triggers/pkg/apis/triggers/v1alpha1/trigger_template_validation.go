@@ -33,6 +33,8 @@ import (
 // paramsRegexp captures TriggerTemplate parameter names $(tt.params.NAME)
 var paramsRegexp = regexp.MustCompile(`\$\(tt.params.(?P<var>[_a-zA-Z][_a-zA-Z0-9.-]*)\)`)
 
+// revive:disable:unused-parameter
+
 // Validate validates a TriggerTemplate.
 func (t *TriggerTemplate) Validate(ctx context.Context) *apis.FieldError {
 	if apis.IsInDelete(ctx) {
@@ -49,10 +51,10 @@ func (s *TriggerTemplateSpec) validate(ctx context.Context) (errs *apis.FieldErr
 		errs = errs.Also(apis.ErrMissingField(apis.CurrentField))
 	}
 	if len(s.ResourceTemplates) == 0 {
-		errs = errs.Also(apis.ErrMissingField("resourcetemplates"))
+		errs = errs.Also(apis.ErrMissingField("resourceTemplates"))
 	}
-	errs = errs.Also(validateResourceTemplates(s.ResourceTemplates).ViaField("resourcetemplates"))
-	errs = errs.Also(verifyParamDeclarations(s.Params, s.ResourceTemplates).ViaField("resourcetemplates"))
+	errs = errs.Also(validateResourceTemplates(s.ResourceTemplates).ViaField("resourceTemplates"))
+	errs = errs.Also(verifyParamDeclarations(s.Params, s.ResourceTemplates).ViaField("resourceTemplates"))
 	return errs
 }
 
