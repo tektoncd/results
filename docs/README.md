@@ -77,9 +77,6 @@ sequenceDiagram
 ## Data Model
 
 ```mermaid
----
-title: Tekton Results Data Model 
----
 graph BT
   B(TaskRun) --> |Record| A[Result]
   C(Log) --> |Record| A
