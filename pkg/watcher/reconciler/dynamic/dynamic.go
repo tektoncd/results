@@ -397,13 +397,14 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return fmt.Errorf("error reading from tkn reader: %w", err)
 	}
 
-	errChanRepeater := make(chan error, 100) //some stuff on the internet says buffered channels are better for GC
+	errChanRepeater := make(chan error, 100)
 
 	// logctx is derived from ctx. Therefore, if ctx is cancelled (either explicitly through a call to its cancel
 	// function or when it reaches its deadline), logctx will be cancelled automatically.
 	logctx, _ := context.WithTimeout(ctx, 10*time.Minute)
 
 	go func(ctx context.Context, echan <-chan error, o metav1.Object) {
+		defer close(errChanRepeater)
 		select {
 		case <-ctx.Done():
 			logger.Warnw("Context done streaming log",
@@ -454,7 +455,6 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			)
 
 		}
-
 	}(logctx, errChan, o)
 
 	// errChanRepeater receives stderr from the TaskRun containers.
@@ -465,6 +465,10 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		Err: writer,
 	}, logChan, errChanRepeater)
 
+	logger.Debugw("Exiting streaming logs",
+		zap.String("namespace", o.GetNamespace()),
+		zap.String("name", o.GetName()),
+	)
 	return nil
 }
 
