@@ -401,6 +401,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 
 	// logctx is derived from ctx. Therefore, if ctx is cancelled (either explicitly through a call to its cancel
 	// function or when it reaches its deadline), logctx will be cancelled automatically.
+	// TODO: Implement configurable timeout based on user feedback analysis.
 	logctx, _ := context.WithTimeout(ctx, 10*time.Minute)
 
 	go func(ctx context.Context, echan <-chan error, o metav1.Object) {
@@ -413,24 +414,23 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			)
 		case writeErr := <-echan:
 			errChanRepeater <- writeErr
-			var gofuncerr error
-			_, gofuncerr = writer.Flush()
-			if gofuncerr != nil {
-				logger.Error(gofuncerr)
-			}
-			if gofuncerr = logsClient.CloseSend(); gofuncerr != nil {
-				logger.Error(gofuncerr)
-			}
-			logger.Debugw("Flush in streamLogs done",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("name", o.GetName()),
-			)
 		}
-		logger.Debugw("Gofunc in streamLogs done",
+		var gofuncerr error
+		_, gofuncerr = writer.Flush()
+		if gofuncerr != nil {
+			logger.Error(gofuncerr)
+		}
+		logger.Info("Flush in streamLogs done",
 			zap.String("namespace", o.GetNamespace()),
 			zap.String("name", o.GetName()),
 		)
-
+		if err = logsClient.CloseSend(); err != nil {
+			logger.Error(err)
+		}
+		logger.Info("Gofunc in streamLogs done",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("name", o.GetName()),
+		)
 		err = r.RemoveFinalizer(ctx, o)
 		if err != nil {
 			logger.Errorw("Error removing finalizer",
@@ -441,7 +441,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			return
 		}
 
-		logger.Debugw("Finalizer removed successfully",
+		logger.Info("Finalizer removed successfully",
 			zap.String("namespace", o.GetNamespace()),
 			zap.String("name", o.GetName()),
 		)
@@ -453,8 +453,8 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 				zap.String("name", o.GetName()),
 				zap.Error(err),
 			)
-
 		}
+
 	}(logctx, errChan, o)
 
 	// errChanRepeater receives stderr from the TaskRun containers.
@@ -465,7 +465,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		Err: writer,
 	}, logChan, errChanRepeater)
 
-	logger.Debugw("Exiting streaming logs",
+	logger.Info("Exiting streaming logs",
 		zap.String("namespace", o.GetNamespace()),
 		zap.String("name", o.GetName()),
 	)
@@ -473,6 +473,14 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 }
 
 func (r *Reconciler) AddFinalizer(ctx context.Context, o metav1.Object) error {
+	if ownerReferences := o.GetOwnerReferences(); len(ownerReferences) > 0 {
+		// do not add finalizer if the object is owned by a PipelineRun object
+		for _, or := range ownerReferences {
+			if or.Kind == "PipelineRun" {
+				return nil
+			}
+		}
+	}
 	finalizers := o.GetFinalizers()
 	for _, f := range finalizers {
 		if f == LogFinalizer {
@@ -481,7 +489,7 @@ func (r *Reconciler) AddFinalizer(ctx context.Context, o metav1.Object) error {
 	}
 	finalizers = append(finalizers, LogFinalizer)
 
-	patch, err := finalizerPatch(o, finalizers)
+	patch, err := finalizerPatch(finalizers)
 	if err != nil {
 		return fmt.Errorf("error adding results log finalizer: %w", err)
 	}
@@ -497,7 +505,7 @@ func (r *Reconciler) RemoveFinalizer(ctx context.Context, o metav1.Object) error
 	for i, f := range finalizers {
 		if f == LogFinalizer {
 			finalizers = append(finalizers[:i], finalizers[i+1:]...)
-			patch, err := finalizerPatch(o, finalizers)
+			patch, err := finalizerPatch(finalizers)
 			if err != nil {
 				return fmt.Errorf("error removing results log finalizer: %w", err)
 			}
@@ -530,7 +538,7 @@ type metadata struct {
 	Finalizer []string `json:"finalizers"`
 }
 
-func finalizerPatch(object metav1.Object, finalizers []string) ([]byte, error) {
+func finalizerPatch(finalizers []string) ([]byte, error) {
 	data := mergePatch{
 		Metadata: metadata{
 			Finalizer: []string{},
