@@ -427,11 +427,20 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		)
 
 		var gofuncerr error
-		_, gofuncerr = writer.Flush()
+		var flushCount int
+		flushCount, gofuncerr = writer.Flush()
+		logger.Infow("GGMGGM1 flush ret count",
+			zap.String("name", o.GetName()),
+			zap.Int("flushCount", flushCount))
 		if gofuncerr != nil {
+			logger.Infow("GGMGGM1 flush ret err",
+				zap.String("error", gofuncerr.Error()))
 			logger.Error(gofuncerr)
 		}
 		if gofuncerr = logsClient.CloseSend(); gofuncerr != nil {
+			logger.Infow("GGMGGM2 CloseSend ret err",
+				zap.String("name", o.GetName()),
+				zap.String("error", gofuncerr.Error()))
 			logger.Error(gofuncerr)
 		}
 		logger.Debugw("Flush in streamLogs done",
