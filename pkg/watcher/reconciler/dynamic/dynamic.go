@@ -403,8 +403,8 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 	// logctx is derived from ctx. Therefore, if ctx is cancelled (either explicitly through a call to its cancel
 	// function or when it reaches its deadline), logctx will be cancelled automatically.
 	// TODO: Implement configurable timeout based on user feedback analysis.
-	logctx, logcancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer logcancel()
+	logctx, _ := context.WithTimeout(ctx, 10*time.Minute)
+	//defer logcancel()
 
 	go func(ctx context.Context, echan <-chan error, o metav1.Object) {
 		defer close(errChanRepeater)
