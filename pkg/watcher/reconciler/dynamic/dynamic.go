@@ -400,12 +400,6 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 
 	errChanRepeater := make(chan error, 100) // some stuff on the internet says buffered channels are better for GC
 
-	// logctx is derived from ctx. Therefore, if ctx is cancelled (either explicitly through a call to its cancel
-	// function or when it reaches its deadline), logctx will be cancelled automatically.
-	// TODO: Implement configurable timeout based on user feedback analysis.
-	logctx, _ := context.WithTimeout(ctx, 10*time.Minute)
-	//defer logcancel()
-
 	go func(ctx context.Context, echan <-chan error, o metav1.Object) {
 		defer close(errChanRepeater)
 		logger.Infow("GGM3 streamLogs go func start",
@@ -413,6 +407,12 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			zap.String("name", o.GetName()),
 		)
 		select {
+		// TODO: Implement configurable timeout based on user feedback analysis.
+		case <-time.After(10 * time.Minute):
+			logger.Warnw("10 minute timeout exceeded",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("name", o.GetName()),
+			)
 		case <-ctx.Done():
 			logger.Warnw("Context done streaming log",
 				zap.String("namespace", o.GetNamespace()),
@@ -455,7 +455,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			zap.String("namespace", o.GetNamespace()),
 			zap.String("name", o.GetName()),
 		)
-	}(logctx, errChan, o)
+	}(ctx, errChan, o)
 
 	// errChanRepeater receives stderr from the TaskRun containers.
 	// This will be forwarded as combined output (stdout and stderr)
