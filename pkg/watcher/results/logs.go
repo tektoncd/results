@@ -2,6 +2,8 @@ package results
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
@@ -85,4 +87,30 @@ func (c *Client) GetLogRecord(ctx context.Context, o Object) (*pb.Record, error)
 		return nil, nil
 	}
 	return rec, err
+}
+
+// LogStatus checks if logs related to the given object have been successfully stored.
+func (c *Client) LogStatus(ctx context.Context, o Object) (bool, error) {
+	rec, err := c.GetLogRecord(ctx, o)
+	if err != nil {
+		return false, err
+	}
+
+	var logStatus LogStatus
+
+	err = json.Unmarshal(rec.GetData().GetValue(), &logStatus)
+	if err != nil {
+		return false, fmt.Errorf("error unmarshalling : %w", err)
+	}
+
+	return logStatus.Status.IsStored, nil
+}
+
+// LogStatus is a struct to match the JSON structure of the log status.
+type LogStatus struct {
+	Status `json:"status"`
+}
+
+type Status struct {
+	IsStored bool `json:"isStored"`
 }

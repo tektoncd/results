@@ -229,6 +229,23 @@ func (r *Reconciler) deleteUponCompletion(ctx context.Context, o results.Object)
 		return controller.NewRequeueAfter(r.cfg.RequeueInterval)
 	}
 
+	if r.resultsClient.LogsClient != nil {
+		logStored, err := r.resultsClient.LogStatus(ctx, o)
+		if err != nil {
+			logger.Errorw("Error confirming object's logs were stored - requeuing to prune later",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+				zap.Error(err),
+			)
+			return controller.NewRequeueAfter(r.cfg.RequeueInterval)
+		}
+		if !logStored {
+			logger.Debugw("Object is streaming logs - requeuing to prune later", zap.Duration("results.tekton.dev/requeueAfter", r.cfg.RequeueInterval))
+			return controller.NewRequeueAfter(r.cfg.RequeueInterval)
+		}
+	}
+
 	logger.Infow("Deleting object", zap.String("results.tekton.dev/uid", string(o.GetUID())),
 		zap.Int64("results.tekton.dev/time-taken-seconds", int64(time.Since(*completionTime).Seconds())))
 
@@ -341,6 +358,7 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 					zap.String("name", o.GetName()),
 					zap.Error(err),
 				)
+				return
 			}
 			logger.Debugw("Streaming log completed",
 				zap.String("namespace", o.GetNamespace()),
