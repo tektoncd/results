@@ -363,10 +363,12 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 	return nil
 }
 
-func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, logName string) error {
-	logger := logging.FromContext(ctx)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func (r *Reconciler) streamLogs(octx context.Context, o results.Object, logType, logName string) error {
+	logger := logging.FromContext(octx)
+	// as these update log calls could take a bit, we add a significant timeout to avoid cancelled contexts
+	// on the grpc call
+	ctx, _ := context.WithTimeout(octx, 10*time.Minute)
+	// defer cancel()
 	logsClient, err := r.resultsClient.UpdateLog(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create UpdateLog client: %w", err)
