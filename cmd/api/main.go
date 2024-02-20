@@ -217,7 +217,7 @@ func main() {
 	}
 
 	// Setup gRPC gateway to proxy request to gRPC health checks
-	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds))
+	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds), grpc.WithNoProxy())
 	if err != nil {
 		log.Fatalf("Error dialing gRPC endpoint: %v", err)
 	}
@@ -231,6 +231,7 @@ func main() {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100 * 1024 * 1024)),
+		grpc.WithNoProxy(),
 	}
 
 	// Register gRPC server endpoint to gRPC gateway
