@@ -62,7 +62,7 @@ var (
 	disableCRDUpdate        = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
 	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
 	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
-	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
+	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller. Default becomes 32 if sending logs is enabled")
 	qps                     = flag.Float64("qps", float64(rest.DefaultQPS), "Kubernetes client QPS setting")
 	burst                   = flag.Int("burst", rest.DefaultBurst, "Kubernetes client Burst setting")
 	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
@@ -77,8 +77,13 @@ func main() {
 	flag.Parse()
 
 	// Allow users to customize the number of workers used to process the
-	// controller's workqueue.
-	controller.DefaultThreadsPerController = *threadiness
+	// controller's workqueue, but factor in used of logs api to move off of developer default
+	// unless the user has specifically set the thread count
+	if *logsAPI && *threadiness == controller.DefaultThreadsPerController {
+		controller.DefaultThreadsPerController = 32
+	} else {
+		controller.DefaultThreadsPerController = *threadiness
+	}
 
 	ctx := signals.NewContext()
 
