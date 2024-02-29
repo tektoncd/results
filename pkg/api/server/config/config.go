@@ -31,6 +31,7 @@ type Config struct {
 	AUTH_IMPERSONATE bool `mapstructure:"AUTH_IMPERSONATE"`
 
 	LOGS_API         bool   `mapstructure:"LOGS_API"`
+	LOGS_PLUGIN      bool   `mapstructure:"LOGS_PLUGIN"`
 	LOGS_TYPE        string `mapstructure:"LOGS_TYPE"`
 	LOGS_BUFFER_SIZE int    `mapstructure:"LOGS_BUFFER_SIZE"`
 	LOGS_PATH        string `mapstructure:"LOGS_PATH"`
@@ -48,6 +49,8 @@ type Config struct {
 	S3_ACCESS_KEY_ID      string `mapstructure:"S3_ACCESS_KEY_ID"`
 	S3_SECRET_ACCESS_KEY  string `mapstructure:"S3_SECRET_ACCESS_KEY"`
 	S3_MULTI_PART_SIZE    int64  `mapstructure:"S3_MULTI_PART_SIZE"`
+
+	LOKI_URL string `mapstructure:"LOKI_URL"`
 }
 
 func Get() *Config {

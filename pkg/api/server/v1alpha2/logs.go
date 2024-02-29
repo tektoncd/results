@@ -3,9 +3,14 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/cel-go/cel"
@@ -16,6 +21,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
+	"k8s.io/client-go/transport"
 
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
@@ -26,6 +32,21 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const (
+	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
+
+)
+
+var client *http.Client
+
+func init() {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+	}
+	client = &http.Client{Transport: tr}
+
+}
 
 // GetLog streams log record by log request
 func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
@@ -47,7 +68,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		return err
 	}
 	// Check if the input record is referenced in any logs record in the result
-	if rec.Type != v1alpha3.LogRecordType && rec.Type != v1alpha3.LogRecordTypeV2 {
+	if rec.Type != v1alpha3.LogRecordType && rec.Type != v1alpha3.LogRecordTypeV2 && !s.config.LOGS_PLUGIN {
 		rec, err = getLogRecord(s.db, parent, res, name)
 		if err != nil {
 			s.logger.Error(err)
@@ -55,31 +76,40 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		}
 	}
 
-	stream, object, err := log.ToStream(srv.Context(), rec, s.config)
-	if err != nil {
-		s.logger.Error(err)
-		return status.Error(codes.Internal, "Error streaming log")
-	}
-
-	// Handle v1alpha2 and earlier differently from v1alpha3 until v1alpha2 and earlier are deprecated
-	if "results.tekton.dev/v1alpha3" == object.APIVersion {
-		if !object.Status.IsStored || object.Status.Size == 0 {
-			s.logger.Errorf("no logs exist for %s", req.GetName())
-			return status.Error(codes.NotFound, "Log doesn't exist")
-		}
-	} else {
-		// For v1alpha2 checking log size is the best way to ensure if logs are stored
-		// this is however susceptible to race condition
-		if object.Status.Size == 0 {
-			s.logger.Errorf("no logs exist for %s", req.GetName())
-			return status.Error(codes.NotFound, "Log doesn't exist")
-		}
-	}
-
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
-	if _, err = stream.WriteTo(writer); err != nil {
-		s.logger.Error(err)
-		return status.Error(codes.Internal, "Error streaming log")
+
+	if s.config.LOGS_PLUGIN {
+		err = s.getPluginLogs(writer, parent, rec.Name)
+		if err != nil {
+			s.logger.Error(err)
+			return err
+		}
+
+	} else {
+		stream, object, err := log.ToStream(srv.Context(), rec, s.config)
+		if err != nil {
+			s.logger.Error(err)
+			return status.Error(codes.Internal, "Error streaming log")
+		}
+		// Handle v1alpha2 and earlier differently from v1alpha3 until v1alpha2 and earlier are deprecated
+		if "results.tekton.dev/v1alpha3" == object.APIVersion {
+			if !object.Status.IsStored || object.Status.Size == 0 {
+				s.logger.Errorf("no logs exist for %s", req.GetName())
+				return status.Error(codes.NotFound, "Log doesn't exist")
+			}
+		} else {
+			// For v1alpha2 checking log size is the best way to ensure if logs are stored
+			// this is however susceptible to race condition
+			if object.Status.Size == 0 {
+				s.logger.Errorf("no logs exist for %s", req.GetName())
+				return status.Error(codes.NotFound, "Log doesn't exist")
+			}
+		}
+
+		if _, err = stream.WriteTo(writer); err != nil {
+			s.logger.Error(err)
+			return status.Error(codes.Internal, "Error streaming log")
+		}
 	}
 	_, err = writer.Flush()
 	if err != nil {
@@ -423,4 +453,61 @@ func (s *Server) DeleteLog(ctx context.Context, req *pb.DeleteLogRequest) (*empt
 	}
 
 	return &empty.Empty{}, errors.Wrap(s.db.WithContext(ctx).Delete(&db.Record{}, rec).Error)
+}
+
+func (s *Server) getPluginLogs(writer *logs.BufferedLog, parent, id string) error {
+	switch s.config.LOGS_TYPE {
+	case "LOKI":
+		return s.getLokiLogs(writer, parent, id)
+	default:
+		s.logger.Errorf("unsupported type of logs given for plugin")
+		return fmt.Errorf("unsupported type of logs given for plugin")
+	}
+}
+
+func (s *Server) getLokiLogs(writer *logs.BufferedLog, parent, id string) error {
+	URL, err := url.Parse(s.config.LOKI_URL + "/api/logs/v1/application/loki/api/v1/query_range")
+	if err != nil {
+		s.logger.Error(err)
+		return err
+	}
+
+	now := time.Now()
+	parameters := url.Values{}
+	parameters.Add("query", `{ log_type="application", kubernetes_namespace_name="`+parent+`" }|json|="`+id+`"| line_format "{{.message}}"`)
+	parameters.Add("end", strconv.FormatInt(now.UTC().Unix(), 10))
+	parameters.Add("start", strconv.FormatInt(now.Add(time.Duration(-43111)*time.Minute).Unix(), 10))
+
+	URL.RawQuery = parameters.Encode()
+
+	req, err := http.NewRequest("GET", URL.String(), nil)
+	if err != nil {
+		s.logger.Error(err)
+		return err
+	}
+
+	token, err := transport.NewCachedFileTokenSource(podTokenPath).Token()
+	if err != nil {
+		s.logger.Error(err)
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		s.logger.Error(err)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.logger.Error(err)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+	r := bytes.NewReader(data)
+	if _, err = r.WriteTo(writer); err != nil {
+		s.logger.Error(err)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+	return nil
+
 }
