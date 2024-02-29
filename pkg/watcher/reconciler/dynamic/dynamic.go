@@ -468,10 +468,13 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, labelKey,
 		logger.Error(flushErr)
 		return flushErr
 	}
-	if closeErr := logsClient.CloseSend(); closeErr != nil {
-		logger.Warnw("CloseSend ret err",
+	if logSummary, closeErr := logsClient.CloseAndRecv(); closeErr != nil && !strings.Contains(closeErr.Error(), "EOF") {
+		logger.Warnw("CloseAndRecv ret err",
 			zap.String("name", o.GetName()),
 			zap.String("error", closeErr.Error()))
+		if logSummary != nil {
+			logger.Errorw("CloseAndRecv", zap.String("logSummary", logSummary.String()))
+		}
 		logger.Error(closeErr)
 		return closeErr
 	}
