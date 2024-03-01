@@ -500,13 +500,16 @@ func (r *Reconciler) getPodLogs(ctx context.Context, ns, pod, container, labelKe
 }
 
 func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, labelKey, logName string) error {
-	logger := logging.FromContext(ctx)
+	// TODO consider making configurable after we get some real world usage feedback
+	streamCtx, streamCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer streamCancel()
+	logger := logging.FromContext(streamCtx)
 	logger.Debugw("Streaming log started",
 		zap.String("namespace", o.GetNamespace()),
 		zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 		zap.String("name", o.GetName()),
 	)
-	logsClient, err := r.resultsClient.UpdateLog(ctx)
+	logsClient, err := r.resultsClient.UpdateLog(streamCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create UpdateLog client: %w", err)
 	}
@@ -519,7 +522,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, labelKey,
 		LabelSelector: fmt.Sprintf("%s=%s", labelKey, o.GetName()),
 	}
 	var pods *corev1.PodList
-	pods, err = r.kubernetesClientset.CoreV1().Pods(o.GetNamespace()).List(ctx, lo)
+	pods, err = r.kubernetesClientset.CoreV1().Pods(o.GetNamespace()).List(streamCtx, lo)
 	if err != nil {
 		return err
 	}
@@ -537,7 +540,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, labelKey,
 			if len(task) == 0 {
 				task = pipelineTaskName
 			}
-			ba, podLogsErr := r.getPodLogs(ctx, o.GetNamespace(), pod.Name, container.Name, labelKey, task)
+			ba, podLogsErr := r.getPodLogs(streamCtx, o.GetNamespace(), pod.Name, container.Name, labelKey, task)
 			if podLogsErr != nil {
 				return podLogsErr
 			}
