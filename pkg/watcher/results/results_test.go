@@ -353,8 +353,8 @@ func TestAnnotations(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Annotations: map[string]string{
-				annotation.ResultAnnotations:        `{"x": "y"}`,
-				annotation.RecordSummaryAnnotations: `{"foo":"bar"}`,
+				annotation.ResultAnnotations:        `{"x": "y", "i": 7}`,
+				annotation.RecordSummaryAnnotations: `{"foo":"bar", "test": 1}`,
 			},
 			UID: types.UID("1"),
 		},
@@ -366,13 +366,13 @@ func TestAnnotations(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(map[string]string{
-		"x": "y",
+		"x": "y", "i": "7",
 	}, result.Annotations); diff != "" {
 		t.Errorf("Result.Annotations: mismatch (-want +got):\n%s", diff)
 	}
 
 	if diff := cmp.Diff(map[string]string{
-		"foo": "bar",
+		"foo": "bar", "test": "1",
 	}, result.Summary.Annotations); diff != "" {
 		t.Errorf("Result.Summary.Annotations: mismatch (-want +got):\n%s", diff)
 	}
