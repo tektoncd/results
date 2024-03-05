@@ -193,9 +193,13 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 
 // parseAnnotations attempts to return the provided value as a map of strings.
 func parseAnnotations(annotationKey, value string) (map[string]string, error) {
-	var annotations map[string]string
-	if err := json.Unmarshal([]byte(value), &annotations); err != nil {
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(value), &data); err != nil {
 		return nil, controller.NewPermanentError(fmt.Errorf("error parsing annotation %s: %w", annotationKey, err))
+	}
+	annotations := map[string]string{}
+	for i, v := range data {
+		annotations[i] = fmt.Sprint(v)
 	}
 	return annotations, nil
 }
