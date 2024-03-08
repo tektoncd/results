@@ -41,6 +41,9 @@ type Config struct {
 
 	// Check owner reference when deleting objects. By default, objects having owner references set won't be deleted.
 	CheckOwner bool
+
+	// UpdateLogTimeout is the time we provide for storing logs before aborting
+	UpdateLogTimeout *time.Duration
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be
