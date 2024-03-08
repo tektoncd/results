@@ -105,6 +105,14 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 		}
 	}()
 	for {
+		// the underlying grpc stream RecvMsg method blocks until this receives a message or it is done,
+		// with the client now setting a context deadline, if a timeout occurs, that should make this done/canceled; let's check to confirm
+		deadline, ok := srv.Context().Deadline()
+		if !ok {
+			s.logger.Warnf("UpdateLog called with no deadline: %#v", srv)
+		} else {
+			s.logger.Infof("UpdateLog called with deadline: %s for %#v", deadline.String(), srv)
+		}
 		recv, err := srv.Recv()
 		// If we reach the end of the srv, we receive an io.EOF error
 		if err != nil {
