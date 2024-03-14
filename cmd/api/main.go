@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha3/auth/impersonation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc/codes"
@@ -50,9 +50,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
-	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
-	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	v1alpha3 "github.com/tektoncd/results/pkg/api/server/v1alpha3"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha3/auth"
+	v1alpha3pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	_ "go.uber.org/automaxprocs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// Register API server(s)
-	v1a2, err := v1alpha2.New(serverConfig, log, db, v1alpha2.WithAuth(authCheck))
+	v1a2, err := v1alpha3.New(serverConfig, log, db, v1alpha3.WithAuth(authCheck))
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
@@ -180,9 +180,9 @@ func main() {
 			recovery.StreamServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
 	)
-	v1alpha2pb.RegisterResultsServer(gs, v1a2)
+	v1alpha3pb.RegisterResultsServer(gs, v1a2)
 	if serverConfig.LOGS_API {
-		v1alpha2pb.RegisterLogsServer(gs, v1a2)
+		v1alpha3pb.RegisterLogsServer(gs, v1a2)
 	}
 
 	// Allow service reflection - required for grpc_cli ls to work.
@@ -190,9 +190,9 @@ func main() {
 
 	// Set up health checks.
 	hs := health.NewServer()
-	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
+	hs.SetServingStatus("tekton.results.v1alpha3.Results", healthpb.HealthCheckResponse_SERVING)
 	if serverConfig.LOGS_API {
-		hs.SetServingStatus("tekton.results.v1alpha2.Logs", healthpb.HealthCheckResponse_SERVING)
+		hs.SetServingStatus("tekton.results.v1alpha3.Logs", healthpb.HealthCheckResponse_SERVING)
 	}
 	healthpb.RegisterHealthServer(gs, hs)
 
@@ -234,13 +234,13 @@ func main() {
 	}
 
 	// Register gRPC server endpoint to gRPC gateway
-	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
+	err = v1alpha3pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
 	if err != nil {
 		log.Fatal("Error registering gRPC server endpoint for Results API: ", err)
 	}
 
 	if serverConfig.LOGS_API {
-		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
+		err = v1alpha3pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
 		if err != nil {
 			log.Fatal("Error registering gRPC server endpoints for Logs API: ", err)
 		}

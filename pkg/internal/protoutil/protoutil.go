@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	fbpb "google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"

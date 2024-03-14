@@ -16,7 +16,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

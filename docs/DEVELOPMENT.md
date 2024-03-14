@@ -108,14 +108,14 @@ grpc_cli ls --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tek
 # output: available gRPC services
 grpc.health.v1.Health
 grpc.reflection.v1alpha.ServerReflection
-tekton.results.v1alpha2.Logs
-tekton.results.v1alpha2.Results
+tekton.results.v1alpha3.Logs
+tekton.results.v1alpha3.Results
 ```
 
 - Makes a request to the Results service
 
 ```sh
-grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$ACCESS_TOKEN localhost:8080 tekton.results.v1alpha2.Results.ListResults 'parent: "default"'
+grpc_cli call --channel_creds_type=ssl --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local --call_creds=access_token=$ACCESS_TOKEN localhost:8080 tekton.results.v1alpha3.Results.ListResults 'parent: "default"'
 ```
 
 ```sh
@@ -189,7 +189,7 @@ is because we do not have health checking set up yet. Please refer <https://gith
 
 ### Using `curl` + `kubectl port-forward`
 
-See the available REST endpoints in the [OpenAPI specification](api/rest-api-spec.md) docs. The API request URL is of the format `https://{server_url}/apis/results.tekton.dev/v1alpha2/parents/{name/path-to-the-resource}`. For debugging server_url is `localhost:port-exposed`.
+See the available REST endpoints in the [OpenAPI specification](api/rest-api-spec.md) docs. The API request URL is of the format `https://{server_url}/apis/results.tekton.dev/v1alpha3/parents/{name/path-to-the-resource}`. For debugging server_url is `localhost:port-exposed`.
 
 - Proxy the remote Service to localhost for REST. This will block, so run this in a separate shell or background the process.
 
@@ -203,7 +203,7 @@ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 8080
 curl --insecure \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Accept: application/json" \
-  https://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/default/results
+  https://localhost:8080/apis/results.tekton.dev/v1alpha3/parents/default/results
 ```
 
 This particular request lists the results under default namespace.

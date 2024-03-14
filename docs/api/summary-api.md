@@ -8,7 +8,7 @@ summary/aggregation. Here is an example of the curl request for summary:
 curl --insecure
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Accept: application/json" \
-  https://localhost:8081/apis/results.tekton.dev/v1alpha2/parents/-/results/-/records/summary?summary=total
+  https://localhost:8081/apis/results.tekton.dev/v1alpha3/parents/-/results/-/records/summary?summary=total
 ```
 
 ## Available aggregations

@@ -30,13 +30,13 @@ issues:
     - path: pkg/api/server/config/config.go
       linters:
         - revive
-    - path: pkg/api/server/v1alpha2/result/result.go
+    - path: pkg/api/server/v1alpha3/result/result.go
       linters:
         - staticcheck
-    - path: pkg/api/server/v1alpha2/record/record.go
+    - path: pkg/api/server/v1alpha3/record/record.go
       linters:
         - staticcheck
-    - path: pkg/api/server/v1alpha2/records_test.go
+    - path: pkg/api/server/v1alpha3/records_test.go
       linters:
         - staticcheck
     - path: cmd/api/main.go
@@ -56,13 +56,13 @@ issues:
     - path: pkg/api/server/cel2sql/type_coercion.go
       linters:
         - gocritic
-    - path: pkg/api/server/v1alpha2/results_test.go
+    - path: pkg/api/server/v1alpha3/results_test.go
       linters:
         - staticcheck
-    - path: pkg/api/server/v1alpha2/results.go
+    - path: pkg/api/server/v1alpha3/results.go
       linters:
         - staticcheck
-    - path: pkg/api/server/v1alpha2/records.go
+    - path: pkg/api/server/v1alpha3/records.go
       linters:
         - staticcheck
     - path: pkg/api/server/cel2sql/interpreter.go

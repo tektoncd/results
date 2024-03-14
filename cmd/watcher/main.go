@@ -32,7 +32,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
-	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	v1alpha3pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -83,7 +83,7 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	results := v1alpha2pb.NewResultsClient(conn)
+	results := v1alpha3pb.NewResultsClient(conn)
 
 	// Inject Logs client to context if Logs API is enabled here and in API server
 	if *logsAPI {

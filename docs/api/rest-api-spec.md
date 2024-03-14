@@ -2,11 +2,11 @@
 
 **NOTE:** This documentation is only for refernce, please use [Swaggar UI](https://petstore.swagger.io/) (or similar services) with link to the [openapi spec](openapi.yaml) to see complete information.
 
-## Version: v1alpha2
+## Version: v1alpha3
 
 [See Results API Documentation](https://github.com/tektoncd/results/tree/main/docs/api)
 
-### `/v1alpha2/parents/{parent}/results`
+### `/v1alpha3/parents/{parent}/results`
 
 #### GET
 
@@ -28,7 +28,7 @@ Get the list of the Results
 
 ---
 
-### `/v1alpha2/parents/{parent}/results/{result_uid}/records/{record_uid}`
+### `/v1alpha3/parents/{parent}/results/{result_uid}/records/{record_uid}`
 
 #### GET
 
@@ -112,7 +112,7 @@ Update a record with given uid
 
 ---
 
-### `/v1alpha2/parents/{parent}/results/{result_uid}`
+### `/v1alpha3/parents/{parent}/results/{result_uid}`
 
 #### GET
 
@@ -192,7 +192,7 @@ Update result given the UID
 
 ---
 
-### `/v1alpha2/parents/{parent}/results/{result_uid}/logs`
+### `/v1alpha3/parents/{parent}/results/{result_uid}/logs`
 
 #### GET
 
@@ -215,7 +215,7 @@ List Logs given the Result UID
 
 ---
 
-### `/v1alpha2/parents/{parent}/results/{result_uid}/logs/{log_uid}`
+### `/v1alpha3/parents/{parent}/results/{result_uid}/logs/{log_uid}`
 
 #### GET
 
@@ -259,7 +259,7 @@ Delete a log given the UID
 
 ---
 
-### `/v1alpha2/parents/{parent}/results/{result_uid}/records`
+### `/v1alpha3/parents/{parent}/results/{result_uid}/records`
 
 #### GET
 
@@ -447,7 +447,7 @@ Get list of records
       "id": "62e52c4d-9a61-4cf0-8f88-e816fcb0f84a",
       "uid": "62e52c4d-9a61-4cf0-8f88-e816fcb0f84a",
       "data": {
-        "type": "results.tekton.dev/v1alpha2.Log",
+        "type": "results.tekton.dev/v1alpha3.Log",
         "value": "VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg=="
       },
       "etag": "62e52c4d-9a61-4cf0-8f88-e816fcb0f84a-1677742014245938484",

@@ -133,7 +133,7 @@ is used to refine access to the APIs.
   curl -s --cacert /var/tmp/tekton/ssl/tls.crt  \
     -H 'authorization: Bearer '${token} \
     -H 'Impersonate-User: system:serviceaccount:user-namespace:impersonate-user' \
-    https://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/user-namespace/results
+    https://localhost:8080/apis/results.tekton.dev/v1alpha3/parents/user-namespace/results
   ```
 
 Need to provide a TLS cert if the API server is using TLS.
@@ -224,7 +224,7 @@ Possible values for `data_type` and `summary.type` (for Result) are:
 
 - `tekton.dev/v1beta1.TaskRun` or `TASK_RUN`
 - `tekton.dev/v1beta1.PipelineRun` or `PIPELINE_RUN`
-- `results.tekton.dev/v1alpha2.Log`
+- `results.tekton.dev/v1alpha3.Log`
 
 #### The `data` field in Record
 
@@ -442,7 +442,7 @@ contained in the `data` field of a Log.
     "namespace": "default",
     "creationTimestamp": null
   },
-  "apiVersion": "results.tekton.dev/v1alpha2"
+  "apiVersion": "results.tekton.dev/v1alpha3"
 }
 ```
 
@@ -524,7 +524,7 @@ Please enclose the queries in proper quotes or use `\` if needed. See the exampl
 grpc_cli call --channel_creds_type=ssl \
   --ssl_target=tekton-results-api-service.tekton-pipelines.svc.cluster.local \
   --call_creds=access_token=$ACCESS_TOKEN \
-  localhost:8080 tekton.results.v1alpha2.Results.ListResults \
+  localhost:8080 tekton.results.v1alpha3.Results.ListResults \
   'parent:"default",filter:"data_type==TASK_RUN"'
 ```
 
@@ -537,7 +537,7 @@ See the examples below:
 curl --insecure
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Accept: application/json" \
-  https://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/-/results/-?filter=data.status.completionTime.getDate()==7
+  https://localhost:8080/apis/results.tekton.dev/v1alpha3/parents/-/results/-?filter=data.status.completionTime.getDate()==7
 ```
 
 ### Using CEL Filtering Expressions with `tkn-results`
@@ -641,13 +641,13 @@ of the API server as well as serving status of individual services.
 grpcurl --insecure localhost:8080 grpc.health.v1.Health/Check
 
 # Check status of individual service using gRPC
-grpcurl --insecure -d '{"service": "tekton.results.v1alpha2.Results"}' localhost:8080 grpc.health.v1.Health/Check
+grpcurl --insecure -d '{"service": "tekton.results.v1alpha3.Results"}' localhost:8080 grpc.health.v1.Health/Check
 
 # Check status of API server using REST
 curl -k https://localhost:8080/healthz
 
 # Check status of individual service using REST
-curl -k https://localhost:8080/healthz?service=tekton.results.v1alpha2.Results
+curl -k https://localhost:8080/healthz?service=tekton.results.v1alpha3.Results
 ```
 
 ## References

@@ -37,7 +37,7 @@ Additional background and design motivations can be found in
 Tekton Results is composed of 2 main components:
 
 - A [queryable gRPC API server](api/) backed by persistent storage (see
-  [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
+  [proto/v1alpha3](../proto/v1alpha3) for the latest API spec).
 - A [controller to watch and report](watcher/) TaskRun and PipelineRun updates
   to the API server.
 

@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tektoncd/results/pkg/cli/flags"
 	"github.com/tektoncd/results/pkg/cli/format"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
 
 // ListLogsCommand returns a cobra sub command that fetch a list of logs given the parent and result name

@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/tektoncd/results/pkg/api/server/test"
-	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	server "github.com/tektoncd/results/pkg/api/server/v1alpha3"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/grpc"
 )
 

@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"testing"
 
-	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	resultsv1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"strings"
@@ -92,7 +92,7 @@ func TestGCSLog(t *testing.T) {
 		if logName == "" {
 			t.Skip("log name not found")
 		}
-		_, err = gc.GetLog(context.Background(), &resultsv1alpha2.GetLogRequest{Name: logName})
+		_, err = gc.GetLog(context.Background(), &resultsv1alpha3.GetLogRequest{Name: logName})
 		if err != nil {
 			t.Errorf("Error getting Log: %v", err)
 		}
@@ -103,7 +103,7 @@ func TestGCSLog(t *testing.T) {
 			t.Skip("log name not found")
 		}
 		if err := wait.PollImmediate(1*time.Second, 10*time.Second, func() (done bool, err error) {
-			logClient, err := gc.GetLog(context.Background(), &resultsv1alpha2.GetLogRequest{Name: logName})
+			logClient, err := gc.GetLog(context.Background(), &resultsv1alpha3.GetLogRequest{Name: logName})
 			if err != nil {
 				t.Logf("Error getting Log Client: %v", err)
 				return false, nil

@@ -1,0 +1,186 @@
+// Copyright 2020 The Tekton Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tekton.results.v1alpha3;
+
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/tektoncd/results/proto/v1alpha3/results_go_proto";
+
+message Result {
+  // User assigned identifier of the Result.
+  // Encodes parent information.
+  //
+  // Examples: namespace/default/results/1234
+  //           cluster/<cluster-id>/namespace/tekton/results/1234
+  string name = 1 [(google.api.resource_reference) = {
+    child_type: "tekton.results.v1alpha3/Result"
+  }];
+
+  // Server assigned identifier of the Result.
+  // DEPRECATED: use uid instead.
+  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned identifier of the Result.
+  string uid = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Server assigned timestamp for when the result was created.
+  // DEPRECATED: use create_time instead.
+  google.protobuf.Timestamp created_time = 3
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the result was created.
+  google.protobuf.Timestamp create_time = 8
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Server assigned timestamp for when the results was updated.
+  // DEPRECATED: use update_time instead.
+  google.protobuf.Timestamp updated_time = 6
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the results was updated.
+  google.protobuf.Timestamp update_time = 9
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Arbitrary user provided labels for the result.
+  map<string, string> annotations = 4;
+
+  // The etag for this result.
+  // If this is provided on update, it must match the server's etag.
+  string etag = 5
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // High level overview of the root record for the Result. This is provided
+  // as a convinence for clients to query Record state without needing to make
+  // multiple calls to fetch the underlying Records.
+  RecordSummary summary = 10;
+
+  // next id: 11
+}
+
+// Record belonging to a Result. Typically will be Tekton
+// Task/PipelineRuns, but may also include other execution information
+// (e.g. alternative configs, DSLs, input payloads, post-execution actions, etc.)
+message Record {
+  // Resource name, must be rooted in parent result.
+  string name = 1 [(google.api.resource_reference) = {
+    child_type: "tekton.results.v1alpha3/Record"
+  }];
+
+  // Server assigned identifier of the Result.
+  // DEPRECATED: use uid instead.
+  string id = 2 [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned identifier of the Result.
+  string uid = 7 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  Any data = 3;
+
+  // The etag for this record.
+  // If this is provided on update, it must match the server's etag.
+  string etag = 4;
+
+  // Server assigned timestamp for when the result was created.
+  // DEPRECATED: use create_time instead.
+  google.protobuf.Timestamp created_time = 5
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the result was created.
+  google.protobuf.Timestamp create_time = 8
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Server assigned timestamp for when the results was updated.
+  // DEPRECATED: use update_time instead.
+  google.protobuf.Timestamp updated_time = 6
+  [(google.api.field_behavior) = OUTPUT_ONLY, deprecated = true];
+  // Server assigned timestamp for when the results was updated.
+  google.protobuf.Timestamp update_time = 9
+  [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // next id: 10
+}
+
+// Any represents loosely typed data to be stored within a Record.
+message Any {
+  // Unique identifier of the data type stored in value.
+  // This is used as a type hint to determine how to unmarshal value.
+  // Limited to 128 characters.
+  string type = 1;
+
+  // JSON-encoded data.
+  bytes value = 2;
+}
+
+// RecordSummary is a high level overview of a Record, typically representing a
+// "root" record for a result. It includes type agnostic information so that
+// UIs and other tools do not need to be aware of underlying types.
+message RecordSummary {
+  // The name of the Record this summary represents.
+  string record = 1  [
+    (google.api.resource_reference).type = "results.tekton.dev/Record"
+  ];
+  // Identifier of underlying data.
+  // e.g. `pipelines.tekton.dev/PipelineRun`
+  string type = 2;
+
+  // Common Record agnostic fields.
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+
+  enum Status {
+    UNKNOWN = 0;
+    SUCCESS = 1;
+    FAILURE = 2;
+    TIMEOUT = 3;
+    CANCELLED = 4;
+  }
+  // Completion status of the Record.
+  Status status = 5;
+
+  // Key-value pairs representing arbitrary underlying record data that clients want to include
+  // that aren't covered by the above fields.
+  map<string, string> annotations = 6;
+
+  // next id: 7
+}
+
+// Log is a chunk of a log.
+message Log {
+  option (google.api.resource) = {
+    type: "tekton.results.v1alpha3/Log"
+  };
+
+  // Resource name fo the log
+  string name = 1 ;
+
+  // The log data
+  bytes data = 2;
+}
+
+message LogSummary {
+  // The name of the Record this summary represents.
+  string record = 1  [
+    (google.api.resource_reference).type = "results.tekton.dev/Record"
+  ];
+
+  // Number of bytes received while streaming
+  int64 bytesReceived = 2;
+}
+
+// RecordListSummary is an array of summaries where each summary represents a grouped aggreagtion.
+message RecordListSummary {
+  repeated google.protobuf.Struct summary = 1;
+}
+
+

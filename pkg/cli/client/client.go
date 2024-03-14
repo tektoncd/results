@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/tektoncd/results/pkg/cli/config"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
