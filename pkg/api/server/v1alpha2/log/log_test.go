@@ -10,14 +10,14 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestFilePath(t *testing.T) {
-	log := &v1alpha2.Log{
+	log := &v1alpha3.Log{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-log",
 			Namespace: "test",
@@ -112,13 +112,13 @@ func TestParseName(t *testing.T) {
 }
 
 func TestToStorage(t *testing.T) {
-	log := &v1alpha2.Log{
+	log := &v1alpha3.Log{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-taskrun-log",
 		},
-		Spec: v1alpha2.LogSpec{
-			Type: v1alpha2.FileLogType,
-			Resource: v1alpha2.Resource{
+		Spec: v1alpha3.LogSpec{
+			Type: v1alpha3.FileLogType,
+			Resource: v1alpha3.Resource{
 				Name: "test-taskrun",
 			},
 		},
@@ -133,7 +133,7 @@ func TestToStorage(t *testing.T) {
 	rec := &pb.Record{
 		Name: "test-log",
 		Data: &pb.Any{
-			Type:  v1alpha2.LogRecordType,
+			Type:  v1alpha3.LogRecordType,
 			Value: want,
 		},
 	}
@@ -183,16 +183,16 @@ func TestToStream(t *testing.T) {
 				ResultName: "push-main",
 				Name:       "taskrun-compile-log",
 				ID:         "a",
-				Type:       v1alpha2.LogRecordType,
-				Data: jsonutil.AnyBytes(t, &v1alpha2.Log{
+				Type:       v1alpha3.LogRecordType,
+				Data: jsonutil.AnyBytes(t, &v1alpha3.Log{
 					ObjectMeta: v1.ObjectMeta{
 						Name:      "test-log",
 						Namespace: "test",
 						UID:       "test-uid",
 					},
-					Spec: v1alpha2.LogSpec{
-						Type: v1alpha2.FileLogType,
-						Resource: v1alpha2.Resource{
+					Spec: v1alpha3.LogSpec{
+						Type: v1alpha3.FileLogType,
+						Resource: v1alpha3.Resource{
 							Namespace: "app",
 							Name:      "taskrun-compile",
 						},
@@ -200,7 +200,7 @@ func TestToStream(t *testing.T) {
 				}),
 			},
 			want: &mockStream{
-				streamType: string(v1alpha2.FileLogType),
+				streamType: string(v1alpha3.FileLogType),
 			},
 		},
 		{

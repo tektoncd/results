@@ -22,7 +22,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
@@ -128,19 +128,98 @@ func TestGetLog(t *testing.T) {
 		Record: &pb.Record{
 			Name: record.FormatName(res.GetName(), "baz"),
 			Data: &pb.Any{
-				Type: v1alpha2.LogRecordType,
-				Value: jsonutil.AnyBytes(t, &v1alpha2.Log{
-					Spec: v1alpha2.LogSpec{
-						Resource: v1alpha2.Resource{
+				Type: v1alpha3.LogRecordTypeV2,
+				Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
+					Spec: v1alpha3.LogSpec{
+						Resource: v1alpha3.Resource{
 							Namespace: "foo",
 							Name:      "baz",
 						},
-						Type: v1alpha2.FileLogType,
+						Type: v1alpha3.FileLogType,
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
-					Status: v1alpha2.LogStatus{
-						Path: logFile.Name(),
-						Size: 1024,
+					Status: v1alpha3.LogStatus{
+						Path:     logFile.Name(),
+						Size:     1024,
+						IsStored: true,
+					},
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord: %v", err)
+	}
+
+	err = srv.GetLog(&pb.GetLogRequest{
+		Name: log.FormatName(res.GetName(), "baz"),
+	}, mock)
+	if err != nil {
+		t.Fatalf("failed to get log: %v", err)
+	}
+	actualData := mock.receivedData.String()
+	if expectedData != actualData {
+		t.Errorf("expected to have received %q, got %q", expectedData, actualData)
+	}
+}
+
+func TestGetLogV2(t *testing.T) {
+	srv, err := New(&config.Config{
+		LOGS_API:                 true,
+		LOGS_TYPE:                "File",
+		DB_ENABLE_AUTO_MIGRATION: true,
+	}, logger.Get("info"), test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	ctx := context.Background()
+	mock := &mockGetLogServer{
+		ctx: ctx,
+	}
+	res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "foo",
+		Result: &pb.Result{
+			Name: "foo/results/bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+
+	expectedData := "Hello World!"
+	logFile, err := os.CreateTemp("", "test-log-taskrun-*.log")
+	t.Log("test log file: ", logFile.Name())
+	t.Cleanup(func() {
+		logFile.Close()
+		os.Remove(logFile.Name())
+	})
+	if err != nil {
+		t.Fatalf("failed to create tempfile: %v", err)
+	}
+	_, err = logFile.Write([]byte(expectedData))
+	if err != nil {
+		t.Fatalf("failed to write to tempfile: %v", err)
+	}
+
+	_, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: res.GetName(),
+		Record: &pb.Record{
+			Name: record.FormatName(res.GetName(), "baz"),
+			Data: &pb.Any{
+				Type: v1alpha3.LogRecordType,
+				Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
+					Spec: v1alpha3.LogSpec{
+						Resource: v1alpha3.Resource{
+							Namespace: "foo",
+							Name:      "baz",
+						},
+						Type: v1alpha3.FileLogType,
+					},
+					// To avoid defaulting behavior, explicitly set the file path in status
+					Status: v1alpha3.LogStatus{
+						Path:     logFile.Name(),
+						Size:     1024,
+						IsStored: true,
 					},
 				}),
 			},
@@ -197,21 +276,21 @@ func TestUpdateLog(t *testing.T) {
 		Record: &pb.Record{
 			Name: recordName,
 			Data: &pb.Any{
-				Type: v1alpha2.LogRecordType,
-				Value: jsonutil.AnyBytes(t, &v1alpha2.Log{
+				Type: v1alpha3.LogRecordType,
+				Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-name",
 						UID:  "test-uid",
 					},
-					Spec: v1alpha2.LogSpec{
-						Resource: v1alpha2.Resource{
+					Spec: v1alpha3.LogSpec{
+						Resource: v1alpha3.Resource{
 							Namespace: "foo",
 							Name:      "baz",
 						},
-						Type: v1alpha2.FileLogType,
+						Type: v1alpha3.FileLogType,
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
-					Status: v1alpha2.LogStatus{
+					Status: v1alpha3.LogStatus{
 						Path: path,
 					},
 				}),
@@ -276,8 +355,8 @@ func TestListLogs(t *testing.T) {
 			Record: &pb.Record{
 				Name: fmt.Sprintf("%s/records/%d", res.GetName(), i),
 				Data: &pb.Any{
-					Type: v1alpha2.LogRecordType,
-					Value: jsonutil.AnyBytes(t, &v1alpha2.Log{
+					Type: v1alpha3.LogRecordType,
+					Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("%d", i),
 						},
@@ -374,12 +453,12 @@ func TestListLogs(t *testing.T) {
 			name: "filter and page size",
 			req: &pb.ListRecordsRequest{
 				Parent:   res.GetName(),
-				Filter:   `data_type == "results.tekton.dev/v1alpha2.Log"`,
+				Filter:   `data_type == "results.tekton.dev/v1alpha3.Log"`,
 				PageSize: 1,
 			},
 			want: &pb.ListRecordsResponse{
 				Records:       records[:1],
-				NextPageToken: pagetoken(t, records[1].GetUid(), `data_type == "results.tekton.dev/v1alpha2.Log"`),
+				NextPageToken: pagetoken(t, records[1].GetUid(), `data_type == "results.tekton.dev/v1alpha3.Log"`),
 			},
 		},
 		{
@@ -533,8 +612,8 @@ func TestListLogs_multiresult(t *testing.T) {
 					Record: &pb.Record{
 						Name: record.FormatName(res.GetName(), strconv.Itoa(k)),
 						Data: &pb.Any{
-							Type: v1alpha2.LogRecordType,
-							Value: jsonutil.AnyBytes(t, &v1alpha2.Log{
+							Type: v1alpha3.LogRecordType,
+							Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
 								ObjectMeta: metav1.ObjectMeta{
 									Name: fmt.Sprintf("%d", k),
 								},
@@ -609,17 +688,17 @@ func TestDeleteLog(t *testing.T) {
 		Record: &pb.Record{
 			Name: record.FormatName(res.GetName(), "baz"),
 			Data: &pb.Any{
-				Type: v1alpha2.LogRecordType,
-				Value: jsonutil.AnyBytes(t, &v1alpha2.Log{
-					Spec: v1alpha2.LogSpec{
-						Resource: v1alpha2.Resource{
+				Type: v1alpha3.LogRecordType,
+				Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
+					Spec: v1alpha3.LogSpec{
+						Resource: v1alpha3.Resource{
 							Namespace: "foo",
 							Name:      "baz",
 						},
-						Type: v1alpha2.FileLogType,
+						Type: v1alpha3.FileLogType,
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
-					Status: v1alpha2.LogStatus{
+					Status: v1alpha3.LogStatus{
 						Path: logFile.Name(),
 						Size: 1024,
 					},

@@ -1,4 +1,4 @@
-package v1alpha2
+package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -6,7 +6,10 @@ import (
 )
 
 // LogRecordType represents the API resource type for Tekton log records.
-const LogRecordType = "results.tekton.dev/v1alpha2.Log"
+const LogRecordType = "results.tekton.dev/v1alpha3.Log"
+
+// LogRecordTypeV2 represents the API resource type for Tekton log records deprecated now.
+const LogRecordTypeV2 = "results.tekton.dev/v1alpha2.Log"
 
 // Log represents the API resource for Tekton results Log.
 type Log struct {
@@ -49,12 +52,15 @@ const (
 
 // LogStatus defines the current status of the log resource.
 type LogStatus struct {
-	Path string `json:"path,omitempty"`
-	Size int64  `json:"size"`
+	Path            string `json:"path,omitempty"`
+	Size            int64  `json:"size"`
+	IsStored        bool   `json:"isStored"`
+	ErrorOnStoreMsg string `json:"errorOnStoreMsg"`
+	IsRetryableErr  bool   `json:"isRetryableErr"`
 }
 
 // Default sets up default values for Log TypeMeta, such as API version and kind.
 func (t *Log) Default() {
 	t.TypeMeta.Kind = "Log"
-	t.TypeMeta.APIVersion = "results.tekton.dev/v1alpha2"
+	t.TypeMeta.APIVersion = "results.tekton.dev/v1alpha3"
 }

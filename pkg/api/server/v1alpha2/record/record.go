@@ -22,7 +22,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -98,7 +98,7 @@ func ToStorage(parent, resultName, resultID, name string, r *pb.Record, config *
 	if r.UpdateTime.IsValid() {
 		dbr.UpdatedTime = r.UpdateTime.AsTime()
 	}
-	if dbr.Type == v1alpha2.LogRecordType {
+	if dbr.Type == v1alpha3.LogRecordType || dbr.Type == v1alpha3.LogRecordTypeV2 {
 		data, err := log.ToStorage(r, config)
 		if err != nil {
 			return nil, err
@@ -184,8 +184,8 @@ func validateData(m *pb.Any) error {
 		return json.Unmarshal(m.GetValue(), &v1beta1.TaskRun{})
 	case "pipeline.tekton.dev/PipelineRun":
 		return json.Unmarshal(m.GetValue(), &v1beta1.PipelineRun{})
-	case "results.tekton.dev/v1alpha2.Log":
-		return json.Unmarshal(m.GetValue(), &v1alpha2.Log{})
+	case "results.tekton.dev/v1alpha3.Log":
+		return json.Unmarshal(m.GetValue(), &v1alpha3.Log{})
 	default:
 		// If it's not a well known type, just check that the message is a valid JSON document.
 		return json.Unmarshal(m.GetValue(), &json.RawMessage{})
