@@ -10,7 +10,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/db"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,13 +64,13 @@ type Stream interface {
 //
 // NewStream may mutate the Log object's status, to provide implementation information
 // for reading and writing files.
-func NewStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (Stream, error) {
+func NewStream(ctx context.Context, log *v1alpha3.Log, config *config.Config) (Stream, error) {
 	switch log.Spec.Type {
-	case v1alpha2.FileLogType:
+	case v1alpha3.FileLogType:
 		return NewFileStream(ctx, log, config)
-	case v1alpha2.S3LogType:
+	case v1alpha3.S3LogType:
 		return NewS3Stream(ctx, log, config)
-	case v1alpha2.GCSLogType:
+	case v1alpha3.GCSLogType:
 		return NewGCSStream(ctx, log, config)
 	}
 	return nil, fmt.Errorf("log streamer type %s is not supported", log.Spec.Type)
@@ -78,7 +78,7 @@ func NewStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (S
 
 // ToStorage converts log record to marshaled json bytes
 func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
-	log := &v1alpha2.Log{}
+	log := &v1alpha3.Log{}
 	if len(record.GetData().Value) > 0 {
 		err := json.Unmarshal(record.GetData().Value, log)
 		if err != nil {
@@ -88,7 +88,7 @@ func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
 	log.Default()
 
 	if log.Spec.Type == "" {
-		log.Spec.Type = v1alpha2.LogType(config.LOGS_TYPE)
+		log.Spec.Type = v1alpha3.LogType(config.LOGS_TYPE)
 		if len(log.Spec.Type) == 0 {
 			return nil, fmt.Errorf("failed to set up log storage type to spec")
 		}
@@ -100,11 +100,11 @@ func ToStorage(record *pb.Record, config *config.Config) ([]byte, error) {
 // First one is a new log streamer created by log record.
 // Second one is log API resource retrieved from log record.
 // Third argument is an error.
-func ToStream(ctx context.Context, record *db.Record, config *config.Config) (Stream, *v1alpha2.Log, error) {
-	if record.Type != v1alpha2.LogRecordType {
+func ToStream(ctx context.Context, record *db.Record, config *config.Config) (Stream, *v1alpha3.Log, error) {
+	if record.Type != v1alpha3.LogRecordType && record.Type != v1alpha3.LogRecordTypeV2 {
 		return nil, nil, fmt.Errorf("record type %s cannot stream logs", record.Type)
 	}
-	log := &v1alpha2.Log{}
+	log := &v1alpha3.Log{}
 	err := json.Unmarshal(record.Data, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not decode Log record: %w", err)
@@ -115,7 +115,7 @@ func ToStream(ctx context.Context, record *db.Record, config *config.Config) (St
 
 // FilePath returns file path to store log. This file path can be
 // path in the real file system or virtual value depending on storage type.
-func FilePath(log *v1alpha2.Log) (string, error) {
+func FilePath(log *v1alpha3.Log) (string, error) {
 	filePath := filepath.Join(log.GetNamespace(), string(log.GetUID()), log.Name)
 	if filePath == "" {
 		return "", fmt.Errorf("invalid file path")
