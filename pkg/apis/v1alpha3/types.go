@@ -49,8 +49,9 @@ const (
 
 // LogStatus defines the current status of the log resource.
 type LogStatus struct {
-	Path string `json:"path,omitempty"`
-	Size int64  `json:"size"`
+	Path     string `json:"path,omitempty"`
+	Size     int64  `json:"size"`
+	IsStored bool   `json:"isStored"`
 }
 
 // Default sets up default values for Log TypeMeta, such as API version and kind.

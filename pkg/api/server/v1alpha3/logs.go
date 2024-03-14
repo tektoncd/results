@@ -60,9 +60,20 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		s.logger.Error(err)
 		return status.Error(codes.Internal, "Error streaming log")
 	}
+
+	// Handle v1alpha2 and v1alpha3 differently until v1alpha2 is deprecated
+	if "results.tekton.dev/v1alpha3" == object.APIVersion {
+		if !object.Status.IsStored || object.Status.Size == 0 {
+			s.logger.Errorf("no logs exist for %s", req.GetName())
+			return status.Error(codes.NotFound, "Log doesn't exist")
+		}
+	} else {
+		// For v1alpha2 checking log size is the best way to ensure if logs are stored
+		// this is however susceptible to race condition
 		if object.Status.Size == 0 {
 			s.logger.Errorf("no logs exist for %s", req.GetName())
 			return status.Error(codes.NotFound, "Log doesn't exist")
+		}
 	}
 
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
@@ -169,9 +180,9 @@ func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *
 	}
 	apiRec := record.ToAPI(rec)
 	apiRec.UpdateTime = timestamppb.Now()
-	if written > 0 {
 	log.Status.Size = written
-	}
+	log.Status.IsStored = returnErr == io.EOF
+
 	data, err := json.Marshal(log)
 	if err != nil {
 		if !isNilOrEOF(returnErr) {
