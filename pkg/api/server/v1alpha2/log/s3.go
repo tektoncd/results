@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	server "github.com/tektoncd/results/pkg/api/server/config"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 )
 
 const (
@@ -49,7 +49,7 @@ type s3Stream struct {
 }
 
 // NewS3Stream returns a log streamer for the S3 log storage type.
-func NewS3Stream(ctx context.Context, log *v1alpha2.Log, config *server.Config) (Stream, error) {
+func NewS3Stream(ctx context.Context, log *v1alpha3.Log, config *server.Config) (Stream, error) {
 	if log.Status.Path == "" {
 		filePath, err := FilePath(log)
 		if err != nil {
@@ -130,7 +130,7 @@ func initConfig(ctx context.Context, cfg *server.Config) (*s3.Client, error) {
 }
 
 func (*s3Stream) Type() string {
-	return string(v1alpha2.S3LogType)
+	return string(v1alpha3.S3LogType)
 }
 
 func (s3s *s3Stream) WriteTo(w io.Writer) (n int64, err error) {
