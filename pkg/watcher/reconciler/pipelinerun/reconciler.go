@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -43,6 +44,7 @@ type Reconciler struct {
 	// Inline LeaderAwareFuncs to support leader election.
 	knativereconciler.LeaderAwareFuncs
 
+	kubeClientSet     kubernetes.Interface
 	resultsClient     pb.ResultsClient
 	logsClient        pb.LogsClient
 	pipelineRunLister pipelinev1beta1listers.PipelineRunLister
@@ -86,7 +88,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		PipelineRunInterface: r.pipelineClient.TektonV1beta1().PipelineRuns(namespace),
 	}
 
-	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, pipelineRunClient, r.cfg)
+	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, pipelineRunClient, r.kubeClientSet, r.cfg)
 	// Tell the dynamic reconciler to wait until all underlying TaskRuns are
 	// ready for deletion before deleting the PipelineRun. This guarantees
 	// that the TaskRuns will not be deleted before their final state being
