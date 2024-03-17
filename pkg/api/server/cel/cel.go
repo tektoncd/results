@@ -24,7 +24,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	ppb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -34,8 +34,8 @@ import (
 func NewEnv() (*cel.Env, error) {
 	return cel.NewEnv(
 		cel.Types(&pb.Result{}, &pb.Record{}, &ppb.PipelineRun{}, &ppb.TaskRun{}),
-		cel.Declarations(decls.NewVar("result", decls.NewObjectType("tekton.results.v1alpha2.Result"))),
-		cel.Declarations(decls.NewVar("record", decls.NewObjectType("tekton.results.v1alpha2.Record"))),
+		cel.Declarations(decls.NewVar("result", decls.NewObjectType("tekton.results.v1alpha3.Result"))),
+		cel.Declarations(decls.NewVar("record", decls.NewObjectType("tekton.results.v1alpha3.Record"))),
 	)
 }
 

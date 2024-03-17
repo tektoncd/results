@@ -15,7 +15,7 @@
 openapi: 3.0.0
 info:
   title: Tekton Results API Specification
-  version: v1alpha2
+  version: v1alpha3
   description: >-
     Tekton Results aims to help users logically group CI/CD workload history and
     separate out long term result storage away from the Pipeline controller.
@@ -51,7 +51,7 @@ servers:
         description: URL of the API server
     x-last-modified: 1677677605032
 paths:
-  /v1alpha2/parents/{parent}/results:
+  /v1alpha3/parents/{parent}/results:
     summary: List Results
     get:
       tags:
@@ -83,7 +83,7 @@ paths:
         name: order_by
         x-last-modified: 1679484733009
     x-last-modified: 1677671948697
-  /v1alpha2/parents/{parent}/results/{result_uid}/records/{record_uid}:
+  /v1alpha3/parents/{parent}/results/{result_uid}/records/{record_uid}:
     summary: Create, delete or update records
     get:
       tags:
@@ -166,7 +166,7 @@ paths:
         name: record_uid
         x-last-modified: 1677672352453
     x-last-modified: 1677672432307
-  /v1alpha2/parents/{parent}/results/{result_uid}:
+  /v1alpha3/parents/{parent}/results/{result_uid}:
     summary: Get, Create, Delete or update result
     get:
       tags:
@@ -243,7 +243,7 @@ paths:
         name: result_uid
         x-last-modified: 1677672511792
     x-last-modified: 1677672484697
-  /v1alpha2/parents/{parent}/results/{result_uid}/logs:
+  /v1alpha3/parents/{parent}/results/{result_uid}/logs:
     summary: List logs associated with a result
     get:
       tags:
@@ -279,7 +279,7 @@ paths:
         name: order_by
         x-last-modified: 1679485356281
     x-last-modified: 1677672632222
-  /v1alpha2/parents/{parent}/results/{result_uid}/logs/{log_uid}:
+  /v1alpha3/parents/{parent}/results/{result_uid}/logs/{log_uid}:
     summary: Get or Delete Logs
     get:
       tags:
@@ -321,7 +321,7 @@ paths:
         name: log_uid
         x-last-modified: 1677672825675
     x-last-modified: 1677774010236
-  /v1alpha2/parents/{parent}/results/{result_uid}/records:
+  /v1alpha3/parents/{parent}/results/{result_uid}/records:
     summary: "Get list of records associated with a result "
     get:
       tags:
@@ -369,11 +369,11 @@ components:
 
         * TaskRun Record: `tekton.dev/v1beta1.TaskRun`
 
-        * Log Record: `results.tekton.dev/v1alpha2.Log`
+        * Log Record: `results.tekton.dev/v1alpha3.Log`
       enum:
         - tekton.dev/v1beta1.PipelineRun
         - tekton.dev/v1beta1.TaskRun
-        - results.tekton.dev/v1alpha2.Log
+        - results.tekton.dev/v1alpha3.Log
       type: string
       x-last-modified: 1677762811698
     Status:

@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 
-	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	resultsv1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 	"knative.dev/pkg/apis"
@@ -179,7 +179,7 @@ func TestTaskRun(t *testing.T) {
 		if resName == "" {
 			t.Skip("Result name not found")
 		}
-		_, err = gc.GetResult(context.Background(), &resultsv1alpha2.GetResultRequest{Name: resName})
+		_, err = gc.GetResult(context.Background(), &resultsv1alpha3.GetResultRequest{Name: resName})
 		if err != nil {
 			t.Errorf("Error getting Result: %v", err)
 		}
@@ -189,7 +189,7 @@ func TestTaskRun(t *testing.T) {
 		if recName == "" {
 			t.Skip("Record name not found")
 		}
-		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: recName})
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha3.GetRecordRequest{Name: recName})
 		if err != nil {
 			t.Errorf("Error getting Record: %v", err)
 		}
@@ -259,7 +259,7 @@ func TestPipelineRun(t *testing.T) {
 		if resName == "" {
 			t.Skip("Result name not found")
 		}
-		_, err := gc.GetResult(context.Background(), &resultsv1alpha2.GetResultRequest{Name: resName})
+		_, err := gc.GetResult(context.Background(), &resultsv1alpha3.GetResultRequest{Name: resName})
 		if err != nil {
 			t.Fatalf("Error getting Result: %v", err)
 		}
@@ -269,14 +269,14 @@ func TestPipelineRun(t *testing.T) {
 		if recName == "" {
 			t.Skip("Record name not found")
 		}
-		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: recName})
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha3.GetRecordRequest{Name: recName})
 		if err != nil {
 			t.Errorf("Error getting Record: %v", err)
 		}
 	})
 
 	t.Run("result data consistency", func(t *testing.T) {
-		result, err := gc.GetResult(context.Background(), &resultsv1alpha2.GetResultRequest{
+		result, err := gc.GetResult(context.Background(), &resultsv1alpha3.GetResultRequest{
 			Name: resName,
 		})
 		if err != nil {
@@ -299,13 +299,13 @@ func TestPipelineRun(t *testing.T) {
 		})
 
 		t.Run("the PipelineRun was archived in its final state", func(t *testing.T) {
-			wantStatus := resultsv1alpha2.RecordSummary_SUCCESS
+			wantStatus := resultsv1alpha3.RecordSummary_SUCCESS
 			gotStatus := result.Summary.Status
 			if wantStatus != gotStatus {
 				t.Fatalf("Result.Summary.Status: want %v, but got %v", wantStatus, gotStatus)
 			}
 
-			record, err := gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{
+			record, err := gc.GetRecord(context.Background(), &resultsv1alpha3.GetRecordRequest{
 				Name: result.Summary.Record,
 			})
 			if err != nil {
@@ -428,7 +428,7 @@ func TestGRPCLogging(t *testing.T) {
 	})
 
 	t.Run("log entry is found when expected", func(t *testing.T) {
-		_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		_, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -491,7 +491,7 @@ func TestListResults(t *testing.T) {
 	t.Run("list results under the default parent", func(t *testing.T) {
 		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		res, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatalf("Error listing Results: %v", err)
 		}
@@ -509,7 +509,7 @@ func TestListResults(t *testing.T) {
 		// same items. Therefore, let's run both queries and make sure
 		// that results are identical.
 
-		want, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+		want, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{
 			Parent:  "default",
 			OrderBy: "create_time",
 		})
@@ -517,7 +517,7 @@ func TestListResults(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		got, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{
+		got, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{
 			Parent:  "-",
 			OrderBy: "create_time",
 		})
@@ -532,7 +532,7 @@ func TestListResults(t *testing.T) {
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
 		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
-		_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
+		_, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
 		}
@@ -544,7 +544,7 @@ func TestListResults(t *testing.T) {
 
 	t.Run("list results under the default parent using the identity with more limited access", func(t *testing.T) {
 		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
-		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+		res, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -557,12 +557,12 @@ func TestListResults(t *testing.T) {
 	t.Run("grpc and rest consistency", func(t *testing.T) {
 		parent := "default"
 		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
-		want, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: parent})
+		want, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Results: %v", err)
 		}
 
-		got, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: parent})
+		got, err := rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Results: %v", err)
 		}
@@ -578,7 +578,7 @@ func TestListRecords(t *testing.T) {
 
 	t.Run("list records by omitting the result name", func(t *testing.T) {
 		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
-		res, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		res, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -596,7 +596,7 @@ func TestListRecords(t *testing.T) {
 		// form must return the same items. Therefore, let's run both
 		// queries and make sure that results are identical.
 
-		want, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+		want, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{
 			Parent:  "default/results/-",
 			OrderBy: "create_time",
 		})
@@ -604,7 +604,7 @@ func TestListRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		got, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{
+		got, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{
 			Parent:  "-/results/-",
 			OrderBy: "create_time",
 		})
@@ -620,7 +620,7 @@ func TestListRecords(t *testing.T) {
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
 		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
-		_, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
+		_, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: "-/results/-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
 		}
@@ -631,7 +631,7 @@ func TestListRecords(t *testing.T) {
 
 	t.Run("list records using the identity with more limited access", func(t *testing.T) {
 		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
-		resp, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+		resp, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -643,12 +643,12 @@ func TestListRecords(t *testing.T) {
 	t.Run("grpc and rest consistency", func(t *testing.T) {
 		parent := "default/results/-"
 		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
-		want, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		want, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Records: %v", err)
 		}
 
-		got, err := rc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
+		got, err := rc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Records: %v", err)
 		}
@@ -663,23 +663,23 @@ func TestGetResult(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+	list, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "default"})
 	if err != nil {
 		t.Fatalf("Error listing Results: %v", err)
 	}
 
 	name := list.Results[0].GetName()
-	want, got := &resultsv1alpha2.Result{}, &resultsv1alpha2.Result{}
+	want, got := &resultsv1alpha3.Result{}, &resultsv1alpha3.Result{}
 
 	t.Run("get result", func(t *testing.T) {
 		t.Run("grpc", func(t *testing.T) {
-			want, err = gc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: name})
+			want, err = gc.GetResult(ctx, &resultsv1alpha3.GetResultRequest{Name: name})
 			if err != nil {
 				t.Fatalf("Error getting Result: %v", err)
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			got, err = rc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: name})
+			got, err = rc.GetResult(ctx, &resultsv1alpha3.GetResultRequest{Name: name})
 			if err != nil {
 				t.Fatalf("Error getting Result: %v", err)
 			}
@@ -700,24 +700,24 @@ func TestGetRecord(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+	list, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: "default/results/-"})
 	if err != nil {
 		t.Fatalf("Error listing Records: %v", err)
 	}
 
 	name := list.Records[0].GetName()
-	want, got := &resultsv1alpha2.Record{}, &resultsv1alpha2.Record{}
+	want, got := &resultsv1alpha3.Record{}, &resultsv1alpha3.Record{}
 
 	t.Run("get record", func(t *testing.T) {
 		t.Run("grpc", func(t *testing.T) {
-			want, err = gc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: name})
+			want, err = gc.GetRecord(ctx, &resultsv1alpha3.GetRecordRequest{Name: name})
 			if err != nil {
 				t.Fatalf("Error getting Record: %v", err)
 			}
 		})
 
 		t.Run("rest", func(t *testing.T) {
-			got, err = rc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: name})
+			got, err = rc.GetRecord(ctx, &resultsv1alpha3.GetRecordRequest{Name: name})
 			if err != nil {
 				t.Fatalf("Error getting Record: %v", err)
 			}
@@ -738,18 +738,18 @@ func TestDeleteRecord(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
 
-	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
+	list, err := gc.ListRecords(ctx, &resultsv1alpha3.ListRecordsRequest{Parent: "default/results/-"})
 	if err != nil {
 		t.Fatalf("Error listing Records: %v", err)
 	}
 
 	t.Run("delete record", func(t *testing.T) {
 		t.Run("grpc", func(t *testing.T) {
-			_, err := gc.DeleteRecord(ctx, &resultsv1alpha2.DeleteRecordRequest{Name: list.Records[0].GetName()})
+			_, err := gc.DeleteRecord(ctx, &resultsv1alpha3.DeleteRecordRequest{Name: list.Records[0].GetName()})
 			if err != nil {
 				t.Fatalf("Error deleting Record: %v", err)
 			}
-			_, err = gc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: list.Records[0].GetName()})
+			_, err = gc.GetRecord(ctx, &resultsv1alpha3.GetRecordRequest{Name: list.Records[0].GetName()})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if status.Code(err) != codes.NotFound {
@@ -758,11 +758,11 @@ func TestDeleteRecord(t *testing.T) {
 		})
 
 		t.Run("rest", func(t *testing.T) {
-			_, err := rc.DeleteRecord(ctx, &resultsv1alpha2.DeleteRecordRequest{Name: list.Records[1].GetName()})
+			_, err := rc.DeleteRecord(ctx, &resultsv1alpha3.DeleteRecordRequest{Name: list.Records[1].GetName()})
 			if err != nil {
 				t.Fatalf("Error deleting Record: %v", err)
 			}
-			_, err = rc.GetRecord(ctx, &resultsv1alpha2.GetRecordRequest{Name: list.Records[1].GetName()})
+			_, err = rc.GetRecord(ctx, &resultsv1alpha3.GetRecordRequest{Name: list.Records[1].GetName()})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if err.Error() != http.StatusText(http.StatusNotFound) {
@@ -776,18 +776,18 @@ func TestDeleteResult(t *testing.T) {
 	ctx := context.Background()
 	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
 
-	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
+	list, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: "default"})
 	if err != nil {
 		t.Fatalf("Error listing Results: %v", err)
 	}
 
 	t.Run("delete result", func(t *testing.T) {
 		t.Run("grpc", func(t *testing.T) {
-			_, err := gc.DeleteResult(ctx, &resultsv1alpha2.DeleteResultRequest{Name: list.Results[0].GetName()})
+			_, err := gc.DeleteResult(ctx, &resultsv1alpha3.DeleteResultRequest{Name: list.Results[0].GetName()})
 			if err != nil {
 				t.Fatalf("Error deleting Result: %v", err)
 			}
-			_, err = gc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: list.Results[0].GetName()})
+			_, err = gc.GetResult(ctx, &resultsv1alpha3.GetResultRequest{Name: list.Results[0].GetName()})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if status.Code(err) != codes.NotFound {
@@ -796,11 +796,11 @@ func TestDeleteResult(t *testing.T) {
 		})
 
 		t.Run("rest", func(t *testing.T) {
-			_, err := rc.DeleteResult(ctx, &resultsv1alpha2.DeleteResultRequest{Name: list.Results[1].GetName()})
+			_, err := rc.DeleteResult(ctx, &resultsv1alpha3.DeleteResultRequest{Name: list.Results[1].GetName()})
 			if err != nil {
 				t.Fatalf("Error deleting Result: %v", err)
 			}
-			_, err = rc.GetResult(ctx, &resultsv1alpha2.GetResultRequest{Name: list.Results[1].GetName()})
+			_, err = rc.GetResult(ctx, &resultsv1alpha3.GetResultRequest{Name: list.Results[1].GetName()})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if err.Error() != http.StatusText(http.StatusNotFound) {
@@ -822,13 +822,13 @@ func TestAuthentication(t *testing.T) {
 	t.Run("valid token", func(t *testing.T) {
 		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 		t.Run("grpc", func(t *testing.T) {
-			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err = gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err != nil {
 				t.Fatalf("Error listing Results: %v", err)
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			_, err = rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err = rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err != nil {
 				t.Fatalf("Error listing Results: %v", err)
 			}
@@ -838,7 +838,7 @@ func TestAuthentication(t *testing.T) {
 	t.Run("invalid token", func(t *testing.T) {
 		gc, rc := resultsClient(t, invalidTokenFile, nil)
 		t.Run("grpc", func(t *testing.T) {
-			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err = gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if status.Code(err) != codes.Unauthenticated {
@@ -846,7 +846,7 @@ func TestAuthentication(t *testing.T) {
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			_, err = rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err = rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
@@ -863,7 +863,7 @@ func TestAuthorization(t *testing.T) {
 	t.Run("unauthorized token", func(t *testing.T) {
 		p := "tekton"
 		t.Run("grpc", func(t *testing.T) {
-			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if status.Code(err) != codes.Unauthenticated {
@@ -871,7 +871,7 @@ func TestAuthorization(t *testing.T) {
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
@@ -889,7 +889,7 @@ func TestImpersonation(t *testing.T) {
 			UserName: "system:serviceaccount:default:default",
 		})
 		t.Run("grpc", func(t *testing.T) {
-			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if status.Code(err) != codes.Unauthenticated {
@@ -897,7 +897,7 @@ func TestImpersonation(t *testing.T) {
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err == nil {
 				t.Fatalf("Expected error, but no error found")
 			} else if err.Error() != http.StatusText(http.StatusUnauthorized) {
@@ -911,13 +911,13 @@ func TestImpersonation(t *testing.T) {
 			UserName: "system:serviceaccount:default:all-namespaces-read-access",
 		})
 		t.Run("grpc", func(t *testing.T) {
-			_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := gc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err != nil {
 				t.Fatalf("Error listing Results: %v", err)
 			}
 		})
 		t.Run("rest", func(t *testing.T) {
-			_, err := rc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
+			_, err := rc.ListResults(ctx, &resultsv1alpha3.ListResultsRequest{Parent: p})
 			if err != nil {
 				t.Fatalf("Error listing Results: %v", err)
 			}
@@ -925,7 +925,7 @@ func TestImpersonation(t *testing.T) {
 	})
 }
 
-func recordNames(t *testing.T, records []*resultsv1alpha2.Record) []string {
+func recordNames(t *testing.T, records []*resultsv1alpha3.Record) []string {
 	t.Helper()
 
 	ret := make([]string, len(records))

@@ -2,7 +2,7 @@ package flags
 
 import (
 	"github.com/spf13/cobra"
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
 
 // Params contains a ResultsClient and LogsClient

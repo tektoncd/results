@@ -22,13 +22,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/pod"
-	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	rpb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -320,7 +320,7 @@ func toJSON(v any) []byte {
 }
 
 func TestToLogProto(t *testing.T) {
-	wantType := "results.tekton.dev/v1alpha2.Log"
+	wantType := "results.tekton.dev/v1alpha3.Log"
 	recordName := "foo/results/bar/records/baz"
 	for _, tc := range []struct {
 		in   metav1.Object
@@ -336,14 +336,14 @@ func TestToLogProto(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s Log", tc.kind), func(t *testing.T) {
-			log := &v1alpha2.Log{
+			log := &v1alpha3.Log{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: tc.in.GetNamespace(),
 					Name:      fmt.Sprintf("%s-log", tc.in.GetName()),
 					UID:       types.UID("baz"),
 				},
-				Spec: v1alpha2.LogSpec{
-					Resource: v1alpha2.Resource{
+				Spec: v1alpha3.LogSpec{
+					Resource: v1alpha3.Resource{
 						Kind:      tc.kind,
 						Namespace: tc.in.GetNamespace(),
 						Name:      tc.in.GetName(),

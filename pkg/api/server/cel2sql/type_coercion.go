@@ -42,7 +42,7 @@ func (i *interpreter) isString(expr *exprpb.Expr) bool {
 
 func (i *interpreter) isRecordSummary(expr *exprpb.Expr) bool {
 	if theType, found := i.checkedExpr.TypeMap[expr.GetId()]; found {
-		if messageType := theType.GetMessageType(); messageType == "tekton.results.v1alpha2.RecordSummary" {
+		if messageType := theType.GetMessageType(); messageType == "tekton.results.v1alpha3.RecordSummary" {
 			return true
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	resultsv1alpha3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -15,13 +15,13 @@ import (
 
 // GRPCClient represents GRPC API client to connect to Tekton results api server.
 type GRPCClient interface {
-	resultsv1alpha2.LogsClient
-	resultsv1alpha2.ResultsClient
+	resultsv1alpha3.LogsClient
+	resultsv1alpha3.ResultsClient
 }
 
 type grpcClient struct {
-	resultsv1alpha2.LogsClient
-	resultsv1alpha2.ResultsClient
+	resultsv1alpha3.LogsClient
+	resultsv1alpha3.ResultsClient
 }
 
 // NewGRPCClient creates a new gRPC client.
@@ -41,8 +41,8 @@ func NewGRPCClient(serverAddress string, opts ...grpc.DialOption) (GRPCClient, e
 	}
 
 	return &grpcClient{
-		resultsv1alpha2.NewLogsClient(clientConn),
-		resultsv1alpha2.NewResultsClient(clientConn),
+		resultsv1alpha3.NewLogsClient(clientConn),
+		resultsv1alpha3.NewResultsClient(clientConn),
 	}, nil
 }
 

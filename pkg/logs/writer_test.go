@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
 
 type mockGetLogServer struct {
