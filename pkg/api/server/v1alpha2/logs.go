@@ -92,7 +92,7 @@ func getLogRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error)
 
 // UpdateLog updates log record content
 func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
-	var name string
+	var name, parent, resultName, recordName string
 	var bytesWritten int64
 	var rec *db.Record
 	var object *v1alpha2.Log
@@ -114,6 +114,14 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 		if name == "" {
 			name = recv.GetName()
 			s.logger.Debugf("receiving logs for %s", name)
+			parent, resultName, recordName, err = log.ParseName(name)
+			if err != nil {
+				return s.handleReturn(srv, rec, object, bytesWritten, err)
+			}
+
+			if err := s.auth.Check(srv.Context(), parent, auth.ResourceLogs, auth.PermissionUpdate); err != nil {
+				return s.handleReturn(srv, rec, object, bytesWritten, err)
+			}
 		}
 		if name != recv.GetName() {
 			err := fmt.Errorf("cannot put logs for multiple records in the same server")
@@ -124,21 +132,11 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 				err)
 		}
 
-		parent, resultName, recordName, err := log.ParseName(name)
-		if err != nil {
-			return s.handleReturn(srv, rec, object, bytesWritten, err)
-		}
-
-		if err := s.auth.Check(srv.Context(), parent, auth.ResourceLogs, auth.PermissionUpdate); err != nil {
-			return s.handleReturn(srv, rec, object, bytesWritten, err)
-		}
-
 		if rec == nil {
 			rec, err = getRecord(s.db.WithContext(srv.Context()), parent, resultName, recordName)
 			if err != nil {
 				return s.handleReturn(srv, rec, object, bytesWritten, err)
 			}
-
 		}
 
 		if stream == nil {
