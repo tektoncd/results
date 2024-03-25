@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc/credentials/oauth"
 	corev1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -62,6 +63,8 @@ var (
 	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
 	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
 	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
+	qps                     = flag.Float64("qps", float64(rest.DefaultQPS), "Kubernetes client QPS setting")
+	burst                   = flag.Int("burst", rest.DefaultBurst, "Kubernetes client Burst setting")
 	logsAPI                 = flag.Bool("logs_api", true, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
 	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
@@ -109,12 +112,25 @@ func main() {
 		}
 	}
 
-	sharedmain.MainWithContext(injection.WithNamespaceScope(ctx, *namespace), "watcher",
+	ctors := []injection.ControllerConstructor{
 		func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return pipelinerun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return taskrun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		},
+	}
+
+	// This parses flags.
+	k8scfg := injection.ParseAndGetRESTConfigOrDie()
+
+	if qps != nil {
+		k8scfg.QPS = float32(*qps) * float32(len(ctors))
+	}
+	if burst != nil {
+		k8scfg.Burst = *burst * len(ctors)
+	}
+
+	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, *namespace), "watcher", k8scfg, ctors...,
 	)
 }
 

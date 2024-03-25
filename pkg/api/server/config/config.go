@@ -15,11 +15,17 @@ type Config struct {
 	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
 	DB_SSLROOTCERT           string `mapstructure:"DB_SSLROOTCERT"`
 	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
+	DB_MAX_IDLE_CONNECTIONS  int    `mapstructure:"DB_MAX_IDLE_CONNECTIONS"`
+	DB_MAX_OPEN_CONNECTIONS  int    `mapstructure:"DB_MAX_OPEN_CONNECTIONS"`
 	SERVER_PORT              string `mapstructure:"SERVER_PORT"`
 	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
 	PROMETHEUS_HISTOGRAM     bool   `mapstructure:"PROMETHEUS_HISTOGRAM"`
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`
+
+	GRPC_WORKER_POOL int `mapstructure:"GRPC_WORKER_POOL"`
+	K8S_QPS          int `mapstructure:"K8S_QPS"`
+	K8S_BURST        int `mapstructure:"K8S_BURST"`
 
 	AUTH_DISABLE     bool `mapstructure:"AUTH_DISABLE"`
 	AUTH_IMPERSONATE bool `mapstructure:"AUTH_IMPERSONATE"`

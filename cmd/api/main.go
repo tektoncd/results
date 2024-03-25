@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"path"
@@ -119,6 +120,33 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	var sqlDB *sql.DB
+
+	// Set DB connection limits
+	maxIdle := serverConfig.DB_MAX_IDLE_CONNECTIONS
+	maxOpen := serverConfig.DB_MAX_OPEN_CONNECTIONS
+	if maxOpen > 0 {
+		sqlDB, err = db.DB()
+		if err != nil {
+			log.Fatalf("Error getting database configuration for updating max open connections: %s", err.Error())
+		}
+		sqlDB.SetMaxOpenConns(maxOpen)
+	}
+	if maxIdle > 0 {
+		sqlDB, err = db.DB()
+		if err != nil {
+			log.Fatalf("Error getting database configuration for updating max open connections: %s", err.Error())
+		}
+		sqlDB.SetMaxIdleConns(maxIdle)
+	}
+
+	// Set grpc worker pool
+	grpcWorkers := serverConfig.GRPC_WORKER_POOL
+	var streamWorkers grpc.ServerOption
+	if grpcWorkers > 2 {
+		streamWorkers = grpc.NumStreamWorkers((uint32)(grpcWorkers))
+	}
+
 	// Create the authorization authCheck
 	var authCheck auth.Checker
 	var serverMuxOptions []runtime.ServeMuxOption
@@ -131,6 +159,15 @@ func main() {
 		k8sConfig, err := rest.InClusterConfig()
 		if err != nil {
 			log.Fatal("Error getting kubernetes client config:", err)
+		}
+		// Override k8s client qps/burts settings
+		qps := serverConfig.K8S_QPS
+		burst := serverConfig.K8S_BURST
+		if qps > 0 {
+			k8sConfig.QPS = (float32)(qps)
+		}
+		if burst > 0 {
+			k8sConfig.Burst = burst
 		}
 		k8s, err := kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
@@ -163,7 +200,7 @@ func main() {
 	// Customize logger, so it can be passed to the gRPC interceptors
 	grpcLogger := log.Desugar().With(zap.Bool("grpc.auth_disabled", serverConfig.AUTH_DISABLE))
 
-	gs := grpc.NewServer(
+	svrOpts := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc_middleware.WithUnaryServerChain(
 			// The grpc_ctxtags context updater should be before everything else
@@ -181,7 +218,11 @@ func main() {
 			prometheus.StreamServerInterceptor,
 			recovery.StreamServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
-	)
+	}
+	if streamWorkers != nil {
+		svrOpts = append(svrOpts, streamWorkers)
+	}
+	gs := grpc.NewServer(svrOpts...)
 	v1alpha2pb.RegisterResultsServer(gs, v1a2)
 	if serverConfig.LOGS_API {
 		v1alpha2pb.RegisterLogsServer(gs, v1a2)
