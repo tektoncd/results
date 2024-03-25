@@ -11,6 +11,8 @@
 | DB_SSLMODE               | Database SSL mode                                                                                                                 | verify-full                                  |
 | DB_SSLROOTCERT           | Path to CA cert used to validate Database cert                                                                                    | /etc/tls/db/ca.crt                           |
 | DB_ENABLE_AUTO_MIGRATION | Auto-migrate the database on startup (create/update schemas). For further details, refer to <https://gorm.io/docs/migration.html> | true (default)                               |
+| DB_MAX_IDLE_CONNECTIONS  | The number of idle database connections to keep open                                                                              | 10                                           |
+| DB_MAX_OPEN_CONNECTIONS  | The maximum number of database connections, for best performance it should equal DB_MAX_IDLE_CONNECTIONS                          | 10                                           |
 | SERVER_PORT              | gRPC and REST Server Port                                                                                                         | 8080  (default)                              |
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                              |
 | PROMETHEUS_HISTOGRAM     | Enable Prometheus histogram metrics to measure latency distributions of RPCs                                                      | false  (default)                             |
