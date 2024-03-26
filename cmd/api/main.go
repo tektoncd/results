@@ -65,6 +65,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// The default number of connections to use
+const defaultDatabaseConnections = 10
+
 func main() {
 	serverConfig := config.Get()
 
@@ -116,6 +119,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	sqlDB, err := db.DB()
+
+	// Set DB connection limits
+	maxIdle := serverConfig.DB_MAX_IDLE_CONNECTIONS
+	maxOpen := serverConfig.DB_MAX_OPEN_CONNECTIONS
+	if maxOpen < 1 {
+		maxOpen = defaultDatabaseConnections
+	}
+	if maxIdle < 1 {
+		maxIdle = defaultDatabaseConnections
+	}
+	sqlDB.SetMaxIdleConns(maxIdle)
+	sqlDB.SetMaxOpenConns(maxOpen)
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
