@@ -21,7 +21,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -31,6 +33,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+
+	"golang.org/x/sync/errgroup"
+	"knative.dev/pkg/profiling"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -130,6 +135,9 @@ func main() {
 		if err != nil {
 			log.Fatal("Error getting kubernetes client config:", err)
 		}
+		// better avoid k8s client throttling
+		k8sConfig.QPS = 100
+		k8sConfig.Burst = 250
 		k8s, err := kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
@@ -154,6 +162,9 @@ func main() {
 			return fullMethodName != healthpb.Health_Check_FullMethodName
 		}),
 		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
+			if duration.Milliseconds() > 5000 {
+				printGoroutines(log)
+			}
 			return zap.Int64("grpc.time_duration_in_ms", duration.Milliseconds())
 		}),
 	}
@@ -179,6 +190,8 @@ func main() {
 			prometheus.StreamServerInterceptor,
 			recovery.StreamServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
+		// if we want to defined a sufficient large but static worker goroutine pool vs. spawning a goroutine each time
+		// grpc.NumStreamWorkers(32),
 	)
 	v1alpha2pb.RegisterResultsServer(gs, v1a2)
 	if serverConfig.LOGS_API {
@@ -234,6 +247,17 @@ func main() {
 		grpc.WithNoProxy(),
 	}
 
+	profilingHandler := profiling.NewHandler(log, false)
+	profilingServer := profiling.NewServer(profilingHandler)
+	eg, _ := errgroup.WithContext(ctx)
+	eg.Go(profilingServer.ListenAndServe)
+	defer func() {
+		perr := profilingServer.Shutdown(ctx)
+		if perr != nil {
+			log.Errorf("pprof shutdown error: %s", perr)
+		}
+	}()
+
 	// Register gRPC server endpoint to gRPC gateway
 	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
 	if err != nil {
@@ -253,6 +277,23 @@ func main() {
 		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandler(gs, httpMux)))
 	}
 	log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandler(gs, httpMux)))
+}
+
+func printGoroutines(logger *zap.SugaredLogger) {
+	// manual testing has confirmed you don't have to explicitly enable pprof to get goroutine dumps with
+	// stack traces; this lines up with the stack traces you receive if a panic occurs, as well as the
+	// stack trace you receive if you send a SIGQUIT and/or SIGABRT to a running go program
+	profile := pprof.Lookup("goroutine")
+	if profile != nil {
+		err := profile.WriteTo(os.Stdout, 2)
+		if err != nil {
+			logger.Errorw("problem writing goroutine dump",
+				zap.String("error", err.Error()))
+		}
+	} else {
+		logger.Info("goroutine profile not available")
+	}
+
 }
 
 // grpcHandler forwards the request to gRPC server based on the Content-Type header.
