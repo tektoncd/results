@@ -21,14 +21,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/tektoncd/pipeline/pkg/credentials"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const annotationPrefix = "tekton.dev/docker-"
@@ -119,13 +117,13 @@ type entry struct {
 func newEntry(secret string) (*entry, error) {
 	secretPath := credentials.VolumeName(secret)
 
-	ub, err := ioutil.ReadFile(filepath.Join(secretPath, corev1.BasicAuthUsernameKey))
+	ub, err := os.ReadFile(filepath.Join(secretPath, corev1.BasicAuthUsernameKey))
 	if err != nil {
 		return nil, err
 	}
 	username := string(ub)
 
-	pb, err := ioutil.ReadFile(filepath.Join(secretPath, corev1.BasicAuthPasswordKey))
+	pb, err := os.ReadFile(filepath.Join(secretPath, corev1.BasicAuthPasswordKey))
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +157,10 @@ func (*basicDockerBuilder) MatchingAnnotations(secret *corev1.Secret) []string {
 		flags = append(flags, fmt.Sprintf("-docker-config=%s", secret.Name))
 	case corev1.SecretTypeDockercfg:
 		flags = append(flags, fmt.Sprintf("-docker-cfg=%s", secret.Name))
+
+	case corev1.SecretTypeOpaque, corev1.SecretTypeServiceAccountToken, corev1.SecretTypeSSHAuth, corev1.SecretTypeTLS, corev1.SecretTypeBootstrapToken:
+		return flags
+
 	default:
 		return flags
 	}
@@ -210,13 +212,13 @@ func (*basicDockerBuilder) Write(directory string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(basicDocker, content, 0600)
+	return os.WriteFile(basicDocker, content, 0600)
 }
 
 func authsFromDockerCfg(secret string) (map[string]entry, error) {
 	secretPath := credentials.VolumeName(secret)
 	m := make(map[string]entry)
-	data, err := ioutil.ReadFile(filepath.Join(secretPath, corev1.DockerConfigKey))
+	data, err := os.ReadFile(filepath.Join(secretPath, corev1.DockerConfigKey))
 	if err != nil {
 		return m, err
 	}
@@ -228,7 +230,7 @@ func authsFromDockerConfig(secret string) (map[string]entry, error) {
 	secretPath := credentials.VolumeName(secret)
 	m := make(map[string]entry)
 	c := configFile{}
-	data, err := ioutil.ReadFile(filepath.Join(secretPath, corev1.DockerConfigJsonKey))
+	data, err := os.ReadFile(filepath.Join(secretPath, corev1.DockerConfigJsonKey))
 	if err != nil {
 		return m, err
 	}

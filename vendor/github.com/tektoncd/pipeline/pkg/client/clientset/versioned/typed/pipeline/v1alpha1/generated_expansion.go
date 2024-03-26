@@ -19,3 +19,7 @@ limitations under the License.
 package v1alpha1
 
 type RunExpansion interface{}
+
+type StepActionExpansion interface{}
+
+type VerificationPolicyExpansion interface{}

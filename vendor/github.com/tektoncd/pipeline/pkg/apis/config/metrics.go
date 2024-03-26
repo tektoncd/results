@@ -36,6 +36,9 @@ const (
 	// metrics to use for aggregating duration for pipelinerun
 	metricsDurationPipelinerunType = "metrics.pipelinerun.duration-type"
 
+	// countWithReasonKey sets if the reason label should be included on count metrics
+	countWithReasonKey = "metrics.count.enable-reason"
+
 	// DefaultTaskrunLevel determines to what level to aggregate metrics
 	// when it isn't specified in configmap
 	DefaultTaskrunLevel = TaskrunLevelAtTask
@@ -82,6 +85,9 @@ const (
 	DurationPipelinerunTypeLastValue = "lastvalue"
 )
 
+// DefaultMetrics holds all the default configurations for the metrics.
+var DefaultMetrics, _ = newMetricsFromMap(map[string]string{})
+
 // Metrics holds the configurations for the metrics
 // +k8s:deepcopy-gen=true
 type Metrics struct {
@@ -89,6 +95,7 @@ type Metrics struct {
 	PipelinerunLevel        string
 	DurationTaskrunType     string
 	DurationPipelinerunType string
+	CountWithReason         bool
 }
 
 // GetMetricsConfigName returns the name of the configmap containing all
@@ -110,7 +117,8 @@ func (cfg *Metrics) Equals(other *Metrics) bool {
 	return other.TaskrunLevel == cfg.TaskrunLevel &&
 		other.PipelinerunLevel == cfg.PipelinerunLevel &&
 		other.DurationTaskrunType == cfg.DurationTaskrunType &&
-		other.DurationPipelinerunType == cfg.DurationPipelinerunType
+		other.DurationPipelinerunType == cfg.DurationPipelinerunType &&
+		other.CountWithReason == cfg.CountWithReason
 }
 
 // newMetricsFromMap returns a Config given a map corresponding to a ConfigMap
@@ -120,6 +128,7 @@ func newMetricsFromMap(cfgMap map[string]string) (*Metrics, error) {
 		PipelinerunLevel:        DefaultPipelinerunLevel,
 		DurationTaskrunType:     DefaultDurationTaskrunType,
 		DurationPipelinerunType: DefaultDurationPipelinerunType,
+		CountWithReason:         false,
 	}
 
 	if taskrunLevel, ok := cfgMap[metricsTaskrunLevelKey]; ok {
@@ -135,6 +144,11 @@ func newMetricsFromMap(cfgMap map[string]string) (*Metrics, error) {
 	if durationPipelinerun, ok := cfgMap[metricsDurationPipelinerunType]; ok {
 		tc.DurationPipelinerunType = durationPipelinerun
 	}
+
+	if countWithReason, ok := cfgMap[countWithReasonKey]; ok && countWithReason != "false" {
+		tc.CountWithReason = true
+	}
+
 	return &tc, nil
 }
 
