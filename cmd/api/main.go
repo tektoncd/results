@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tektoncd/results/internal/fieldmask"
+
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -169,6 +171,7 @@ func main() {
 			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
 			grpc_auth.UnaryServerInterceptor(determineAuth),
 			prometheus.UnaryServerInterceptor,
+			fieldmask.UnaryServerInterceptor(),
 			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
 		grpc_middleware.WithStreamServerChain(
@@ -221,7 +224,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error dialing gRPC endpoint: %v", err)
 	}
-	serverMuxOptions = append(serverMuxOptions, runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)))
+	serverMuxOptions = append(serverMuxOptions,
+		runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)),
+		runtime.WithMetadata(fieldmask.MetadataAnnotator),
+	)
 
 	// Create server for gRPC gateway
 	ctx := context.Background()
