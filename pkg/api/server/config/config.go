@@ -29,6 +29,9 @@ type Config struct {
 	LOGS_BUFFER_SIZE int    `mapstructure:"LOGS_BUFFER_SIZE"`
 	LOGS_PATH        string `mapstructure:"LOGS_PATH"`
 
+	PROFILING      bool   `mapstructure:"PROFILING"`
+	PROFILING_PORT string `mapstructure:"PROFILING_PORT"`
+
 	GCS_BUCKET_NAME       string `mapstructure:"GCS_BUCKET_NAME"`
 	STORAGE_EMULATOR_HOST string `mapstructure:"STORAGE_EMULATOR_HOST"`
 

@@ -63,6 +63,7 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	"k8s.io/apimachinery/pkg/util/wait"
+	_ "net/http/pprof"
 )
 
 func main() {
@@ -187,6 +188,16 @@ func main() {
 
 	// Allow service reflection - required for grpc_cli ls to work.
 	reflection.Register(gs)
+
+	// Enable profiling server
+	if serverConfig.PROFILING {
+		go func() {
+			log.Infof("Profiling server listening on: %s", serverConfig.PROFILING_PORT)
+			if err := http.ListenAndServe(":"+serverConfig.PROFILING_PORT, nil); err != nil {
+				log.Fatalf("Error running Profiling server: %v", err)
+			}
+		}()
+	}
 
 	// Set up health checks.
 	hs := health.NewServer()

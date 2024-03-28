@@ -109,3 +109,7 @@ spec:
       protocol: TCP
       port: 9090
       targetPort: 9090
+    - name: profiling
+      protocol: TCP
+      port: 6060
+      targetPort: 6060

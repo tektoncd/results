@@ -650,6 +650,13 @@ curl -k https://localhost:8080/healthz
 curl -k https://localhost:8080/healthz?service=tekton.results.v1alpha2.Results
 ```
 
+## Profiling
+
+The API Server includes an HTTP server for exposing golang's debug profiles. By default, the Service is disabled and exposes debug profiles on port `:6060`. For more
+details on the using the profiles, see
+<https://pkg.go.dev/net/http/pprof>.
+
+
 ## References
 
 - [OpenAPI Specification](openapi.yaml)

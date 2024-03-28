@@ -11,6 +11,8 @@
 | DB_SSLMODE               | Database SSL mode                                                                                                                 | verify-full                                  |
 | DB_SSLROOTCERT           | Path to CA cert used to validate Database cert                                                                                    | /etc/tls/db/ca.crt                           |
 | DB_ENABLE_AUTO_MIGRATION | Auto-migrate the database on startup (create/update schemas). For further details, refer to <https://gorm.io/docs/migration.html> | true (default)                               |
+| PROFILING                | Enable profiling server                                                                                                           | false  (default)                             |
+| PROFILING_PORT           | Profiling Server Port                                                                                                             | 6060  (default)                              |
 | SERVER_PORT              | gRPC and REST Server Port                                                                                                         | 8080  (default)                              |
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                              |
 | PROMETHEUS_HISTOGRAM     | Enable Prometheus histogram metrics to measure latency distributions of RPCs                                                      | false  (default)                             |
