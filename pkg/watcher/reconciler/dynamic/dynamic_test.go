@@ -294,7 +294,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 		// Pretend that the IsReadyForDeletion function returns an
 		// error.
 		errSomethingBad := errors.New("Something really bad happened")
-		r.IsReadyForDeletionFunc = func(_ context.Context, object watcherresults.Object) (bool, error) {
+		r.IsReadyForDeletionFunc = func(_ context.Context, _ watcherresults.Object) (bool, error) {
 			return false, errSomethingBad
 		}
 

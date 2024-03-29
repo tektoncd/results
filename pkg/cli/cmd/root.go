@@ -32,7 +32,7 @@ func Root() *cobra.Command {
 		Use:   "tkn-results",
 		Short: "tkn CLI plugin for Tekton Results API",
 		Long:  help,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			var overrideAPIAdr string
 
 			// Prepare to port-forward if addr config is not set
@@ -71,7 +71,7 @@ func Root() *cobra.Command {
 
 			return nil
 		},
-		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		PersistentPostRun: func(_ *cobra.Command, _ []string) {
 			if portForwardCloseChan != nil {
 				close(portForwardCloseChan)
 			}
