@@ -107,7 +107,7 @@ func initConfig(ctx context.Context, cfg *server.Config) (*s3.Client, error) {
 	var awsConfig aws.Config
 	var err error
 	if len(cfg.S3_ENDPOINT) > 0 {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...any) (aws.Endpoint, error) {
+		customResolver := aws.EndpointResolverWithOptionsFunc(func(_, region string, _ ...any) (aws.Endpoint, error) {
 			if region == cfg.S3_REGION {
 				return aws.Endpoint{
 					URL:               cfg.S3_ENDPOINT,

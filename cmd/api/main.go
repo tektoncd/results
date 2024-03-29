@@ -38,6 +38,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	_ "net/http/pprof"
+
 	"github.com/golang-jwt/jwt/v4"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -63,7 +65,6 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	"k8s.io/apimachinery/pkg/util/wait"
-	_ "net/http/pprof"
 )
 
 func main() {
@@ -151,7 +152,7 @@ func main() {
 
 	// Shared options for the logger, with a custom gRPC code to log level function.
 	zapOpts := []grpc_zap.Option{
-		grpc_zap.WithDecider(func(fullMethodName string, err error) bool {
+		grpc_zap.WithDecider(func(fullMethodName string, _ error) bool {
 			return fullMethodName != healthpb.Health_Check_FullMethodName
 		}),
 		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {

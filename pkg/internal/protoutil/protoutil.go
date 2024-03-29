@@ -52,7 +52,7 @@ func AnyBytes(t testing.TB, m proto.Message) []byte {
 // ClearOutputOnly clears any proto fields marked as OUTPUT_ONLY.
 func ClearOutputOnly(pb proto.Message) {
 	m := pb.ProtoReflect()
-	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+	m.Range(func(fd protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
 		opts := fd.Options().(*descriptorpb.FieldOptions)
 		for _, b := range proto.GetExtension(opts, fbpb.E_FieldBehavior).([]fbpb.FieldBehavior) {
 			if b == fbpb.FieldBehavior_OUTPUT_ONLY {

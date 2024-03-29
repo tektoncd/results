@@ -50,7 +50,7 @@ func TestToken(t *testing.T) {
 					clientset := fake.NewSimpleClientset()
 					// Token is a subresource of ServiceAccount, so this
 					// operation looks like a SA creation w.r.t. fake clients.
-					clientset.PrependReactor("create", "serviceaccounts", func(action ktest.Action) (handled bool, ret runtime.Object, err error) {
+					clientset.PrependReactor("create", "serviceaccounts", func(_ ktest.Action) (handled bool, ret runtime.Object, err error) {
 						return true, &v1.TokenRequest{
 							Status: v1.TokenRequestStatus{
 								Token: "a",

@@ -83,7 +83,7 @@ func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient
 		objectClient:  oc,
 		cfg:           cfg,
 		// Always true predicate.
-		IsReadyForDeletionFunc: func(ctx context.Context, object results.Object) (bool, error) {
+		IsReadyForDeletionFunc: func(_ context.Context, _ results.Object) (bool, error) {
 			return true, nil
 		},
 	}
