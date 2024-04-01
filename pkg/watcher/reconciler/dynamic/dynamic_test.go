@@ -207,6 +207,16 @@ func TestReconcile_TaskRun(t *testing.T) {
 	})
 
 	t.Run("delete object once grace period elapses", func(t *testing.T) {
+		// Recreate the object to retest the deletion
+		if err := trclient.Delete(ctx, taskrun.GetName(), metav1.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		// disable logs client so that requeuing due to missing logs
+		// won't interfere with this test
+		r.resultsClient.LogsClient = nil
 		// Enable object deletion, re-reconcile
 		cfg.CompletedResourceGracePeriod = 1 * time.Second
 
