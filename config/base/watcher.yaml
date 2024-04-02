@@ -39,6 +39,7 @@ spec:
             - $(TEKTON_RESULTS_API_SERVICE)
             - -auth_mode
             - $(AUTH_MODE)
+            - -store_event=true
           env:
             - name: SYSTEM_NAMESPACE
               valueFrom:

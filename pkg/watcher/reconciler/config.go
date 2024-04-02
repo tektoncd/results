@@ -41,6 +41,9 @@ type Config struct {
 
 	// Check owner reference when deleting objects. By default, objects having owner references set won't be deleted.
 	CheckOwner bool
+
+	// Stored Events related to Taskrun and Pipelineruns
+	StoreEvent bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be
