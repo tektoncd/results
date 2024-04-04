@@ -187,6 +187,10 @@ func main() {
 		v1alpha2pb.RegisterLogsServer(gs, v1a2)
 	}
 
+	if serverConfig.EVENTS_API {
+		v1alpha2pb.RegisterEventsServer(gs, v1a2)
+	}
+
 	// Allow service reflection - required for grpc_cli ls to work.
 	reflection.Register(gs)
 

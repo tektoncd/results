@@ -29,6 +29,8 @@ type Config struct {
 	LOGS_BUFFER_SIZE int    `mapstructure:"LOGS_BUFFER_SIZE"`
 	LOGS_PATH        string `mapstructure:"LOGS_PATH"`
 
+	EVENTS_API bool `mapstructure:"EVENTS_API"`
+
 	PROFILING      bool   `mapstructure:"PROFILING"`
 	PROFILING_PORT string `mapstructure:"PROFILING_PORT"`
 

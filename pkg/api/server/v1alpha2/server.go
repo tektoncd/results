@@ -44,6 +44,7 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 type Server struct {
 	pb.UnimplementedResultsServer
 	pb.UnimplementedLogsServer
+	pb.UnimplementedEventsServer
 	config     *config.Config
 	logger     *zap.SugaredLogger
 	env        *cel.Env

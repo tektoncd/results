@@ -128,6 +128,21 @@ service Logs {
 
 }
 
+service Events {
+  rpc GetEventList(GetEventListRequest) returns (EventList) {
+    option (google.api.http) = {
+      get: "/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/eventlists/*}"
+    };
+  }
+
+  rpc ListEventLists(ListEventListsRequest) returns (ListEventListResponse) {
+    option (google.api.http) = {
+      get: "/apis/results.tekton.dev/v1alpha2/parents/{parent=*/results/*}/eventlists"
+    };
+  }
+}
+
+
 message CreateResultRequest {
   // User provided parent to partition results under.
   string parent = 1 [
@@ -270,4 +285,31 @@ message DeleteLogRequest {
     (google.api.resource_reference) = {
       type: "tekton.results.v1alpha2/Log"
     }];
+}
+
+message GetEventListRequest {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      type: "tekton.results.v1alpha2/EventList"
+    }];
+}
+
+message ListEventListsRequest {
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {
+      child_type: "tekton.results.v1alpha2/EventList"
+    }];
+
+  string filter = 2;
+
+  int32 page_size = 3;
+  string page_token = 4;
+  string order_by = 5;
+}
+
+message ListEventListResponse {
+  repeated EventList eventlists = 1;
+  string next_page_token = 2;
 }

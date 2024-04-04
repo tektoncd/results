@@ -25,6 +25,8 @@ const (
 	ResourceLogs = "logs"
 	// ResourceSummary - api summary
 	ResourceSummary = "summary"
+	// ResourceEventList - api eventlist resource name
+	ResourceEventList = "eventlists"
 
 	// PermissionCreate - permission name to "create" resource
 	PermissionCreate = "create"

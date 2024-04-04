@@ -20,7 +20,7 @@ var (
 	NameRegex = regexp.MustCompile("(^[a-z0-9_-]{1,63})/results/([a-z0-9_-]{1,63})/eventlist/([a-z0-9_-]{1,63}$)")
 )
 
-// ParseName splits a full Result name into its individual (parent, result, name)
+// ParseName splits a full EventList name into its individual (parent, result, name)
 // components.
 func ParseName(raw string) (parent, result, name string, err error) {
 	s := NameRegex.FindStringSubmatch(raw)

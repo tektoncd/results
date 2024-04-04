@@ -26,6 +26,7 @@ import (
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
+	"github.com/tektoncd/results/pkg/apis/v1alpha2"
 	resultspb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -235,5 +236,20 @@ func OfRecords(env *cel.Env, resultParent, resultName string, request *resultspb
 		equalityClause{
 			columnName: "result_name",
 			value:      resultName,
+		})
+}
+
+// OfEventLists creates a Lister for EventLists objects.
+func OfEventLists(env *cel.Env, resultParent, resultName string, request *resultspb.ListEventListsRequest) (*Lister[*db.Record, *resultspb.Record], error) {
+	return newLister(env, recordFieldsToColumns, request, record.ToAPI, equalityClause{
+		columnName: "parent",
+		value:      resultParent,
+	},
+		equalityClause{
+			columnName: "result_name",
+			value:      resultName,
+		}, equalityClause{
+			columnName: "type",
+			value:      v1alpha2.EventListRecordType,
 		})
 }

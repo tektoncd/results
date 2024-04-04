@@ -184,3 +184,15 @@ message RecordListSummary {
 }
 
 
+// EventList is a list of a events for runs.
+message EventList {
+  option (google.api.resource) = {
+    type: "tekton.results.v1alpha2/EventList"
+  };
+
+  // Resource name for the EventList
+  string name = 1 ;
+
+  // The EventList data
+  bytes data = 2;
+}
