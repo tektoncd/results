@@ -30,6 +30,8 @@ in local kubeconfig file (~/.kube/config by default) in you local machine.
 is the difference of running environments. The envs that our presubmit test
 uses are stored in ./*.env files. Specifically,
 > - e2e-tests-kind-prow-alpha.env for [`pull-tekton-pipeline-alpha-integration-tests`](https://github.com/tektoncd/plumbing/blob/d2c8ccb63d02c6e72c62def788af32d63ff1981a/prow/config.yaml#L1304)
+> - e2e-tests-kind-prow-beta.env for [`pull-tekton-pipeline-beta-integration-tests`]
+(TODO: https://github.com/tektoncd/pipeline/issues/6048 Add permanent link after plumbing setup for prow)
 > - e2e-tests-kind-prow.env for [`pull-tekton-pipeline-integration-tests`](https://github.com/tektoncd/plumbing/blob/d2c8ccb63d02c6e72c62def788af32d63ff1981a/prow/config.yaml#L1249)
 
 ## Unit tests
@@ -316,7 +318,7 @@ The `Clients` struct contains initialized clients for accessing:
 For example, to create a `Pipeline`:
 
 ```bash
-_, err = clients.PipelineClient.Pipelines.Create(test.Route(namespaceName, pipelineName))
+_, err = clients.v1PipelineClient.Pipelines.Create(test.Route(namespaceName, pipelineName))
 ```
 
 And you can use the client to clean up resources created by your test (e.g. in
@@ -366,7 +368,7 @@ err = WaitForTaskRunState(c, hwTaskRunName, func(tr *v1alpha1.TaskRun) (bool, er
         return true, nil
     }
     return false, nil
-}, "TaskRunHasCondition")
+}, "TaskRunHasCondition", v1Version)
 ```
 
 _[Metrics will be emitted](https://github.com/knative/pkg/tree/master/test#emit-metrics)
@@ -436,3 +438,23 @@ setup a cluster for you:
 export PROJECT_ID=my_gcp_project
 test/presubmit-tests.sh --integration-tests
 ```
+
+## Per Feature flag tests
+
+Per-feature flag tests verify that the combinations of feature flags work together
+correctly, ensuring that individual flags don't interfere with each other's 
+functionality and that overall outcomes remain consistent.
+Per [TEP0138](https://github.com/tektoncd/community/blob/main/teps/0138-decouple-api-and-feature-versioning.md#additional-ci-tests),
+minimum end-to-end tests for stable features are utilized, mocking stable, beta,
+and alpha stability levels within different test environments.
+
+To run these tests, you must provide `go` with `-tags=featureflags`. By default, the tests
+run against your current kubeconfig context, but you can change that and other settings with the flags like
+the end to end tests:
+
+```shell
+go test -v -count=1 -tags=featureflags -timeout=60m ./test -run ^TestPerFeatureFlag
+```
+
+Flags that could be set in featureflags tests are exactly the same as [flags in end to end tests](#flags).
+Just note that the build tags should be `-tags=featureflags`.
