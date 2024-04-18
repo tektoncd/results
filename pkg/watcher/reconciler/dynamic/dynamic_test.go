@@ -41,6 +41,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTest "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/controller"
@@ -138,9 +139,12 @@ func TestReconcile_TaskRun(t *testing.T) {
 	cfg := &reconciler.Config{
 		DisableAnnotationUpdate: true,
 		RequeueInterval:         1 * time.Second,
+		StoreEvent:              true,
 	}
 
-	r := NewDynamicReconciler(resultsClient, logsClient, trclient, cfg)
+	client := k8sTest.NewSimpleClientset()
+
+	r := NewDynamicReconciler(client, resultsClient, logsClient, trclient, cfg)
 	if err := r.Reconcile(ctx, taskrun); err != nil {
 		t.Fatal(err)
 	}
@@ -164,9 +168,13 @@ func TestReconcile_TaskRun(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error parsing result uid: %v", err)
 		}
-		logRecordName := record.FormatName(resultName, uuid.NewMD5(uid, []byte(taskrun.GetUID())).String())
+		logRecordName := record.FormatName(resultName, uuid.NewMD5(uid, []byte(taskrun.GetUID()+"eventlist")).String())
 		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName}); err != nil {
 			t.Fatalf("Error getting log record: %v", err)
+		}
+		eventListName := watcherresults.FormatEventListName(resultName, uid, taskrun)
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: eventListName}); err != nil {
+			t.Fatalf("Error getting eventlist %s: record: %v", eventListName, err)
 		}
 	})
 
@@ -204,6 +212,14 @@ func TestReconcile_TaskRun(t *testing.T) {
 		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName}); err != nil {
 			t.Fatalf("Error getting log record '%s': %v", logRecordName, err)
 		}
+		eventListName := tr.GetAnnotations()[annotation.EventList]
+		if eventListName == "" {
+			t.Fatalf("Error parsing eventlist name '%s'", eventListName)
+		}
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: eventListName}); err != nil {
+			t.Fatalf("Error getting eventlist record '%s': %v", eventListName, err)
+		}
+
 	})
 
 	t.Run("delete object once grace period elapses", func(t *testing.T) {
@@ -428,8 +444,13 @@ func TestReconcile_PipelineRun(t *testing.T) {
 	if _, err := prclient.Create(ctx, pipelinerun, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	cfg := &reconciler.Config{
+		StoreEvent: true,
+	}
 
-	r := NewDynamicReconciler(resultsClient, logsClient, prclient, nil)
+	client := k8sTest.NewSimpleClientset()
+
+	r := NewDynamicReconciler(client, resultsClient, logsClient, prclient, cfg)
 	if err := r.Reconcile(ctx, pipelinerun); err != nil {
 		t.Fatal(err)
 	}
@@ -472,6 +493,16 @@ func TestReconcile_PipelineRun(t *testing.T) {
 		_, err = resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: logRecordName})
 		if err != nil {
 			t.Fatalf("Error getting log record: %v", err)
+		}
+	})
+	t.Run("EventList", func(t *testing.T) {
+
+		eventListName := pr.GetAnnotations()[annotation.EventList]
+		if eventListName == "" {
+			t.Fatalf("Error parsing eventlist name '%s'", eventListName)
+		}
+		if _, err := resultsClient.GetRecord(ctx, &pb.GetRecordRequest{Name: eventListName}); err != nil {
+			t.Fatalf("Error getting eventlist record '%s': %v", eventListName, err)
 		}
 	})
 

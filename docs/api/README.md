@@ -225,6 +225,8 @@ Possible values for `data_type` and `summary.type` (for Result) are:
 - `tekton.dev/v1beta1.TaskRun` or `TASK_RUN`
 - `tekton.dev/v1beta1.PipelineRun` or `PIPELINE_RUN`
 - `results.tekton.dev/v1alpha2.Log`
+- `results.tekton.dev/v1alpha3.Log`
+- `results.tekton.dev/v1.EventList`
 
 #### The `data` field in Record
 

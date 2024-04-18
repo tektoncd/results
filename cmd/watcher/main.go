@@ -72,6 +72,7 @@ var (
 	checkOwner              = flag.Bool("check_owner", true, "If enabled, owner references will be checked while deleting objects")
 	updateLogTimeout        = flag.Duration("update_log_timeout", 300*time.Second, "How log the Watcher waits for the UpdateLog operation for storing logs to complete before it aborts.")
 	dynamicReconcileTimeout = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
+	storeEvent              = flag.Bool("store_event", false, "If enabled, events related to runs will also be stored")
 )
 
 func main() {
@@ -106,6 +107,7 @@ func main() {
 		CheckOwner:                   *checkOwner,
 		UpdateLogTimeout:             updateLogTimeout,
 		DynamicReconcileTimeout:      dynamicReconcileTimeout,
+		StoreEvent:                   *storeEvent,
 	}
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
 

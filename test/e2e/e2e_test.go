@@ -138,7 +138,7 @@ func TestTaskRun(t *testing.T) {
 
 	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-	var resName, recName string
+	var resName, recName, eventName string
 
 	// Wait for Result ID to show up.
 	t.Run("check annotations", func(t *testing.T) {
@@ -147,10 +147,11 @@ func TestTaskRun(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error getting TaskRun: %v", err)
 			}
-			var resAnnotation, recAnnotation bool
+			var resAnnotation, recAnnotation, eventAnnotation bool
 			resName, resAnnotation = tr.GetAnnotations()["results.tekton.dev/result"]
 			recName, recAnnotation = tr.GetAnnotations()["results.tekton.dev/record"]
-			if resAnnotation && recAnnotation {
+			eventName, eventAnnotation = tr.GetAnnotations()["results.tekton.dev/eventlist"]
+			if resAnnotation && recAnnotation && eventAnnotation {
 				return true, nil
 			}
 			return false, nil
@@ -194,6 +195,16 @@ func TestTaskRun(t *testing.T) {
 			t.Errorf("Error getting Record: %v", err)
 		}
 	})
+
+	t.Run("check event record", func(t *testing.T) {
+		if eventName == "" {
+			t.Skip("Event Record name not found")
+		}
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: eventName})
+		if err != nil {
+			t.Errorf("Error getting Event Record: %v", err)
+		}
+	})
 }
 
 func TestPipelineRun(t *testing.T) {
@@ -218,7 +229,7 @@ func TestPipelineRun(t *testing.T) {
 
 	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
 
-	var resName, recName string
+	var resName, recName, eventName string
 
 	t.Run("check annotations", func(t *testing.T) {
 		// Wait for Result ID to show up.
@@ -227,10 +238,11 @@ func TestPipelineRun(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error getting PipelineRun: %v", err)
 			}
-			var resAnnotation, recAnnotation bool
+			var resAnnotation, recAnnotation, eventAnnotation bool
 			resName, resAnnotation = pr.GetAnnotations()["results.tekton.dev/result"]
 			recName, recAnnotation = pr.GetAnnotations()["results.tekton.dev/record"]
-			if resAnnotation && recAnnotation {
+			eventName, eventAnnotation = pr.GetAnnotations()["results.tekton.dev/eventlist"]
+			if resAnnotation && recAnnotation && eventAnnotation {
 				return true, nil
 			}
 			return false, nil
@@ -272,6 +284,16 @@ func TestPipelineRun(t *testing.T) {
 		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: recName})
 		if err != nil {
 			t.Errorf("Error getting Record: %v", err)
+		}
+	})
+
+	t.Run("check event record", func(t *testing.T) {
+		if eventName == "" {
+			t.Skip("Event Record name not found")
+		}
+		_, err = gc.GetRecord(context.Background(), &resultsv1alpha2.GetRecordRequest{Name: eventName})
+		if err != nil {
+			t.Errorf("Error getting Event Record: %v", err)
 		}
 	})
 
