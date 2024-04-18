@@ -18,3 +18,9 @@
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
   value: "15s"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "-store_event"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "true"

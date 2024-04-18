@@ -31,6 +31,9 @@ const (
 	// Log identifier.
 	Log = "results.tekton.dev/log"
 
+	// EventList identifier.
+	EventList = "results.tekton.dev/eventlist"
+
 	// ResultAnnotations is an annotation that integrators should add to objects in order to store
 	// arbitrary keys/values into the Result.Annotations field.
 	ResultAnnotations = "results.tekton.dev/resultAnnotations"

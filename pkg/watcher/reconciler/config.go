@@ -47,6 +47,8 @@ type Config struct {
 
 	// DynamicReconcileTimeout is the time we provide for the dynamic reconciler to process an event
 	DynamicReconcileTimeout *time.Duration
+	// Whether to Store Events related to Taskrun and Pipelineruns
+	StoreEvent bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

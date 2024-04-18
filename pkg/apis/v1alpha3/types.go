@@ -5,6 +5,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// EventListRecordType represents the API resource type for EventSet records.
+const EventListRecordType = "results.tekton.dev/v1.EventList"
+
 // LogRecordType represents the API resource type for Tekton log records.
 const LogRecordType = "results.tekton.dev/v1alpha3.Log"
 
