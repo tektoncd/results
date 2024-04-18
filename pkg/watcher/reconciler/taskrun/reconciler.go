@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/logging"
 )
@@ -28,6 +29,9 @@ import (
 type Reconciler struct {
 	// Inline LeaderAwareFuncs to support leader election.
 	knativereconciler.LeaderAwareFuncs
+
+	// kubeClientSet allows us to talk to the k8s for core APIs
+	kubeClientSet kubernetes.Interface
 
 	resultsClient  pb.ResultsClient
 	logsClient     pb.LogsClient
@@ -71,7 +75,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		TaskRunInterface: r.pipelineClient.TektonV1beta1().TaskRuns(namespace),
 	}
 
-	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, taskRunClient, r.cfg)
+	dyn := dynamic.NewDynamicReconciler(r.kubeClientSet, r.resultsClient, r.logsClient, taskRunClient, r.cfg)
 	dyn.AfterDeletion = func(ctx context.Context, o results.Object) error {
 		tr := o.(*pipelinev1beta1.TaskRun)
 		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
