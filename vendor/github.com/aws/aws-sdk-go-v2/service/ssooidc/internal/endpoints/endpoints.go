@@ -228,6 +228,14 @@ var defaultPartitions = endpoints.Partitions{
 				},
 			},
 			endpoints.EndpointKey{
+				Region: "eu-central-2",
+			}: endpoints.Endpoint{
+				Hostname: "oidc.eu-central-2.amazonaws.com",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "eu-central-2",
+				},
+			},
+			endpoints.EndpointKey{
 				Region: "eu-north-1",
 			}: endpoints.Endpoint{
 				Hostname: "oidc.eu-north-1.amazonaws.com",
@@ -273,6 +281,14 @@ var defaultPartitions = endpoints.Partitions{
 				Hostname: "oidc.il-central-1.amazonaws.com",
 				CredentialScope: endpoints.CredentialScope{
 					Region: "il-central-1",
+				},
+			},
+			endpoints.EndpointKey{
+				Region: "me-central-1",
+			}: endpoints.Endpoint{
+				Hostname: "oidc.me-central-1.amazonaws.com",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "me-central-1",
 				},
 			},
 			endpoints.EndpointKey{
@@ -359,6 +375,24 @@ var defaultPartitions = endpoints.Partitions{
 		},
 		RegionRegex:    partitionRegexp.AwsCn,
 		IsRegionalized: true,
+		Endpoints: endpoints.Endpoints{
+			endpoints.EndpointKey{
+				Region: "cn-north-1",
+			}: endpoints.Endpoint{
+				Hostname: "oidc.cn-north-1.amazonaws.com.cn",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "cn-north-1",
+				},
+			},
+			endpoints.EndpointKey{
+				Region: "cn-northwest-1",
+			}: endpoints.Endpoint{
+				Hostname: "oidc.cn-northwest-1.amazonaws.com.cn",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "cn-northwest-1",
+				},
+			},
+		},
 	},
 	{
 		ID: "aws-iso",
