@@ -44,6 +44,9 @@ type Config struct {
 
 	// UpdateLogTimeout is the time we provide for storing logs before aborting
 	UpdateLogTimeout *time.Duration
+
+	// DynamicReconcileTimeout is the time we provide for the dynamic reconciler to process an event
+	DynamicReconcileTimeout *time.Duration
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

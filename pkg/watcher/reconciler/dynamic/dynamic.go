@@ -18,9 +18,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"runtime/pprof"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fatih/color"
@@ -39,8 +38,6 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -94,35 +91,12 @@ func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient
 	}
 }
 
-func printGoroutines(logger *zap.SugaredLogger, o results.Object) {
-	// manual testing has confirmed you don't have to explicitly enable pprof to get goroutine dumps with
-	// stack traces; this lines up with the stack traces you receive if a panic occurs, as well as the
-	// stack trace you receive if you send a SIGQUIT and/or SIGABRT to a running go program
-	profile := pprof.Lookup("goroutine")
-	if profile == nil {
-		logger.Warnw("Leaving dynamic Reconciler only after context timeout, number of profiles found",
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()))
-	} else {
-		err := profile.WriteTo(os.Stdout, 2)
-		if err != nil {
-			logger.Errorw("problem writing goroutine dump",
-				zap.String("error", err.Error()),
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()))
-		}
-	}
-
-}
-
 // Reconcile handles result/record uploading for the given Run object.
 // If enabled, the object may be deleted upon successful result upload.
 func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	var ctxCancel context.CancelFunc
 	// context with timeout does not work with the partial end to end flow that exists with unit tests;
-	// this field will alway be set for real
+	// this field will always be set for real
 	if r.cfg != nil && r.cfg.UpdateLogTimeout != nil {
 		ctx, ctxCancel = context.WithTimeout(ctx, *r.cfg.UpdateLogTimeout)
 	}
@@ -150,11 +124,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 			return
 		}
 		if ctxErr == context.DeadlineExceeded {
-			logger.Warnw("Leaving dynamic Reconciler only after context timeout, initiating thread dump",
+			logger.Warnw("Leaving dynamic Reconciler only after context timeout",
 				zap.String("namespace", o.GetNamespace()),
 				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 				zap.String("name", o.GetName()))
-			printGoroutines(logger, o)
 			return
 		}
 		logger.Warnw("Leaving dynamic Reconciler with unexpected error",
@@ -183,10 +156,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 	if err != nil {
 		logger.Debugw("Error upserting record to API server", zap.Error(err), timeTakenField)
-		// in case a call to cancel overwrites the error set in the context
-		if status.Code(err) == codes.DeadlineExceeded {
-			printGoroutines(logger, o)
-		}
 		if ctxCancel != nil {
 			ctxCancel()
 		}
@@ -195,21 +164,66 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 	// Update logs if enabled.
 	if r.resultsClient.LogsClient != nil {
-		if err = r.sendLog(ctx, o); err != nil {
-			logger.Errorw("Error sending log",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()),
-				zap.Error(err),
-			)
-			// in case a call to cancel overwrites the error set in the context
-			if status.Code(err) == codes.DeadlineExceeded {
-				printGoroutines(logger, o)
+		if r.cfg == nil || r.cfg.UpdateLogTimeout == nil {
+			// single threaded for unit tests given fragility of fake k8s client
+			if err = r.sendLog(ctx, o); err != nil {
+				logger.Errorw("Error sending log",
+					zap.String("namespace", o.GetNamespace()),
+					zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+					zap.String("name", o.GetName()),
+					zap.Error(err),
+				)
 			}
-			if ctxCancel != nil {
-				ctxCancel()
-			}
-			return err
+
+		} else {
+			// so while performance was acceptable with development level storage mechanisms like minio, latency proved
+			// intolerable for even basic amounts of log storage; moving off of the reconciler thread again, and
+			// completely divesting from its context, now using the background context and a separate timer to provide
+			// for timeout capability
+			go func() {
+				// TODO need to leverage the log status API noting log storage completion to coordinate with pruning
+				backgroundCtx, cancel := context.WithCancel(context.Background())
+				// need this to get grpc to clean up its threads
+				defer cancel()
+				timeout := 30 * time.Second
+				// context with timeout does not work with the partial end to end flow that exists with unit tests;
+				// this field will always be set for real
+				if r.cfg != nil && r.cfg.DynamicReconcileTimeout != nil {
+					// given what we have seen in stress testing, we track this timeout separately from the reconciler's timeout
+					timeout = *r.cfg.DynamicReconcileTimeout
+				}
+				eventTicker := time.NewTicker(timeout)
+				// make buffered for golang GC
+				stopCh := make(chan bool, 1)
+				once := sync.Once{}
+
+				go func() {
+					if err = r.sendLog(backgroundCtx, o); err != nil {
+						logger.Errorw("Error sending log",
+							zap.String("namespace", o.GetNamespace()),
+							zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+							zap.String("name", o.GetName()),
+							zap.Error(err),
+						)
+					}
+					once.Do(func() { close(stopCh) })
+					// TODO once we have the log status available, report the error there for retry if needed
+				}()
+
+				select {
+				case <-eventTicker.C:
+					once.Do(func() { close(stopCh) })
+					logger.Warnw("Leaving sendLogs thread only after timeout",
+						zap.String("namespace", o.GetNamespace()),
+						zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+						zap.String("name", o.GetName()))
+
+				case <-stopCh:
+					// this is safe to call twice, as it does not need to close its buffered channel
+					eventTicker.Stop()
+				}
+			}()
+
 		}
 	}
 
@@ -442,8 +456,9 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 				zap.String("name", o.GetName()),
 				zap.Error(err),
 			)
+			// TODO once we have the log status available, report the error there for retry if needed
 		}
-		logger.Debugw("Streaming log completed",
+		logger.Infow("Streaming log completed",
 			zap.String("namespace", o.GetNamespace()),
 			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 			zap.String("name", o.GetName()),
@@ -533,10 +548,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 			zap.String("errStr", errStr))
 	}
 
-	flushCount, flushErr := writer.Flush()
-	logger.Warnw("flush ret count",
-		zap.String("name", o.GetName()),
-		zap.Int("flushCount", flushCount))
+	_, flushErr := writer.Flush()
 	if flushErr != nil {
 		logger.Warnw("flush ret err",
 			zap.String("error", flushErr.Error()))
