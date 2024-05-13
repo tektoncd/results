@@ -27,7 +27,7 @@ import (
 	"os"
 
 	server "github.com/tektoncd/results/pkg/api/server/config"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 
 	"gocloud.dev/blob/gcsblob"
 	"gocloud.dev/gcp"
@@ -41,7 +41,7 @@ type gcsStream struct {
 }
 
 // NewGCSStream returns a log streamer for the GCS storage type.
-func NewGCSStream(ctx context.Context, log *v1alpha2.Log, config *server.Config) (Stream, error) {
+func NewGCSStream(ctx context.Context, log *v1alpha3.Log, config *server.Config) (Stream, error) {
 	if log.Status.Path == "" {
 		filePath, err := FilePath(log)
 		if err != nil {
@@ -89,7 +89,7 @@ func getGCSClient(ctx context.Context, cfg *server.Config) (*gcp.HTTPClient, err
 }
 
 func (*gcsStream) Type() string {
-	return string(v1alpha2.GCSLogType)
+	return string(v1alpha3.GCSLogType)
 }
 
 func (gcs *gcsStream) WriteTo(w io.Writer) (int64, error) {

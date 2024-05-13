@@ -21,7 +21,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"github.com/tektoncd/results/pkg/logs"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -47,7 +47,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		return err
 	}
 	// Check if the input record is referenced in any logs record in the result
-	if rec.Type != v1alpha2.LogRecordType {
+	if rec.Type != v1alpha3.LogRecordType {
 		rec, err = getLogRecord(s.db, parent, res, name)
 		if err != nil {
 			s.logger.Error(err)
@@ -60,9 +60,20 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		s.logger.Error(err)
 		return status.Error(codes.Internal, "Error streaming log")
 	}
-	if object.Status.Size == 0 {
-		s.logger.Errorf("no logs exist for %s", req.GetName())
-		return status.Error(codes.NotFound, "Log doesn't exist")
+
+	// Handle v1alpha2 and earlier differently from v1alpha3 until v1alpha2 and earlier are deprecated
+	if "results.tekton.dev/v1alpha3" == object.APIVersion {
+		if !object.Status.IsStored || object.Status.Size == 0 {
+			s.logger.Errorf("no logs exist for %s", req.GetName())
+			return status.Error(codes.NotFound, "Log doesn't exist")
+		}
+	} else {
+		// For v1alpha2 checking log size is the best way to ensure if logs are stored
+		// this is however susceptible to race condition
+		if object.Status.Size == 0 {
+			s.logger.Errorf("no logs exist for %s", req.GetName())
+			return status.Error(codes.NotFound, "Log doesn't exist")
+		}
 	}
 
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
@@ -95,7 +106,7 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 	var name, parent, resultName, recordName string
 	var bytesWritten int64
 	var rec *db.Record
-	var object *v1alpha2.Log
+	var object *v1alpha3.Log
 	var stream log.Stream
 	defer func() {
 		if stream != nil {
@@ -164,7 +175,7 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 	}
 }
 
-func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *v1alpha2.Log, written int64, returnErr error) error {
+func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *v1alpha3.Log, written int64, returnErr error) error {
 	// When the srv reaches the end, srv.Recv() returns an io.EOF error
 	// Therefore we should not return io.EOF if it is received in this function.
 	// Otherwise, we should return the original error and not mask any subsequent errors handling cleanup/return.
@@ -175,9 +186,9 @@ func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *
 	}
 	apiRec := record.ToAPI(rec)
 	apiRec.UpdateTime = timestamppb.Now()
-	if written > 0 {
-		log.Status.Size = written
-	}
+	log.Status.Size = written
+	log.Status.IsStored = returnErr == io.EOF
+
 	data, err := json.Marshal(log)
 	if err != nil {
 		if !isNilOrEOF(returnErr) {
@@ -294,7 +305,7 @@ func (s *Server) getFilteredPaginatedSortedLogRecords(ctx context.Context, paren
 	for len(rec) < pageSize {
 		batchSize := batcher.Next()
 		dbrecords := make([]*db.Record, 0, batchSize)
-		q := s.db.WithContext(ctx).Where("type = ?", v1alpha2.LogRecordType)
+		q := s.db.WithContext(ctx).Where("type = ?", v1alpha3.LogRecordType)
 		q = q.Where("id > ?", start)
 		// Specifying `-` allows users to read Records across Results.
 		// See https://google.aip.dev/159 for more details.
@@ -364,7 +375,7 @@ func (s *Server) DeleteLog(ctx context.Context, req *pb.DeleteLogRequest) (*empt
 		return &empty.Empty{}, err
 	}
 	// Check if the input record is referenced in any logs record
-	if rec.Type != v1alpha2.LogRecordType {
+	if rec.Type != v1alpha3.LogRecordType {
 		rec, err = getLogRecord(s.db, parent, res, name)
 		if err != nil {
 			return &empty.Empty{}, err

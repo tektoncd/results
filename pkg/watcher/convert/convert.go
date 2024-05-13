@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -62,14 +62,14 @@ func ToLogProto(in metav1.Object, kind, name string) (*rpb.Any, error) {
 	if err != nil {
 		return nil, err
 	}
-	log := &v1alpha2.Log{
+	log := &v1alpha3.Log{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: in.GetNamespace(),
 			Name:      fmt.Sprintf("%s-log", in.GetName()),
 			UID:       types.UID(uid),
 		},
-		Spec: v1alpha2.LogSpec{
-			Resource: v1alpha2.Resource{
+		Spec: v1alpha3.LogSpec{
+			Resource: v1alpha3.Resource{
 				Kind:      kind,
 				Namespace: in.GetNamespace(),
 				Name:      in.GetName(),
@@ -83,7 +83,7 @@ func ToLogProto(in metav1.Object, kind, name string) (*rpb.Any, error) {
 		return nil, err
 	}
 	return &rpb.Any{
-		Type:  v1alpha2.LogRecordType,
+		Type:  v1alpha3.LogRecordType,
 		Value: b,
 	}, nil
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 
-	"github.com/tektoncd/results/pkg/apis/v1alpha2"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 )
 
 type fileStream struct {
@@ -20,7 +20,7 @@ type fileStream struct {
 }
 
 // NewFileStream returns a LogStreamer that streams directly from a log file on local disk.
-func NewFileStream(ctx context.Context, log *v1alpha2.Log, config *config.Config) (Stream, error) {
+func NewFileStream(ctx context.Context, log *v1alpha3.Log, config *config.Config) (Stream, error) {
 	if log.Status.Path == "" {
 		filePath, err := FilePath(log)
 		if err != nil {
@@ -42,7 +42,7 @@ func NewFileStream(ctx context.Context, log *v1alpha2.Log, config *config.Config
 }
 
 func (*fileStream) Type() string {
-	return string(v1alpha2.FileLogType)
+	return string(v1alpha3.FileLogType)
 }
 
 // WriteTo reads the contents of the TaskRun log file and writes them to the provided writer, such
