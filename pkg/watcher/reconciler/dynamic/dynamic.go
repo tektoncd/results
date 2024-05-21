@@ -17,6 +17,7 @@ package dynamic
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime/pprof"
@@ -45,6 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -57,6 +59,9 @@ var (
 // Reconciler implements common reconciler behavior across different Tekton Run
 // Object types.
 type Reconciler struct {
+	// KubeClientSet allows us to talk to the k8s for core APIs
+	KubeClientSet kubernetes.Interface
+
 	resultsClient          *results.Client
 	objectClient           ObjectClient
 	cfg                    *reconciler.Config
@@ -82,9 +87,10 @@ type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, 
 type AfterDeletion func(ctx context.Context, object results.Object) error
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
-func NewDynamicReconciler(rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
+func NewDynamicReconciler(kubeClientSet kubernetes.Interface, rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
 		resultsClient: results.NewClient(rc, lc),
+		KubeClientSet: kubeClientSet,
 		objectClient:  oc,
 		cfg:           cfg,
 		// Always true predicate.
@@ -213,6 +219,26 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		}
 	}
 
+	// CreateEvents if enabled
+	if r.cfg.StoreEvent {
+		if err := r.storeEvents(ctx, o); err != nil {
+			logger.Errorw("Error storing eventlist",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+				zap.Error(err),
+			)
+			if ctxCancel != nil {
+				ctxCancel()
+			}
+			return err
+		}
+		logger.Debugw("Successfully store eventlist",
+			zap.String("namespace", o.GetNamespace()),
+			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+			zap.String("name", o.GetName()),
+		)
+	}
 	logger = logger.With(zap.String("results.tekton.dev/result", res.Name),
 		zap.String("results.tekton.dev/record", rec.Name))
 	logger.Debugw("Record has been successfully upserted into API server", timeTakenField)
@@ -569,6 +595,67 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		zap.String("namespace", o.GetNamespace()),
 		zap.String("name", o.GetName()),
 	)
+
+	return nil
+}
+
+// storeEvents streams logs to the API server
+func (r *Reconciler) storeEvents(ctx context.Context, o results.Object) error {
+	logger := logging.FromContext(ctx)
+	condition := o.GetStatusCondition().GetCondition(apis.ConditionSucceeded)
+	GVK := o.GetObjectKind().GroupVersionKind()
+	if !GVK.Empty() &&
+		(GVK.Kind == "TaskRun" || GVK.Kind == "PipelineRun") &&
+		condition != nil &&
+		condition.Type == "Succeeded" &&
+		!condition.IsUnknown() {
+
+		rec, err := r.resultsClient.GetEventListRecord(ctx, o)
+		if err != nil {
+			return err
+		}
+
+		if rec != nil {
+			// It means we have already stored events
+			eventListName := rec.GetName()
+			// Update Events annotation if it doesn't exist
+			return r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.EventList, Value: eventListName})
+		}
+
+		events, err := r.KubeClientSet.CoreV1().Events(o.GetNamespace()).List(ctx, metav1.ListOptions{
+			FieldSelector: "involvedObject.uid=" + string(o.GetUID()),
+		})
+		if err != nil {
+			logger.Errorf("Failed to store events - retrieve",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+				zap.String("err", err.Error()),
+			)
+			return err
+		}
+
+		eventList, err := json.Marshal(events)
+		if err != nil {
+			logger.Errorf("Failed to store events - marshal",
+				zap.String("namespace", o.GetNamespace()),
+				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
+				zap.String("name", o.GetName()),
+				zap.String("err", err.Error()),
+			)
+			return err
+		}
+
+		rec, err = r.resultsClient.PutEventList(ctx, o, eventList)
+		if err != nil {
+			return err
+		}
+
+		if err := r.addResultsAnnotations(ctx, o, annotation.Annotation{Name: annotation.EventList, Value: rec.GetName()}); err != nil {
+			return err
+		}
+
+	}
 
 	return nil
 }

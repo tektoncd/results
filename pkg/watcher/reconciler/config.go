@@ -44,6 +44,9 @@ type Config struct {
 
 	// UpdateLogTimeout is the time we provide for storing logs before aborting
 	UpdateLogTimeout *time.Duration
+
+	// Whether to Store Events related to Taskrun and Pipelineruns
+	StoreEvent bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be
