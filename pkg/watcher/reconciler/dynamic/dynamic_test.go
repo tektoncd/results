@@ -41,6 +41,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fakekubeclientset "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/apis"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	"knative.dev/pkg/controller"
@@ -140,7 +141,8 @@ func TestReconcile_TaskRun(t *testing.T) {
 		RequeueInterval:         1 * time.Second,
 	}
 
-	r := NewDynamicReconciler(resultsClient, logsClient, trclient, cfg)
+	clientset := fakekubeclientset.NewSimpleClientset()
+	r := NewDynamicReconciler(resultsClient, logsClient, trclient, clientset, cfg)
 	if err := r.Reconcile(ctx, taskrun); err != nil {
 		t.Fatal(err)
 	}
@@ -429,7 +431,8 @@ func TestReconcile_PipelineRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r := NewDynamicReconciler(resultsClient, logsClient, prclient, nil)
+	clientset := fakekubeclientset.NewSimpleClientset()
+	r := NewDynamicReconciler(resultsClient, logsClient, prclient, clientset, nil)
 	if err := r.Reconcile(ctx, pipelinerun); err != nil {
 		t.Fatal(err)
 	}
