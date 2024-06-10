@@ -32,6 +32,13 @@ type Template struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// List of environment variables that can be provided to the containers belonging to the pod.
+	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=atomic
+	Env []corev1.EnvVar `json:"env,omitempty" patchMergeKey:"name" patchStrategy:"merge" protobuf:"bytes,7,rep,name=env"`
+
 	// If specified, the pod's tolerations.
 	// +optional
 	// +listType=atomic
@@ -52,7 +59,7 @@ type Template struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge,retainKeys
 	// +listType=atomic
-	Volumes []corev1.Volume `json:"volumes,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=volumes"`
+	Volumes []corev1.Volume `json:"volumes,omitempty" patchMergeKey:"name" patchStrategy:"merge,retainKeys" protobuf:"bytes,1,rep,name=volumes"`
 
 	// RuntimeClassName refers to a RuntimeClass object in the node.k8s.io
 	// group, which should be used to run this pod. If no RuntimeClass resource
@@ -148,6 +155,7 @@ func (tpl *Template) ToAffinityAssistantTemplate() *AffinityAssistantTemplate {
 }
 
 // PodTemplate holds pod specific configuration
+//
 //nolint:revive
 type PodTemplate = Template
 
@@ -167,6 +175,7 @@ func MergePodTemplateWithDefault(tpl, defaultTpl *PodTemplate) *PodTemplate {
 		if tpl.NodeSelector == nil {
 			tpl.NodeSelector = defaultTpl.NodeSelector
 		}
+		tpl.Env = mergeByName(defaultTpl.Env, tpl.Env)
 		if tpl.Tolerations == nil {
 			tpl.Tolerations = defaultTpl.Tolerations
 		}
@@ -176,9 +185,7 @@ func MergePodTemplateWithDefault(tpl, defaultTpl *PodTemplate) *PodTemplate {
 		if tpl.SecurityContext == nil {
 			tpl.SecurityContext = defaultTpl.SecurityContext
 		}
-		if tpl.Volumes == nil {
-			tpl.Volumes = defaultTpl.Volumes
-		}
+		tpl.Volumes = mergeByName(defaultTpl.Volumes, tpl.Volumes)
 		if tpl.RuntimeClassName == nil {
 			tpl.RuntimeClassName = defaultTpl.RuntimeClassName
 		}
@@ -206,7 +213,7 @@ func MergePodTemplateWithDefault(tpl, defaultTpl *PodTemplate) *PodTemplate {
 		if tpl.HostAliases == nil {
 			tpl.HostAliases = defaultTpl.HostAliases
 		}
-		if tpl.HostNetwork == false && defaultTpl.HostNetwork == true {
+		if !tpl.HostNetwork && defaultTpl.HostNetwork {
 			tpl.HostNetwork = true
 		}
 		if tpl.TopologySpreadConstraints == nil {
@@ -241,5 +248,51 @@ func MergeAAPodTemplateWithDefault(tpl, defaultTpl *AAPodTemplate) *AAPodTemplat
 			tpl.ImagePullSecrets = defaultTpl.ImagePullSecrets
 		}
 		return tpl
+	}
+}
+
+// mergeByName merges two slices of items with names based on the getName
+// function, giving priority to the items in the override slice.
+func mergeByName[T any](base, overrides []T) []T {
+	if len(overrides) == 0 {
+		return base
+	}
+
+	// create a map to store the exist names in the override slice
+	exists := make(map[string]struct{})
+	merged := make([]T, 0, len(base)+len(overrides))
+
+	// append the items in the override slice
+	for _, item := range overrides {
+		name := getName(item)
+		if name != "" { // name should not be empty, if empty, ignore
+			merged = append(merged, item)
+			exists[name] = struct{}{}
+		}
+	}
+
+	// append the items in the base slice if they have a different name
+	for _, item := range base {
+		name := getName(item)
+		if name != "" { // name should not be empty, if empty, ignore
+			if _, found := exists[name]; !found {
+				merged = append(merged, item)
+			}
+		}
+	}
+
+	return merged
+}
+
+// getName returns the name of the given item, or an empty string if the item
+// is not a supported type.
+func getName(item interface{}) string {
+	switch item := item.(type) {
+	case corev1.EnvVar:
+		return item.Name
+	case corev1.Volume:
+		return item.Name
+	default:
+		return ""
 	}
 }

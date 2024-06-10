@@ -1,8 +1,27 @@
+/*
+Copyright 2023 The Tekton Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -10,7 +29,6 @@ import (
 	resolverconfig "github.com/tektoncd/pipeline/pkg/apis/config/resolver"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/system"
 )
 
@@ -20,6 +38,7 @@ import (
 // the test if it cannot get the feature-flag configmap.
 func requireAnyGate(gates map[string]string) func(context.Context, *testing.T, *clients, string) {
 	return func(ctx context.Context, t *testing.T, c *clients, namespace string) {
+		t.Helper()
 		featureFlagsCM, err := c.KubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
@@ -57,6 +76,7 @@ func requireAnyGate(gates map[string]string) func(context.Context, *testing.T, *
 // the test if it cannot get the feature-flag configmap.
 func requireAllGates(gates map[string]string) func(context.Context, *testing.T, *clients, string) {
 	return func(ctx context.Context, t *testing.T, c *clients, namespace string) {
+		t.Helper()
 		featureFlagsCM, err := c.KubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
 		if err != nil {
 			t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
@@ -88,16 +108,65 @@ func requireAllGates(gates map[string]string) func(context.Context, *testing.T, 
 	}
 }
 
-// GetEmbeddedStatus gets the current value for the "embedded-status" feature flag.
-// If the flag is not set, it returns the default value.
-func GetEmbeddedStatus(ctx context.Context, t *testing.T, kubeClient kubernetes.Interface) string {
-	featureFlagsCM, err := kubeClient.CoreV1().ConfigMaps(system.Namespace()).Get(ctx, config.GetFeatureFlagsConfigName(), metav1.GetOptions{})
+func getFeatureFlagsBaseOnAPIFlag(t *testing.T) *config.FeatureFlags {
+	t.Helper()
+	alphaFeatureFlags, err := config.NewFeatureFlagsFromMap(map[string]string{
+		"enable-api-fields":              "alpha",
+		"results-from":                   "sidecar-logs",
+		"enable-tekton-oci-bundles":      "true",
+		"enable-step-actions":            "true",
+		"enable-cel-in-whenexpression":   "true",
+		"enable-param-enum":              "true",
+		"enable-artifacts":               "true",
+		"enable-concise-resolver-syntax": "true",
+	})
 	if err != nil {
-		t.Fatalf("Failed to get ConfigMap `%s`: %s", config.GetFeatureFlagsConfigName(), err)
+		t.Fatalf("error creating alpha feature flags configmap: %v", err)
 	}
-	val := featureFlagsCM.Data["embedded-status"]
-	if val == "" {
-		return config.DefaultEmbeddedStatus
+	betaFeatureFlags, err := config.NewFeatureFlagsFromMap(map[string]string{
+		"enable-api-fields":   "beta",
+		"enable-step-actions": "true",
+	})
+	if err != nil {
+		t.Fatalf("error creating beta feature flags configmap: %v", err)
 	}
-	return val
+	stableFeatureFlags, err := config.NewFeatureFlagsFromMap(map[string]string{
+		"enable-api-fields": "stable",
+	})
+	if err != nil {
+		t.Fatalf("error creating stable feature flags configmap: %v", err)
+	}
+	enabledFeatureGate, err := getAPIFeatureGate()
+	if err != nil {
+		t.Fatalf("error reading enabled feature gate: %v", err)
+	}
+	switch enabledFeatureGate {
+	case "alpha":
+		return alphaFeatureFlags
+	case "beta":
+		return betaFeatureFlags
+	default:
+		return stableFeatureFlags
+	}
+}
+
+// getAPIFeatureGate queries the tekton pipelines namespace for the
+// current value of the "enable-api-fields" feature gate.
+func getAPIFeatureGate() (string, error) {
+	ns := os.Getenv("SYSTEM_NAMESPACE")
+	if ns == "" {
+		ns = "tekton-pipelines"
+	}
+
+	cmd := exec.Command("kubectl", "get", "configmap", "feature-flags", "-n", ns, "-o", `jsonpath="{.data['enable-api-fields']}"`)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("error getting feature-flags configmap: %w", err)
+	}
+	output = bytes.TrimSpace(output)
+	output = bytes.Trim(output, "\"")
+	if len(output) == 0 {
+		output = []byte("stable")
+	}
+	return string(output), nil
 }

@@ -26,8 +26,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"gomodules.xyz/jsonpatch/v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,12 @@ const (
 	entrypointBinary = binDir + "/entrypoint"
 
 	runVolumeName = "tekton-internal-run"
-	runDir        = "/tekton/run"
+
+	// RunDir is the directory that contains runtime variable data for TaskRuns.
+	// This includes files for handling container ordering, exit status codes, and more.
+	// See [https://github.com/tektoncd/pipeline/blob/main/docs/developers/taskruns.md#tekton]
+	// for more details.
+	RunDir = "/tekton/run"
 
 	downwardVolumeName     = "tekton-internal-downward"
 	downwardMountPoint     = "/tekton/downward"
@@ -54,7 +60,9 @@ const (
 	stepPrefix    = "step-"
 	sidecarPrefix = "sidecar-"
 
-	breakpointOnFailure = "onFailure"
+	downwardMountCancelFile = "cancel"
+	cancelAnnotation        = "tekton.dev/cancel"
+	cancelAnnotationValue   = "CANCEL"
 )
 
 var (
@@ -77,6 +85,12 @@ var (
 		MountPath: pipeline.StepsDir,
 	}
 
+	downwardCancelVolumeItem = corev1.DownwardAPIVolumeFile{
+		Path: downwardMountCancelFile,
+		FieldRef: &corev1.ObjectFieldSelector{
+			FieldPath: fmt.Sprintf("metadata.annotations['%s']", cancelAnnotation),
+		},
+	}
 	// TODO(#1605): Signal sidecar readiness by injecting entrypoint,
 	// remove dependency on Downward API.
 	downwardVolume = corev1.Volume{
@@ -99,6 +113,8 @@ var (
 		// since the volume itself is readonly, but including for completeness.
 		ReadOnly: true,
 	}
+	// DownwardMountCancelFile is cancellation file mount to step, entrypoint will check this file to cancel the step.
+	DownwardMountCancelFile = filepath.Join(downwardMountPoint, downwardMountCancelFile)
 )
 
 // orderContainers returns the specified steps, modified so that they are
@@ -108,9 +124,9 @@ var (
 // command, we must have fetched the image's ENTRYPOINT before calling this
 // method, using entrypoint_lookup.go.
 // Additionally, Step timeouts are added as entrypoint flag.
-func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Container, taskSpec *v1beta1.TaskSpec, breakpointConfig *v1beta1.TaskRunDebug, waitForReadyAnnotation bool) ([]corev1.Container, error) {
+func orderContainers(ctx context.Context, commonExtraEntrypointArgs []string, steps []corev1.Container, taskSpec *v1.TaskSpec, breakpointConfig *v1.TaskRunDebug, waitForReadyAnnotation, enableKeepPodOnCancel bool) ([]corev1.Container, error) {
 	if len(steps) == 0 {
-		return nil, errors.New("No steps specified")
+		return nil, errors.New("no steps specified")
 	}
 
 	for i, s := range steps {
@@ -125,21 +141,22 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 				)
 			}
 		} else { // Not the first step - wait for previous
-			argsForEntrypoint = append(argsForEntrypoint, "-wait_file", filepath.Join(runDir, strconv.Itoa(i-1), "out"))
+			argsForEntrypoint = append(argsForEntrypoint, "-wait_file", filepath.Join(RunDir, strconv.Itoa(i-1), "out"))
 		}
 		argsForEntrypoint = append(argsForEntrypoint,
 			// Start next step.
-			"-post_file", filepath.Join(runDir, idx, "out"),
+			"-post_file", filepath.Join(RunDir, idx, "out"),
 			"-termination_path", terminationPath,
-			"-step_metadata_dir", filepath.Join(runDir, idx, "status"),
+			"-step_metadata_dir", filepath.Join(RunDir, idx, "status"),
 		)
+
 		argsForEntrypoint = append(argsForEntrypoint, commonExtraEntrypointArgs...)
 		if taskSpec != nil {
 			if taskSpec.Steps != nil && len(taskSpec.Steps) >= i+1 {
 				if taskSpec.Steps[i].OnError != "" {
-					if taskSpec.Steps[i].OnError != v1beta1.Continue && taskSpec.Steps[i].OnError != v1beta1.StopAndFail {
+					if taskSpec.Steps[i].OnError != v1.Continue && taskSpec.Steps[i].OnError != v1.StopAndFail {
 						return nil, fmt.Errorf("task step onError must be either \"%s\" or \"%s\" but it is set to an invalid value \"%s\"",
-							v1beta1.Continue, v1beta1.StopAndFail, taskSpec.Steps[i].OnError)
+							v1.Continue, v1.StopAndFail, taskSpec.Steps[i].OnError)
 					}
 					argsForEntrypoint = append(argsForEntrypoint, "-on_error", string(taskSpec.Steps[i].OnError))
 				}
@@ -152,18 +169,15 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 				if taskSpec.Steps[i].StderrConfig != nil {
 					argsForEntrypoint = append(argsForEntrypoint, "-stderr_path", taskSpec.Steps[i].StderrConfig.Path)
 				}
+				// add step results
+				stepResultArgs := stepResultArgument(taskSpec.Steps[i].Results)
+				argsForEntrypoint = append(argsForEntrypoint, stepResultArgs...)
 			}
 			argsForEntrypoint = append(argsForEntrypoint, resultArgument(steps, taskSpec.Results)...)
 		}
 
-		if breakpointConfig != nil && len(breakpointConfig.Breakpoint) > 0 {
-			breakpoints := breakpointConfig.Breakpoint
-			for _, b := range breakpoints {
-				// TODO(TEP #0042): Add other breakpoints
-				if b == breakpointOnFailure {
-					argsForEntrypoint = append(argsForEntrypoint, "-breakpoint_on_failure")
-				}
-			}
+		if breakpointConfig != nil && breakpointConfig.NeedsDebugOnFailure() {
+			argsForEntrypoint = append(argsForEntrypoint, "-breakpoint_on_failure")
 		}
 
 		cmd, args := s.Command, s.Args
@@ -179,31 +193,46 @@ func orderContainers(commonExtraEntrypointArgs []string, steps []corev1.Containe
 		steps[i].Command = []string{entrypointBinary}
 		steps[i].Args = argsForEntrypoint
 		steps[i].TerminationMessagePath = terminationPath
-	}
-	if waitForReadyAnnotation {
-		// Mount the Downward volume into the first step container.
-		steps[0].VolumeMounts = append(steps[0].VolumeMounts, downwardMount)
+		if (i == 0 && waitForReadyAnnotation) || enableKeepPodOnCancel {
+			// Mount the Downward volume into the first step container.
+			// if enableKeepPodOnCancel is true, mount the Downward volume into all the steps.
+			steps[i].VolumeMounts = append(steps[i].VolumeMounts, downwardMount)
+		}
 	}
 
 	return steps, nil
 }
 
-func resultArgument(steps []corev1.Container, results []v1beta1.TaskResult) []string {
+// stepResultArgument creates the cli arguments for step results to the entrypointer.
+func stepResultArgument(stepResults []v1.StepResult) []string {
+	if len(stepResults) == 0 {
+		return nil
+	}
+	stepResultNames := []string{}
+	for _, r := range stepResults {
+		stepResultNames = append(stepResultNames, r.Name)
+	}
+	return []string{"-step_results", strings.Join(stepResultNames, ",")}
+}
+
+func resultArgument(steps []corev1.Container, results []v1.TaskResult) []string {
 	if len(results) == 0 {
 		return nil
 	}
 	return []string{"-results", collectResultsName(results)}
 }
 
-func collectResultsName(results []v1beta1.TaskResult) string {
+func collectResultsName(results []v1.TaskResult) string {
 	var resultNames []string
 	for _, r := range results {
-		resultNames = append(resultNames, r.Name)
+		if r.Value == nil {
+			resultNames = append(resultNames, r.Name)
+		}
 	}
 	return strings.Join(resultNames, ",")
 }
 
-var replaceReadyPatchBytes []byte
+var replaceReadyPatchBytes, replaceCancelPatchBytes []byte
 
 func init() {
 	// https://stackoverflow.com/questions/55573724/create-a-patch-to-add-a-kubernetes-annotation
@@ -217,6 +246,24 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to marshal replace ready patch bytes: %v", err)
 	}
+
+	cancelAnnotationPath := "/metadata/annotations/" + strings.Replace(cancelAnnotation, "/", "~1", 1)
+	replaceCancelPatchBytes, err = json.Marshal([]jsonpatch.JsonPatchOperation{{
+		Operation: "replace",
+		Path:      cancelAnnotationPath,
+		Value:     cancelAnnotationValue,
+	}})
+	if err != nil {
+		log.Fatalf("failed to marshal replace cancel patch bytes: %v", err)
+	}
+}
+
+// CancelPod cancels the pod
+func CancelPod(ctx context.Context, kubeClient kubernetes.Interface, namespace, podName string) error {
+	// PATCH the Pod's annotations to replace the cancel annotation with the
+	// "CANCEL" value, to signal the pod to be cancelled.
+	_, err := kubeClient.CoreV1().Pods(namespace).Patch(ctx, podName, types.JSONPatchType, replaceCancelPatchBytes, metav1.PatchOptions{})
+	return err
 }
 
 // UpdateReady updates the Pod's annotations to signal the first step to start
@@ -247,6 +294,12 @@ func StopSidecars(ctx context.Context, nopImage string, kubeclient kubernetes.In
 	updated := false
 	if newPod.Status.Phase == corev1.PodRunning {
 		for _, s := range newPod.Status.ContainerStatuses {
+			// If the results-from is set to sidecar logs,
+			// a sidecar container with name `sidecar-log-results` is injected by the reconiler.
+			// Do not kill this sidecar. Let it exit gracefully.
+			if config.FromContextOrDefaults(ctx).FeatureFlags.ResultExtractionMethod == config.ResultExtractionMethodSidecarLogs && s.Name == pipeline.ReservedResultsSidecarContainerName {
+				continue
+			}
 			// Stop any running container that isn't a step.
 			// An injected sidecar container might not have the
 			// "sidecar-" prefix, so we can't just look for that
@@ -271,7 +324,7 @@ func StopSidecars(ctx context.Context, nopImage string, kubeclient kubernetes.In
 
 // IsSidecarStatusRunning determines if any SidecarStatus on a TaskRun
 // is still running.
-func IsSidecarStatusRunning(tr *v1beta1.TaskRun) bool {
+func IsSidecarStatusRunning(tr *v1.TaskRun) bool {
 	for _, sidecar := range tr.Status.Sidecars {
 		if sidecar.Terminated == nil {
 			return true
@@ -285,9 +338,9 @@ func IsSidecarStatusRunning(tr *v1beta1.TaskRun) bool {
 // represents a step.
 func IsContainerStep(name string) bool { return strings.HasPrefix(name, stepPrefix) }
 
-// isContainerSidecar returns true if the container name indicates that it
+// IsContainerSidecar returns true if the container name indicates that it
 // represents a sidecar.
-func isContainerSidecar(name string) bool { return strings.HasPrefix(name, sidecarPrefix) }
+func IsContainerSidecar(name string) bool { return strings.HasPrefix(name, sidecarPrefix) }
 
 // trimStepPrefix returns the container name, stripped of its step prefix.
 func trimStepPrefix(name string) string { return strings.TrimPrefix(name, stepPrefix) }
@@ -300,7 +353,12 @@ func TrimSidecarPrefix(name string) string { return strings.TrimPrefix(name, sid
 // returns "step-unnamed-<step-index>" if not specified
 func StepName(name string, i int) string {
 	if name != "" {
-		return fmt.Sprintf("%s%s", stepPrefix, name)
+		return GetContainerName(name)
 	}
 	return fmt.Sprintf("%sunnamed-%d", stepPrefix, i)
+}
+
+// GetContainerName prefixes the input name with "step-"
+func GetContainerName(name string) string {
+	return fmt.Sprintf("%s%s", stepPrefix, name)
 }

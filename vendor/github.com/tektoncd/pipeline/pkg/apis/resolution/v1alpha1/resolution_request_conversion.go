@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/apis/resolution/v1beta1"
 	"knative.dev/pkg/apis"
 )
@@ -37,6 +37,7 @@ func (rr *ResolutionRequest) ConvertTo(ctx context.Context, sink apis.Convertibl
 	switch sink := sink.(type) {
 	case *v1beta1.ResolutionRequest:
 		sink.ObjectMeta = rr.ObjectMeta
+		rr.Status.convertTo(ctx, &sink.Status)
 		return rr.Spec.ConvertTo(ctx, &sink.Spec)
 	default:
 		return fmt.Errorf("unknown version, got: %T", sink)
@@ -46,16 +47,32 @@ func (rr *ResolutionRequest) ConvertTo(ctx context.Context, sink apis.Convertibl
 // ConvertTo converts a v1alpha1.ResolutionRequestSpec to a v1beta1.ResolutionRequestSpec
 func (rrs *ResolutionRequestSpec) ConvertTo(ctx context.Context, sink *v1beta1.ResolutionRequestSpec) error {
 	for k, v := range rrs.Parameters {
-		sink.Params = append(sink.Params, pipelinev1beta1.Param{
+		sink.Params = append(sink.Params, pipelinev1.Param{
 			Name: k,
-			Value: pipelinev1beta1.ParamValue{
-				Type:      pipelinev1beta1.ParamTypeString,
+			Value: pipelinev1.ParamValue{
+				Type:      pipelinev1.ParamTypeString,
 				StringVal: v,
 			},
 		})
 	}
 
 	return nil
+}
+
+// convertTo converts a v1alpha1.ResolutionRequestStatus to a v1beta1.ResolutionRequestStatus
+func (rrs *ResolutionRequestStatus) convertTo(ctx context.Context, sink *v1beta1.ResolutionRequestStatus) {
+	sink.Data = rrs.Data
+	if rrs.RefSource != nil {
+		refSource := pipelinev1.RefSource{}
+		refSource.URI = rrs.RefSource.URI
+		refSource.EntryPoint = rrs.RefSource.EntryPoint
+		digest := make(map[string]string)
+		for k, v := range rrs.RefSource.Digest {
+			digest[k] = v
+		}
+		refSource.Digest = digest
+		sink.RefSource = &refSource
+	}
 }
 
 // ConvertFrom implements apis.Convertible
@@ -66,6 +83,7 @@ func (rr *ResolutionRequest) ConvertFrom(ctx context.Context, from apis.Converti
 	switch from := from.(type) {
 	case *v1beta1.ResolutionRequest:
 		rr.ObjectMeta = from.ObjectMeta
+		rr.Status.convertFrom(ctx, &from.Status)
 		return rr.Spec.ConvertFrom(ctx, &from.Spec)
 	default:
 		return fmt.Errorf("unknown version, got: %T", from)
@@ -77,7 +95,7 @@ func (rrs *ResolutionRequestSpec) ConvertFrom(ctx context.Context, from *v1beta1
 	var nonStringParams []string
 
 	for _, p := range from.Params {
-		if p.Value.Type != pipelinev1beta1.ParamTypeString {
+		if p.Value.Type != pipelinev1.ParamTypeString {
 			nonStringParams = append(nonStringParams, p.Name)
 		} else {
 			if rrs.Parameters == nil {
@@ -92,4 +110,31 @@ func (rrs *ResolutionRequestSpec) ConvertFrom(ctx context.Context, from *v1beta1
 	}
 
 	return nil
+}
+
+// convertFrom converts a v1alpha1.ResolutionRequestStatus to a v1beta1.ResolutionRequestStatus
+func (rrs *ResolutionRequestStatus) convertFrom(ctx context.Context, from *v1beta1.ResolutionRequestStatus) {
+	rrs.Data = from.Data
+
+	if from.RefSource != nil {
+		refSource := pipelinev1.RefSource{}
+		refSource.URI = from.RefSource.URI
+		refSource.EntryPoint = from.RefSource.EntryPoint
+		digest := make(map[string]string)
+		for k, v := range from.RefSource.Digest {
+			digest[k] = v
+		}
+		refSource.Digest = digest
+		rrs.RefSource = &refSource
+	} else if from.Source != nil {
+		refSource := pipelinev1.RefSource{}
+		refSource.URI = from.Source.URI
+		refSource.EntryPoint = from.Source.EntryPoint
+		digest := make(map[string]string)
+		for k, v := range from.Source.Digest {
+			digest[k] = v
+		}
+		refSource.Digest = digest
+		rrs.RefSource = &refSource
+	}
 }
