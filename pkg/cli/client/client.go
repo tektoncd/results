@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+//lint:ignore SA1019
+
 // Factory contains the configuration for creating a k8s client.
 type Factory struct {
 	k8s kubernetes.Interface
@@ -87,7 +89,7 @@ func (f *Factory) ResultsClient(ctx context.Context, overrideAPIAddr string) (pb
 	if overrideAPIAddr != "" {
 		addr = overrideAPIAddr
 	}
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(), //nolint:staticcheck
 		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
 			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}),
@@ -146,7 +148,7 @@ func (f *Factory) LogClient(ctx context.Context, overrideAPIAddr string) (pb.Log
 	if overrideAPIAddr != "" {
 		addr = overrideAPIAddr
 	}
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(),
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(), //nolint:staticcheck
 		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
 			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}),

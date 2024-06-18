@@ -647,7 +647,7 @@ func (r *Reconciler) storeEvents(ctx context.Context, o results.Object) error {
 			return err
 		}
 
-		tr, ok := o.(*pipelinev1beta1.TaskRun)
+		tr, ok := o.(*pipelinev1.TaskRun)
 
 		if ok {
 			podName := tr.Status.PodName

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	typePipelineRun = "tekton.dev/v1beta1.PipelineRun"
-	typeTaskRun     = "tekton.dev/v1beta1.TaskRun"
+	typePipelineRun = "tekton.dev/v1.PipelineRun"
+	typeTaskRun     = "tekton.dev/v1.TaskRun"
 )
 
 // NewResultsEnv creates a CEL program to build SQL filters for Result objects.

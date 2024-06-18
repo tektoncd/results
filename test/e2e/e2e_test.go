@@ -46,7 +46,6 @@ import (
 	"path"
 
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	tektonv1client "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -79,6 +78,8 @@ var (
 	serverName    string
 	serverAddress string
 )
+
+//lint:ignore SA1019
 
 func init() {
 	certPath := os.Getenv("SSL_CERT_PATH")
@@ -142,7 +143,7 @@ func TestTaskRun(t *testing.T) {
 
 	// Wait for Result ID to show up.
 	t.Run("check annotations", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
 			tr, err := tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting TaskRun: %v", err)
@@ -161,7 +162,7 @@ func TestTaskRun(t *testing.T) {
 	})
 
 	t.Run("check deletion", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
 			_, err = tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -233,7 +234,7 @@ func TestPipelineRun(t *testing.T) {
 
 	t.Run("check annotations", func(t *testing.T) {
 		// Wait for Result ID to show up.
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
 			pr, err := tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting PipelineRun: %v", err)
@@ -252,7 +253,7 @@ func TestPipelineRun(t *testing.T) {
 	})
 
 	t.Run("check deletion", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) {
+		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
 			_, err = tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -334,7 +335,7 @@ func TestPipelineRun(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var pipelineRun v1.PipelineRun
+			var pipelineRun tektonv1.PipelineRun
 			if err := json.Unmarshal(record.Data.Value, &pipelineRun); err != nil {
 				t.Fatal(err)
 			}
@@ -343,8 +344,8 @@ func TestPipelineRun(t *testing.T) {
 				t.Fatal("Want PipelineRun to be done, but it isn't")
 			}
 
-			wantReason := v1.PipelineRunReasonSuccessful
-			if gotReason := pipelineRun.Status.GetCondition(apis.ConditionSucceeded).GetReason(); wantReason != v1.PipelineRunReason(gotReason) {
+			wantReason := tektonv1.PipelineRunReasonSuccessful
+			if gotReason := pipelineRun.Status.GetCondition(apis.ConditionSucceeded).GetReason(); wantReason != tektonv1.PipelineRunReason(gotReason) {
 				t.Fatalf("PipelineRun: want condition reason %s, but got %s", wantReason, gotReason)
 			}
 		})
@@ -397,7 +398,7 @@ func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transpor
 	}
 
 	grpcOptions := []grpc.DialOption{
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck
 		grpc.WithDefaultCallOptions(callOptions...),
 		grpc.WithTransportCredentials(transportCredentials),
 	}

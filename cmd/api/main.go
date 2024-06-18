@@ -108,7 +108,7 @@ func main() {
 		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
 	}
 	// Retry database connection, sometimes the database is not ready to accept connection
-	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) {
+	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) { //nolint:staticcheck
 		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
 		if err != nil {
 			log.Warnf("Error connecting to database (retrying in 10s): %v", err)
@@ -270,7 +270,7 @@ func main() {
 	}
 
 	// Setup gRPC gateway to proxy request to gRPC health checks
-	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds), grpc.WithNoProxy())
+	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds), grpc.WithNoProxy()) //nolint:staticcheck
 	if err != nil {
 		log.Fatalf("Error dialing gRPC endpoint: %v", err)
 	}
