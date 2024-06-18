@@ -1,5 +1,5 @@
 {
-  "Initial": "AQAAAA7cZsvyEGJ4dwFK",
+  "Initial": "AQAAAA7eA/CINF/RhAFK",
   "Version": "0.2",
   "Converter": {
     "ScrubBody": null,
@@ -37,7 +37,7 @@
   },
   "Entries": [
     {
-      "ID": "5441cf12eddd37e5",
+      "ID": "4cd3d6c167de9d89",
       "Request": {
         "Method": "DELETE",
         "URL": "https://storage.googleapis.com/storage/v1/b/tekton-releases-test-results/o/foo%2Fbar%2Flog?alt=json\u0026prettyPrint=false",
@@ -46,6 +46,9 @@
             "gzip"
           ],
           "User-Agent": [
+            "CLEARED"
+          ],
+          "X-Goog-Gcs-Idempotency-Token": [
             "CLEARED"
           ]
         },
@@ -73,7 +76,7 @@
             "application/json"
           ],
           "Date": [
-            "Thu, 10 Aug 2023 12:15:47 GMT"
+            "Tue, 18 Jun 2024 21:18:01 GMT"
           ],
           "Expires": [
             "CLEARED"
@@ -89,7 +92,7 @@
             "X-Origin"
           ],
           "X-Guploader-Uploadid": [
-            "ADPycdtlDvPPPp7pHU18mIFlJbqtmDmir99abjh5KW3gdR18HAfo8Lk6dQiEaIAVjmGJSBxoO6vCYTEyOlvnphP4WJe2X4hjcpDn"
+            "ACJd0NoXb-kqzzAIr7Y8rUKoTnKGN2Z-bMEFB4csiaBZ65Sn4WjArd-CkCTl8mD8oEUZCe6oew"
           ]
         },
         "Body": ""

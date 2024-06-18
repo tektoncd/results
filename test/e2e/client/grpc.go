@@ -35,7 +35,7 @@ func NewGRPCClient(serverAddress string, opts ...grpc.DialOption) (GRPCClient, e
 	defer cancel()
 
 	// target := net.JoinHostPort(u.Hostname(), u.Port())
-	clientConn, err := grpc.DialContext(ctx, u.Host, opts...)
+	clientConn, err := grpc.DialContext(ctx, u.Host, opts...) //nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}

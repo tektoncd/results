@@ -65,10 +65,13 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		WorkQueueName: "PipelineRuns",
 	})
 
-	pipelineRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := pipelineRunInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 	})
+	if err != nil {
+		logger.Panicf("Couldn't register PipelineRun informer event handler: %w", err)
+	}
 
 	return impl
 }

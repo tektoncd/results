@@ -127,22 +127,22 @@ func TestConvertRecordExpressions(t *testing.T) {
 		{
 			name: "data_type field",
 			in:   `data_type == PIPELINE_RUN`,
-			want: "(type = 'tekton.dev/v1beta1.PipelineRun')",
+			want: "(type = 'tekton.dev/v1.PipelineRun')",
 		},
 		{
 			name: "index operator with numeric argument in JSON arrays",
-			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data.status.conditions[0].status == "True"`,
-			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			in:   `data_type == "tekton.dev/v1.TaskRun" && data.status.conditions[0].status == "True"`,
+			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
 		},
 		{
 			name: "index operator as first operation in JSON object",
-			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data["status"].conditions[0].status == "True"`,
-			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			in:   `data_type == "tekton.dev/v1.TaskRun" && data["status"].conditions[0].status == "True"`,
+			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
 		},
 		{
 			name: "index operator with string argument in JSON object",
-			in:   `data_type == "tekton.dev/v1beta1.TaskRun" && data.status["conditions"][0].status == "True"`,
-			want: "((type = 'tekton.dev/v1beta1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			in:   `data_type == "tekton.dev/v1.TaskRun" && data.status["conditions"][0].status == "True"`,
+			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
 		},
 		{
 			name: "complex expression with subgroups",
@@ -229,12 +229,12 @@ func TestConvertResultExpressions(t *testing.T) {
 		{
 			name: "comparison with the PIPELINE_RUN const value",
 			in:   `summary.type == PIPELINE_RUN`,
-			want: "(recordsummary_type = 'tekton.dev/v1beta1.PipelineRun')",
+			want: "(recordsummary_type = 'tekton.dev/v1.PipelineRun')",
 		},
 		{
 			name: "comparison with the TASK_RUN const value",
 			in:   `summary.type == TASK_RUN`,
-			want: "(recordsummary_type = 'tekton.dev/v1beta1.TaskRun')",
+			want: "(recordsummary_type = 'tekton.dev/v1.TaskRun')",
 		},
 		{
 			name: "RecordSummary_Status constants",

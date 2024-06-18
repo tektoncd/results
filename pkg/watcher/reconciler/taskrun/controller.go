@@ -63,10 +63,13 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		WorkQueueName: "TaskRuns",
 	})
 
-	informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    impl.Enqueue,
 		UpdateFunc: controller.PassNew(impl.Enqueue),
 	})
+	if err != nil {
+		logger.Panicf("Couldn't register TaskRun informer event handler: %w", err)
+	}
 
 	return impl
 }
