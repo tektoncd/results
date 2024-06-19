@@ -12,7 +12,7 @@ local testing to help visualize result data.
 ```sh
 # Port forward API Server to make it available locally.
 # This should be ran in its own shell or backgrounded, since the command blocks.
-$ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 8080:8080
+$ kubectl port-forward -n tekton-pipelines service/tekton-results-api-service 50051:50051
 # Start the HTTP server
 $ go run .
 ```

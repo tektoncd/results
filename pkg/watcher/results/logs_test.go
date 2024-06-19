@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -15,9 +15,9 @@ func TestClient_PutLog(t *testing.T) {
 	c := client(t)
 
 	objs := []Object{
-		&v1beta1.TaskRun{
+		&pipelinev1.TaskRun{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "tekton.dev/v1beta1",
+				APIVersion: "tekton.dev/v1",
 				Kind:       "TaskRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -26,9 +26,9 @@ func TestClient_PutLog(t *testing.T) {
 				UID:       "taskrun-id",
 			},
 		},
-		&v1beta1.PipelineRun{
+		&pipelinev1.PipelineRun{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "tekton.dev/v1beta1",
+				APIVersion: "tekton.dev/v1",
 				Kind:       "PipelineRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{

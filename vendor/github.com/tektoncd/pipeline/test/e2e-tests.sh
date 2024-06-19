@@ -22,11 +22,17 @@ source $(git rev-parse --show-toplevel)/test/e2e-common.sh
 
 # Setting defaults
 PIPELINE_FEATURE_GATE=${PIPELINE_FEATURE_GATE:-stable}
-EMBEDDED_STATUS_GATE=${EMBEDDED_STATUS_GATE:-full}
 SKIP_INITIALIZE=${SKIP_INITIALIZE:="false"}
 RUN_YAML_TESTS=${RUN_YAML_TESTS:="true"}
 SKIP_GO_E2E_TESTS=${SKIP_GO_E2E_TESTS:="false"}
 E2E_GO_TEST_TIMEOUT=${E2E_GO_TEST_TIMEOUT:="20m"}
+RUN_FEATUREFLAG_TESTS=${RUN_FEATUREFLAG_TESTS:="false"}
+RESULTS_FROM=${RESULTS_FROM:-termination-message}
+ENABLE_STEP_ACTIONS=${ENABLE_STEP_ACTIONS:="false"}
+ENABLE_CEL_IN_WHENEXPRESSION=${ENABLE_CEL_IN_WHENEXPRESSION:="false"}
+ENABLE_PARAM_ENUM=${ENABLE_PARAM_ENUM:="false"}
+ENABLE_ARTIFACTS=${ENABLE_ARTIFACTS:="false"}
+ENABLE_CONCISE_RESOLVER_SYNTAX=${ENABLE_CONCISE_RESOLVER_SYNTAX:="false"}
 failed=0
 
 # Script entry point.
@@ -38,39 +44,101 @@ fi
 header "Setting up environment"
 
 install_pipeline_crd
+export SYSTEM_NAMESPACE=tekton-pipelines
 
 failed=0
 
+function add_spire() {
+  local gate="$1"
+  if [ "$gate" == "alpha" ] ; then
+    DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    printf "Setting up environment for alpha features"
+    install_spire
+    patch_pipeline_spire
+    kubectl apply -n tekton-pipelines -f "$DIR"/testdata/spire/config-spire.yaml
+    failed=0
+  fi
+}
+
 function set_feature_gate() {
   local gate="$1"
-  local resolver="false"
   if [ "$gate" != "alpha" ] && [ "$gate" != "stable" ] && [ "$gate" != "beta" ] ; then
     printf "Invalid gate %s\n" ${gate}
     exit 255
-  fi
-  if [ "$gate" == "alpha" ]; then
-    resolver="true"
   fi
   printf "Setting feature gate to %s\n", ${gate}
   jsonpatch=$(printf "{\"data\": {\"enable-api-fields\": \"%s\"}}" $1)
   echo "feature-flags ConfigMap patch: ${jsonpatch}"
   kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
-  if [ "$gate" == "alpha" ]; then
-    printf "enabling resolvers\n"
-    jsonpatch=$(printf "{\"data\": {\"enable-git-resolver\": \"true\", \"enable-hub-resolver\": \"true\", \"enable-bundles-resolver\": \"true\", \"enable-cluster-resolver\": \"true\", \"enable-provenance-in-status\": \"true\"}}")
-    echo "resolvers-feature-flags ConfigMap patch: ${jsonpatch}"
-    kubectl patch configmap resolvers-feature-flags -n tekton-pipelines-resolvers -p "$jsonpatch"
-  fi
 }
 
-function set_embedded_status() {
-  local status="$1"
-  if [ "$status" != "full" ] && [ "$status" != "minimal" ] && [ "$status" != "both" ] ; then
-    printf "Invalid embedded status %s\n" ${status}
+function set_result_extraction_method() {
+  local method="$1"
+  if [ "$method" != "termination-message" ] && [ "$method" != "sidecar-logs" ]; then
+    printf "Invalid value for results-from %s\n" ${method}
     exit 255
   fi
-  printf "Setting embedded status to %s\n", ${status}
-  jsonpatch=$(printf "{\"data\": {\"embedded-status\": \"%s\"}}" $1)
+  printf "Setting results-from to %s\n", ${method}
+  jsonpatch=$(printf "{\"data\": {\"results-from\": \"%s\"}}" $1)
+  echo "feature-flags ConfigMap patch: ${jsonpatch}"
+  kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
+}
+
+function set_enable_step_actions() {
+  local method="$1"
+  if [ "$method" != "false" ] && [ "$method" != "true" ]; then
+    printf "Invalid value for enable-step-actions %s\n" ${method}
+    exit 255
+  fi
+  printf "Setting enable-step-actions to %s\n", ${method}
+  jsonpatch=$(printf "{\"data\": {\"enable-step-actions\": \"%s\"}}" $1)
+  echo "feature-flags ConfigMap patch: ${jsonpatch}"
+  kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
+}
+
+function set_cel_in_whenexpression() {
+  local method="$1"
+  if [ "$method" != "false" ] && [ "$method" != "true" ]; then
+    printf "Invalid value for enable-step-actions %s\n" ${method}
+    exit 255
+  fi
+  jsonpatch=$(printf "{\"data\": {\"enable-cel-in-whenexpression\": \"%s\"}}" $1)
+  echo "feature-flags ConfigMap patch: ${jsonpatch}"
+  kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
+}
+
+function set_enable_param_enum() {
+  local method="$1"
+  if [ "$method" != "false" ] && [ "$method" != "true" ]; then
+    printf "Invalid value for enable-param-enum %s\n" ${method}
+    exit 255
+  fi
+  printf "Setting enable-param-enum to %s\n", ${method}
+  jsonpatch=$(printf "{\"data\": {\"enable-param-enum\": \"%s\"}}" $1)
+  echo "feature-flags ConfigMap patch: ${jsonpatch}"
+  kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
+}
+
+function set_enable_artifacts() {
+  local method="$1"
+  if [ "$method" != "false" ] && [ "$method" != "true" ]; then
+    printf "Invalid value for enable-artifacts %s\n" ${method}
+    exit 255
+  fi
+  printf "Setting enable-artifacts to %s\n", ${method}
+  jsonpatch=$(printf "{\"data\": {\"enable-artifacts\": \"%s\"}}" $1)
+  echo "feature-flags ConfigMap patch: ${jsonpatch}"
+  kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
+}
+
+function set_enable_concise_resolver_syntax() {
+  local method="$1"
+  if [ "$method" != "false" ] && [ "$method" != "true" ]; then
+    printf "Invalid value for enable-concise-resolver-syntax %s\n" ${method}
+    exit 255
+  fi
+  printf "Setting enable-concise-resolver-syntax to %s\n", ${method}
+  jsonpatch=$(printf "{\"data\": {\"enable-concise-resolver-syntax\": \"%s\"}}" $1)
   echo "feature-flags ConfigMap patch: ${jsonpatch}"
   kubectl patch configmap feature-flags -n tekton-pipelines -p "$jsonpatch"
 }
@@ -89,10 +157,20 @@ function run_e2e() {
   if [ "${RUN_YAML_TESTS}" == "true" ]; then
     go_test_e2e -mod=readonly -tags=examples -timeout=${E2E_GO_TEST_TIMEOUT} ./test/ || failed=1
   fi
+
+  if [ "${RUN_FEATUREFLAG_TESTS}" == "true" ]; then
+    go_test_e2e -mod=readonly -tags=featureflags -timeout=${E2E_GO_TEST_TIMEOUT} ./test/ || failed=1
+  fi
 }
 
+add_spire "$PIPELINE_FEATURE_GATE"
 set_feature_gate "$PIPELINE_FEATURE_GATE"
-set_embedded_status "$EMBEDDED_STATUS_GATE"
+set_result_extraction_method "$RESULTS_FROM"
+set_enable_step_actions "$ENABLE_STEP_ACTIONS"
+set_cel_in_whenexpression "$ENABLE_CEL_IN_WHENEXPRESSION"
+set_enable_param_enum "$ENABLE_PARAM_ENUM"
+set_enable_artifacts "$ENABLE_ARTIFACTS"
+set_enable_concise_resolver_syntax "$ENABLE_CONCISE_RESOLVER_SYNTAX"
 run_e2e
 
 (( failed )) && fail_test

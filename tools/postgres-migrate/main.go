@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgconn"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -21,7 +21,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	pb "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 )
 
 var (
@@ -186,16 +186,16 @@ func convertRecord(r *db.Record) error {
 	var wantType any
 	switch m := out.(type) {
 	case *pb.TaskRun:
-		r.Type = "tekton.dev/v1beta1.TaskRun"
-		wantType = &v1beta1.TaskRun{}
+		r.Type = "tekton.dev/v1.TaskRun"
+		wantType = &v1.TaskRun{}
 
 		gen = m.GetMetadata().GetGeneration()
 		m.Metadata.Generation = 0
 		observedGen = m.GetStatus().GetObservedGeneration()
 		m.Status.ObservedGeneration = 0
 	case *pb.PipelineRun:
-		r.Type = "tekton.dev/v1beta1.PipelineRun"
-		wantType = &v1beta1.PipelineRun{}
+		r.Type = "tekton.dev/v1.PipelineRun"
+		wantType = &v1.PipelineRun{}
 
 		gen = m.GetMetadata().GetGeneration()
 		m.Metadata.Generation = 0
@@ -218,10 +218,10 @@ func convertRecord(r *db.Record) error {
 
 	// Reset fields that were previously stripped out for compatibility.
 	switch t := wantType.(type) {
-	case *v1beta1.TaskRun:
+	case *v1.TaskRun:
 		t.Generation = gen
 		t.Status.ObservedGeneration = observedGen
-	case *v1beta1.PipelineRun:
+	case *v1.PipelineRun:
 		t.Generation = gen
 		t.Status.ObservedGeneration = observedGen
 	}

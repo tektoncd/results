@@ -6,12 +6,12 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pb "github.com/tektoncd/results/proto/pipeline/v1beta1/pipeline_go_proto"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pb "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 // This file just contains test data to simplify the content in main_test.go.
@@ -22,9 +22,9 @@ var (
 	start  = metav1.Time{Time: time.Unix(3, 0)}
 	finish = metav1.Time{Time: time.Unix(4, 0)}
 
-	taskrun = &v1beta1.TaskRun{
+	taskrun = &v1.TaskRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "TaskRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -44,10 +44,10 @@ var (
 				"annotation-two": "two",
 			},
 		},
-		Spec: v1beta1.TaskRunSpec{
+		Spec: v1.TaskRunSpec{
 			Timeout: &metav1.Duration{Duration: time.Hour},
-			TaskSpec: &v1beta1.TaskSpec{
-				Steps: []v1beta1.Step{{
+			TaskSpec: &v1.TaskSpec{
+				Steps: []v1.Step{{
 					Script:     "script",
 					Name:       "name",
 					Image:      "image",
@@ -75,7 +75,7 @@ var (
 				}, {
 					Name: "step2",
 				}},
-				Sidecars: []v1beta1.Sidecar{{
+				Sidecars: []v1.Sidecar{{
 					Name: "sidecar1",
 				}, {
 					Name: "sidecar2",
@@ -89,8 +89,8 @@ var (
 				}},
 			},
 		},
-		Status: v1beta1.TaskRunStatus{
-			Status: duckv1beta1.Status{
+		Status: v1.TaskRunStatus{
+			Status: duckv1.Status{
 				ObservedGeneration: 23456,
 				Conditions: []apis.Condition{{
 					Type:               "type",
@@ -103,11 +103,11 @@ var (
 					Type: "another condition",
 				}},
 			},
-			TaskRunStatusFields: v1beta1.TaskRunStatusFields{
+			TaskRunStatusFields: v1.TaskRunStatusFields{
 				PodName:        "podname",
 				StartTime:      &start,
 				CompletionTime: &finish,
-				Steps: []v1beta1.StepState{{
+				Steps: []v1.StepState{{
 					ContainerState: corev1.ContainerState{
 						Terminated: &corev1.ContainerStateTerminated{
 							ExitCode:    123,
@@ -119,9 +119,9 @@ var (
 							ContainerID: "containerid",
 						},
 					},
-					Name:          "name",
-					ContainerName: "containername",
-					ImageID:       "imageid",
+					Name:      "name",
+					Container: "containername",
+					ImageID:   "imageid",
 				}, {
 					Name: "another state",
 				}},
@@ -129,7 +129,7 @@ var (
 		},
 	}
 	taskrunpb = &pb.TaskRun{
-		ApiVersion: "tekton.dev/v1beta1",
+		ApiVersion: "tekton.dev/v1",
 		Kind:       "TaskRun",
 		Metadata: &pb.ObjectMeta{
 			Name:              "name",
@@ -226,9 +226,9 @@ var (
 			}},
 		},
 	}
-	pipelinerun = &v1beta1.PipelineRun{
+	pipelinerun = &v1.PipelineRun{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "tekton.dev/v1beta1",
+			APIVersion: "tekton.dev/v1",
 			Kind:       "PipelineRun",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -246,18 +246,18 @@ var (
 				"ann-one": "one",
 			},
 		},
-		Spec: v1beta1.PipelineRunSpec{
-			Timeout: &metav1.Duration{Duration: time.Hour},
-			PipelineSpec: &v1beta1.PipelineSpec{
-				Tasks: []v1beta1.PipelineTask{{
+		Spec: v1.PipelineRunSpec{
+			Timeouts: &v1.TimeoutFields{Pipeline: &metav1.Duration{Duration: time.Hour}},
+			PipelineSpec: &v1.PipelineSpec{
+				Tasks: []v1.PipelineTask{{
 					Name: "ptask",
-					TaskRef: &v1beta1.TaskRef{
+					TaskRef: &v1.TaskRef{
 						Name:       "ptask",
 						Kind:       "kind",
 						APIVersion: "api_version",
 					},
-					TaskSpec: &v1beta1.EmbeddedTask{
-						Metadata: v1beta1.PipelineTaskMetadata{
+					TaskSpec: &v1.EmbeddedTask{
+						Metadata: v1.PipelineTaskMetadata{
 							Labels: map[string]string{
 								"label-one": "one",
 							},
@@ -265,8 +265,8 @@ var (
 								"ann-one": "one",
 							},
 						},
-						TaskSpec: v1beta1.TaskSpec{
-							Steps: []v1beta1.Step{{
+						TaskSpec: v1.TaskSpec{
+							Steps: []v1.Step{{
 								Script:     "script",
 								Name:       "name",
 								Image:      "image",
@@ -292,7 +292,7 @@ var (
 									SubPath:   "subpath2",
 								}},
 							}},
-							Sidecars: []v1beta1.Sidecar{{}},
+							Sidecars: []v1.Sidecar{{}},
 							Volumes: []corev1.Volume{{
 								Name:         "volname1",
 								VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
@@ -301,35 +301,32 @@ var (
 					},
 					Timeout: &metav1.Duration{Duration: time.Hour},
 				}},
-				Results: []v1beta1.PipelineResult{{
+				Results: []v1.PipelineResult{{
 					Name:        "result",
 					Description: "desc",
-					Value:       *v1beta1.NewArrayOrString("value"),
+					Value:       *v1.NewStructuredValues("value"),
 				}},
-				Finally: []v1beta1.PipelineTask{{}},
+				Finally: []v1.PipelineTask{{}},
 			},
 		},
-		Status: v1beta1.PipelineRunStatus{
-			Status: duckv1beta1.Status{
+		Status: v1.PipelineRunStatus{
+			Status: duckv1.Status{
 				ObservedGeneration: 12345,
 				Conditions:         []apis.Condition{{}},
 				Annotations: map[string]string{
 					"ann-one": "one",
 				},
 			},
-			PipelineRunStatusFields: v1beta1.PipelineRunStatusFields{
-				TaskRuns: map[string]*v1beta1.PipelineRunTaskRunStatus{
-					"task": {
-						PipelineTaskName: "pipelineTaskName",
-						Status:           &v1beta1.TaskRunStatus{},
-					},
-				},
-				PipelineSpec: &v1beta1.PipelineSpec{},
+			PipelineRunStatusFields: v1.PipelineRunStatusFields{
+				ChildReferences: []v1.ChildStatusReference{{
+					Name: "pipelineTaskName",
+				}},
+				PipelineSpec: &v1.PipelineSpec{},
 			},
 		},
 	}
 	pipelinerunpb = &pb.PipelineRun{
-		ApiVersion: "tekton.dev/v1beta1",
+		ApiVersion: "tekton.dev/v1",
 		Kind:       "PipelineRun",
 		Spec: &pb.PipelineRunSpec{
 			Timeout: &durpb.Duration{Seconds: 3600},

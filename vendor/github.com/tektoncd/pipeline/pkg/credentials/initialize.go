@@ -33,11 +33,11 @@ import (
 const (
 	// credsDirPermissions are the persmission bits assigned to the directories
 	// copied out of the /tekton/creds and into a Step's HOME.
-	credsDirPermissions = 0700
+	credsDirPermissions = 0o700
 
 	// credsFilePermissions are the persmission bits assigned to the files
 	// copied out of /tekton/creds and into a Step's HOME.
-	credsFilePermissions = 0600
+	credsFilePermissions = 0o600
 )
 
 // CredsInitCredentials is the complete list of credentials that the legacy credentials
@@ -53,10 +53,10 @@ type Builder interface {
 	// MatchingAnnotations extracts flags for the credential
 	// helper from the supplied secret and returns a slice (of
 	// length 0 or greater) of applicable domains.
-	MatchingAnnotations(*corev1.Secret) []string
+	MatchingAnnotations(secret *corev1.Secret) []string
 
 	// Write writes the credentials to the provided directory.
-	Write(string) error
+	Write(folder string) error
 }
 
 // VolumeName returns the full path to the secret, inside the VolumePath.
@@ -83,7 +83,7 @@ func SortAnnotations(secrets map[string]string, annotationPrefix string) []strin
 // /tekton/creds directory is not considered an error.
 func CopyCredsToHome(credPaths []string) error {
 	if info, err := os.Stat(pipeline.CredsDir); err != nil || !info.IsDir() {
-		return nil
+		return nil //nolint:nilerr // safe to ignore error; no credentials available to copy
 	}
 
 	homepath, err := homedir.Dir()

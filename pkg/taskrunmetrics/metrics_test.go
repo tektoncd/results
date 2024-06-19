@@ -7,12 +7,12 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/metrics/metricstest"
 	_ "knative.dev/pkg/metrics/testing" // Required to set up metrics env for testing
@@ -27,7 +27,7 @@ var (
 func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 	tests := []struct {
 		name                 string
-		taskRun              *pipelinev1beta1.TaskRun
+		taskRun              *pipelinev1.TaskRun
 		wantErr              bool
 		expectedDurationTags map[string]string
 		expectedCountTags    map[string]string
@@ -36,19 +36,19 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 	}{
 		{
 			name: "for succeeded taskrun",
-			taskRun: &pipelinev1beta1.TaskRun{
+			taskRun: &pipelinev1.TaskRun{
 				ObjectMeta: metav1.ObjectMeta{Name: "taskrun-1", Namespace: "ns"},
-				Spec: pipelinev1beta1.TaskRunSpec{
-					TaskRef: &pipelinev1beta1.TaskRef{Name: "task-1"},
+				Spec: pipelinev1.TaskRunSpec{
+					TaskRef: &pipelinev1.TaskRef{Name: "task-1"},
 				},
-				Status: pipelinev1beta1.TaskRunStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   apis.ConditionSucceeded,
 							Status: corev1.ConditionTrue,
 						}},
 					},
-					TaskRunStatusFields: pipelinev1beta1.TaskRunStatusFields{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 						StartTime:      &startTime,
 						CompletionTime: &completionTime,
 					},
@@ -69,19 +69,19 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 		},
 		{
 			name: "for failed taskrun",
-			taskRun: &pipelinev1beta1.TaskRun{
+			taskRun: &pipelinev1.TaskRun{
 				ObjectMeta: metav1.ObjectMeta{Name: "taskrun-1", Namespace: "ns"},
-				Spec: pipelinev1beta1.TaskRunSpec{
-					TaskRef: &pipelinev1beta1.TaskRef{Name: "task-1"},
+				Spec: pipelinev1.TaskRunSpec{
+					TaskRef: &pipelinev1.TaskRef{Name: "task-1"},
 				},
-				Status: pipelinev1beta1.TaskRunStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   apis.ConditionSucceeded,
 							Status: corev1.ConditionFalse,
 						}},
 					},
-					TaskRunStatusFields: pipelinev1beta1.TaskRunStatusFields{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 						StartTime:      &startTime,
 						CompletionTime: &completionTime,
 					},
@@ -102,7 +102,7 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 		},
 		{
 			name: "for succeeded taskrun in pipelinerun",
-			taskRun: &pipelinev1beta1.TaskRun{
+			taskRun: &pipelinev1.TaskRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "taskrun-1", Namespace: "ns",
 					Labels: map[string]string{
@@ -110,17 +110,17 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 						pipeline.PipelineRunLabelKey: "pipelinerun-1",
 					},
 				},
-				Spec: pipelinev1beta1.TaskRunSpec{
-					TaskRef: &pipelinev1beta1.TaskRef{Name: "task-1"},
+				Spec: pipelinev1.TaskRunSpec{
+					TaskRef: &pipelinev1.TaskRef{Name: "task-1"},
 				},
-				Status: pipelinev1beta1.TaskRunStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   apis.ConditionSucceeded,
 							Status: corev1.ConditionTrue,
 						}},
 					},
-					TaskRunStatusFields: pipelinev1beta1.TaskRunStatusFields{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 						StartTime:      &startTime,
 						CompletionTime: &completionTime,
 					},
@@ -140,7 +140,7 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 			expectedCount:    1,
 		}, {
 			name: "for failed taskrun in pipelinerun",
-			taskRun: &pipelinev1beta1.TaskRun{
+			taskRun: &pipelinev1.TaskRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "taskrun-1", Namespace: "ns",
 					Labels: map[string]string{
@@ -148,17 +148,17 @@ func TestRecorder_DurationAndCountDeleted(t *testing.T) {
 						pipeline.PipelineRunLabelKey: "pipelinerun-1",
 					},
 				},
-				Spec: pipelinev1beta1.TaskRunSpec{
-					TaskRef: &pipelinev1beta1.TaskRef{Name: "task-1"},
+				Spec: pipelinev1.TaskRunSpec{
+					TaskRef: &pipelinev1.TaskRef{Name: "task-1"},
 				},
-				Status: pipelinev1beta1.TaskRunStatus{
-					Status: duckv1beta1.Status{
-						Conditions: duckv1beta1.Conditions{{
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
 							Type:   apis.ConditionSucceeded,
 							Status: corev1.ConditionFalse,
 						}},
 					},
-					TaskRunStatusFields: pipelinev1beta1.TaskRunStatusFields{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 						StartTime:      &startTime,
 						CompletionTime: &completionTime,
 					},

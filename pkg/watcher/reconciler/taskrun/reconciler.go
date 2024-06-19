@@ -8,12 +8,12 @@ import (
 	"github.com/tektoncd/results/pkg/taskrunmetrics"
 	"github.com/tektoncd/results/pkg/watcher/results"
 
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/controller"
 	knativereconciler "knative.dev/pkg/reconciler"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
-	"github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -31,7 +31,7 @@ type Reconciler struct {
 
 	resultsClient  pb.ResultsClient
 	logsClient     pb.LogsClient
-	lister         v1beta1.TaskRunLister
+	lister         v1.TaskRunLister
 	pipelineClient versioned.Interface
 	cfg            *reconciler.Config
 	metrics        *taskrunmetrics.Recorder
@@ -68,12 +68,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 	}
 
 	taskRunClient := &dynamic.TaskRunClient{
-		TaskRunInterface: r.pipelineClient.TektonV1beta1().TaskRuns(namespace),
+		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(namespace),
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.resultsClient, r.logsClient, taskRunClient, r.cfg)
 	dyn.AfterDeletion = func(ctx context.Context, o results.Object) error {
-		tr := o.(*pipelinev1beta1.TaskRun)
+		tr := o.(*pipelinev1.TaskRun)
 		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
 	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)

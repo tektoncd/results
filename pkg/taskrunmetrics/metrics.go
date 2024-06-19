@@ -8,7 +8,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -117,7 +117,7 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
 }
 
 // DurationAndCountDeleted counts deleted number and record duration for TaskRuns
-func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, tr *pipelinev1beta1.TaskRun) error {
+func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, tr *pipelinev1.TaskRun) error {
 	taskName := "anonymous"
 	pipelineName := "anonymous"
 	now := r.clock.Now()
@@ -136,7 +136,7 @@ func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metr
 		if !failedTime.After(now) {
 			deleteDuration = now.Sub(failedTime)
 		}
-		if cond.Reason == pipelinev1beta1.TaskRunSpecStatusCancelled {
+		if cond.Reason == pipelinev1.TaskRunSpecStatusCancelled {
 			status = "cancelled"
 		}
 	}
@@ -185,7 +185,7 @@ func (r *Recorder) insertTaskTag(cfg *config.Metrics, task string) []tag.Mutator
 
 // IsPartOfPipeline return true if TaskRun is a part of a Pipeline.
 // It also returns the name of Pipeline and PipelineRun
-func isPartOfPipeline(tr *pipelinev1beta1.TaskRun) (bool, string, string) {
+func isPartOfPipeline(tr *pipelinev1.TaskRun) (bool, string, string) {
 	pipelineLabel, hasPipelineLabel := tr.Labels[pipeline.PipelineLabelKey]
 	pipelineRunLabel, hasPipelineRunLabel := tr.Labels[pipeline.PipelineRunLabelKey]
 

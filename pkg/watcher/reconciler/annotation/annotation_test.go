@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -48,7 +48,7 @@ func TestPatch(t *testing.T) {
 	}{{
 		name: "create a patch containing only the result and record identifiers since the object is a PipelineRun",
 		in: func() metav1.Object {
-			return &pipelinev1beta1.PipelineRun{}
+			return &pipelinev1.PipelineRun{}
 		},
 		want: mergePatch{
 			Metadata: metadata{
@@ -62,7 +62,7 @@ func TestPatch(t *testing.T) {
 		{
 			name: "create a patch containing only the result and record identifiers since the TaskRun isn't owned by a PipelineRun",
 			in: func() metav1.Object {
-				return &pipelinev1beta1.TaskRun{}
+				return &pipelinev1.TaskRun{}
 			},
 			want: mergePatch{
 				Metadata: metadata{
@@ -76,7 +76,7 @@ func TestPatch(t *testing.T) {
 		{
 			name: "create a patch containing only the result and record identifiers since the TaskRun isn't done yet",
 			in: func() metav1.Object {
-				return &pipelinev1beta1.TaskRun{
+				return &pipelinev1.TaskRun{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{{
 							UID: types.UID("UID"),
@@ -97,7 +97,7 @@ func TestPatch(t *testing.T) {
 		{
 			name: "mark the TaskRun as ready for deletion since it's owned by a PipelineRun and is done",
 			in: func() metav1.Object {
-				taskRun := &pipelinev1beta1.TaskRun{
+				taskRun := &pipelinev1.TaskRun{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{{
 							UID: types.UID("UID"),
@@ -105,7 +105,7 @@ func TestPatch(t *testing.T) {
 						},
 					},
 				}
-				taskRun.Status.MarkResourceFailed(pipelinev1beta1.TaskRunReasonFailed, errors.New("Failed"))
+				taskRun.Status.MarkResourceFailed(pipelinev1.TaskRunReasonFailed, errors.New("Failed"))
 				return taskRun
 			},
 			want: mergePatch{
@@ -163,14 +163,14 @@ func TestIsPatched(t *testing.T) {
 	}{{
 		name: "result and record identifiers are missing in the PipelineRun",
 		in: func() metav1.Object {
-			return &pipelinev1beta1.PipelineRun{}
+			return &pipelinev1.PipelineRun{}
 		},
 		want: false,
 	},
 		{
 			name: "the record identifier is missing in the PipelineRun",
 			in: func() metav1.Object {
-				return &pipelinev1beta1.PipelineRun{
+				return &pipelinev1.PipelineRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							Result: fakeResultID,
@@ -183,7 +183,7 @@ func TestIsPatched(t *testing.T) {
 		{
 			name: "the PipelineRun contains all relevant annotations",
 			in: func() metav1.Object {
-				return &pipelinev1beta1.PipelineRun{
+				return &pipelinev1.PipelineRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							Result: fakeResultID,
@@ -197,7 +197,7 @@ func TestIsPatched(t *testing.T) {
 		{
 			name: "the TaskRun contains all relevant annotations",
 			in: func() metav1.Object {
-				taskRun := &pipelinev1beta1.TaskRun{
+				taskRun := &pipelinev1.TaskRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							Result:                fakeResultID,
@@ -210,7 +210,7 @@ func TestIsPatched(t *testing.T) {
 						},
 					},
 				}
-				taskRun.Status.MarkResourceFailed(pipelinev1beta1.TaskRunReasonFailed, errors.New("Failed"))
+				taskRun.Status.MarkResourceFailed(pipelinev1.TaskRunReasonFailed, errors.New("Failed"))
 				return taskRun
 			},
 			want: true,
@@ -218,7 +218,7 @@ func TestIsPatched(t *testing.T) {
 		{
 			name: "the TaskRun should be marked as ready to be deleted",
 			in: func() metav1.Object {
-				taskRun := &pipelinev1beta1.TaskRun{
+				taskRun := &pipelinev1.TaskRun{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							Result: fakeResultID,
@@ -230,7 +230,7 @@ func TestIsPatched(t *testing.T) {
 						},
 					},
 				}
-				taskRun.Status.MarkResourceFailed(pipelinev1beta1.TaskRunReasonFailed, errors.New("Failed"))
+				taskRun.Status.MarkResourceFailed(pipelinev1.TaskRunReasonFailed, errors.New("Failed"))
 				return taskRun
 			},
 			want: false,

@@ -123,7 +123,7 @@ func TestGCSReadFrom(t *testing.T) {
 		},
 		key: gcsTestKey,
 	}
-	client, done := NewTestGCPClient(ctx, 8080, t)
+	client, done := NewTestGCPClient(ctx, 8087, t)
 	defer done()
 	gcs.client = client
 	reader := strings.NewReader(gcsTestLogData)

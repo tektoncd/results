@@ -30,9 +30,6 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.BitbucketInterceptor":         schema_pkg_apis_triggers_v1beta1_BitbucketInterceptor(ref),
-		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.CELInterceptor":               schema_pkg_apis_triggers_v1beta1_CELInterceptor(ref),
-		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.CELOverlay":                   schema_pkg_apis_triggers_v1beta1_CELOverlay(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.ClusterTriggerBinding":        schema_pkg_apis_triggers_v1beta1_ClusterTriggerBinding(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.ClusterTriggerBindingList":    schema_pkg_apis_triggers_v1beta1_ClusterTriggerBindingList(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.CustomResource":               schema_pkg_apis_triggers_v1beta1_CustomResource(ref),
@@ -44,8 +41,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.EventListenerTrigger":         schema_pkg_apis_triggers_v1beta1_EventListenerTrigger(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.EventListenerTriggerGroup":    schema_pkg_apis_triggers_v1beta1_EventListenerTriggerGroup(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.EventListenerTriggerSelector": schema_pkg_apis_triggers_v1beta1_EventListenerTriggerSelector(ref),
-		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.GitHubInterceptor":            schema_pkg_apis_triggers_v1beta1_GitHubInterceptor(ref),
-		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.GitLabInterceptor":            schema_pkg_apis_triggers_v1beta1_GitLabInterceptor(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.InterceptorParams":            schema_pkg_apis_triggers_v1beta1_InterceptorParams(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.InterceptorRef":               schema_pkg_apis_triggers_v1beta1_InterceptorRef(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.InterceptorRequest":           schema_pkg_apis_triggers_v1beta1_InterceptorRequest(ref),
@@ -75,109 +70,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.TriggerTemplateSpec":          schema_pkg_apis_triggers_v1beta1_TriggerTemplateSpec(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.TriggerTemplateStatus":        schema_pkg_apis_triggers_v1beta1_TriggerTemplateStatus(ref),
 		"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.WebhookInterceptor":           schema_pkg_apis_triggers_v1beta1_WebhookInterceptor(ref),
-	}
-}
-
-func schema_pkg_apis_triggers_v1beta1_BitbucketInterceptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "BitbucketInterceptor provides a webhook to intercept and pre-process events",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"secretRef": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"),
-						},
-					},
-					"eventTypes": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"},
-	}
-}
-
-func schema_pkg_apis_triggers_v1beta1_CELInterceptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CELInterceptor provides a webhook to intercept and pre-process events",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"filter": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"overlays": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.CELOverlay"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.CELOverlay"},
-	}
-}
-
-func schema_pkg_apis_triggers_v1beta1_CELOverlay(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CELOverlay provides a way to modify the request body using CEL expressions",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"key": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"expression": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -540,7 +432,22 @@ func schema_pkg_apis_triggers_v1beta1_EventListenerStatus(ref common.ReferenceCa
 					},
 					"address": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+							Description: "Address is a single Addressable address. If Addresses is present, Address will be ignored by clients.",
+							Ref:         ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+						},
+					},
+					"addresses": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Addresses is a list of addresses for different protocols (HTTP and HTTPS) If Addresses is present, Address must be ignored by clients.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("knative.dev/pkg/apis/duck/v1beta1.Addressable"),
+									},
+								},
+							},
 						},
 					},
 					"configuration": {
@@ -701,84 +608,6 @@ func schema_pkg_apis_triggers_v1beta1_EventListenerTriggerSelector(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.NamespaceSelector", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
-	}
-}
-
-func schema_pkg_apis_triggers_v1beta1_GitHubInterceptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "GitHubInterceptor provides a webhook to intercept and pre-process events",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"secretRef": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"),
-						},
-					},
-					"eventTypes": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"},
-	}
-}
-
-func schema_pkg_apis_triggers_v1beta1_GitLabInterceptor(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "GitLabInterceptor provides a webhook to intercept and pre-process events",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"secretRef": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"),
-						},
-					},
-					"eventTypes": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1.SecretRef"},
 	}
 }
 
@@ -995,6 +824,12 @@ func schema_pkg_apis_triggers_v1beta1_KubernetesResource(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",
+						},
+					},
+					"serviceLoadBalancerClass": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"spec": {
