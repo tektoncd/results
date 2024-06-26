@@ -20,20 +20,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
-	resource "github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/substitution"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/strings/slices"
 	"knative.dev/pkg/apis"
 )
-
-// exactVariableSubstitutionFormat matches strings that only contain a single reference to result or param variables, but nothing else
-// i.e. `$(result.resultname)` is a match, but `foo $(result.resultname)` is not.
-const exactVariableSubstitutionFormat = `^\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)$`
-
-var exactVariableSubstitutionRegex = regexp.MustCompile(exactVariableSubstitutionFormat)
 
 // ParamsPrefix is the prefix used in $(...) expressions referring to parameters
 const ParamsPrefix = "params"
@@ -60,7 +55,14 @@ type ParamSpec struct {
 	// parameter.
 	// +optional
 	Default *ParamValue `json:"default,omitempty"`
+	// Enum declares a set of allowed param input values for tasks/pipelines that can be validated.
+	// If Enum is not set, no input validation is performed for the param.
+	// +optional
+	Enum []string `json:"enum,omitempty"`
 }
+
+// ParamSpecs is a list of ParamSpec
+type ParamSpecs []ParamSpec
 
 // PropertySpec defines the struct for object keys
 type PropertySpec struct {
@@ -107,14 +109,357 @@ func (pp *ParamSpec) setDefaultsForProperties() {
 	}
 }
 
-// ResourceParam declares a string value to use for the parameter called Name, and is used in
-// the specific context of PipelineResources.
-type ResourceParam = resource.ResourceParam
+// GetNames returns all the names of the declared parameters
+func (ps ParamSpecs) GetNames() []string {
+	var names []string
+	for _, p := range ps {
+		names = append(names, p.Name)
+	}
+	return names
+}
+
+// SortByType splits the input params into string params, array params, and object params, in that order
+func (ps ParamSpecs) SortByType() (ParamSpecs, ParamSpecs, ParamSpecs) {
+	var stringParams, arrayParams, objectParams ParamSpecs
+	for _, p := range ps {
+		switch p.Type {
+		case ParamTypeArray:
+			arrayParams = append(arrayParams, p)
+		case ParamTypeObject:
+			objectParams = append(objectParams, p)
+		case ParamTypeString:
+			fallthrough
+		default:
+			stringParams = append(stringParams, p)
+		}
+	}
+	return stringParams, arrayParams, objectParams
+}
+
+// ValidateNoDuplicateNames returns an error if any of the params have the same name
+func (ps ParamSpecs) ValidateNoDuplicateNames() *apis.FieldError {
+	var errs *apis.FieldError
+	names := ps.GetNames()
+	for dup := range findDups(names) {
+		errs = errs.Also(apis.ErrGeneric("parameter appears more than once", "").ViaFieldKey("params", dup))
+	}
+	return errs
+}
+
+// validateParamEnum validates feature flag, duplication and allowed types for Param Enum
+func (ps ParamSpecs) validateParamEnums(ctx context.Context) *apis.FieldError {
+	var errs *apis.FieldError
+	for _, p := range ps {
+		if len(p.Enum) == 0 {
+			continue
+		}
+		if !config.FromContextOrDefaults(ctx).FeatureFlags.EnableParamEnum {
+			errs = errs.Also(errs, apis.ErrGeneric(fmt.Sprintf("feature flag `%s` should be set to true to use Enum", config.EnableParamEnum), "").ViaKey(p.Name))
+		}
+		if p.Type != ParamTypeString {
+			errs = errs.Also(apis.ErrGeneric("enum can only be set with string type param", "").ViaKey(p.Name))
+		}
+		for dup := range findDups(p.Enum) {
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("parameter enum value %v appears more than once", dup), "").ViaKey(p.Name))
+		}
+		if p.Default != nil && p.Default.StringVal != "" {
+			if !slices.Contains(p.Enum, p.Default.StringVal) {
+				errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("param default value %v not in the enum list", p.Default.StringVal), "").ViaKey(p.Name))
+			}
+		}
+	}
+	return errs
+}
+
+// findDups returns the duplicate element in the given slice
+func findDups(vals []string) sets.String {
+	seen := sets.String{}
+	dups := sets.String{}
+	for _, val := range vals {
+		if seen.Has(val) {
+			dups.Insert(val)
+		}
+		seen.Insert(val)
+	}
+	return dups
+}
 
 // Param declares an ParamValues to use for the parameter called name.
 type Param struct {
 	Name  string     `json:"name"`
 	Value ParamValue `json:"value"`
+}
+
+// GetVarSubstitutionExpressions extracts all the value between "$(" and ")"" for a Parameter
+func (p Param) GetVarSubstitutionExpressions() ([]string, bool) {
+	var allExpressions []string
+	switch p.Value.Type {
+	case ParamTypeArray:
+		// array type
+		for _, value := range p.Value.ArrayVal {
+			allExpressions = append(allExpressions, validateString(value)...)
+		}
+	case ParamTypeString:
+		// string type
+		allExpressions = append(allExpressions, validateString(p.Value.StringVal)...)
+	case ParamTypeObject:
+		// object type
+		for _, value := range p.Value.ObjectVal {
+			allExpressions = append(allExpressions, validateString(value)...)
+		}
+	default:
+		return nil, false
+	}
+	return allExpressions, len(allExpressions) != 0
+}
+
+// ExtractNames returns a set of unique names
+func (ps Params) ExtractNames() sets.String {
+	names := sets.String{}
+	for _, p := range ps {
+		names.Insert(p.Name)
+	}
+	return names
+}
+
+func (ps Params) extractValues() []string {
+	pvs := []string{}
+	for i := range ps {
+		pvs = append(pvs, ps[i].Value.StringVal)
+		pvs = append(pvs, ps[i].Value.ArrayVal...)
+		for _, v := range ps[i].Value.ObjectVal {
+			pvs = append(pvs, v)
+		}
+	}
+	return pvs
+}
+
+// extractParamMapArrVals creates a param map with the key: param.Name and
+// val: param.Value.ArrayVal
+func (ps Params) extractParamMapArrVals() map[string][]string {
+	paramsMap := make(map[string][]string)
+	for _, p := range ps {
+		paramsMap[p.Name] = p.Value.ArrayVal
+	}
+	return paramsMap
+}
+
+// ParseTaskandResultName parses "task name", "result name" from a Matrix Context Variable
+// Valid Example 1:
+// - Input: tasks.myTask.matrix.length
+// - Output: "myTask", ""
+// Valid Example 2:
+// - Input: tasks.myTask.matrix.ResultName.length
+// - Output: "myTask", "ResultName"
+func (p Param) ParseTaskandResultName() (string, string) {
+	if expressions, ok := p.GetVarSubstitutionExpressions(); ok {
+		for _, expression := range expressions {
+			subExpressions := strings.Split(expression, ".")
+			pipelineTaskName := subExpressions[1]
+			if len(subExpressions) == 4 {
+				return pipelineTaskName, ""
+			} else if len(subExpressions) == 5 {
+				resultName := subExpressions[3]
+				return pipelineTaskName, resultName
+			}
+		}
+	}
+	return "", ""
+}
+
+// Params is a list of Param
+type Params []Param
+
+// ExtractParamArrayLengths extract and return the lengths of all array params
+// Example of returned value: {"a-array-params": 2,"b-array-params": 2 }
+func (ps Params) ExtractParamArrayLengths() map[string]int {
+	// Collect all array params
+	arrayParamsLengths := make(map[string]int)
+
+	// Collect array params lengths from params
+	for _, p := range ps {
+		if p.Value.Type == ParamTypeArray {
+			arrayParamsLengths[p.Name] = len(p.Value.ArrayVal)
+		}
+	}
+	return arrayParamsLengths
+}
+
+// validateDuplicateParameters checks if a parameter with the same name is defined more than once
+func (ps Params) validateDuplicateParameters() (errs *apis.FieldError) {
+	taskParamNames := sets.NewString()
+	for i, param := range ps {
+		if taskParamNames.Has(param.Name) {
+			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("parameter names must be unique,"+
+				" the parameter \"%s\" is also defined at", param.Name), fmt.Sprintf("[%d].name", i)))
+		}
+		taskParamNames.Insert(param.Name)
+	}
+	return errs
+}
+
+// ReplaceVariables applies string, array and object replacements to variables in Params
+func (ps Params) ReplaceVariables(stringReplacements map[string]string, arrayReplacements map[string][]string, objectReplacements map[string]map[string]string) Params {
+	params := ps.DeepCopy()
+	for i := range params {
+		params[i].Value.ApplyReplacements(stringReplacements, arrayReplacements, objectReplacements)
+	}
+	return params
+}
+
+// ExtractDefaultParamArrayLengths extract and return the lengths of all array params
+// Example of returned value: {"a-array-params": 2,"b-array-params": 2 }
+func (ps ParamSpecs) ExtractDefaultParamArrayLengths() map[string]int {
+	// Collect all array params
+	arrayParamsLengths := make(map[string]int)
+
+	// Collect array params lengths from defaults
+	for _, p := range ps {
+		if p.Default != nil {
+			if p.Default.Type == ParamTypeArray {
+				arrayParamsLengths[p.Name] = len(p.Default.ArrayVal)
+			}
+		}
+	}
+	return arrayParamsLengths
+}
+
+// extractArrayIndexingParamRefs takes a string of the form `foo-$(params.array-param[1])-bar` and extracts the portions of the string that reference an element in an array param.
+// For example, for the string “foo-$(params.array-param[1])-bar-$(params.other-array-param[2])-$(params.string-param)`,
+// it would return ["$(params.array-param[1])", "$(params.other-array-param[2])"].
+func extractArrayIndexingParamRefs(paramReference string) []string {
+	l := []string{}
+	list := substitution.ExtractArrayIndexingParamsExpressions(paramReference)
+	for _, val := range list {
+		indexString := substitution.ExtractIndexString(val)
+		if indexString != "" {
+			l = append(l, val)
+		}
+	}
+	return l
+}
+
+// extractParamRefsFromSteps get all array indexing references from steps
+func extractParamRefsFromSteps(steps []Step) []string {
+	paramsRefs := []string{}
+	for _, step := range steps {
+		paramsRefs = append(paramsRefs, step.Script)
+		container := step.ToK8sContainer()
+		paramsRefs = append(paramsRefs, extractParamRefsFromContainer(container)...)
+	}
+	return paramsRefs
+}
+
+// extractParamRefsFromStepTemplate get all array indexing references from StepsTemplate
+func extractParamRefsFromStepTemplate(stepTemplate *StepTemplate) []string {
+	if stepTemplate == nil {
+		return nil
+	}
+	container := stepTemplate.ToK8sContainer()
+	return extractParamRefsFromContainer(container)
+}
+
+// extractParamRefsFromSidecars get all array indexing references from sidecars
+func extractParamRefsFromSidecars(sidecars []Sidecar) []string {
+	paramsRefs := []string{}
+	for _, s := range sidecars {
+		paramsRefs = append(paramsRefs, s.Script)
+		container := s.ToK8sContainer()
+		paramsRefs = append(paramsRefs, extractParamRefsFromContainer(container)...)
+	}
+	return paramsRefs
+}
+
+// extractParamRefsFromVolumes get all array indexing references from volumes
+func extractParamRefsFromVolumes(volumes []corev1.Volume) []string {
+	paramsRefs := []string{}
+	for i, v := range volumes {
+		paramsRefs = append(paramsRefs, v.Name)
+		if v.VolumeSource.ConfigMap != nil {
+			paramsRefs = append(paramsRefs, v.ConfigMap.Name)
+			for _, item := range v.ConfigMap.Items {
+				paramsRefs = append(paramsRefs, item.Key)
+				paramsRefs = append(paramsRefs, item.Path)
+			}
+		}
+		if v.VolumeSource.Secret != nil {
+			paramsRefs = append(paramsRefs, v.Secret.SecretName)
+			for _, item := range v.Secret.Items {
+				paramsRefs = append(paramsRefs, item.Key)
+				paramsRefs = append(paramsRefs, item.Path)
+			}
+		}
+		if v.PersistentVolumeClaim != nil {
+			paramsRefs = append(paramsRefs, v.PersistentVolumeClaim.ClaimName)
+		}
+		if v.Projected != nil {
+			for _, s := range volumes[i].Projected.Sources {
+				if s.ConfigMap != nil {
+					paramsRefs = append(paramsRefs, s.ConfigMap.Name)
+				}
+				if s.Secret != nil {
+					paramsRefs = append(paramsRefs, s.Secret.Name)
+				}
+				if s.ServiceAccountToken != nil {
+					paramsRefs = append(paramsRefs, s.ServiceAccountToken.Audience)
+				}
+			}
+		}
+		if v.CSI != nil {
+			if v.CSI.NodePublishSecretRef != nil {
+				paramsRefs = append(paramsRefs, v.CSI.NodePublishSecretRef.Name)
+			}
+			if v.CSI.VolumeAttributes != nil {
+				for _, value := range v.CSI.VolumeAttributes {
+					paramsRefs = append(paramsRefs, value)
+				}
+			}
+		}
+	}
+	return paramsRefs
+}
+
+// extractParamRefsFromContainer get all array indexing references from container
+func extractParamRefsFromContainer(c *corev1.Container) []string {
+	paramsRefs := []string{}
+	paramsRefs = append(paramsRefs, c.Name)
+	paramsRefs = append(paramsRefs, c.Image)
+	paramsRefs = append(paramsRefs, string(c.ImagePullPolicy))
+	paramsRefs = append(paramsRefs, c.Args...)
+
+	for ie, e := range c.Env {
+		paramsRefs = append(paramsRefs, e.Value)
+		if c.Env[ie].ValueFrom != nil {
+			if e.ValueFrom.SecretKeyRef != nil {
+				paramsRefs = append(paramsRefs, e.ValueFrom.SecretKeyRef.LocalObjectReference.Name)
+				paramsRefs = append(paramsRefs, e.ValueFrom.SecretKeyRef.Key)
+			}
+			if e.ValueFrom.ConfigMapKeyRef != nil {
+				paramsRefs = append(paramsRefs, e.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name)
+				paramsRefs = append(paramsRefs, e.ValueFrom.ConfigMapKeyRef.Key)
+			}
+		}
+	}
+
+	for _, e := range c.EnvFrom {
+		paramsRefs = append(paramsRefs, e.Prefix)
+		if e.ConfigMapRef != nil {
+			paramsRefs = append(paramsRefs, e.ConfigMapRef.LocalObjectReference.Name)
+		}
+		if e.SecretRef != nil {
+			paramsRefs = append(paramsRefs, e.SecretRef.LocalObjectReference.Name)
+		}
+	}
+
+	paramsRefs = append(paramsRefs, c.WorkingDir)
+	paramsRefs = append(paramsRefs, c.Command...)
+
+	for _, v := range c.VolumeMounts {
+		paramsRefs = append(paramsRefs, v.Name)
+		paramsRefs = append(paramsRefs, v.MountPath)
+		paramsRefs = append(paramsRefs, v.SubPath)
+	}
+	return paramsRefs
 }
 
 // ParamType indicates the type of an input parameter;
@@ -137,11 +482,11 @@ var AllParamTypes = []ParamType{ParamTypeString, ParamTypeArray, ParamTypeObject
 // Used in JSON unmarshalling so that a single JSON field can accept
 // either an individual string or an array of strings.
 type ParamValue struct {
-	Type      ParamType `json:"type"` // Represents the stored type of ParamValues.
-	StringVal string    `json:"stringVal"`
+	Type      ParamType // Represents the stored type of ParamValues.
+	StringVal string
 	// +listType=atomic
-	ArrayVal  []string          `json:"arrayVal"`
-	ObjectVal map[string]string `json:"objectVal"`
+	ArrayVal  []string
+	ObjectVal map[string]string
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
@@ -203,7 +548,7 @@ func (paramValues ParamValue) MarshalJSON() ([]byte, error) {
 func (paramValues *ParamValue) ApplyReplacements(stringReplacements map[string]string, arrayReplacements map[string][]string, objectReplacements map[string]map[string]string) {
 	switch paramValues.Type {
 	case ParamTypeArray:
-		var newArrayVal []string
+		newArrayVal := []string{}
 		for _, v := range paramValues.ArrayVal {
 			newArrayVal = append(newArrayVal, substitution.ApplyArrayReplacements(v, stringReplacements, arrayReplacements)...)
 		}
@@ -214,6 +559,8 @@ func (paramValues *ParamValue) ApplyReplacements(stringReplacements map[string]s
 			newObjectVal[k] = substitution.ApplyReplacements(v, stringReplacements)
 		}
 		paramValues.ObjectVal = newObjectVal
+	case ParamTypeString:
+		fallthrough
 	default:
 		paramValues.applyOrCorrect(stringReplacements, arrayReplacements, objectReplacements)
 	}
@@ -233,7 +580,7 @@ func (paramValues *ParamValue) applyOrCorrect(stringReplacements map[string]stri
 
 	// trim the head "$(" and the tail ")" or "[*])"
 	// i.e. get "params.name" from "$(params.name)" or "$(params.name[*])"
-	trimedStringVal := StripStarVarSubExpression(stringVal)
+	trimedStringVal := substitution.StripStarVarSubExpression(stringVal)
 
 	// if the stringVal is a reference to a string param
 	if _, ok := stringReplacements[trimedStringVal]; ok {
@@ -253,11 +600,6 @@ func (paramValues *ParamValue) applyOrCorrect(stringReplacements map[string]stri
 		paramValues.ObjectVal = objectReplacements[trimedStringVal]
 		paramValues.Type = ParamTypeObject
 	}
-}
-
-// StripStarVarSubExpression strips "$(target[*])"" to get "target"
-func StripStarVarSubExpression(s string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(s, "$("), ")"), "[*]")
 }
 
 // NewStructuredValues creates an ParamValues of type ParamTypeString or ParamTypeArray, based on
@@ -291,12 +633,9 @@ func ArrayReference(a string) string {
 
 // validatePipelineParametersVariablesInTaskParameters validates param value that
 // may contain the reference(s) to other params to make sure those references are used appropriately.
-func validatePipelineParametersVariablesInTaskParameters(params []Param, prefix string, paramNames sets.String, arrayParamNames sets.String, objectParamNameKeys map[string][]string) (errs *apis.FieldError) {
-	taskParamNames := sets.NewString()
-	for i, param := range params {
-		if taskParamNames.Has(param.Name) {
-			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("params names must be unique, the same param: %s is defined multiple times at", param.Name), fmt.Sprintf("params[%d].name", i)))
-		}
+func validatePipelineParametersVariablesInTaskParameters(params Params, prefix string, paramNames sets.String, arrayParamNames sets.String, objectParamNameKeys map[string][]string) (errs *apis.FieldError) {
+	errs = errs.Also(params.validateDuplicateParameters()).ViaField("params")
+	for _, param := range params {
 		switch param.Value.Type {
 		case ParamTypeArray:
 			for idx, arrayElement := range param.Value.ArrayVal {
@@ -306,46 +645,10 @@ func validatePipelineParametersVariablesInTaskParameters(params []Param, prefix 
 			for key, val := range param.Value.ObjectVal {
 				errs = errs.Also(validateStringVariable(val, prefix, paramNames, arrayParamNames, objectParamNameKeys).ViaFieldKey("properties", key).ViaFieldKey("params", param.Name))
 			}
+		case ParamTypeString:
+			fallthrough
 		default:
 			errs = errs.Also(validateParamStringValue(param, prefix, paramNames, arrayParamNames, objectParamNameKeys))
-		}
-		taskParamNames.Insert(param.Name)
-	}
-	return errs
-}
-
-// validatePipelineParametersVariablesInMatrixParameters validates matrix param value
-// that may contain the reference(s) to other params to make sure those references are used appropriately.
-func validatePipelineParametersVariablesInMatrixParameters(matrix []Param, prefix string, paramNames sets.String, arrayParamNames sets.String, objectParamNameKeys map[string][]string) (errs *apis.FieldError) {
-	for _, param := range matrix {
-		for idx, arrayElement := range param.Value.ArrayVal {
-			errs = errs.Also(validateArrayVariable(arrayElement, prefix, paramNames, arrayParamNames, objectParamNameKeys).ViaFieldIndex("value", idx).ViaFieldKey("matrix", param.Name))
-		}
-	}
-	return errs
-}
-
-func validateParametersInTaskMatrix(matrix *Matrix) (errs *apis.FieldError) {
-	if matrix != nil {
-		for _, param := range matrix.Params {
-			if param.Value.Type != ParamTypeArray {
-				errs = errs.Also(apis.ErrInvalidValue("parameters of type array only are allowed in matrix", "").ViaFieldKey("matrix", param.Name))
-			}
-		}
-	}
-	return errs
-}
-
-func validateParameterInOneOfMatrixOrParams(matrix *Matrix, params []Param) (errs *apis.FieldError) {
-	matrixParameterNames := sets.NewString()
-	if matrix != nil {
-		for _, param := range matrix.Params {
-			matrixParameterNames.Insert(param.Name)
-		}
-	}
-	for _, param := range params {
-		if matrixParameterNames.Has(param.Name) {
-			errs = errs.Also(apis.ErrMultipleOneOf("matrix["+param.Name+"]", "params["+param.Name+"]"))
 		}
 	}
 	return errs
@@ -370,23 +673,23 @@ func validateParamStringValue(param Param, prefix string, paramNames sets.String
 
 // validateStringVariable validates the normal string fields that can only accept references to string param or individual keys of object param
 func validateStringVariable(value, prefix string, stringVars sets.String, arrayVars sets.String, objectParamNameKeys map[string][]string) *apis.FieldError {
-	errs := substitution.ValidateVariableP(value, prefix, stringVars)
+	errs := substitution.ValidateNoReferencesToUnknownVariables(value, prefix, stringVars)
 	errs = errs.Also(validateObjectVariable(value, prefix, objectParamNameKeys))
-	return errs.Also(substitution.ValidateVariableProhibitedP(value, prefix, arrayVars))
+	return errs.Also(substitution.ValidateNoReferencesToProhibitedVariables(value, prefix, arrayVars))
 }
 
 func validateArrayVariable(value, prefix string, stringVars sets.String, arrayVars sets.String, objectParamNameKeys map[string][]string) *apis.FieldError {
-	errs := substitution.ValidateVariableP(value, prefix, stringVars)
+	errs := substitution.ValidateNoReferencesToUnknownVariables(value, prefix, stringVars)
 	errs = errs.Also(validateObjectVariable(value, prefix, objectParamNameKeys))
-	return errs.Also(substitution.ValidateVariableIsolatedP(value, prefix, arrayVars))
+	return errs.Also(substitution.ValidateVariableReferenceIsIsolated(value, prefix, arrayVars))
 }
 
 func validateObjectVariable(value, prefix string, objectParamNameKeys map[string][]string) (errs *apis.FieldError) {
 	objectNames := sets.NewString()
 	for objectParamName, keys := range objectParamNameKeys {
 		objectNames.Insert(objectParamName)
-		errs = errs.Also(substitution.ValidateVariableP(value, fmt.Sprintf("%s\\.%s", prefix, objectParamName), sets.NewString(keys...)))
+		errs = errs.Also(substitution.ValidateNoReferencesToUnknownVariables(value, fmt.Sprintf("%s\\.%s", prefix, objectParamName), sets.NewString(keys...)))
 	}
 
-	return errs.Also(substitution.ValidateEntireVariableProhibitedP(value, prefix, objectNames))
+	return errs.Also(substitution.ValidateNoReferencesToEntireProhibitedVariables(value, prefix, objectNames))
 }
