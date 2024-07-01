@@ -18,8 +18,8 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - &node
   role: control-plane
-  # Set a fixed Kubernetes version.
-  image: kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72
+  # Set a fixed Kubernetes version: https://github.com/kubernetes-sigs/kind/releases
+  image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
 
 # Merge the same definition as the control-plane to reuse the same Kindest image
 # in the data-plane. We'll set specific values of the data-plane afterwards.
