@@ -23,11 +23,13 @@ import (
 	"fmt"
 
 	"github.com/tektoncd/triggers/pkg/apis/triggers"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 var (
@@ -37,12 +39,17 @@ var (
 	)
 )
 
+var _ resourcesemantics.VerbLimited = (*EventListener)(nil)
+
+// SupportedVerbs returns the operations that validation should be called for
+func (e *EventListener) SupportedVerbs() []admissionregistrationv1.OperationType {
+	return []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
+}
+
+// revive:disable:unused-parameter
+
 // Validate EventListener.
 func (e *EventListener) Validate(ctx context.Context) *apis.FieldError {
-	if apis.IsInDelete(ctx) {
-		return nil
-	}
-
 	var errs *apis.FieldError
 	if len(e.ObjectMeta.Name) > 60 {
 		// Since `el-` is added as the prefix of EventListener services, the name of EventListener must be no more than 60 characters long.
@@ -114,7 +121,7 @@ func validateCustomObject(customData *CustomResource) (errs *apis.FieldError) {
 	// bounded by condition because containers fields are optional so there is a chance that containers can be nil.
 	if len(orig.Spec.Template.Spec.Containers) == 1 {
 		errs = errs.Also(apis.CheckDisallowedFields(orig.Spec.Template.Spec.Containers[0],
-			*containerFieldMask(&orig.Spec.Template.Spec.Containers[0])).ViaField("spec.template.spec.containers[0]"))
+			*containerFieldMaskForCustomResource(&orig.Spec.Template.Spec.Containers[0])).ViaField("spec.template.spec.containers[0]"))
 		// validate env
 		errs = errs.Also(validateEnv(orig.Spec.Template.Spec.Containers[0].Env).ViaField("spec.template.spec.containers[0].env"))
 	}
@@ -137,9 +144,13 @@ func validateKubernetesObject(orig *KubernetesResource) (errs *apis.FieldError) 
 	// bounded by condition because containers fields are optional so there is a chance that containers can be nil.
 	if len(orig.Template.Spec.Containers) == 1 {
 		errs = errs.Also(apis.CheckDisallowedFields(orig.Template.Spec.Containers[0],
-			*containerFieldMask(&orig.Template.Spec.Containers[0])).ViaField("spec.template.spec.containers[0]"))
+			*containerFieldMaskForKubernetes(&orig.Template.Spec.Containers[0])).ViaField("spec.template.spec.containers[0]"))
 		// validate env
 		errs = errs.Also(validateEnv(orig.Template.Spec.Containers[0].Env).ViaField("spec.template.spec.containers[0].env"))
+	}
+
+	if orig.ServiceLoadBalancerClass != nil && orig.ServiceType != corev1.ServiceTypeLoadBalancer {
+		errs = errs.Also(apis.ErrInvalidValue(*orig.ServiceLoadBalancerClass, "serviceLoadBalancerClass", "ServiceLoadBalancerClass is only needed for LoadBalancer service type"))
 	}
 
 	return errs
@@ -214,20 +225,30 @@ func envVarMask(in *corev1.EnvVar) *corev1.EnvVar {
 	return out
 }
 
-func containerFieldMask(in *corev1.Container) *corev1.Container {
+func containerFieldMaskForKubernetes(in *corev1.Container) *corev1.Container {
 	out := new(corev1.Container)
 	out.Resources = in.Resources
 	out.Env = in.Env
+	out.LivenessProbe = in.LivenessProbe
+	out.ReadinessProbe = in.ReadinessProbe
+	out.StartupProbe = in.StartupProbe
+	return containerFieldMask(out)
+}
 
+func containerFieldMaskForCustomResource(in *corev1.Container) *corev1.Container {
+	out := new(corev1.Container)
+	out.Resources = in.Resources
+	out.Env = in.Env
+	return containerFieldMask(out)
+}
+
+func containerFieldMask(out *corev1.Container) *corev1.Container {
 	// Disallowed fields
 	// This list clarifies which all container attributes are not allowed.
 	out.Name = ""
 	out.Image = ""
 	out.Args = nil
 	out.Ports = nil
-	out.LivenessProbe = nil
-	out.ReadinessProbe = nil
-	out.StartupProbe = nil
 	out.Command = nil
 	out.VolumeMounts = nil
 	out.ImagePullPolicy = ""
@@ -254,6 +275,8 @@ func podSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
 	out.Containers = in.Containers
 	out.Tolerations = in.Tolerations
 	out.NodeSelector = in.NodeSelector
+	out.Affinity = in.Affinity
+	out.TopologySpreadConstraints = in.TopologySpreadConstraints
 
 	// Disallowed fields
 	// This list clarifies which all podspec fields are not allowed.
@@ -274,7 +297,6 @@ func podSpecMask(in *corev1.PodSpec) *corev1.PodSpec {
 	out.SecurityContext = nil
 	out.Hostname = ""
 	out.Subdomain = ""
-	out.Affinity = nil
 	out.SchedulerName = ""
 	out.HostAliases = nil
 	out.PriorityClassName = ""
