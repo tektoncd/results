@@ -1,5 +1,4 @@
 //go:build !linux
-// +build !linux
 
 /*
    Copyright The containerd Authors.
@@ -23,7 +22,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/errdefs"
 )
 
 func getCPUVariant() (string, error) {

@@ -22,99 +22,56 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/hashicorp/go-multierror"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	resource "github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
-	"github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1/cloudevent"
 	"github.com/tektoncd/pipeline/pkg/reconciler/events/cache"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/clock"
+	"knative.dev/pkg/apis"
 	controller "knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 )
 
-// InitializeCloudEvents initializes the CloudEvents part of the
-// TaskRunStatus from a slice of PipelineResources
-func InitializeCloudEvents(tr *v1beta1.TaskRun, prs map[string]*resource.PipelineResource) {
-	// If there are no cloud event resources, this check will run on every reconcile
-	if len(tr.Status.CloudEvents) == 0 {
-		var targets []string
-		for name, output := range prs {
-			if output.Spec.Type == resource.PipelineResourceTypeCloudEvent {
-				cer, _ := cloudevent.NewResource(name, output)
-				targets = append(targets, cer.TargetURI)
-			}
-		}
-		if len(targets) > 0 {
-			tr.Status.CloudEvents = cloudEventDeliveryFromTargets(targets)
+func cloudEventsSink(ctx context.Context) string {
+	configs := config.FromContextOrDefaults(ctx)
+	// Try the sink configuration first
+	sink := configs.Events.Sink
+	if sink == "" {
+		// Fall back to the deprecated flag is the new one is not set
+		// This ensures no changes in behaviour for existing users of the deprecated flag
+		sink = configs.Defaults.DefaultCloudEventsSink
+	}
+	return sink
+}
+
+// EmitCloudEvents emits CloudEvents (only) for object
+func EmitCloudEvents(ctx context.Context, object runtime.Object) {
+	logger := logging.FromContext(ctx)
+	if sink := cloudEventsSink(ctx); sink != "" {
+		ctx = cloudevents.ContextWithTarget(ctx, sink)
+		err := SendCloudEventWithRetries(ctx, object)
+		if err != nil {
+			logger.Warnf("Failed to emit cloud events %v", err.Error())
 		}
 	}
 }
 
-func cloudEventDeliveryFromTargets(targets []string) []v1beta1.CloudEventDelivery {
-	if len(targets) > 0 {
-		initialState := v1beta1.CloudEventDeliveryState{
-			Condition:  v1beta1.CloudEventConditionUnknown,
-			RetryCount: 0,
-		}
-		events := make([]v1beta1.CloudEventDelivery, len(targets))
-		for idx, target := range targets {
-			events[idx] = v1beta1.CloudEventDelivery{
-				Target: target,
-				Status: initialState,
+// EmitCloudEventsWhenConditionChange emits CloudEvents when there is a change in condition
+func EmitCloudEventsWhenConditionChange(ctx context.Context, beforeCondition *apis.Condition, afterCondition *apis.Condition, object runtime.Object) {
+	logger := logging.FromContext(ctx)
+	if sink := cloudEventsSink(ctx); sink != "" {
+		ctx = cloudevents.ContextWithTarget(ctx, sink)
+
+		// Only send events if the new condition represents a change
+		if !equality.Semantic.DeepEqual(beforeCondition, afterCondition) {
+			err := SendCloudEventWithRetries(ctx, object)
+			if err != nil {
+				logger.Warnf("Failed to emit cloud events %v", err.Error())
 			}
 		}
-		return events
 	}
-	return nil
-}
-
-// SendCloudEvents is used by the TaskRun controller to send cloud events once
-// the TaskRun is complete. `tr` is used to obtain the list of targets
-func SendCloudEvents(tr *v1beta1.TaskRun, ceclient CEClient, logger *zap.SugaredLogger, c clock.PassiveClock) error {
-	logger = logger.With(zap.String("taskrun", tr.Name))
-
-	// Make the event we would like to send:
-	event, err := eventForTaskRun(tr)
-	if err != nil || event == nil {
-		logger.With(zap.Error(err)).Error("failed to produce a cloudevent from TaskRun.")
-		return err
-	}
-
-	// Using multierror here so we can attempt to send all cloud events defined,
-	// regardless of whether they fail or not, and report all failed ones
-	var merr *multierror.Error
-	for idx, cloudEventDelivery := range tr.Status.CloudEvents {
-		eventStatus := &(tr.Status.CloudEvents[idx].Status)
-		// Skip events that have already been sent (successfully or unsuccessfully)
-		// Ensure we try to send all events once (possibly through different reconcile calls)
-		if eventStatus.Condition != v1beta1.CloudEventConditionUnknown || eventStatus.RetryCount > 0 {
-			continue
-		}
-
-		// Send the event.
-		result := ceclient.Send(cloudevents.ContextWithTarget(cloudevents.ContextWithRetriesExponentialBackoff(context.Background(), 10*time.Millisecond, 10), cloudEventDelivery.Target), *event)
-
-		// Record the result.
-		eventStatus.SentAt = &metav1.Time{Time: c.Now()}
-		eventStatus.RetryCount++
-		if !cloudevents.IsACK(result) {
-			merr = multierror.Append(merr, result)
-			eventStatus.Condition = v1beta1.CloudEventConditionFailed
-			eventStatus.Error = merr.Error()
-		} else {
-			logger.Infow("Event sent.", zap.String("target", cloudEventDelivery.Target))
-			eventStatus.Condition = v1beta1.CloudEventConditionSent
-		}
-	}
-	if merr != nil && merr.Len() > 0 {
-		logger.With(zap.Error(merr)).Errorw("Failed to send events for TaskRun.", zap.Int("count", merr.Len()))
-	}
-	return merr.ErrorOrNil()
 }
 
 // SendCloudEventWithRetries sends a cloud event for the specified resource.
@@ -124,25 +81,27 @@ func SendCloudEvents(tr *v1beta1.TaskRun, ceclient CEClient, logger *zap.Sugared
 // it's only used within the events/cloudevents packages.
 func SendCloudEventWithRetries(ctx context.Context, object runtime.Object) error {
 	var (
-		o  objectWithCondition
-		ok bool
+		o           objectWithCondition
+		ok          bool
+		cacheClient *lru.Cache
 	)
 	if o, ok = object.(objectWithCondition); !ok {
-		return errors.New("Input object does not satisfy objectWithCondition")
+		return errors.New("input object does not satisfy objectWithCondition")
 	}
 	logger := logging.FromContext(ctx)
 	ceClient := Get(ctx)
 	if ceClient == nil {
-		return errors.New("No cloud events client found in the context")
+		return errors.New("no cloud events client found in the context")
 	}
-	event, err := eventForObjectWithCondition(o)
+	event, err := EventForObjectWithCondition(ctx, o)
 	if err != nil {
 		return err
 	}
-	// Events for Runs require a cache of events that have been sent
-	cacheClient := cache.Get(ctx)
-	_, isRun := object.(*v1alpha1.Run)
+	// Events for CustomRuns require a cache of events that have been sent
 	_, isCustomRun := object.(*v1beta1.CustomRun)
+	if isCustomRun {
+		cacheClient = cache.Get(ctx)
+	}
 
 	wasIn := make(chan error)
 
@@ -152,10 +111,10 @@ func SendCloudEventWithRetries(ctx context.Context, object runtime.Object) error
 		wasIn <- nil
 		logger.Debugf("Sending cloudevent of type %q", event.Type())
 		// In case of Run event, check cache if cloudevent is already sent
-		if isRun || isCustomRun {
+		if isCustomRun {
 			cloudEventSent, err := cache.ContainsOrAddCloudEvent(cacheClient, event)
 			if err != nil {
-				logger.Errorf("error while checking cache: %s", err)
+				logger.Errorf("Error while checking cache: %s", err)
 			}
 			if cloudEventSent {
 				logger.Infof("cloudevent %v already sent", event)

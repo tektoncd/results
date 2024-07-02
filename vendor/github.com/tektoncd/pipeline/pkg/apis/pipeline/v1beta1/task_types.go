@@ -18,34 +18,25 @@ package v1beta1
 
 import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/internal/checksum"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/kmeta"
 )
 
-const (
-	// TaskRunResultType default task run result value
-	TaskRunResultType ResultType = 1
-	// PipelineResourceResultType default pipeline result value
-	PipelineResourceResultType = 2
-	// InternalTektonResultType default internal tekton result value
-	InternalTektonResultType = 3
-	// UnknownResultType default unknown result type value
-	UnknownResultType = 10
-)
-
 // +genclient
 // +genclient:noStatus
 // +genreconciler:krshapedlogic=false
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
 
 // Task represents a collection of sequential steps that are run as part of a
 // Pipeline using a set of inputs and producing a set of outputs. Tasks execute
 // when TaskRuns are created that provide the input parameters and resources and
 // output resources the Task requires.
 //
-// +k8s:openapi-gen=true
+// Deprecated: Please use v1.Task instead.
 type Task struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -78,11 +69,34 @@ func (*Task) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind(pipeline.TaskControllerName)
 }
 
+// Checksum computes the sha256 checksum of the task object.
+// Prior to computing the checksum, it performs some preprocessing on the
+// metadata of the object where it removes system provided annotations.
+// Only the name, namespace, generateName, user-provided labels and annotations
+// and the taskSpec are included for the checksum computation.
+func (t *Task) Checksum() ([]byte, error) {
+	objectMeta := checksum.PrepareObjectMeta(t)
+	preprocessedTask := Task{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "tekton.dev/v1beta1",
+			Kind:       "Task"},
+		ObjectMeta: objectMeta,
+		Spec:       t.Spec,
+	}
+	sha256Checksum, err := checksum.ComputeSha256Checksum(preprocessedTask)
+	if err != nil {
+		return nil, err
+	}
+	return sha256Checksum, nil
+}
+
 // TaskSpec defines the desired state of Task.
 type TaskSpec struct {
 	// Resources is a list input and output resource to run the task
 	// Resources are represented in TaskRuns as bindings to instances of
 	// PipelineResources.
+	//
+	// Deprecated: Unused, preserved only for backwards compatibility
 	// +optional
 	Resources *TaskResources `json:"resources,omitempty"`
 
@@ -91,7 +105,12 @@ type TaskSpec struct {
 	// value.
 	// +optional
 	// +listType=atomic
-	Params []ParamSpec `json:"params,omitempty"`
+	Params ParamSpecs `json:"params,omitempty"`
+
+	// DisplayName is a user-facing name of the task that may be
+	// used to populate a UI.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
 
 	// Description is a user-facing description of the task that may be
 	// used to populate a UI.
@@ -133,4 +152,42 @@ type TaskList struct {
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Task `json:"items"`
+}
+
+// HasDeprecatedFields returns true if the TaskSpec has deprecated field specified.
+func (ts *TaskSpec) HasDeprecatedFields() bool {
+	if ts == nil {
+		return false
+	}
+	if len(ts.Steps) > 0 {
+		for _, s := range ts.Steps {
+			if len(s.DeprecatedPorts) > 0 ||
+				s.DeprecatedLivenessProbe != nil ||
+				s.DeprecatedReadinessProbe != nil ||
+				s.DeprecatedStartupProbe != nil ||
+				s.DeprecatedLifecycle != nil ||
+				s.DeprecatedTerminationMessagePath != "" ||
+				s.DeprecatedTerminationMessagePolicy != "" ||
+				s.DeprecatedStdin ||
+				s.DeprecatedStdinOnce ||
+				s.DeprecatedTTY {
+				return true
+			}
+		}
+	}
+	if ts.StepTemplate != nil {
+		if len(ts.StepTemplate.DeprecatedPorts) > 0 ||
+			ts.StepTemplate.DeprecatedName != "" ||
+			ts.StepTemplate.DeprecatedReadinessProbe != nil ||
+			ts.StepTemplate.DeprecatedStartupProbe != nil ||
+			ts.StepTemplate.DeprecatedLifecycle != nil ||
+			ts.StepTemplate.DeprecatedTerminationMessagePath != "" ||
+			ts.StepTemplate.DeprecatedTerminationMessagePolicy != "" ||
+			ts.StepTemplate.DeprecatedStdin ||
+			ts.StepTemplate.DeprecatedStdinOnce ||
+			ts.StepTemplate.DeprecatedTTY {
+			return true
+		}
+	}
+	return false
 }
