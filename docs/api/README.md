@@ -22,7 +22,7 @@ is used to control access to API Resources.
 The following attributes are recognized:
 
 | Attribute | Values                            |
-| --------- | --------------------------------- |
+|-----------|-----------------------------------|
 | apiGroups | results.tekton.dev                |
 | resources | results, records                  |
 | verbs     | create, get, list, update, delete |
@@ -47,7 +47,7 @@ As a convenience, the following [ClusterRoles] are defined for common access
 patterns:
 
 | ClusterRole              | Description                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------ |
+|--------------------------|--------------------------------------------------------------------------------|
 | tekton-results-readonly  | Read only access to all Result API resources                                   |
 | tekton-results-readwrite | Includes `tekton-results-readonly` + Create or update all Result API resources |
 | tekton-results-admin     | Includes `tekton-results-readwrite` + Allows deletion of Result API Resources  |
@@ -193,7 +193,7 @@ a small subset of CEL useful for filtering Results and Records.
 Here is the mapping between the Result JSON/protobuf fields and the CEL references:
 
 | Field         | CEL Reference Field | Description                                       |
-| ------------- | ------------------- | ------------------------------------------------- |
+|---------------|---------------------|---------------------------------------------------|
 | -             | `parent`            | Parent (workspace/namespace) name for the Result. |
 | `uid`         | `uid`               | Unique identifier for the Result.                 |
 | `annotations` | `annotations`       | Annotations added to the Result.                  |
@@ -215,7 +215,7 @@ without quotes (`'` or `"`). Possible values are:
 Here is the mapping between the Record JSON/protobuf fields and the CEL references:
 
 | Field        | CEL Reference Field | Description                                                                                                           |
-| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------- |
+|--------------|---------------------|-----------------------------------------------------------------------------------------------------------------------|
 | `name`       | `name`              | Record name                                                                                                           |
 | `data.type`  | `data_type`         | It is the type identifier of the Record data. See below for values.                                                   |
 | `data.value` | `data`              | It is the data contained by the Record. In JSON and protobuf response, it is represented as a base 64 encoded string. |
@@ -405,7 +405,7 @@ You can now access the required fields using the dot notation and considering `d
 as the parent object. For example:
 
 | Purpose                                                 | Filter Expression                      |
-| ------------------------------------------------------- | -------------------------------------- |
+|---------------------------------------------------------|----------------------------------------|
 | Name of the PipelineRun                                 | `data.metadata.name`                   |
 | Name of the ServiceAccount used in the PipelineRun      | `data.spec.serviceAccountName`         |
 | Name of the first task of the PipelineRun from its spec | `data.spec.pipelineSpec.tasks[0].name` |
@@ -449,7 +449,7 @@ contained in the `data` field of a Log.
 Here are some examples of accessing the fields of the Log using the dot notation:
 
 | Purpose                               | Filter Expression         |
-| ------------------------------------- | ------------------------- |
+|---------------------------------------|---------------------------|
 | Type of the Run that created this Log | `data.spec.resource.kind` |
 | Size of the Log                       | `data.status.size`        |
 | Name of the Run that created this Log | `data.spec.resource.name` |
@@ -469,7 +469,7 @@ all of them in the tables above. Other than that, you can access any field of th
 JSON/protobuf object using the dot notation. See the examples in the tables below.
 
 | Purpose                                                       | Filter Expression                    | Description                                                          |
-| ------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
+|---------------------------------------------------------------|--------------------------------------|----------------------------------------------------------------------|
 | Status of a Result                                            | `summary.status`                     | The `status` of a Result is a child of the `summary`` object.        |
 | Data type of Record                                           | `data_type`                          | `data_type` is a defined alias for `data.type` for a Record.         |
 | Data type of Result                                           | `summary.type`                       | The `type` of a Result is a child of `summary``.                     |
@@ -481,9 +481,9 @@ Now that we can access the fields, you can create a filter using operators. Here
 is a list of operators that can be used in CEL expressions:
 
 | Operator                | Description          | Example                                                                                        |
-| ----------------------- | -------------------- | ---------------------------------------------------------------------------------------------- |
+|-------------------------|----------------------|------------------------------------------------------------------------------------------------|
 | `==`                    | Equal to             | `data_type == "tekton.dev/v1beta1.TaskRun"`                                                    |
-| `!=`                    | Not equal to         | `summary.status != SUCCESS`                                                                  |
+| `!=`                    | Not equal to         | `summary.status != SUCCESS`                                                                    |
 | `IN`                    | In a list            | `data.metadata.name in ['hello', 'foo', 'bar']`                                                |
 | `!`                     | Negation             | `!(data.status.name in ['hello', 'foo', 'bar'])`                                               |
 | `&&`                    | Logical AND          | `data_type == "tekton.dev/v1beta1.TaskRun" && name.startsWith("foo/results/bar")`              |
@@ -498,7 +498,7 @@ list of functions that can be used in CEL expressions. The string in the functio
 argument shows the expected type of the argument:
 
 | Functions                                             | Description                                                       | Example                                                        |
-| ----------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+|-------------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------|
 | `startsWith('string')`                                | Checks if a string starts with a prefix                           | `data.metadata.name.startsWith("foo")`                         |
 | `endsWith('string')`                                  | Checks if a string ends with a suffix                             | `data.metadata.name.endsWith("bar")`                           |
 | `contains('string')`                                  | Checks if a field is present or an object contains a key or value | `data.metadata.annotations.contains('bar')`                    |
@@ -556,21 +556,48 @@ everyday use. Keep in mind that not all of these filters are available for Resul
 You must be providing the correct filter for the correct resource.
 
 | Purpose                                                                                                   | Filter Expression                                                                                                  |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+|-----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | Get all Records where the TaskRun/PipelineRun name is `hello`                                             | `data.metadata.name == 'hello'`                                                                                    |
 | Get all Records of TaskRuns which are part of the PipelineRun 'foo'                                       | `data.metadata.labels['tekton.dev/pipelineRun'] == 'foo'`                                                          |
 | Get all the Records of the TaskRun/PipelineRun which are part of Pipeline 'bar'                           | `data.metadata.labels['tekton.dev/pipeline'] == 'bar'`                                                             |
 | Same query as above, but I only want the PipelineRuns                                                     | `data.metadata.labels['tekton.dev/pipeline'] == 'bar' && data_type == 'PIPELINE_RUN'`                              |
 | Get the Records of the TaskRuns whose name starts with `hello`                                            | `data.metadata.name.startsWith('hello')&&dat_type==TASK_RUN`                                                       |
-| Get all the Results of Successful TaskRuns                                                                | `summary.status == SUCCESS && summary.type == 'TASK_RUN'`                                                        |
+| Get all the Results of Successful TaskRuns                                                                | `summary.status == SUCCESS && summary.type == 'TASK_RUN'`                                                          |
 | Get the Records of the PipelineRuns whose completion time is greater than 5 minutes                       | `data.status.completionTime - data.status.startTime > duration('5m') && data_type == 'PIPELINE_RUN'`               |
 | Get the Records of the Runs which completed today (let's assume today is 7th)                             | `data.status.completionTime.getDate() == 7`                                                                        |
 | Get the Records of the PipelineRuns which has annotations containing `bar`                                | `data.metadata.annotations.contains('bar') && data_type == 'PIPELINE_RUN'`                                         |
 | Get the Records of the PipelineRuns which has annotations containing `bar` and the name starts with `foo` | `data.metadata.annotations.contains('bar') && data.metadata.name.startsWith('foo') && data_type == 'PIPELINE_RUN'` |
 | Get the Results containing the annotations `foo` and `bar`                                                | `summary.annotations.contains('foo') && summary.annotations.contains('bar')`                                       |
-| Get the Results of all the Runs that failed                                                               | `!(summary.status == SUCCESS)`                                                                                   |
+| Get the Results of all the Runs that failed                                                               | `!(summary.status == SUCCESS)`                                                                                     |
 | Get all the Records of the Runs that failed                                                               | `!(data.status.conditions[0].status == 'True')`                                                                    |
 | Get all the Records of the PipelineRuns which had 3 or more tasks                                         | `size(data.status.pipelineSpec.tasks) >= 3 && data_type == 'PIPELINE_RUN'`                                         |
+
+## Filtering Response
+
+Google's [AIP-157](https://google.aip.dev/157) is implemented in the all the APIs and allows the response to be filtered according to user need.
+
+### How to use
+A URL parameter called `fields`, containing the paths to the items required in the response needs to be sent along with the request. For gRPC requests this should be sent in the **header**. <br>
+The response will then contain only the elements specified by the paths. Leaving the field blank or not sending the header will return the whole response. <br>
+
+To enable this feature add `PartialResponse=true` in the `FEATURE_GATES` section in the config. 
+
+```fields: records.name, records.data.value.metadata.name```<br><br>
+This will only return `name` and `metadata` in the response. If a path is not valid in the proto, it will be ignored. If a path is not valid in a JSON field, the path will appear in the response with a `null` value. <br>
+Filtering a JSON array is **NOT** supported at the moment.
+
+### Examples
+```shell
+curl -kG \
+--data-urlencode "fields=records.name, records.data.value.metadata" \
+http://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/default/results/-/records
+```
+```shell
+grpcurl --insecure \
+-H 'fields: records.name, records.data.value.metadata' \
+-d '{"parent": "default/results/-"}' \
+results.tekton.dev:8080 tekton.results.v1alpha2.Results/ListRecords
+```
 
 ## Ordering
 
@@ -587,8 +614,8 @@ Multiple fields can be specified with a comma-separated list. Examples:
 
 Fields supported in `order_by`:
 
-| Field Name     |
-| -------------- |
+| Field Name    |
+|---------------|
 | `create_time` |
 | `update_time` |
 
@@ -605,7 +632,7 @@ query parameter to fetch the next page. Both the queries are independent and can
 be used individually or together.
 
 | Name         | Description                                     |
-| ------------ | ----------------------------------------------- |
+|--------------|-------------------------------------------------|
 | `page_size`  | The number of objects to fetch in the response. |
 | `page_token` | Token of the page to be fetched.                |
 
