@@ -50,9 +50,22 @@ type Reader interface {
 	As(interface{}) bool
 }
 
+// Downloader has an optional extra method for readers.
+// It is similar to io.WriteTo, but without the count of bytes returned.
+type Downloader interface {
+	// Download is similar to io.WriteTo, but without the count of bytes returned.
+	Download(w io.Writer) error
+}
+
 // Writer writes an object to the blob.
 type Writer interface {
 	io.WriteCloser
+}
+
+// Uploader has an optional extra method for writers.
+type Uploader interface {
+	// Upload is similar to io.ReadFrom, but without the count of bytes returned.
+	Upload(r io.Reader) error
 }
 
 // WriterOptions controls behaviors of Writer.
@@ -87,6 +100,10 @@ type WriterOptions struct {
 	// Metadata holds key/value strings to be associated with the blob.
 	// Keys are guaranteed to be non-empty and lowercased.
 	Metadata map[string]string
+	// When true, the driver should attempt to disable any automatic
+	// content-type detection that the provider applies on writes with an
+	// empty ContentType.
+	DisableContentTypeDetection bool
 	// BeforeWrite is a callback that must be called exactly once before
 	// any data is written, unless NewTypedWriter returns an error, in
 	// which case it should not be called.
@@ -263,6 +280,11 @@ type Bucket interface {
 	// exist, NewRangeReader must return an error for which ErrorCode returns
 	// gcerrors.NotFound.
 	// opts is guaranteed to be non-nil.
+	//
+	// The returned Reader *may* also implement Downloader if the underlying
+	// implementation can take advantage of that. The Download call is guaranteed
+	// to be the only call to the Reader. For such readers, offset will always
+	// be 0 and length will always be -1.
 	NewRangeReader(ctx context.Context, key string, offset, length int64, opts *ReaderOptions) (Reader, error)
 
 	// NewTypedWriter returns Writer that writes to an object associated with key.
@@ -272,13 +294,17 @@ type Bucket interface {
 	// The object may not be available (and any previous object will remain)
 	// until Close has been called.
 	//
-	// contentType sets the MIME type of the object to be written. It must not be
-	// empty. opts is guaranteed to be non-nil.
+	// contentType sets the MIME type of the object to be written.
+	// opts is guaranteed to be non-nil.
 	//
 	// The caller must call Close on the returned Writer when done writing.
 	//
 	// Implementations should abort an ongoing write if ctx is later canceled,
 	// and do any necessary cleanup in Close. Close should then return ctx.Err().
+	//
+	// The returned Writer *may* also implement Uploader if the underlying
+	// implementation can take advantage of that. The Upload call is guaranteed
+	// to be the only non-Close call to the Writer..
 	NewTypedWriter(ctx context.Context, key, contentType string, opts *WriterOptions) (Writer, error)
 
 	// Copy copies the object associated with srcKey to dstKey.

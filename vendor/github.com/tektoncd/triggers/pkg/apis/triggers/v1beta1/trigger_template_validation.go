@@ -20,28 +20,33 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/tektoncd/pipeline/pkg/apis/validate"
-	"github.com/tektoncd/triggers/pkg/apis/config"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/webhook/resourcesemantics"
 )
 
 // paramsRegexp captures TriggerTemplate parameter names $(tt.params.NAME)
 var paramsRegexp = regexp.MustCompile(`\$\(tt.params.(?P<var>[_a-zA-Z][_a-zA-Z0-9.-]*)\)`)
 
+var _ resourcesemantics.VerbLimited = (*TriggerTemplate)(nil)
+
+// SupportedVerbs returns the operations that validation should be called for
+func (t *TriggerTemplate) SupportedVerbs() []admissionregistrationv1.OperationType {
+	return []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
+}
+
 // Validate validates a TriggerTemplate.
 func (t *TriggerTemplate) Validate(ctx context.Context) *apis.FieldError {
-	if apis.IsInDelete(ctx) {
-		return nil
-	}
-
 	errs := validate.ObjectMetadata(t.GetObjectMeta()).ViaField("metadata")
 	return errs.Also(t.Spec.validate(ctx).ViaField("spec"))
 }
+
+// revive:disable:unused-parameter
 
 // Validate validates a TriggerTemplateSpec.
 func (s *TriggerTemplateSpec) validate(ctx context.Context) (errs *apis.FieldError) {
@@ -58,27 +63,14 @@ func (s *TriggerTemplateSpec) validate(ctx context.Context) (errs *apis.FieldErr
 
 func validateResourceTemplates(templates []TriggerResourceTemplate) (errs *apis.FieldError) {
 	for i, trt := range templates {
-		if err := config.EnsureAllowedType(trt.RawExtension); err != nil {
-			if runtime.IsMissingVersion(err) {
-				errs = errs.Also(apis.ErrMissingField(fmt.Sprintf("[%d].apiVersion", i)))
-			}
-			if runtime.IsMissingKind(err) {
-				errs = errs.Also(apis.ErrMissingField(fmt.Sprintf("[%d].kind", i)))
-			}
-			if runtime.IsNotRegisteredError(err) {
-				errStr := err.Error()
-				if inSchemeIdx := strings.Index(errStr, " in scheme"); inSchemeIdx > -1 {
-					// not registered error messages currently include the scheme variable location in your file,
-					// which can of course change if you move the location of the variable in your file.
-					// So will filter it out here to facilitate our unit testing, as the scheme location is not
-					// useful for our purposes.
-					errStr = errStr[:inSchemeIdx]
-				}
-				errs = errs.Also(apis.ErrInvalidValue(
-					errStr,
-					fmt.Sprintf("[%d]", i)))
-			}
-			// we allow structural errors because of param substitution
+		data := new(unstructured.Unstructured)
+		if err := data.UnmarshalJSON(trt.Raw); err != nil {
+			// a missing kind makes the unmarshalling throw an error
+			errs = errs.Also(apis.ErrMissingField(fmt.Sprintf("[%d].kind", i)))
+		}
+
+		if data.GetAPIVersion() == "" {
+			errs = errs.Also(apis.ErrMissingField(fmt.Sprintf("[%d].apiVersion", i)))
 		}
 	}
 	return errs
