@@ -979,6 +979,15 @@ github.com/tektoncd/triggers/pkg/client/clientset/versioned/typed/triggers/v1bet
 # github.com/theupdateframework/go-tuf v0.5.2-0.20220930112810-3890c1e7ace4
 ## explicit; go 1.18
 github.com/theupdateframework/go-tuf/encrypted
+# github.com/tidwall/gjson v1.17.1
+## explicit; go 1.12
+github.com/tidwall/gjson
+# github.com/tidwall/match v1.1.1
+## explicit; go 1.15
+github.com/tidwall/match
+# github.com/tidwall/pretty v1.2.0
+## explicit; go 1.16
+github.com/tidwall/pretty
 # github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399
 ## explicit
 github.com/titanous/rocacheck
