@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
 	"github.com/tektoncd/pipeline/pkg/pod"
@@ -160,9 +161,9 @@ func Status(ca apis.ConditionAccessor) rpb.RecordSummary_Status {
 	}
 
 	switch c.Reason {
-	case pod.ReasonCouldntGetTask, pod.ReasonFailedResolution, pod.ReasonFailedValidation, pod.ReasonExceededResourceQuota, pod.ReasonExceededNodeResources, pod.ReasonCreateContainerConfigError, pod.ReasonPodCreationFailed:
+	case string(v1.PipelineRunReasonCouldntGetTask), pod.ReasonFailedResolution, pod.ReasonFailedValidation, pod.ReasonExceededResourceQuota, pod.ReasonExceededNodeResources, pod.ReasonCreateContainerConfigError, pod.ReasonPodCreationFailed:
 		return rpb.RecordSummary_FAILURE
-	case pod.ReasonPending:
+	case string(v1beta1.PipelineRunReasonPending):
 		return rpb.RecordSummary_UNKNOWN
 	}
 	return rpb.RecordSummary_UNKNOWN
