@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
+	"github.com/tektoncd/results/pkg/converter"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc/codes"
@@ -138,6 +139,14 @@ func main() {
 			log.Fatalf("Error getting database configuration for updating max open connections: %s", err.Error())
 		}
 		sqlDB.SetMaxIdleConns(maxIdle)
+	}
+
+	if serverConfig.CONVERTER_ENABLE {
+		log.Info("Starting api converter")
+		go func() {
+			conv := converter.New(log, db, serverConfig.CONVERTER_DB_LIMIT)
+			conv.Start(context.Background())
+		}()
 	}
 
 	// Set grpc worker pool
