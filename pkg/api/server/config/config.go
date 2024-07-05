@@ -48,6 +48,9 @@ type Config struct {
 	S3_ACCESS_KEY_ID      string `mapstructure:"S3_ACCESS_KEY_ID"`
 	S3_SECRET_ACCESS_KEY  string `mapstructure:"S3_SECRET_ACCESS_KEY"`
 	S3_MULTI_PART_SIZE    int64  `mapstructure:"S3_MULTI_PART_SIZE"`
+
+	CONVERTER_ENABLE   bool `mapstructure:"CONVERTER_ENABLE"`
+	CONVERTER_DB_LIMIT int  `mapstructure:"CONVERTER_DB_LIMIT"`
 }
 
 func Get() *Config {
