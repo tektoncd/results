@@ -67,4 +67,4 @@ The flag `check_owner` allows additional check before deleting a resource. If se
 
 ## Supported version of TaskRun and PipelineRun CR
 
-Results stores PipelineRun and TaskRun as v1. If there are older records, it's possible that they are stored as v1beta1. An ability to convert older v1beta1 records to v1 will be added later on.
+Results stores PipelineRun and TaskRun as v1. If there are older records, it's possible that they are stored as v1beta1. API server can be configured to start a converter during initialisation.
