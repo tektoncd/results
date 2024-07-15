@@ -144,7 +144,7 @@ results {
   }
   summary {
     record: "default/results/7afa9067-5001-4d93-b715-49854a770412/records/7afa9067-5001-4d93-b715-49854a770412"
-    type: "tekton.dev/v1beta1.TaskRun"
+    type: "tekton.dev/v1.TaskRun"
     end_time {
       seconds: 1677742039
     }
@@ -174,7 +174,7 @@ results {
   }
   summary {
     record: "default/results/c360def0-d77e-4a3f-a1b0-5b0753e7d5af/records/c360def0-d77e-4a3f-a1b0-5b0753e7d5af"
-    type: "tekton.dev/v1beta1.TaskRun"
+    type: "tekton.dev/v1.TaskRun"
     end_time {
       seconds: 1677742090
     }
@@ -223,7 +223,7 @@ This particular request lists the results under default namespace.
       "etag": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c-1677742014191114634",
       "summary": {
         "record": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403/records/640d1af3-9c75-4167-8167-4d8e4f39d403",
-        "type": "tekton.dev/v1beta1.TaskRun",
+        "type": "tekton.dev/v1.TaskRun",
         "startTime": null,
         "endTime": "2023-03-02T07:26:54Z",
         "status": "SUCCESS",
@@ -242,7 +242,7 @@ This particular request lists the results under default namespace.
       "etag": "9514f318-9329-485b-871c-77a4a6904891-1677742090308632274",
       "summary": {
         "record": "default/results/c360def0-d77e-4a3f-a1b0-5b0753e7d5af/records/c360def0-d77e-4a3f-a1b0-5b0753e7d5af",
-        "type": "tekton.dev/v1beta1.TaskRun",
+        "type": "tekton.dev/v1.TaskRun",
         "startTime": null,
         "endTime": "2023-03-02T07:28:10Z",
         "status": "SUCCESS",
