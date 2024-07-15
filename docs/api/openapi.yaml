@@ -365,12 +365,14 @@ components:
         used as a type to hint to determine how to unmarshal values. Limited to
         128 characters. Currently RecordType can be one of the following:
 
-        * PipelineRun Record: `tekton.dev/v1beta1.PipelineRun`
+        * PipelineRun Record: `tekton.dev/v1beta1.PipelineRun`(older records) or `tekton.dev/v1.PipelineRun`
 
-        * TaskRun Record: `tekton.dev/v1beta1.TaskRun`
+        * TaskRun Record: `tekton.dev/v1beta1.TaskRun`(older records)  or `tekton.dev/v1.TaskRun`
 
-        * Log Record: `results.tekton.dev/v1alpha2.Log`
+        * Log Record: `results.tekton.dev/v1alpha2.Log`(older records) or `results.tekton.dev/v1alpha3.Log`
       enum:
+        - tekton.dev/v1.PipelineRun
+        - tekton.dev/v1.TaskRun
         - tekton.dev/v1beta1.PipelineRun
         - tekton.dev/v1beta1.TaskRun
         - results.tekton.dev/v1alpha2.Log

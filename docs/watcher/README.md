@@ -14,11 +14,12 @@ certain Tekton types and automatically creates/updates their data in the Result
 API.
 
 ## Supported Types
-
 The Watcher currently supports the following types:
 
 - `tekton.dev/v1beta1 TaskRun`
 - `tekton.dev/v1beta1 PipelineRun`
+- `tekton.dev/v1 TaskRun`
+- `tekton.dev/v1 PipelineRun`
 
 ## Result Grouping
 
@@ -47,7 +48,7 @@ Users and/or integrators can pass arbitrary keys/values to Results by adding spe
 Once the Watcher detects those annotations in the observed object, it passes the keys/values to the respective fields of the underlying Result. Those annotations can be used to store relevant metadata (e.g. the Git commit SHA that triggered a PipelineRun) into Results and may be used later to retrieve the objects from the API server. For instance:
 
 ```yaml
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   generateName: hello-run-
@@ -63,3 +64,7 @@ metadata:
 When the command line flag is `completed_run_grace_period` is set to any value other than `0`, resources will be deleted after the specified duration in the flag, calculated from the time of completion. If the value is < `0`, Runs will be deleted immediately after completion or failure.
 
 The flag `check_owner` allows additional check before deleting a resource. If set `true`, resources with any owner references set will not be deleted. When the flag is `false`, owner references will be not be checked before deletion. 
+
+## Supported version of TaskRun and PipelineRun CR
+
+Results stores PipelineRun and TaskRun as v1. If there are older records, it's possible that they are stored as v1beta1. An ability to convert older v1beta1 records to v1 will be added later on.
