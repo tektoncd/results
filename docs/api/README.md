@@ -107,7 +107,7 @@ is used to refine access to the APIs.
 
   ```yaml
   apiVersion: rbac.authorization.k8s.io/v1
-  kind: RoleBinding
+  kind: ClusterRoleBinding
   metadata:
     name: tekton-results-user
     namespace: user-namespace
@@ -117,7 +117,7 @@ is used to refine access to the APIs.
       namespace: user-namespace
   roleRef:
     apiGroup: rbac.authorization.k8s.io
-    kind: Role
+    kind: ClusterRole
     name: tekton-results-readonly
   ```
 
