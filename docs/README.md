@@ -40,6 +40,7 @@ Tekton Results is composed of 2 main components:
   [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
 - A [controller to watch and report](watcher/) TaskRun and PipelineRun updates
   to the API server.
+- A [retention policy agent](retention-policy-agent/) An agent which deletes older data from DB.
 
 ### Life of a Result
 
