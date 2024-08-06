@@ -16,12 +16,14 @@ resources:
 - 100-api-serviceaccount.yaml
 - 100-watcher-serviceaccount.yaml
 - api.yaml
+- retention-policy-agent.yaml
 - default-clusterroles.yaml
 - watcher.yaml
 - config-info.yaml
 - config-leader-election.yaml
 - config-logging.yaml
 - config-observability.yaml
+- config-results-retention-policy.yaml
 configMapGenerator:
   # Create a ConfigMap containing the API configs.
   - name: api-config
