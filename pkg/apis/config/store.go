@@ -40,7 +40,8 @@ func NewStore(logger configmap.Logger, onAfterStore ...func(name string, value a
 			"results",
 			logger,
 			configmap.Constructors{
-				GetMetricsConfigName(): NewMetricsFromConfigMap,
+				GetMetricsConfigName():         NewMetricsFromConfigMap,
+				GetRetentionPolicyConfigName(): NewRetentionPolicyFromConfigMap,
 			},
 			onAfterStore...,
 		),
