@@ -11,6 +11,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/cli/config"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -198,6 +199,63 @@ func (f *Factory) certs() (*x509.CertPool, error) {
 		}
 	}
 	return certs, nil
+}
+
+// PluginLogsClient creates a new Results gRPC client for the given factory settings.
+func (f *Factory) PluginLogsClient(ctx context.Context, overrideAPIAddr string) (pb3.LogsClient, error) {
+	token, err := f.token(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var creds credentials.TransportCredentials
+	if f.cfg.Insecure {
+		creds = credentials.NewTLS(&tls.Config{
+			//nolint:gosec // needed for --insecure flag
+			InsecureSkipVerify: true,
+		})
+	} else {
+		certs, err := f.certs()
+		if err != nil {
+			return nil, err
+		}
+		creds = credentials.NewClientTLSFromCert(certs, f.cfg.SSL.ServerNameOverride)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	addr := f.cfg.Address
+	if overrideAPIAddr != "" {
+		addr = overrideAPIAddr
+	}
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithBlock(), //nolint:staticcheck
+		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{
+			TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token}),
+		})),
+	)
+	if err != nil {
+		fmt.Printf("Dial: %v\n", err)
+		return nil, err
+	}
+	return pb3.NewLogsClient(conn), nil
+}
+
+// DefaultPluginLogsClient creates a new default logs client.
+func DefaultPluginLogsClient(ctx context.Context, overrideAPIAddr string) (pb3.LogsClient, error) {
+	f, err := NewDefaultFactory()
+
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := f.PluginLogsClient(ctx, overrideAPIAddr)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func (f *Factory) token(ctx context.Context) (string, error) {
