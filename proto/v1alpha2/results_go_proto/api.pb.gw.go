@@ -907,6 +907,7 @@ func local_request_Logs_DeleteLog_0(ctx context.Context, marshaler runtime.Marsh
 // UnaryRPC     :call ResultsServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterResultsHandlerFromEndpoint instead.
+// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ResultsServer) error {
 
 	mux.Handle("POST", pattern_Results_CreateResult_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1191,6 +1192,7 @@ func RegisterResultsHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 // UnaryRPC     :call LogsServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterLogsHandlerFromEndpoint instead.
+// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterLogsHandlerServer(ctx context.Context, mux *runtime.ServeMux, server LogsServer) error {
 
 	mux.Handle("GET", pattern_Logs_GetLog_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1288,7 +1290,7 @@ func RegisterResultsHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "ResultsClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "ResultsClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "ResultsClient" to call the correct interceptors.
+// "ResultsClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterResultsHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ResultsClient) error {
 
 	mux.Handle("POST", pattern_Results_CreateResult_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -1619,7 +1621,7 @@ func RegisterLogsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "LogsClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "LogsClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "LogsClient" to call the correct interceptors.
+// "LogsClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterLogsHandlerClient(ctx context.Context, mux *runtime.ServeMux, client LogsClient) error {
 
 	mux.Handle("GET", pattern_Logs_GetLog_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
