@@ -51,6 +51,14 @@ type Config struct {
 
 	CONVERTER_ENABLE   bool `mapstructure:"CONVERTER_ENABLE"`
 	CONVERTER_DB_LIMIT int  `mapstructure:"CONVERTER_DB_LIMIT"`
+
+	LOGGING_PLUGIN_API_URL                  string `mapstructure:"LOGGING_PLUGIN_API_URL"`
+	LOGGING_PLUGIN_NAMESPACE_KEY            string `mapstructure:"LOGGING_PLUGIN_NAMESPACE_KEY"`
+	LOGGING_PLUGIN_STATIC_LABELS            string `mapstructure:"LOGGING_PLUGIN_STATIC_LABELS"`
+	LOGGING_PLUGIN_TOKEN_PATH               string `mapstructure:"LOGGING_PLUGIN_TOKEN_PATH"`
+	LOGGING_PLUGIN_PROXY_PATH               string `mapstructure:"LOGGING_PLUGIN_PROXY_PATH"`
+	LOGGING_PLUGIN_CA_CERT                  string `mapstructure:"LOGGING_PLUGIN_CA_CERT"`
+	LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE bool   `mapstructure:"LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE"`
 }
 
 func Get() *Config {
@@ -72,5 +80,6 @@ func Get() *Config {
 	if err := viper.Unmarshal(&config); err != nil {
 		log.Fatal("Cannot load config:", err)
 	}
+
 	return &config
 }

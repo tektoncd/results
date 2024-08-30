@@ -16,11 +16,22 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"go.uber.org/zap"
+
+	cm "github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 
 	"github.com/google/uuid"
 	cw "github.com/jonboulle/clockwork"
@@ -28,7 +39,12 @@ import (
 	model "github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"gorm.io/gorm"
+)
+
+const (
+	maxRetentionKey = "MAX_RETENTION"
 )
 
 var (
@@ -44,16 +60,32 @@ type getResultID func(ctx context.Context, parent, result string) (string, error
 type Server struct {
 	pb.UnimplementedResultsServer
 	pb.UnimplementedLogsServer
-	config     *config.Config
-	logger     *zap.SugaredLogger
-	env        *cel.Env
-	resultsEnv *cel.Env
-	recordsEnv *cel.Env
-	db         *gorm.DB
-	auth       auth.Checker
+	config          *config.Config
+	logger          *zap.SugaredLogger
+	env             *cel.Env
+	resultsEnv      *cel.Env
+	recordsEnv      *cel.Env
+	db              *gorm.DB
+	auth            auth.Checker
+	LogPluginServer *LogPluginServer
 
 	// testing.
 	getResultID getResultID
+}
+
+// LogPluginServer is the server for the log plugin server
+type LogPluginServer struct {
+	pb3.UnimplementedLogsServer
+
+	IsLogPluginEnabled bool
+	staticLabels       string
+	MaxRetention       time.Duration
+
+	config *config.Config
+	logger *zap.SugaredLogger
+	auth   auth.Checker
+	db     *gorm.DB
+	client *http.Client
 }
 
 // New set up environment for the api server
@@ -96,6 +128,10 @@ func New(config *config.Config, logger *zap.SugaredLogger, db *gorm.DB, opts ...
 		}
 	}
 
+	if err := srv.createLogPluginServer(); err != nil {
+		return nil, fmt.Errorf("failed to create log plugin server: %w", err)
+	}
+
 	return srv, nil
 }
 
@@ -113,4 +149,76 @@ func withGetResultID(f getResultID) Option {
 	return func(s *Server) {
 		s.getResultID = f
 	}
+}
+
+func (s *Server) createLogPluginServer() error {
+	s.LogPluginServer = &LogPluginServer{
+		config: s.config,
+		logger: s.logger,
+		auth:   s.auth,
+		db:     s.db,
+	}
+
+	s.logger.Infof("LOGS_TYPE: %s", strings.ToLower(s.config.LOGS_TYPE))
+	// If the logs type is not Loki, we don't need to set up the LogPluginServer
+	// In future, we can add support for other logging APIs and we will need to
+	// check the value of LOGS_TYPE in a switch statement.
+	if strings.ToLower(s.config.LOGS_TYPE) != string(v1alpha3.LokiLogType) {
+		return nil
+	}
+
+	s.logger.Info("Setting up LogPluginServer")
+
+	// Set the LogPluginServer to enabled because we are using Loki
+	s.LogPluginServer.IsLogPluginEnabled = true
+
+	labels := strings.Split(s.config.LOGGING_PLUGIN_STATIC_LABELS, ",")
+	for _, v := range labels {
+		label := strings.Split(v, "=")
+		if len(label) != 2 {
+			return fmt.Errorf("incorrect format for LOGGING_STATIC_LABELS: %s", v)
+		}
+		s.LogPluginServer.staticLabels += label[0] + `="` + label[1] + `",`
+	}
+
+	maxRetention := os.Getenv(maxRetentionKey)
+	v, err := strconv.Atoi(maxRetention)
+	if err != nil {
+		if maxRetention != "" {
+			s.logger.Fatalf("incorrect configuration for maxRetention: %s", err.Error())
+		}
+		s.logger.Infof("maxRetention is not set, using default value: %s", cm.DefaultMaxRetention)
+		s.LogPluginServer.MaxRetention = cm.DefaultMaxRetention
+	} else {
+		s.LogPluginServer.MaxRetention = time.Hour * 24 * time.Duration(v)
+	}
+
+	s.LogPluginServer.logger.Infof("Using max retention: %s", s.LogPluginServer.MaxRetention)
+
+	s.LogPluginServer.client = &http.Client{
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout:   5 * time.Minute,
+				KeepAlive: 10 * time.Minute,
+			}).Dial,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ResponseHeaderTimeout: 10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+
+	if s.config.LOGGING_PLUGIN_CA_CERT != "" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM([]byte(s.config.LOGGING_PLUGIN_CA_CERT))
+		// #nosec G402
+		s.LogPluginServer.client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{
+			RootCAs: caCertPool, //nolint:gosec  // needed when we have our own CA
+		}
+	} else if s.config.LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE {
+		s.LogPluginServer.client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec  // needed for skipping tls verification
+		}
+	}
+
+	return nil
 }

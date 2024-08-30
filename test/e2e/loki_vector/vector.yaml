@@ -1,0 +1,35 @@
+role: Agent
+customConfig:
+  data_dir: /vector-data-dir
+  api:
+    enabled: true
+    address: 127.0.0.1:8686
+    playground: false
+  sources:
+    kubernetes_logs:
+      type: kubernetes_logs
+      extra_label_selector: "app.kubernetes.io/managed-by=tekton-pipelines"
+    internal_metrics:
+      type: internal_metrics
+  transforms:
+    remap_app_logs:
+      type: remap
+      inputs: [kubernetes_logs]
+      source: |-
+        .log_type = "application"
+        .log_tekton = "application"
+        .kubernetes_namespace_name = .kubernetes.pod_namespace
+  sinks:
+    loki:
+      type: loki
+      out_of_order_action: "accept"
+      healthcheck:
+        enabled: false
+      inputs: ["remap_app_logs"]
+      endpoint: "http://loki.logging.svc.cluster.local:3100/"
+      encoding:
+        codec: json
+      labels:
+        log_type: "application"
+        kubernetes_namespace_name: >-
+          {{`{{ kubernetes.pod_namespace }}`}}
