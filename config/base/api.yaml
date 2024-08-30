@@ -46,6 +46,11 @@ spec:
                 secretKeyRef:
                   name: tekton-results-postgres
                   key: POSTGRES_PASSWORD
+            - name: MAX_RETENTION
+              valueFrom:
+                configMapKeyRef:
+                  name: config-results-retention-policy
+                  key: maxRetention
           volumeMounts:
             - name: config
               mountPath: /etc/tekton/results

@@ -57,6 +57,7 @@ import (
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	v1alpha3pb "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	_ "go.uber.org/automaxprocs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -233,8 +234,12 @@ func main() {
 	}
 	gs := grpc.NewServer(svrOpts...)
 	v1alpha2pb.RegisterResultsServer(gs, v1a2)
-	if serverConfig.LOGS_API {
+	if serverConfig.LOGS_API && !v1a2.LogPluginServer.IsLogPluginEnabled {
+		log.Info("Registering gRPC Log server endpoints for Logs v1alpha2 API")
 		v1alpha2pb.RegisterLogsServer(gs, v1a2)
+	} else if serverConfig.LOGS_API && v1a2.LogPluginServer.IsLogPluginEnabled {
+		log.Info("Registering gRPC server endpoints for Logs v1alpha3 API")
+		v1alpha3pb.RegisterLogsServer(gs, v1a2.LogPluginServer)
 	}
 
 	// Allow service reflection - required for grpc_cli ls to work.
@@ -253,9 +258,12 @@ func main() {
 	// Set up health checks.
 	hs := health.NewServer()
 	hs.SetServingStatus("tekton.results.v1alpha2.Results", healthpb.HealthCheckResponse_SERVING)
-	if serverConfig.LOGS_API {
+	if serverConfig.LOGS_API && !v1a2.LogPluginServer.IsLogPluginEnabled {
 		hs.SetServingStatus("tekton.results.v1alpha2.Logs", healthpb.HealthCheckResponse_SERVING)
+	} else if serverConfig.LOGS_API && v1a2.LogPluginServer.IsLogPluginEnabled {
+		hs.SetServingStatus("tekton.results.v1alpha3.Logs", healthpb.HealthCheckResponse_SERVING)
 	}
+
 	healthpb.RegisterHealthServer(gs, hs)
 
 	// Start prometheus metrics server
@@ -302,10 +310,17 @@ func main() {
 		log.Fatal("Error registering gRPC server endpoint for Results API: ", err)
 	}
 
-	if serverConfig.LOGS_API {
+	if serverConfig.LOGS_API && !v1a2.LogPluginServer.IsLogPluginEnabled {
+		log.Info("Registering server endpoints for Logs v1alpha2 API")
 		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
 		if err != nil {
-			log.Fatal("Error registering gRPC server endpoints for Logs API: ", err)
+			log.Fatal("Error registering gRPC server endpoints for Logs v1alpha2 API: ", err)
+		}
+	} else if serverConfig.LOGS_API && v1a2.LogPluginServer.IsLogPluginEnabled {
+		log.Info("Registering server endpoints for Logs v1alpha3 API")
+		err = v1alpha3pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
+		if err != nil {
+			log.Fatal("Error registering gRPC server endpoints for Logs v1alpha3 API: ", err)
 		}
 	}
 
