@@ -42,6 +42,9 @@ type Config struct {
 	Portforward bool
 	// Insecure determines whether to use insecure GRPC tls communication
 	Insecure bool
+
+	// v1alpha2
+	UseV1Alpha2 bool
 }
 
 // SSLConfig contains SSL configuration information.
@@ -116,6 +119,7 @@ func setConfig() error {
 
 	cfg.Portforward = viper.GetBool("portforward")
 	cfg.Insecure = viper.GetBool("insecure")
+	cfg.UseV1Alpha2 = viper.GetBool("v1alpha2")
 	return nil
 }
 

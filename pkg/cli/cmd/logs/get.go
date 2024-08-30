@@ -18,10 +18,15 @@ import (
 	"fmt"
 	"os"
 
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
+	grpc "google.golang.org/grpc"
+
 	"github.com/spf13/cobra"
+	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/flags"
 	"github.com/tektoncd/results/pkg/cli/format"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
 
 // GetLogCommand returns a cobra sub command that will fetch a log by name
@@ -34,9 +39,18 @@ func GetLogCommand(params *flags.Params) *cobra.Command {
 		Short: "Get Log by <log-name>",
 		Long:  "Get Log by <log-name>. <log-name> is typically of format <namespace>/results/<parent-run-uuid>/logs/<child-run-uuid>",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := params.LogsClient.GetLog(cmd.Context(), &pb.GetLogRequest{
-				Name: args[0],
-			})
+			var resp grpc.ServerStreamingClient[httpbody.HttpBody]
+			var err error
+
+			if config.GetConfig().UseV1Alpha2 {
+				resp, err = params.LogsClient.GetLog(cmd.Context(), &pb.GetLogRequest{
+					Name: args[0],
+				})
+			} else {
+				resp, err = params.PluginLogsClient.GetLog(cmd.Context(), &pb3.GetLogRequest{
+					Name: args[0],
+				})
+			}
 			if err != nil {
 				fmt.Printf("GetLog: %v\n", err)
 				return err

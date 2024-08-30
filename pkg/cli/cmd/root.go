@@ -69,6 +69,14 @@ func Root() *cobra.Command {
 
 			params.LogsClient = logClient
 
+			pluginLogsClient, err := client.DefaultPluginLogsClient(cmd.Context(), overrideAPIAdr)
+
+			if err != nil {
+				return err
+			}
+
+			params.PluginLogsClient = pluginLogsClient
+
 			return nil
 		},
 		PersistentPostRun: func(_ *cobra.Command, _ []string) {
@@ -87,6 +95,7 @@ func Root() *cobra.Command {
 	cmd.PersistentFlags().String("sa-ns", "", "ServiceAccount Namespace, if not given, it will be taken from current context")
 	cmd.PersistentFlags().Bool("portforward", true, "enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically")
 	cmd.PersistentFlags().Bool("insecure", false, "determines whether to run insecure GRPC tls request")
+	cmd.PersistentFlags().Bool("v1alpha2", false, "use v1alpha2 API for get log command")
 
 	cmd.AddCommand(ListCommand(params), records.Command(params), logs.Command(params))
 
