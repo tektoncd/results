@@ -38,7 +38,7 @@
 | S3_MULTI_PART_SIZE       | S3 Multi part size                                                                                                                | 5242880 (default)                                                                            |
 | GCS_BUCKET_NAME          | GCS Bucket Name                                                                                                                   | <GCS Bucket Name>                                                                            |
 | STORAGE_EMULATOR_HOST    | GCS Storage Emulator Server                                                                                                       | http://localhost:9004                                                                        |
-| CONVERTER_ENABLE         | Whether to start converter or v1beta1 TaskRun/PipelineRun records to v1                                                           | true                                                                                         |
+| CONVERTER_ENABLE         | Whether to start converter of v1beta1 TaskRun/PipelineRun records to v1                                                           | true                                                                                         |
 | CONVERTER_DB_LIMIT       | How many records to convert at a time in a transaction                                                                            | 50                                                                                           |
 
 These values can also be set in the config file located in the `config/env/config` directory.
