@@ -73,6 +73,7 @@ var (
 	updateLogTimeout        = flag.Duration("update_log_timeout", 300*time.Second, "How log the Watcher waits for the UpdateLog operation for storing logs to complete before it aborts.")
 	dynamicReconcileTimeout = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
 	storeEvent              = flag.Bool("store_event", false, "If enabled, events related to runs will also be stored")
+	storeDeadline           = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
 )
 
 func main() {
@@ -110,7 +111,9 @@ func main() {
 		UpdateLogTimeout:             updateLogTimeout,
 		DynamicReconcileTimeout:      dynamicReconcileTimeout,
 		StoreEvent:                   *storeEvent,
+		StoreDeadline:                storeDeadline,
 	}
+
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
 
 	if selector := *labelSelector; selector != "" {

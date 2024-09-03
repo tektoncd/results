@@ -276,9 +276,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		return err
 	}
 	if ctxCancel != nil {
-		ctxCancel()
+		defer ctxCancel()
 	}
-	return nil
+	return r.addStoredAnnotations(logging.WithLogger(ctx, logger), o)
 }
 
 // addResultsAnnotations adds Results annotations to the object in question if
@@ -710,4 +710,70 @@ func filterEventList(events *v1.EventList) *v1.EventList {
 	}
 
 	return events
+}
+
+// addStoreAnnotations adds store annotations to the object in question if
+// annotation patching is enabled.
+func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object) error {
+	logger := logging.FromContext(ctx)
+
+	if r.resultsClient.LogsClient != nil {
+		return nil
+	}
+
+	if r.cfg.GetCompletedResourceGracePeriod() != 0*time.Second {
+		logger.Debugf("Skipping CRD annotation patch: CompletedResourceGracePeriod is disabled ObjectName: %s", o.GetName())
+		return nil
+	}
+	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
+		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
+		return nil
+	}
+
+	stored := annotation.Annotation{Name: annotation.Stored, Value: "false"}
+	GVK := o.GetObjectKind().GroupVersionKind()
+
+	if GVK.Empty() {
+		logger.Debugf("Skipping CRD annotation patch: ObjectKind is empty ObjectName: %s", o.GetName())
+		return nil
+	}
+
+	// Checking if the object operation by other controllers is done
+	switch GVK.Kind {
+	case "TaskRun":
+		taskRun, ok := o.(*pipelinev1.TaskRun)
+		if !ok {
+			return fmt.Errorf("failed to cast object to TaskRun")
+		}
+		if taskRun.IsDone() {
+			stored = annotation.Annotation{Name: annotation.Stored, Value: "true"}
+		}
+	case "PipelineRun":
+		pipelineRun, ok := o.(*pipelinev1.PipelineRun)
+		if !ok {
+			return fmt.Errorf("failed to cast object to PipelineRun")
+		}
+		if pipelineRun.IsDone() {
+			stored = annotation.Annotation{Name: annotation.Stored, Value: "true"}
+		}
+	default:
+		return nil
+	}
+
+	if annotation.IsPatched(o, stored) {
+		logger.Debugf("Skipping CRD annotation patch: Result Stored annotations are already set ObjectName: %s", o.GetName())
+		return nil
+	}
+
+	// Update object with Result Stored annotations.
+	patch, err := annotation.Patch(o, stored)
+	if err != nil {
+		logger.Errorf("error adding stored annotations: %w ObjectName: %s", err, o.GetName())
+		return fmt.Errorf("error adding stored annotations: %w ObjectName: %s", err, o.GetName())
+	}
+	if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+		logger.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
+		return fmt.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
+	}
+	return nil
 }

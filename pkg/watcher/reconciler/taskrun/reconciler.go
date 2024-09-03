@@ -2,6 +2,7 @@ package taskrun
 
 import (
 	"context"
+	"time"
 
 	"github.com/tektoncd/results/pkg/apis/config"
 	"github.com/tektoncd/results/pkg/taskrunmetrics"
@@ -13,10 +14,12 @@ import (
 	taskrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/taskrun"
 	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
+	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	knativereconciler "knative.dev/pkg/reconciler"
 )
@@ -61,5 +64,60 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 // that we see flowing through the system.  If we don't add a finalizer, it could
 // get cleaned up before we see the final state and store it.
 func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
+	// If logsClient isn't nil, it means we have logging storage enabled
+	// and we can't use finalizers to coordinate deletion.
+	if r.logsClient != nil {
+		return nil
+	}
+
+	// If annotation update is disabled, we can't use finalizers to coordinate deletion.
+	if r.cfg.DisableAnnotationUpdate {
+		return nil
+	}
+
+	// If the completed resource grace period isn't 0, we can't use finalizers
+	// to coordinate deletion because a results pruner is running.
+	if r.cfg.GetCompletedResourceGracePeriod() != 0*time.Second {
+		return nil
+	}
+
+	// Check the TaskRun has finished.
+	if !tr.IsDone() {
+		logging.FromContext(ctx).Debugf("taskrun %s/%s is still running", tr.Namespace, tr.Name)
+		return nil
+	}
+
+	var requeueAfter time.Duration
+	var storeDeadline, now time.Time
+
+	// Check if the store deadline is configured
+	if r.cfg.StoreDeadline != nil {
+		now = time.Now()
+		storeDeadline = tr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
+		requeueAfter = storeDeadline.Sub(now)
+		if now.After(storeDeadline) {
+			logging.FromContext(ctx).Debugf("store deadline has passed for taskrun %s/%s", tr.Namespace, tr.Name)
+			return nil // Proceed with deletion
+		}
+	}
+
+	if tr.Annotations == nil {
+		logging.FromContext(ctx).Debugf("taskrun %s/%s annotations are missing, now: %s, storeDeadline: %s, requeueAfter: %s",
+			tr.Namespace, tr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+
+	stored, ok := tr.Annotations[resultsannotation.Stored]
+	if !ok {
+		logging.FromContext(ctx).Debugf("stored annotation is missing on taskrun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
+			tr.Namespace, tr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+	if stored != "true" {
+		logging.FromContext(ctx).Debugf("stored annotation is not true on taskrun %s/%s, now: %s, storeDeadline: %s",
+			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+
 	return nil
 }

@@ -34,6 +34,10 @@ const (
 	// EventList identifier.
 	EventList = "results.tekton.dev/eventlist"
 
+	// Stored is an annotation that signals to the controller that a given object
+	// has been stored by the Results API.
+	Stored = "results.tekton.dev/stored"
+
 	// ResultAnnotations is an annotation that integrators should add to objects in order to store
 	// arbitrary keys/values into the Result.Annotations field.
 	ResultAnnotations = "results.tekton.dev/resultAnnotations"
