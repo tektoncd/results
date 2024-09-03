@@ -17,6 +17,7 @@ package pipelinerun
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/tektoncd/results/pkg/apis/config"
 	"github.com/tektoncd/results/pkg/pipelinerunmetrics"
@@ -34,6 +35,7 @@ import (
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	knativereconciler "knative.dev/pkg/reconciler"
 )
@@ -128,5 +130,60 @@ func isMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
 // that we see flowing through the system.  If we don't add a finalizer, it could
 // get cleaned up before we see the final state and store it.
 func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRun) knativereconciler.Event {
+	// If logsClient isn't nil, it means we have logging storage enabled
+	// and we can't use finalizers to coordinate deletion.
+	if r.logsClient != nil {
+		return nil
+	}
+
+	// If annotation update is disabled, we can't use finalizers to coordinate deletion.
+	if r.cfg.DisableAnnotationUpdate {
+		return nil
+	}
+
+	// If the completed resource grace period isn't 0, we can't use finalizers
+	// to coordinate deletion because a results pruner is running.
+	if r.cfg.GetCompletedResourceGracePeriod() != 0*time.Second {
+		return nil
+	}
+
+	// Check to make sure the PipelineRun is finished.
+	if !pr.IsDone() {
+		logging.FromContext(ctx).Debugf("pipelinerun %s/%s is still running", pr.Namespace, pr.Name)
+		return nil
+	}
+
+	var requeueAfter time.Duration
+	var storeDeadline, now time.Time
+
+	// Check if the store deadline is configured
+	if r.cfg.StoreDeadline != nil {
+		now = time.Now()
+		storeDeadline = pr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
+		requeueAfter = storeDeadline.Sub(now)
+		if now.After(storeDeadline) {
+			logging.FromContext(ctx).Debugf("store deadline has passed for pipelinerun %s/%s", pr.Namespace, pr.Name)
+			return nil // Proceed with deletion
+		}
+	}
+
+	if pr.Annotations == nil {
+		logging.FromContext(ctx).Debugf("pipelinerun %s/%s annotations are missing, now: %s, storeDeadline: %s, requeueAfter: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+
+	stored, ok := pr.Annotations[resultsannotation.Stored]
+	if !ok {
+		logging.FromContext(ctx).Debugf("stored annotation is missing on pipelinerun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+	if stored != "true" {
+		logging.FromContext(ctx).Debugf("stored annotation is not true on pipelinerun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
+		return controller.NewRequeueAfter(requeueAfter)
+	}
+
 	return nil
 }

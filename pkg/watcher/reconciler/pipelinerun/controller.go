@@ -64,6 +64,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 			// This results pipelinerun reconciler shouldn't mutate the pipelinerun's status.
 			SkipStatusUpdates: true,
 			ConfigStore:       configStore,
+			FinalizerName:     "results.tekton.dev/pipelinerun",
 		}
 	})
 
