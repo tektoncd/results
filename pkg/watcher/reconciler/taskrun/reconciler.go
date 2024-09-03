@@ -2,33 +2,27 @@ package taskrun
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/tektoncd/results/pkg/apis/config"
 	"github.com/tektoncd/results/pkg/taskrunmetrics"
 	"github.com/tektoncd/results/pkg/watcher/results"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"knative.dev/pkg/controller"
-	knativereconciler "knative.dev/pkg/reconciler"
 
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	taskrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/taskrun"
 	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/logging"
+	knativereconciler "knative.dev/pkg/reconciler"
 )
 
 // Reconciler represents taskRun watcher logic
 type Reconciler struct {
-	// Inline LeaderAwareFuncs to support leader election.
-	knativereconciler.LeaderAwareFuncs
 
 	// kubeClientSet allows us to talk to the k8s for core APIs
 	kubeClientSet kubernetes.Interface
@@ -42,37 +36,16 @@ type Reconciler struct {
 	configStore    *config.Store
 }
 
-// Check that our Reconciler is LeaderAware.
-var _ knativereconciler.LeaderAware = (*Reconciler)(nil)
+// Check that our Reconciler implements taskrunreconciler.Interface and taskrunreconciler.Finalizer
+var _ taskrunreconciler.Interface = (*Reconciler)(nil)
+var _ taskrunreconciler.Finalizer = (*Reconciler)(nil)
 
-// Reconcile makes new watcher reconcile cycle to handle TaskRun.
-func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
+// ReconcileKind makes new watcher reconcile cycle to handle TaskRun.
+func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
 	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
 
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		logger.Errorf("Received invalid resource key '%s', skipping reconciliation.", key)
-		return nil
-	}
-
-	if !r.IsLeaderFor(types.NamespacedName{Namespace: namespace, Name: name}) {
-		logger.Debugf("Instance is not the leader for TaskRun '%s/%s', skipping reconciliation.", namespace, name)
-		return controller.NewSkipKey(key)
-	}
-
-	logger.Infof("Initiating reconciliation for TaskRun '%s/%s'", namespace, name)
-
-	tr, err := r.lister.TaskRuns(namespace).Get(name)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Debugf("TaskRun '%s/%s' is no longer available, skipping reconciliation.", namespace, name)
-			return controller.NewSkipKey(key)
-		}
-		return fmt.Errorf("error retrieving TaskRun '%s/%s' from indexer: %w", namespace, name, err)
-	}
-
 	taskRunClient := &dynamic.TaskRunClient{
-		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(namespace),
+		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(tr.Namespace),
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.kubeClientSet, r.resultsClient, r.logsClient, taskRunClient, r.cfg)
@@ -81,4 +54,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
 	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)
+}
+
+// FinalizeKind implements pipelinerunreconciler.Finalizer
+// We utilize finalizers to ensure that we get a crack at storing every taskrun
+// that we see flowing through the system.  If we don't add a finalizer, it could
+// get cleaned up before we see the final state and store it.
+func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
+	return nil
 }
