@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tekton-results-retention-policy-agent
+  name: retention-policy-agent
   labels:
     app.kubernetes.io/name: tekton-results-retention-policy-agent
 spec:
