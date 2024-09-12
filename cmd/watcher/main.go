@@ -74,6 +74,7 @@ var (
 	dynamicReconcileTimeout = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
 	storeEvent              = flag.Bool("store_event", false, "If enabled, events related to runs will also be stored")
 	storeDeadline           = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
+	forwardBuffer           = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
 )
 
 func main() {
@@ -112,6 +113,7 @@ func main() {
 		DynamicReconcileTimeout:      dynamicReconcileTimeout,
 		StoreEvent:                   *storeEvent,
 		StoreDeadline:                storeDeadline,
+		ForwardBuffer:                forwardBuffer,
 	}
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
