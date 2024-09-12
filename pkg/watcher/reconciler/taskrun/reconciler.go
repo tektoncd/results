@@ -87,12 +87,23 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 		return nil
 	}
 
+	now := time.Now()
+
+	// Check if the forwarding buffer is configured and passed
+	if r.cfg.ForwardBuffer != nil {
+		buffer := tr.Status.CompletionTime.Add(*r.cfg.ForwardBuffer)
+		requeueAfter := buffer.Sub(now)
+		if !now.After(buffer) {
+			logging.FromContext(ctx).Debugf("log forwarding buffer wait for taskrun %s/%s", tr.Namespace, tr.Name)
+			return controller.NewRequeueAfter(requeueAfter)
+		}
+	}
+
 	var requeueAfter time.Duration
-	var storeDeadline, now time.Time
+	var storeDeadline time.Time
 
 	// Check if the store deadline is configured
 	if r.cfg.StoreDeadline != nil {
-		now = time.Now()
 		storeDeadline = tr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
 		requeueAfter = storeDeadline.Sub(now)
 		if now.After(storeDeadline) {

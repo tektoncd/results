@@ -54,6 +54,11 @@ type Config struct {
 	// StoreDeadline is the time we provide for the PipelineRun and TaskRun resources
 	// to be stored before aborting and clearing the finalizer in case of delete event
 	StoreDeadline *time.Duration
+
+	// ForwardBuffer is the time we provide for the TaskRun Logs to finish streaming
+	// by a forwarder. Since there's no way to check if log has been streamed, we
+	// always wait for this much amount of duration
+	ForwardBuffer *time.Duration
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be
