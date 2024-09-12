@@ -8,13 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
-	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
@@ -88,14 +91,17 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		Record: &pb.Record{
 			Name: record.FormatName(res.GetName(), "baz"),
 			Data: &pb.Any{
-				Type: v1alpha3.LogRecordTypeV2,
-				Value: jsonutil.AnyBytes(t, &v1alpha3.Log{
-					Spec: v1alpha3.LogSpec{
-						Resource: v1alpha3.Resource{
-							Namespace: "foo",
-							Name:      "baz",
+				Type: typePipelineRun,
+				Value: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
+					Status: pipelinev1.PipelineRunStatus{
+						PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+							StartTime: &metav1.Time{
+								Time: time.Now(),
+							},
+							CompletionTime: &metav1.Time{
+								Time: time.Now(),
+							},
 						},
-						Type: v1alpha3.FileLogType,
 					},
 				}),
 			},
