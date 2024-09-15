@@ -21,16 +21,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"go.uber.org/zap"
+	"k8s.io/client-go/transport"
 
-	cm "github.com/tektoncd/results/pkg/apis/config"
 	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 
 	"github.com/google/uuid"
@@ -40,11 +38,8 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
+	"golang.org/x/oauth2"
 	"gorm.io/gorm"
-)
-
-const (
-	maxRetentionKey = "MAX_RETENTION"
 )
 
 var (
@@ -79,13 +74,17 @@ type LogPluginServer struct {
 
 	IsLogPluginEnabled bool
 	staticLabels       string
-	MaxRetention       time.Duration
 
 	config *config.Config
 	logger *zap.SugaredLogger
 	auth   auth.Checker
 	db     *gorm.DB
 	client *http.Client
+
+	forwarderDelayDuration time.Duration
+
+	// TODO: In future add support for non Oauth support
+	tokenSource oauth2.TokenSource
 }
 
 // New set up environment for the api server
@@ -159,7 +158,7 @@ func (s *Server) createLogPluginServer() error {
 		db:     s.db,
 	}
 
-	s.logger.Infof("LOGS_TYPE: %s", strings.ToLower(s.config.LOGS_TYPE))
+	s.logger.Debugf("LOGS_TYPE: %s", strings.ToLower(s.config.LOGS_TYPE))
 	// If the logs type is not Loki, we don't need to set up the LogPluginServer
 	// In future, we can add support for other logging APIs and we will need to
 	// check the value of LOGS_TYPE in a switch statement.
@@ -180,20 +179,6 @@ func (s *Server) createLogPluginServer() error {
 		}
 		s.LogPluginServer.staticLabels += label[0] + `="` + label[1] + `",`
 	}
-
-	maxRetention := os.Getenv(maxRetentionKey)
-	v, err := strconv.Atoi(maxRetention)
-	if err != nil {
-		if maxRetention != "" {
-			s.logger.Fatalf("incorrect configuration for maxRetention: %s", err.Error())
-		}
-		s.logger.Infof("maxRetention is not set, using default value: %s", cm.DefaultMaxRetention)
-		s.LogPluginServer.MaxRetention = cm.DefaultMaxRetention
-	} else {
-		s.LogPluginServer.MaxRetention = time.Hour * 24 * time.Duration(v)
-	}
-
-	s.LogPluginServer.logger.Infof("Using max retention: %s", s.LogPluginServer.MaxRetention)
 
 	s.LogPluginServer.client = &http.Client{
 		Transport: &http.Transport{
@@ -219,6 +204,10 @@ func (s *Server) createLogPluginServer() error {
 			InsecureSkipVerify: true, //nolint:gosec  // needed for skipping tls verification
 		}
 	}
+
+	s.LogPluginServer.forwarderDelayDuration = time.Duration(s.config.LOGGING_PLUGIN_FORWARDER_DELAY_DURATION) * time.Minute
+
+	s.LogPluginServer.tokenSource = transport.NewCachedFileTokenSource(s.config.LOGGING_PLUGIN_TOKEN_PATH)
 
 	return nil
 }

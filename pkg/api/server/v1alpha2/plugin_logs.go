@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,21 +10,28 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/client-go/transport"
 
+	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/apis/v1alpha3"
 	"github.com/tektoncd/results/pkg/logs"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
+
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 )
 
 const (
-	lokiQueryPath = "/loki/api/v1/query_range"
+	lokiQueryPath   = "/loki/api/v1/query_range"
+	typePipelineRun = "tekton.dev/v1.PipelineRun"
+	typeTaskRun     = "tekton.dev/v1.TaskRun"
+
+	// TODO make these key configurable in a future release
+	pipelineRunUIDKey = "kubernetes.labels.tekton_dev_pipelineRunUID"
+	taskRunUIDKey     = "kubernetes.labels.tekton_dev_taskRunUID"
 )
 
 // GetLog streams log record by log request
@@ -48,7 +56,7 @@ func (s *LogPluginServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServ
 
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
 
-	err = s.getPluginLogs(writer, parent, rec.Name)
+	err = s.getPluginLogs(writer, parent, rec)
 	if err != nil {
 		s.logger.Error(err)
 	}
@@ -60,17 +68,17 @@ func (s *LogPluginServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServ
 	return nil
 }
 
-func (s *LogPluginServer) getPluginLogs(writer *logs.BufferedLog, parent, id string) error {
+func (s *LogPluginServer) getPluginLogs(writer *logs.BufferedLog, parent string, rec *db.Record) error {
 	switch strings.ToLower(s.config.LOGS_TYPE) {
 	case string(v1alpha3.LokiLogType):
-		return s.getLokiLogs(writer, parent, id)
+		return s.getLokiLogs(writer, parent, rec)
 	default:
 		s.logger.Errorf("unsupported type of logs given for plugin")
 		return fmt.Errorf("unsupported type of logs given for plugin")
 	}
 }
 
-func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent, id string) error {
+func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, rec *db.Record) error {
 	URL, err := url.Parse(s.config.LOGGING_PLUGIN_API_URL)
 	if err != nil {
 		s.logger.Error(err)
@@ -78,23 +86,77 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent, id strin
 	}
 	URL.Path = path.Join(URL.Path, s.config.LOGGING_PLUGIN_PROXY_PATH, lokiQueryPath)
 
-	now := time.Now()
+	var startTime, endTime, uidKey string
+	switch rec.Type {
+	case typePipelineRun:
+		uidKey = pipelineRunUIDKey
+		data := &pipelinev1.PipelineRun{}
+		err := json.Unmarshal(rec.Data, data)
+		if err != nil {
+			err = fmt.Errorf("failed to marshal pipelinerun data for fetching log, err: %s", err.Error())
+			s.logger.Error(err.Error())
+			return err
+		}
+
+		if data.Status.StartTime == nil {
+			err = errors.New("there's no startime in pipelinerun")
+			s.logger.Error(err.Error())
+			return err
+		}
+		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
+
+		if data.Status.CompletionTime == nil {
+			err = errors.New("there's no completion in pipelinerun")
+			s.logger.Error(err.Error())
+			return err
+		}
+		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
+
+	case typeTaskRun:
+		uidKey = taskRunUIDKey
+		data := &pipelinev1.TaskRun{}
+		err := json.Unmarshal(rec.Data, data)
+		if err != nil {
+			err = fmt.Errorf("failed to marshal taskrun data for fetching log, err: %s", err.Error())
+			s.logger.Error(err.Error())
+			return err
+		}
+
+		if data.Status.StartTime == nil {
+			err = errors.New("there's no startime in taskrun")
+			s.logger.Error(err.Error())
+			return err
+		}
+		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
+
+		if data.Status.CompletionTime == nil {
+			err = errors.New("there's no completion in taskrun")
+			s.logger.Error(err.Error())
+			return err
+		}
+		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
+
+	default:
+		s.logger.Error("record type is invalid")
+		return errors.New("record type is invalid")
+	}
+
 	parameters := url.Values{}
-	parameters.Add("query", `{ `+s.staticLabels+s.config.LOGGING_PLUGIN_NAMESPACE_KEY+`="`+parent+`" }|json|="`+id+`"| line_format "{{.message}}"`)
-	parameters.Add("end", strconv.FormatInt(now.UTC().Unix(), 10))
-	parameters.Add("start", strconv.FormatInt(now.Add(-s.MaxRetention).UTC().Unix(), 10))
+	parameters.Add("query", `{ `+s.staticLabels+s.config.LOGGING_PLUGIN_NAMESPACE_KEY+`="`+parent+`" }|json uid="`+uidKey+`", message="message" |uid="`+rec.Name+`"| line_format "{{.message}}"`)
+	parameters.Add("end", endTime)
+	parameters.Add("start", startTime)
 
 	URL.RawQuery = parameters.Encode()
-
+	s.logger.Debugf("loki request url:%s", URL.String())
 	req, err := http.NewRequest("GET", URL.String(), nil)
 	if err != nil {
 		s.logger.Errorf("new request to loki failed, err: %s:", err.Error())
 		return err
 	}
 
-	token, err := transport.NewCachedFileTokenSource(s.config.LOGGING_PLUGIN_TOKEN_PATH).Token()
+	token, err := s.tokenSource.Token()
 	if err != nil {
-		s.logger.Error(err)
+		s.logger.Error("failed to fetch token", err)
 		return err
 	}
 
@@ -105,6 +167,11 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent, id strin
 		return status.Error(codes.Internal, "Error streaming log")
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		s.logger.Errorf("Loki API request failed with HTTP status code: %d", resp.StatusCode)
+		return status.Error(codes.Internal, "Error fetching log data")
+	}
+
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		s.logger.Errorf("failed to read response body, err: %s", err.Error())
@@ -112,18 +179,29 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent, id strin
 	}
 
 	var lokiResponse struct {
-		Data struct {
+		Status string `json:"status"`
+		Error  string `json:"error"`
+		Data   struct {
 			Result []struct {
 				Stream struct {
 					Message string `json:"message"`
 				} `json:"stream"`
 			} `json:"result"`
+			Stats map[string]interface{} `json:"stats"`
 		} `json:"data"`
 	}
 
 	if err := json.Unmarshal(data, &lokiResponse); err != nil {
 		s.logger.Errorf("failed to unmarshal Loki response, err: %s, data: %s", err.Error(), string(data))
-		return status.Error(codes.Internal, "Error processing log data")
+		return status.Error(codes.Internal, fmt.Sprintf("Error processing fetched log data, err: %s, data: %s",
+			err.Error(), string(data)))
+	}
+
+	s.logger.Debugf("stats.summary %v", lokiResponse.Data.Stats["summary"])
+
+	if lokiResponse.Status != "success" {
+		s.logger.Errorf("Loki API request failed with status: %s, error: %s", lokiResponse.Status, lokiResponse.Error)
+		return status.Error(codes.Internal, "Error fetching log data from Loki")
 	}
 
 	var logMessages []string
