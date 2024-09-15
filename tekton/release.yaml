@@ -69,7 +69,7 @@ spec:
           - name: source
         steps:
           - name: publish
-            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:d25f766de9cad0959e44b80548074441939de8fd1ee91ed0247bdd689f09a0d6
+            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
             workingDir: $(workspaces.source.path)
             script: |
               gcloud auth list
