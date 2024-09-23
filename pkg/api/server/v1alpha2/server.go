@@ -83,6 +83,8 @@ type LogPluginServer struct {
 
 	forwarderDelayDuration time.Duration
 
+	queryLimit uint
+
 	// TODO: In future add support for non Oauth support
 	tokenSource oauth2.TokenSource
 }
@@ -208,6 +210,7 @@ func (s *Server) createLogPluginServer() error {
 	s.LogPluginServer.forwarderDelayDuration = time.Duration(s.config.LOGGING_PLUGIN_FORWARDER_DELAY_DURATION) * time.Minute
 
 	s.LogPluginServer.tokenSource = transport.NewCachedFileTokenSource(s.config.LOGGING_PLUGIN_TOKEN_PATH)
+	s.LogPluginServer.queryLimit = s.config.LOGGING_PLUGIN_QUERY_LIMIT
 
 	return nil
 }

@@ -65,6 +65,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
 		LOGGING_PLUGIN_STATIC_LABELS:            "namespace=\"foo\"",
 		LOGGING_PLUGIN_NAMESPACE_KEY:            "namespace",
+		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)

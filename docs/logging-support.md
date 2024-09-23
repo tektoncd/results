@@ -28,3 +28,4 @@ These are the common configuration options for all third party logging APIs.
 - `LOGGING_PLUGIN_CA_CERT`: The CA certificate to use for the third party logging API. This should ideally be passed as environment variable in the deployment spec of the results-api pod. (optional)
 - `LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE`: Set to `true` to disable TLS verification for the third party logging API. (optional)
 - `LOGGING_PLUGIN_FORWARDER_DELAY_DURATION`: This is the max duration in minutes taken by third party logging system to forward and store the logs after completion of taskrun and pipelinerun. This is used to search between start time of runs and completion plus buffer duration.
+- `LOGGING_PLUGIN_QUERY_LIMIT`: Sets the query limit for Third Party Logging API if logging backend has a limit on number of log lines returned.

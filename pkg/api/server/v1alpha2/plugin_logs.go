@@ -145,6 +145,7 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, r
 	parameters.Add("query", `{ `+s.staticLabels+s.config.LOGGING_PLUGIN_NAMESPACE_KEY+`="`+parent+`" }|json uid="`+uidKey+`", message="message" |uid="`+rec.Name+`"| line_format "{{.message}}"`)
 	parameters.Add("end", endTime)
 	parameters.Add("start", startTime)
+	parameters.Add("limit", strconv.Itoa(int(s.queryLimit)))
 
 	URL.RawQuery = parameters.Encode()
 	s.logger.Debugf("loki request url:%s", URL.String())
