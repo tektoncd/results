@@ -142,6 +142,9 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, r
 	}
 
 	parameters := url.Values{}
+	for k, v := range s.queryParams {
+		parameters.Add(k, v)
+	}
 	parameters.Add("query", `{ `+s.staticLabels+s.config.LOGGING_PLUGIN_NAMESPACE_KEY+`="`+parent+`" }|json uid="`+uidKey+`", message="message" |uid="`+rec.Name+`"| line_format "{{.message}}"`)
 	parameters.Add("end", endTime)
 	parameters.Add("start", startTime)
@@ -149,6 +152,7 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, r
 
 	URL.RawQuery = parameters.Encode()
 	s.logger.Debugf("loki request url:%s", URL.String())
+
 	req, err := http.NewRequest("GET", URL.String(), nil)
 	if err != nil {
 		s.logger.Errorf("new request to loki failed, err: %s:", err.Error())
