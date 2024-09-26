@@ -85,6 +85,8 @@ type LogPluginServer struct {
 
 	queryLimit uint
 
+	queryParams map[string]string
+
 	// TODO: In future add support for non Oauth support
 	tokenSource oauth2.TokenSource
 }
@@ -211,6 +213,17 @@ func (s *Server) createLogPluginServer() error {
 
 	s.LogPluginServer.tokenSource = transport.NewCachedFileTokenSource(s.config.LOGGING_PLUGIN_TOKEN_PATH)
 	s.LogPluginServer.queryLimit = s.config.LOGGING_PLUGIN_QUERY_LIMIT
+
+	s.LogPluginServer.queryParams = map[string]string{}
+	if s.config.LOGGING_PLUGIN_QUERY_PARAMS != "" {
+		for _, v := range strings.Split(s.config.LOGGING_PLUGIN_QUERY_PARAMS, "&") {
+			queryParam := strings.Split(v, "=")
+			if len(queryParam) != 2 {
+				return fmt.Errorf("incorrect format for LOGGING_PLUGIN_QUERY_PARAMS: %s", v)
+			}
+			s.LogPluginServer.queryParams[queryParam[0]] = queryParam[1]
+		}
+	}
 
 	return nil
 }
