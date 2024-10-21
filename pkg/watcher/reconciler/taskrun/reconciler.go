@@ -64,6 +64,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 // that we see flowing through the system.  If we don't add a finalizer, it could
 // get cleaned up before we see the final state and store it.
 func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
+	// Reconcile the taskrun to ensure that it is stored in the database
+	rerr := r.ReconcileKind(ctx, tr)
+
 	// If logsClient isn't nil, it means we have logging storage enabled
 	// and we can't use finalizers to coordinate deletion.
 	if r.logsClient != nil {
@@ -124,7 +127,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 			tr.Namespace, tr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
 		return controller.NewRequeueAfter(requeueAfter)
 	}
-	if stored != "true" {
+	if rerr != nil || stored != "true" {
 		logging.FromContext(ctx).Debugf("stored annotation is not true on taskrun %s/%s, now: %s, storeDeadline: %s",
 			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
 		return controller.NewRequeueAfter(requeueAfter)
