@@ -158,6 +158,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 
 	// Check if the store deadline is configured
 	if r.cfg.StoreDeadline != nil {
+		if pr.Status.CompletionTime == nil {
+			logging.FromContext(ctx).Infof("removing finalizer without wait, no completion time set for pipelinerun %s/%s",
+				pr.Namespace, pr.Name)
+			return nil
+		}
 		now = time.Now()
 		storeDeadline = pr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
 		requeueAfter = storeDeadline.Sub(now)

@@ -91,6 +91,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 
 	// Check if the forwarding buffer is configured and passed
 	if r.cfg.ForwardBuffer != nil {
+		if tr.Status.CompletionTime == nil {
+			logging.FromContext(ctx).Infof("removing finalizer without wait, no completion time set for taskrun %s/%s",
+				tr.Namespace, tr.Name)
+			return nil
+		}
 		buffer := tr.Status.CompletionTime.Add(*r.cfg.ForwardBuffer)
 		requeueAfter := buffer.Sub(now)
 		if !now.After(buffer) {
@@ -104,6 +109,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 
 	// Check if the store deadline is configured
 	if r.cfg.StoreDeadline != nil {
+		if tr.Status.CompletionTime == nil {
+			logging.FromContext(ctx).Infof("removing finalizer without wait, no completion time set for taskrun %s/%s",
+				tr.Namespace, tr.Name)
+			return nil
+		}
 		storeDeadline = tr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
 		requeueAfter = storeDeadline.Sub(now)
 		if now.After(storeDeadline) {
