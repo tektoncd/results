@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"path"
 	"strconv"
@@ -168,12 +169,34 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, r
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	resp, err := s.client.Do(req)
 	if err != nil {
+		dump, err := httputil.DumpRequest(req, true)
+		if err == nil {
+			s.logger.Debugf("Request Dump***:\n %q\n", dump)
+		}
 		s.logger.Errorf("request to loki failed, err: %s, req: %v", err.Error(), req)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	if resp == nil {
+		dump, err := httputil.DumpRequest(req, true)
+		if err == nil {
+			s.logger.Debugf("Request Dump***:\n %q\n", dump)
+		}
+		s.logger.Errorf("request to loki failed, received nil response")
+		s.logger.Debugf("loki request url:%s", URL.String())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Errorf("Loki API request failed with HTTP status code: %d", resp.StatusCode)
+		dump, err := httputil.DumpRequest(req, true)
+		if err == nil {
+			s.logger.Debugf("Request Dump***:\n %q\n", dump)
+		}
+		dump, err = httputil.DumpResponse(resp, true)
+		if err == nil {
+			s.logger.Debugf("Response Dump***:\n %q\n", dump)
+		}
 		return status.Error(codes.Internal, "Error fetching log data")
 	}
 
