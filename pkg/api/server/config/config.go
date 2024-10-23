@@ -34,6 +34,7 @@ type Config struct {
 	LOGS_TYPE        string `mapstructure:"LOGS_TYPE"`
 	LOGS_BUFFER_SIZE int    `mapstructure:"LOGS_BUFFER_SIZE"`
 	LOGS_PATH        string `mapstructure:"LOGS_PATH"`
+	LOGS_TIMESTAMPS  bool   `mapstructure:"LOGS_TIMESTAMPS"`
 
 	PROFILING      bool   `mapstructure:"PROFILING"`
 	PROFILING_PORT string `mapstructure:"PROFILING_PORT"`

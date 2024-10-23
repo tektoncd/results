@@ -59,6 +59,9 @@ type Config struct {
 	// by a forwarder. Since there's no way to check if log has been streamed, we
 	// always wait for this much amount of duration
 	ForwardBuffer *time.Duration
+
+	// Collect logs with timestamps
+	LogsTimestamps bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

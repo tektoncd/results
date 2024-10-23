@@ -520,6 +520,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		Params:          tknParams,
 		PipelineRunName: o.GetName(),
 		TaskrunName:     o.GetName(),
+		Timestamps:      r.cfg.LogsTimestamps,
 		Stream: &cli.Stream{
 			Out: inMemWriteBufferStdout,
 			Err: inMemWriteBufferStderr,
