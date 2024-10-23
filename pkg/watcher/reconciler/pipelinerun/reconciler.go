@@ -130,6 +130,9 @@ func isMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
 // that we see flowing through the system.  If we don't add a finalizer, it could
 // get cleaned up before we see the final state and store it.
 func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRun) knativereconciler.Event {
+	// Reconcile the pipelinerun to ensure that it is stored in the database
+	rerr := r.ReconcileKind(ctx, pr)
+
 	// If logsClient isn't nil, it means we have logging storage enabled
 	// and we can't use finalizers to coordinate deletion.
 	if r.logsClient != nil {
@@ -184,7 +187,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
 		return controller.NewRequeueAfter(requeueAfter)
 	}
-	if stored != "true" {
+	if rerr != nil || stored != "true" {
 		logging.FromContext(ctx).Debugf("stored annotation is not true on pipelinerun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
 			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
 		return controller.NewRequeueAfter(requeueAfter)
