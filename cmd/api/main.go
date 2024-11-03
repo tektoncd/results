@@ -297,7 +297,8 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	httpMux := runtime.NewServeMux(serverMuxOptions...)
+	var httpMux http.Handler
+	httpMux = runtime.NewServeMux(serverMuxOptions...)
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100 * 1024 * 1024)),
@@ -305,24 +306,20 @@ func main() {
 	}
 
 	// Register gRPC server endpoint to gRPC gateway
-	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
+	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux.(*runtime.ServeMux), ":"+serverConfig.SERVER_PORT, opts)
 	if err != nil {
 		log.Fatal("Error registering gRPC server endpoint for Results API: ", err)
 	}
 
 	if serverConfig.LOGS_API && !v1a2.LogPluginServer.IsLogPluginEnabled {
 		log.Info("Registering server endpoints for Logs v1alpha2 API")
-		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
+		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux.(*runtime.ServeMux), ":"+serverConfig.SERVER_PORT, opts)
 		if err != nil {
 			log.Fatal("Error registering gRPC server endpoints for Logs v1alpha2 API: ", err)
 		}
-	} else if serverConfig.LOGS_API && v1a2.LogPluginServer.IsLogPluginEnabled {
-		log.Info("Registering server endpoints for Logs v1alpha3 API")
-		err = v1alpha3pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux, ":"+serverConfig.SERVER_PORT, opts)
-		if err != nil {
-			log.Fatal("Error registering gRPC server endpoints for Logs v1alpha3 API: ", err)
-		}
 	}
+
+	httpMux = v1alpha2.Handler(httpMux, v1a2.LogPluginServer)
 
 	// Start server with gRPC and REST handler
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)
