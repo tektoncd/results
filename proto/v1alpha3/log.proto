@@ -16,7 +16,6 @@ syntax = "proto3";
 
 package tekton.results.v1alpha3;
 
-import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/api/client.proto";
 import "google/api/resource.proto";
@@ -27,9 +26,6 @@ option go_package = "github.com/tektoncd/results/proto/v1alpha3/results_go_proto
 
 service Logs {
   rpc GetLog(GetLogRequest) returns (stream google.api.HttpBody) {
-    option (google.api.http) = {
-      get: "/apis/results.tekton.dev/v1alpha2/parents/{name=*/results/*/logs/*}"
-    };
     option (google.api.method_signature) = "name";
   }
 }
