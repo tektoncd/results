@@ -169,8 +169,8 @@ func (s *LogPluginServer) getLokiLogs(writer *logs.BufferedLog, parent string, r
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		dump, err := httputil.DumpRequest(req, true)
-		if err == nil {
+		dump, derr := httputil.DumpRequest(req, true)
+		if derr == nil {
 			s.logger.Debugf("Request Dump***:\n %q\n", dump)
 		}
 		s.logger.Errorf("request to loki failed, err: %s, req: %v", err.Error(), req)
