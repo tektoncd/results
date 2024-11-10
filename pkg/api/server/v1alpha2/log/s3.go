@@ -126,7 +126,9 @@ func initConfig(ctx context.Context, cfg *server.Config) (*s3.Client, error) {
 		return nil, err
 	}
 
-	return s3.NewFromConfig(awsConfig), nil
+	return s3.NewFromConfig(awsConfig, func(o *s3.Options) {
+		o.UsePathStyle = true
+	}), nil
 }
 
 func (*s3Stream) Type() string {

@@ -1,6 +1,7 @@
-package server
+package plugin_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -10,18 +11,39 @@ import (
 	"testing"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"github.com/tektoncd/results/pkg/api/server/test"
+	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
+	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type mockGetLogServer struct {
+	grpc.ServerStream
+	ctx          context.Context
+	receivedData *bytes.Buffer
+}
+
+func (m *mockGetLogServer) Send(chunk *httpbody.HttpBody) error {
+	if m.receivedData == nil {
+		m.receivedData = &bytes.Buffer{}
+	}
+	_, err := m.receivedData.Write(chunk.GetData())
+	return err
+}
+
+func (m *mockGetLogServer) Context() context.Context {
+	return m.ctx
+}
 
 func TestLogPluginServer_GetLog(t *testing.T) {
 
@@ -55,7 +77,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		t.Fatalf("Failed to create token file: %v", err)
 	}
 
-	srv, err := New(&config.Config{
+	srv, err := server.New(&config.Config{
 		LOGS_API:                                true,
 		LOGS_TYPE:                               "Loki",
 		DB_ENABLE_AUTO_MIGRATION:                true,
@@ -93,7 +115,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		Record: &pb.Record{
 			Name: record.FormatName(res.GetName(), "baz"),
 			Data: &pb.Any{
-				Type: typePipelineRun,
+				Type: "tekton.dev/v1.PipelineRun",
 				Value: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
 					Status: pipelinev1.PipelineRunStatus{
 						PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{

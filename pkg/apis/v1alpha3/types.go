@@ -55,6 +55,9 @@ const (
 
 	// LokiLogType defines the log type for logs stored in the Loki.
 	LokiLogType LogType = "loki"
+
+	// BlobLogType defines the log type for logs stored in the Blob - GCS, S3 compatible storage.
+	BlobLogType LogType = "blob"
 )
 
 // LogStatus defines the current status of the log resource.
