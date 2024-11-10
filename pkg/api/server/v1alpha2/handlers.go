@@ -2,10 +2,12 @@ package server
 
 import (
 	"net/http"
+
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/plugin"
 )
 
 // Handler returns a http.Handler that serves the gRPC server and the log plugin server
-func Handler(grpcMux http.Handler, pluginServer *LogPluginServer) http.Handler {
+func Handler(grpcMux http.Handler, pluginServer *plugin.LogServer) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", grpcMux)
 	if pluginServer != nil && pluginServer.IsLogPluginEnabled {
