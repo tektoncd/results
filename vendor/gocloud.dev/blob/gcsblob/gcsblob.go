@@ -63,7 +63,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -248,7 +247,7 @@ func (o *URLOpener) forParams(ctx context.Context, q url.Values) (*Options, *gcp
 		}
 	}
 	if keyPath := q.Get("private_key_path"); keyPath != "" {
-		pk, err := ioutil.ReadFile(keyPath)
+		pk, err := os.ReadFile(keyPath)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -285,6 +284,9 @@ type Options struct {
 	// MakeSignBytes is a factory for functions that are being used in place of an empty SignBytes.
 	// If your implementation of 'SignBytes' needs a request context, set this instead.
 	MakeSignBytes func(requestCtx context.Context) SignBytesFunc
+
+	// ClientOptions are passed when constructing the storage.Client.
+	ClientOptions []option.ClientOption
 }
 
 // clear clears all the fields of o.
@@ -307,6 +309,7 @@ func openBucket(ctx context.Context, client *gcp.HTTPClient, bucketName string, 
 		return nil, errors.New("gcsblob.OpenBucket: bucketName is required")
 	}
 
+	// We wrap the provided http.Client to add a Go CDK User-Agent.
 	clientOpts := []option.ClientOption{option.WithHTTPClient(useragent.HTTPClient(&client.Client, "blob"))}
 	if host := os.Getenv("STORAGE_EMULATOR_HOST"); host != "" {
 		clientOpts = []option.ClientOption{
@@ -315,14 +318,13 @@ func openBucket(ctx context.Context, client *gcp.HTTPClient, bucketName string, 
 			option.WithHTTPClient(http.DefaultClient),
 		}
 	}
-
-	// We wrap the provided http.Client to add a Go CDK User-Agent.
+	if opts == nil {
+		opts = &Options{}
+	}
+	clientOpts = append(clientOpts, opts.ClientOptions...)
 	c, err := storage.NewClient(ctx, clientOpts...)
 	if err != nil {
 		return nil, err
-	}
-	if opts == nil {
-		opts = &Options{}
 	}
 	return &bucket{name: bucketName, client: c, opts: opts}, nil
 }
@@ -345,7 +347,7 @@ type bucket struct {
 	opts   *Options
 }
 
-var emptyBody = ioutil.NopCloser(strings.NewReader(""))
+var emptyBody = io.NopCloser(strings.NewReader(""))
 
 // reader reads a GCS object. It implements driver.Reader.
 type reader struct {
@@ -609,7 +611,7 @@ func unescapeKey(key string) string {
 }
 
 // NewTypedWriter implements driver.NewTypedWriter.
-func (b *bucket) NewTypedWriter(ctx context.Context, key string, contentType string, opts *driver.WriterOptions) (driver.Writer, error) {
+func (b *bucket) NewTypedWriter(ctx context.Context, key, contentType string, opts *driver.WriterOptions) (driver.Writer, error) {
 	key = escapeKey(key)
 	bkt := b.client.Bucket(b.name)
 	obj := bkt.Object(key)
