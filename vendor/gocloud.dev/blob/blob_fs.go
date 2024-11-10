@@ -16,17 +16,21 @@ package blob
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
 	"time"
 
+	"gocloud.dev/gcerrors"
 	"gocloud.dev/internal/gcerr"
 )
 
 // Ensure that Bucket implements various io/fs interfaces.
-var _ = fs.FS(&Bucket{})
-var _ = fs.SubFS(&Bucket{})
+var (
+	_ = fs.FS(&Bucket{})
+	_ = fs.SubFS(&Bucket{})
+)
 
 // iofsFileInfo describes a single file in an io/fs.FS.
 // It implements fs.FileInfo and fs.DirEntry.
@@ -154,17 +158,15 @@ func (d *iofsDir) openOnce() error {
 //
 // fn should return a context.Context and *ReaderOptions that can be used in
 // calls to List and NewReader on b. It may be called more than once.
+//
+// If SetIOFSCallback is never called, io.FS functions will use context.Background
+// and a default ReaderOptions.
 func (b *Bucket) SetIOFSCallback(fn func() (context.Context, *ReaderOptions)) {
 	b.ioFSCallback = fn
 }
 
 // Open implements fs.FS.Open (https://pkg.go.dev/io/fs#FS).
-//
-// SetIOFSCallback must be called prior to calling this function.
 func (b *Bucket) Open(path string) (fs.File, error) {
-	if b.ioFSCallback == nil {
-		return nil, gcerr.Newf(gcerr.InvalidArgument, nil, "blob: Open -- SetIOFSCallback must be called before Open")
-	}
 	if !fs.ValidPath(path) {
 		return nil, &fs.PathError{Op: "open", Path: path, Err: fs.ErrInvalid}
 	}
@@ -201,6 +203,13 @@ func (b *Bucket) Open(path string) (fs.File, error) {
 	// It's a file; open it and return a wrapper.
 	r, err := b.NewReader(ctx, path, readerOpts)
 	if err != nil {
+		code := gcerrors.Code(err)
+		switch code {
+		case gcerrors.NotFound:
+			err = fmt.Errorf("%w: %w", err, fs.ErrNotExist)
+		case gcerrors.PermissionDenied:
+			err = fmt.Errorf("%w: %w", err, fs.ErrPermission)
+		}
 		return nil, &fs.PathError{Op: "open", Path: path, Err: err}
 	}
 	return &iofsOpenFile{r, filepath.Base(path)}, nil
