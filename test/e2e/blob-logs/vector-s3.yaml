@@ -1,0 +1,59 @@
+role: Agent
+customConfig:
+  data_dir: /vector-data-dir
+  api:
+    enabled: true
+    address: 127.0.0.1:8686
+    playground: false
+  sources:
+    kubernetes_logs:
+      type: kubernetes_logs
+      extra_label_selector: "app.kubernetes.io/managed-by=tekton-pipelines"
+    internal_metrics:
+      type: internal_metrics
+  transforms:
+    remap_app_logs:
+      type: remap
+      inputs: [kubernetes_logs]
+      source: |-
+        .log_type = "application"
+        .kubernetes_namespace_name = .kubernetes.pod_namespace
+            if exists(.kubernetes.pod_labels."tekton.dev/taskRunUID") {
+              .taskRunUID = del(.kubernetes.pod_labels."tekton.dev/taskRunUID")
+            } else {
+              .taskRunUID = "none"
+              }
+            if exists(.kubernetes.pod_labels."tekton.dev/pipelineRunUID") {
+              .pipelineRunUID = del(.kubernetes.pod_labels."tekton.dev/pipelineRunUID")
+            .result = .pipelineRunUID
+            } else {
+               .result = .taskRunUID
+            }
+            if exists(.kubernetes.pod_labels."tekton.dev/task") {
+              .task = del(.kubernetes.pod_labels."tekton.dev/task")
+            } else {
+              .task = "none"
+            }
+            if exists(.kubernetes.pod_namespace) {
+              .namespace = del(.kubernetes.pod_namespace)
+            } else {
+              .namespace = "unlabeled"
+            }
+            .pod = .kubernetes.pod_name
+            .container = .kubernetes.container_name
+  sinks:
+    aws_s3:
+      type: "aws_s3"
+      bucket: "tekton-logs"
+      inputs: ["remap_app_logs"]
+      auth:
+        access_key_id: "Q3AM3UQ867SPQQA43P2F"
+        secret_access_key: "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+      compression: "none"
+      region: "us-east-1"
+      endpoint: "https://play.min.io:9000"
+      encoding:
+        codec: "text"
+      key_prefix: "/logs/{{ `{{ .namespace }}` }}/{{`{{ .result }}`}}/{{`{{ .taskRunUID }}`}}/{{`{{ .container }}`}}"
+      filename_time_format: ""
+      filename_append_uuid: false
