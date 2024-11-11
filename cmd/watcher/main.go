@@ -70,6 +70,8 @@ var (
 	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
 	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
 	namespace               = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
+	summaryLabels           = flag.String("summary_labels", "tekton.dev/pipeline", "List of Labels keys separated by comma which should be part of the summary of the result")
+	summaryAnnotations      = flag.String("summary_annotations", "", "List of Annotations keys separated by comma which should be part of the summary of the result")
 	checkOwner              = flag.Bool("check_owner", true, "If enabled, owner references will be checked while deleting objects")
 	updateLogTimeout        = flag.Duration("update_log_timeout", 300*time.Second, "How log the Watcher waits for the UpdateLog operation for storing logs to complete before it aborts.")
 	dynamicReconcileTimeout = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
@@ -116,6 +118,8 @@ func main() {
 		StoreDeadline:                storeDeadline,
 		ForwardBuffer:                forwardBuffer,
 		LogsTimestamps:               *logsTimestamps,
+		SummaryLabels:                *summaryLabels,
+		SummaryAnnotations:           *summaryAnnotations,
 	}
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())

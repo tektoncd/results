@@ -62,6 +62,12 @@ type Config struct {
 
 	// Collect logs with timestamps
 	LogsTimestamps bool
+
+	// SummaryLabels are labels which should be part of the summary of the result
+	SummaryLabels string
+
+	// SummaryAnnotations are annotations which should be part of the summary of the result
+	SummaryAnnotations string
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

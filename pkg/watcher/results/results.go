@@ -26,6 +26,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
+	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/grpc"
@@ -40,19 +41,26 @@ import (
 	"knative.dev/pkg/logging"
 )
 
+const (
+	// objectName is used to store the name of the object in the result summary
+	objectName = "object.metadata.name"
+)
+
 // Client is a wrapper around a Results client that provides helpful utilities
 // for performing result operations that require multiple RPCs or data specific
 // operations.
 type Client struct {
 	pb.ResultsClient
 	pb.LogsClient
+	reconciler.Config
 }
 
 // NewClient returns a new results client for the particular kind.
-func NewClient(resultsClient pb.ResultsClient, logsClient pb.LogsClient) *Client {
+func NewClient(resultsClient pb.ResultsClient, logsClient pb.LogsClient, reconcilerConfig *reconciler.Config) *Client {
 	return &Client{
 		ResultsClient: resultsClient,
 		LogsClient:    logsClient,
+		Config:        *reconcilerConfig,
 	}
 }
 
@@ -123,7 +131,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 
 	// Set the Result.Annotations and Result.Summary.Annotations fields if
 	// the object in question contains the required annotations.
-
+	res.Annotations = map[string]string{}
 	if value, found := o.GetAnnotations()[annotation.ResultAnnotations]; found {
 		resultAnnotations, err := parseAnnotations(annotation.ResultAnnotations, value)
 		if err != nil {
@@ -154,6 +162,24 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 			}
 			res.Summary.Annotations = annotations
 		}
+		// Set the Result.Summary.Labels fields if the object in question contains the required labels.
+		summaryLabels := strings.Split(c.Config.SummaryLabels, ",")
+		if len(summaryLabels) > 0 && summaryLabels[0] != "" {
+			for _, v := range summaryLabels {
+				if value, found := o.GetLabels()[v]; found {
+					res.Annotations[v] = value
+				}
+			}
+		}
+		summaryAnnotations := strings.Split(c.Config.SummaryAnnotations, ",")
+		if len(summaryAnnotations) > 0 && summaryAnnotations[0] != "" {
+			for _, v := range summaryAnnotations {
+				if value, found := o.GetLabels()[v]; found {
+					res.Annotations[v] = value
+				}
+			}
+		}
+		res.Annotations[objectName] = o.GetName()
 	}
 
 	// Regardless of whether the object is a top level record or not,
