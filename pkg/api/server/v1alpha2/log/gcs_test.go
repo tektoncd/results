@@ -79,6 +79,7 @@ func NewRecordReplayClient(t *testing.T, modReq func(r *httpreplay.Recorder), po
 	if err != nil {
 		t.Fatal(err)
 	}
+	rep.IgnoreHeader("X-Goog-Gcs-Idempotency-Token")
 
 	recState := new(time.Time)
 	if err := recState.UnmarshalBinary(rep.Initial()); err != nil {
@@ -98,7 +99,6 @@ func NewTestGCPClient(ctx context.Context, port int, t *testing.T) (client *gcp.
 		r.ClearQueryParams("Signature")
 		r.ClearHeaders("Expires")
 		r.ClearHeaders("Signature")
-		r.ClearHeaders("X-Goog-Gcs-Idempotency-Token")
 		r.ClearHeaders("User-Agent")
 	}, port)
 	if *Record {
@@ -142,7 +142,7 @@ func TestGCSWriteTo(t *testing.T) {
 		},
 		key: gcsTestKey,
 	}
-	client, done := NewTestGCPClient(ctx, 8081, t)
+	client, done := NewTestGCPClient(ctx, 8082, t)
 	defer done()
 	gcs.client = client
 	var w bytes.Buffer
