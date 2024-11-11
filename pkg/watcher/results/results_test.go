@@ -242,7 +242,7 @@ func TestEnsureResult(t *testing.T) {
 				Kind:       "TaskRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "taskrun",
+				Name:      "foo",
 				Namespace: "test",
 				UID:       "taskrun-id",
 			},
@@ -253,7 +253,7 @@ func TestEnsureResult(t *testing.T) {
 				Kind:       "PipelineRun",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pipelinerun",
+				Name:      "foo",
 				Namespace: "test",
 				UID:       "pipelinerun-id",
 			},
@@ -280,6 +280,7 @@ func TestEnsureResult(t *testing.T) {
 					Record: recordName(name, o),
 					Type:   convert.TypeName(o),
 				},
+				Annotations: map[string]string{"object.metadata.name": "foo"},
 			}
 			if diff := cmp.Diff(want, create, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
 				t.Errorf("Create Result diff (-want, +got):\n%s", diff)
@@ -305,6 +306,7 @@ func TestEnsureResult_RecordSummaryUpdate(t *testing.T) {
 
 	pr := &pipelinev1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
 			Namespace: "default",
 			UID:       "1",
 		},
@@ -339,6 +341,7 @@ func TestEnsureResult_RecordSummaryUpdate(t *testing.T) {
 			Record: recordName(resultName(pr), pr),
 			Type:   convert.TypeName(pr),
 		},
+		Annotations: map[string]string{"object.metadata.name": "foo"},
 	}
 	if diff := cmp.Diff(got, want, protocmp.Transform(), protoutil.IgnoreResultOutputOnly()); diff != "" {
 		t.Fatal(diff)
@@ -351,6 +354,7 @@ func TestAnnotations(t *testing.T) {
 
 	pipelineRun := &pipelinev1.PipelineRun{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
 			Namespace: "default",
 			Annotations: map[string]string{
 				annotation.ResultAnnotations:        `{"x": "y", "i": 7}`,
@@ -366,7 +370,7 @@ func TestAnnotations(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(map[string]string{
-		"x": "y", "i": "7",
+		"x": "y", "object.metadata.name": "foo", "i": "7",
 	}, result.Annotations); diff != "" {
 		t.Errorf("Result.Annotations: mismatch (-want +got):\n%s", diff)
 	}
