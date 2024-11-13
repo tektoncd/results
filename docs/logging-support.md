@@ -17,8 +17,8 @@ The following environment variables are required:
 
 The following environment variables are required:
 
-- `LOGS_TYPE`: Set to `Blob` to enable the fetching of logs from Loki.
-- `LOGS_PATH`: Director under bucket where logs are stored.
+- `LOGS_TYPE`: Set to `Blob` to enable the fetching of logs from GCS or S3.
+- `LOGS_PATH`: Directory under bucket where logs are stored.
 - `LOGGING_PLUGIN_API_URL`: The URL of the bucket accepted by GO CDK library, e.g: s3://tekton-logs
 - `LOGGING_PLUGIN_QUERY_PARAMS`: Query params to configure Blob library. We also have a query param `legacy` for enabling backward compatibility with legacy get log API. You can set `legacy=true`. 
 
