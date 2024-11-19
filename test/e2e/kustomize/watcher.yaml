@@ -20,6 +20,18 @@
   value: "15s"
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
+  value: "-store_deadline"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "20s"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "-forward_buffer"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "17s"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
   value: "-store_event=true"
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
