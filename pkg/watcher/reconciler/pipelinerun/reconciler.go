@@ -144,12 +144,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 		return nil
 	}
 
-	// If the completed resource grace period isn't 0, we can't use finalizers
-	// to coordinate deletion because a results pruner is running.
-	if r.cfg.GetCompletedResourceGracePeriod() != 0*time.Second {
-		return nil
-	}
-
 	// Check to make sure the PipelineRun is finished.
 	if !pr.IsDone() {
 		logging.FromContext(ctx).Debugf("pipelinerun %s/%s is still running", pr.Namespace, pr.Name)
