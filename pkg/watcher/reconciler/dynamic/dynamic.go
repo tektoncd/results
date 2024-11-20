@@ -721,10 +721,6 @@ func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object)
 		return nil
 	}
 
-	if r.cfg.GetCompletedResourceGracePeriod() != 0*time.Second {
-		logger.Debugf("Skipping CRD annotation patch: CompletedResourceGracePeriod is disabled ObjectName: %s", o.GetName())
-		return nil
-	}
 	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
 		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
 		return nil
