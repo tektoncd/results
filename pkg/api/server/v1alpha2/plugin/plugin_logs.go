@@ -420,7 +420,8 @@ func (s *LogServer) setLogPlugin() bool {
 		s.getLog = getBlobLogs
 	default:
 		s.IsLogPluginEnabled = false
-		s.logger.Errorf("unsupported type of logs given for plugin")
+		s.logger.Warnf("Plugin Logs API Disable: unsupported type of logs given for plugin, " +
+			"legacy logging system might work")
 	}
 	return s.IsLogPluginEnabled
 }
