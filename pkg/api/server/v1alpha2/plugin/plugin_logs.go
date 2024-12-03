@@ -272,14 +272,14 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 }
 
 func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) error {
-	URL, err := url.Parse(s.config.LOGGING_PLUGIN_API_URL)
+	u, err := url.Parse(s.config.LOGGING_PLUGIN_API_URL)
 	if err != nil {
 		s.logger.Error(err)
 		return err
 	}
 
 	legacy := false
-	queryParams := URL.Query()
+	queryParams := u.Query()
 
 	for k, v := range s.queryParams {
 		if k == legacyLogType && v == "true" {
@@ -288,11 +288,13 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		}
 		queryParams.Add(k, v)
 	}
+	u.RawQuery = queryParams.Encode()
 
 	logPath := map[string]string{}
 
 	ctx := context.Background()
-	bucket, err := openBucket(ctx, URL.String()+"?"+queryParams.Encode())
+	s.logger.Debugf("blob bucket: %s", u.String())
+	bucket, err := openBucket(ctx, u.String())
 	if err != nil {
 		s.logger.Errorf("error opening bucket: %s", err)
 		return err
@@ -325,8 +327,11 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 			return fmt.Errorf("record type is invalid %s", rec.Type)
 		}
 	case typeTaskRun:
-		bucket = blob.PrefixedBucket(bucket, strings.TrimLeft(filepath.Join(s.config.LOGS_PATH, fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name)), "/")+"/")
-		iter := bucket.List(nil)
+		s.logger.Debugf("taskrun type")
+		iter := bucket.List(&blob.ListOptions{
+			Prefix: strings.TrimPrefix(s.config.LOGS_PATH+fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name), "/"),
+		})
+		s.logger.Debugf("prefix: %s", strings.TrimPrefix(s.config.LOGS_PATH+"/"+fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name)+"/", "/"))
 		for {
 			obj, err := iter.Next(ctx)
 			if err == io.EOF {
@@ -339,6 +344,7 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 			}
 			logPath[obj.Key] = obj.Key
 		}
+		s.logger.Debugf("logPath: %v", logPath)
 	case v1alpha3.LogRecordType, v1alpha3.LogRecordTypeV2:
 		log := &v1alpha3.Log{}
 		err := json.Unmarshal(rec.Data, log)
@@ -353,12 +359,11 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		return fmt.Errorf("record type is invalid %s", rec.Type)
 	}
 
-	s.logger.Debugf("blob bucket :%s", URL.String()+"?"+queryParams.Encode())
-
 	for k, v := range logPath {
 		err := func() error {
 			s.logger.Debugf("logPath key: %s value: %s", k, v)
-			fmt.Fprint(writer, strings.TrimRight(k, ".log")+" :-\n")
+			_, file := filepath.Split(k)
+			fmt.Fprint(writer, strings.TrimRight(file, ".log")+" :-\n")
 			rc, err := bucket.NewReader(ctx, v, nil)
 			if err != nil {
 				s.logger.Errorf("error creating bucket reader: %s for log path: %s", err, logPath)
