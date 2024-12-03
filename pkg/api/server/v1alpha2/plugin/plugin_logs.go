@@ -39,9 +39,10 @@ import (
 )
 
 const (
-	lokiQueryPath   = "/loki/api/v1/query_range"
-	typePipelineRun = "tekton.dev/v1.PipelineRun"
-	typeTaskRun     = "tekton.dev/v1.TaskRun"
+	lokiQueryPath      = "/loki/api/v1/query_range"
+	typePipelineRun    = "tekton.dev/v1.PipelineRun"
+	typeTaskRun        = "tekton.dev/v1.TaskRun"
+	typeTaskRunV1Beta1 = "tekton.dev/v1beta1.TaskRun"
 
 	legacyLogType = "v1alpha2LogType"
 	// TODO: make this key configurable in a future release
@@ -145,7 +146,6 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 			s.logger.Error(err)
 			return err
 		}
-
 		if data.Status.StartTime == nil {
 			err = errors.New("there's no startime in taskrun")
 			s.logger.Error(err)
@@ -304,10 +304,9 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		err := errors.New("pipelinerun not supported, please use taskrun")
 		s.logger.Error(err)
 		return err
-	case typeTaskRun:
-		logRec := &db.Record{}
+	case typeTaskRunV1Beta1:
 		if legacy {
-			logRec, err = getLogRecord(s.db, parent, rec.ResultID, rec.Name)
+			logRec, err := getLogRecord(s.db, parent, rec.ResultID, rec.Name)
 			if err != nil {
 				s.logger.Debugf("error getting legacy log record: %s", err)
 			}
@@ -321,22 +320,24 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 				}
 				logPath[""] = filepath.Join(s.config.LOGS_PATH, log.Status.Path)
 			}
+		} else {
+			s.logger.Errorf("record type is invalid %s", rec.Type)
+			return fmt.Errorf("record type is invalid %s", rec.Type)
 		}
-		if len(logPath) == 0 {
-			bucket = blob.PrefixedBucket(bucket, strings.TrimLeft(filepath.Join(s.config.LOGS_PATH, fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name)), "/")+"/")
-			iter := bucket.List(nil)
-			for {
-				obj, err := iter.Next(ctx)
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					err := fmt.Errorf("error listing log bucket objects: %w", err)
-					s.logger.Error(err)
-					return err
-				}
-				logPath[obj.Key] = obj.Key
+	case typeTaskRun:
+		bucket = blob.PrefixedBucket(bucket, strings.TrimLeft(filepath.Join(s.config.LOGS_PATH, fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name)), "/")+"/")
+		iter := bucket.List(nil)
+		for {
+			obj, err := iter.Next(ctx)
+			if err == io.EOF {
+				break
 			}
+			if err != nil {
+				err := fmt.Errorf("error listing log bucket objects: %w", err)
+				s.logger.Error(err)
+				return err
+			}
+			logPath[obj.Key] = obj.Key
 		}
 	case v1alpha3.LogRecordType, v1alpha3.LogRecordTypeV2:
 		log := &v1alpha3.Log{}
@@ -348,8 +349,8 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		}
 		logPath[""] = filepath.Join(s.config.LOGS_PATH, log.Status.Path)
 	default:
-		s.logger.Error("record type is invalid")
-		return errors.New("record type is invalid")
+		s.logger.Errorf("record type is invalid %s", rec.Type)
+		return fmt.Errorf("record type is invalid %s", rec.Type)
 	}
 
 	s.logger.Debugf("blob bucket :%s", URL.String()+"?"+queryParams.Encode())
