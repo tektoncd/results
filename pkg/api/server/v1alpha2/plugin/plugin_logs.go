@@ -331,7 +331,7 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		iter := bucket.List(&blob.ListOptions{
 			Prefix: strings.TrimPrefix(s.config.LOGS_PATH+fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name), "/"),
 		})
-		s.logger.Debugf("prefix: %s", strings.TrimPrefix(s.config.LOGS_PATH+"/"+fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name)+"/", "/"))
+		s.logger.Debugf("prefix: %s", strings.TrimPrefix(s.config.LOGS_PATH+fmt.Sprintf(defaultBlobPathParams, parent, rec.ResultName, rec.Name), "/"))
 		for {
 			obj, err := iter.Next(ctx)
 			if err == io.EOF {
@@ -407,7 +407,8 @@ func (s *LogServer) LogMux() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO: Create a new log handler
 		ctx := r.Context()
-		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", r.Header.Get("Authorization"))
+		md := metadata.New(map[string]string{"authorization": r.Header.Get("Authorization")})
+		ctx = metadata.NewIncomingContext(ctx, md)
 		parent := r.PathValue("parent")
 		if err := s.auth.Check(ctx, parent, auth.ResourceLogs, auth.PermissionGet); err != nil {
 			s.logger.Error(err)
