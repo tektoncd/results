@@ -407,17 +407,17 @@ func (s *LogServer) LogMux() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO: Create a new log handler
 		ctx := r.Context()
-		md := metadata.New(map[string]string{"authorization": r.Header.Get("Authorization")})
+		md := metadata.MD(r.Header)
 		ctx = metadata.NewIncomingContext(ctx, md)
 		parent := r.PathValue("parent")
+		recID := r.PathValue("recordID")
+		res := r.PathValue("resultID")
+		s.logger.Debugf("recordID: %s resultID: %s name: %s md: %+v", recID, res, parent, r.Header)
 		if err := s.auth.Check(ctx, parent, auth.ResourceLogs, auth.PermissionGet); err != nil {
 			s.logger.Error(err)
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
 			return
 		}
-		recID := r.PathValue("recordID")
-		res := r.PathValue("resultID")
-		s.logger.Infof("recordID: %s resultID: %s name: %s", recID, res, parent)
 		rec, err := getRecord(s.db, parent, res, recID)
 		if err != nil {
 			s.logger.Error(err)
