@@ -1,4 +1,4 @@
-package cmd
+package result
 
 import (
 	"fmt"
@@ -20,9 +20,9 @@ func ListCommand(params *flags.Params) *cobra.Command {
   <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents.`,
 		Short: "List Results",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
+			parent := args[0]
 			resp, err := params.ResultsClient.ListResults(cmd.Context(), &pb.ListResultsRequest{
-				Parent:    args[0],
+				Parent:    parent,
 				Filter:    opts.Filter,
 				PageSize:  opts.Limit,
 				PageToken: opts.PageToken,

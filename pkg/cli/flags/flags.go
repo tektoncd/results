@@ -1,6 +1,7 @@
 package flags
 
 import (
+	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
@@ -11,6 +12,8 @@ type Params struct {
 	ResultsClient    pb.ResultsClient
 	LogsClient       pb.LogsClient
 	PluginLogsClient pb3.LogsClient
+
+	Clock clockwork.Clock
 }
 
 // ListOptions is used on commands that list Results, Records or Logs
