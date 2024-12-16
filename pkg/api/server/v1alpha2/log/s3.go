@@ -161,7 +161,7 @@ func (s3s *s3Stream) ReadFrom(r io.Reader) (int64, error) {
 
 	size := s3s.partSize + n
 	if size >= s3s.multiPartSize {
-		err = s3s.uploadMultiPart(&s3s.buffer, s3s.partNumber, n)
+		err = s3s.uploadMultiPart(&s3s.buffer, s3s.partNumber, size)
 		if err != nil {
 			return 0, err
 		}
@@ -175,6 +175,10 @@ func (s3s *s3Stream) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (s3s *s3Stream) uploadMultiPart(reader io.Reader, partNumber int32, partSize int64) error {
+	if partSize == 0 {
+		return nil
+	}
+
 	part, err := s3s.client.UploadPart(s3s.ctx, &s3.UploadPartInput{
 		UploadId:      &s3s.uploadID,
 		Bucket:        &s3s.bucket,
