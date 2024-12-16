@@ -50,9 +50,15 @@ func (m *mockS3Client) GetObject(ctx context.Context, params *s3.GetObjectInput,
 
 func (m *mockS3Client) UploadPart(ctx context.Context, params *s3.UploadPartInput, optFns ...func(*s3.Options)) (*s3.UploadPartOutput, error) { //nolint:revive
 	buffer := bytes.Buffer{}
-	_, err := buffer.ReadFrom(params.Body)
+	bufLen, err := buffer.ReadFrom(params.Body)
 	if err != nil {
 		m.t.Errorf("error uploading part: %d", params.PartNumber)
+	}
+	if *params.ContentLength != bufLen {
+		m.t.Errorf("ContentLength doesn't match buffer length: got %d, expected %d", *params.ContentLength, bufLen)
+	}
+	if *params.ContentLength == 0 {
+		m.t.Errorf("ContentLength must be > 0: got %d", *params.ContentLength)
 	}
 	m.body = append(m.body, buffer.Bytes()...)
 	e := strconv.Itoa(int(m.partNumber))
@@ -104,19 +110,20 @@ func TestS3Stream_WriteTo(t *testing.T) {
 }
 
 func TestS3Stream_ReadFrom(t *testing.T) {
-	want := "test body of multi-part upload"
+	want := "test body of multi-part upload  40 bytes"
 	const DefaultBufferSize = 10
 	c := &server.Config{
 		S3_BUCKET_NAME: "test-bucket",
 	}
 	filePath := "test"
 	s := &s3Stream{
-		config:     c,
-		bucket:     c.S3_BUCKET_NAME,
-		key:        filePath,
-		size:       c.LOGS_BUFFER_SIZE,
-		buffer:     bytes.Buffer{},
-		partNumber: 1,
+		config:        c,
+		bucket:        c.S3_BUCKET_NAME,
+		key:           filePath,
+		size:          c.LOGS_BUFFER_SIZE,
+		multiPartSize: 20,
+		buffer:        bytes.Buffer{},
+		partNumber:    1,
 		client: &mockS3Client{
 			t:          t,
 			bucket:     c.S3_BUCKET_NAME,
