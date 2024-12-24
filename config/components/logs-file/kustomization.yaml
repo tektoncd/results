@@ -25,3 +25,7 @@ patches:
     target:
       kind: Deployment
       name: api
+  - path: watcher.yaml
+    target:
+      kind: Deployment
+      name: watcher
