@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watcher
+spec:
+  template:
+    spec:
+      containers:
+        - name: watcher
+          args:
+            - -api_addr
+            - $(TEKTON_RESULTS_API_SERVICE)
+            - -auth_mode
+            - $(AUTH_MODE)
+            - -logs_api
