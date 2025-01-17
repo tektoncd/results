@@ -8,7 +8,6 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -141,7 +140,7 @@ func (s3s *s3Stream) WriteTo(w io.Writer) (n int64, err error) {
 		Key:    &s3s.key,
 	})
 	if err != nil {
-		return 0, fmt.Errorf(err.Error())
+		return 0, err
 	}
 
 	defer outPut.Body.Close()
@@ -149,7 +148,7 @@ func (s3s *s3Stream) WriteTo(w io.Writer) (n int64, err error) {
 	reader := bufio.NewReaderSize(outPut.Body, s3s.size)
 	n, err = reader.WriteTo(w)
 	if err != nil {
-		return 0, fmt.Errorf(err.Error())
+		return 0, err
 	}
 	return
 }
