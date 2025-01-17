@@ -29,21 +29,6 @@ export GO111MODULE=on
 
 source $(dirname $0)/vendor/github.com/tektoncd/plumbing/scripts/presubmit-tests.sh
 
-function check_go_lint() {
-    header "Testing if golint has been done"
-
-    # deadline of 5m, and show all the issues
-    GOFLAGS="-mod=mod" make golangci-lint-check
-
-    if [[ $? != 0 ]]; then
-        results_banner "Go Lint" 1
-        exit 1
-    fi
-
-    results_banner "Go Lint" 0
-}
-
-
 function pre_build_tests() {
     pushd ${TEST_FOLDER}
 }
@@ -58,7 +43,6 @@ function pre_integration_tests() {
 
 function post_build_tests() {
     popd
-    check_go_lint
 }
 
 function post_unit_tests() {

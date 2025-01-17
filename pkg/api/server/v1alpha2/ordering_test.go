@@ -25,7 +25,7 @@ func TestOrderBy(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 		if ob != tc.out {
-			t.Errorf(diff.PrintWantGot(cmp.Diff(tc.out, ob)))
+			t.Error(diff.PrintWantGot(cmp.Diff(tc.out, ob)))
 		}
 	}
 }
@@ -70,7 +70,7 @@ func TestNormalizeOrderByField(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 		if n != tc.out {
-			t.Errorf(diff.PrintWantGot(cmp.Diff(tc.out, n)))
+			t.Error(diff.PrintWantGot(cmp.Diff(tc.out, n)))
 		}
 	}
 }
