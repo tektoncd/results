@@ -396,6 +396,7 @@ func (s *LogServer) setLogPlugin() bool {
 		s.IsLogPluginEnabled = true
 		s.getLog = getBlobLogs
 	default:
+		// TODO(xinnjie) when s.config.LOGS_TYPE is File also show this error log
 		s.IsLogPluginEnabled = false
 		s.logger.Errorf("unsupported type of logs given for plugin")
 	}
