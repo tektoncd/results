@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ---
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: results-release
@@ -32,33 +32,56 @@ spec:
     - name: version
       description: "Version label to use for published images / configs"
       default: "dev"
+    - name: runTests
+      description: If set to something other than "true", skip the build and test tasks
+      default: "true"
   workspaces:
     - name: ws
+    - name: release-secret
+      optional: true
   tasks:
     - name: checkout
       taskRef:
-        name: git-clone
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.7
+          - name: name
+            value: git-clone
+          - name: kind
+            value: task
+      workspaces:
+        - name: output
+          workspace: ws
       params:
         - name: url
           value: $(params.repo)
         - name: revision
           value: $(params.revision)
-      workspaces:
-        - name: output
-          workspace: ws
     - name: unit-tests
       runAfter: [checkout]
+      when:
+        - cel: "'$(params.runTests)' == 'true'"
       taskRef:
-        name: golang-test
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/golang-test:0.2
+          - name: name
+            value: golang-test
+          - name: kind
+            value: task
       params:
         - name: package
           value: $(workspaces.source.path)/...
       workspaces:
         - name: source
           workspace: ws
-    - name: publish-image
+    - name: publish-image-gcr
       runAfter:
         - unit-tests
+      when:
+        - cel: "'$(params.docker_repo)'.matches('gcr.io/.*')"
       taskSpec:
         params:
           - name: repo
@@ -79,6 +102,8 @@ spec:
             env:
               - name: KO_DOCKER_REPO
                 value: "$(params.repo)"
+              - name: KO_EXTRA_ARGS
+                value: "-P"
               - name: RELEASE_VERSION
                 value: "$(params.tag)"
       params:
@@ -89,6 +114,80 @@ spec:
       workspaces:
         - name: source
           workspace: ws
+    - name: publish-image
+      runAfter:
+        - unit-tests
+      when:
+        - cel: "!'$(params.docker_repo)'.matches('gcr.io/.*')"
+      taskSpec:
+        params:
+          - name: repo
+            description: Docker repository to publish to.
+          - name: githubRepo
+            description: The source GitHub repo
+          - name: tag
+            default: latest
+          - name: imageRegistry
+            default: ghcr.io
+          - name: imageRegistryUser
+            default: tekton-robot
+          - name: serviceAccountPath
+            default: credentials
+        workspaces:
+          - name: source
+          - name: release-secret
+            optional: true
+        stepTemplate:
+          env:
+            - name: CONTAINER_REGISTRY_CREDENTIALS
+              value: "$(workspaces.release-secret.path)/$(params.serviceAccountPath)"
+            - name: IMAGE_REGISTRY
+              value: "$(params.imageRegistry)"
+            - name: CONTAINER_REGISTRY_USER
+              value: "$(params.imageRegistryUser)"
+            - name: RELEASE_VERSION
+              value: $(params.tag)
+            - name: GITHUB_REPO
+              value: $(params.githubRepo)
+            - name: DOCKER_CONFIG
+              value: /workspace/.docker
+            - name: KO_EXTRA_ARGS
+              value: ""
+        steps:
+          - name: container-registry-auth
+            image: cgr.dev/chainguard/crane:latest-dev@sha256:6fc6fcdeb173c7951f038e6a7b230f586c1be05a011d9e6f9db6c614ec412c2f
+            script: |
+              #!/bin/sh
+              set -ex
+
+              if [ ! -f ${CONTAINER_REGISTRY_CREDENTIALS} ]; then
+                echo "The release-secret workspace is required with ghcr.io"
+                exit 1
+              fi
+
+              # Login to IMAGE_REGISTRY. Crane will honour DOCKER_CONFIG.
+              cat ${CONTAINER_REGISTRY_CREDENTIALS} | \
+                crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin ${IMAGE_REGISTRY}
+          - name: publish
+            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
+            workingDir: $(workspaces.source.path)
+            script: |
+              $(workspaces.source.path)/release/release.sh
+            env:
+              - name: KO_DOCKER_REPO
+                value: "$(params.repo)"
+      params:
+        - name: repo
+          value: $(params.docker_repo)
+        - name: githubRepo
+          value: $(params.repo)
+        - name: tag
+          value: $(params.version)
+      workspaces:
+        - name: source
+          workspace: ws
+        - name: release-secret
+          workspace: release-secret
     - name: publish-config
       runAfter: [publish-image]
       # Inline spec since we're relying on Workload Identity and can't use the
