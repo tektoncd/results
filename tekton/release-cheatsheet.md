@@ -8,7 +8,7 @@ the results repo, a terminal window and a text editor.
 
 1. `cd` to root of Results git checkout.
 
-1. Make sure the release `Task` and `Pipeline` are up-to-date on the
+1. Make sure the release `Pipeline` is up-to-date on the
    cluster.
 
    - [results-release](https://github.com/tektoncd/results/blob/main/tekton/release.yaml)
@@ -55,9 +55,10 @@ the results repo, a terminal window and a text editor.
         tkn --context dogfooding pipeline start results-release \
         --serviceaccount=results-release \
         --param=revision="${RELEASE_GIT_SHA}"  \
-        --param=version="${VERSION_TAG}"  \
+        --param=version="${VERSION_TAG}" \
+        --param=docker_repo=ghcr.io/tektoncd/results \
         --param=bucket=gs://tekton-releases/results \
-        --workspace name=release-secret,secret=release-secret \
+        --workspace name=release-secret,secret=ghcr-creds \
         --workspace  name=ws,volumeClaimTemplateFile=workspace-template.yaml
     ```
 

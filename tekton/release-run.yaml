@@ -13,23 +13,35 @@
 # limitations under the License.
 
 ---
-apiVersion: tekton.dev/v1beta1
+apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   generateName: results-release-api-
 spec:
-  serviceAccountName: results-release
+  taskRunTemplate:
+    serviceAccountName: results-release
   pipelineRef:
-    name: results-release
+    resolver: git
+    params:
+      - name: repo
+        value: results
+      - name: org
+        value: tektoncd
+      - name: revision
+        value: $(params.gitRevision)
+      - name: pathInRepo
+        value: tekton/release.yaml
   params:
     - name: revision
       value: main
     - name: docker_repo
-      value: gcr.io/tekton-releases
+      value: ghcr.io/tektoncd/results
     - name: bucket
       value: gs://tekton-releases
     - name: version
       value: "dev" # Replace this
+    - name: runTests
+      value: false
   workspaces:
     - name: ws
       volumeClaimTemplate:
@@ -39,3 +51,6 @@ spec:
           resources:
             requests:
               storage: 1Gi
+    - name: release-secret
+      secret:
+        secretName: ghcr-creds
