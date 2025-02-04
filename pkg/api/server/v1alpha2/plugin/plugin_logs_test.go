@@ -58,9 +58,21 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 			"data": map[string]interface{}{
 				"result": []map[string]interface{}{
 					{
-						"stream": map[string]string{"message": "Foo Bar!"},
+						"stream": map[string]string{},
 						"values": [][]string{
-							{"1625081600000000000", "Hello World!"},
+							{"1625081600000000001", "Log Message 1"},
+						},
+					},
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{"1625081600000000003", "Log Message 3"},
+						},
+					},
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{"1625081600000000000", "Log Message 0"},
 						},
 					},
 				},
@@ -139,7 +151,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		Name: log.FormatName(res.GetName(), "baz"),
 	}
 
-	expectedData := "Foo Bar!"
+	expectedData := "Log Message 0\nLog Message 1\nLog Message 3"
 	// Call GetLog
 	err = srv.LogPluginServer.GetLog(req, mockServer)
 	if err != nil {

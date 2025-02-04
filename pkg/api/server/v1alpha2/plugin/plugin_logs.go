@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -237,6 +238,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 				Stream struct {
 					Message string `json:"message"`
 				} `json:"stream"`
+				Values [][]string `json:"values"`
 			} `json:"result"`
 			Stats map[string]interface{} `json:"stats"`
 		} `json:"data"`
@@ -255,12 +257,30 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		return status.Error(codes.Internal, "Error fetching log data from Loki")
 	}
 
-	var logMessages []string
+	var logMessages [][]string
 	for _, result := range lokiResponse.Data.Result {
-		logMessages = append(logMessages, result.Stream.Message)
+		logMessages = append(logMessages, result.Values...)
 	}
 
-	formattedLogs := strings.Join(logMessages, "\n")
+	sort.Slice(logMessages, func(i, j int) bool {
+		if len(logMessages[i]) == 0 {
+			return true
+		}
+		if len(logMessages[j]) == 0 {
+			return false
+		}
+		return logMessages[i][0] < logMessages[j][0]
+	})
+
+	var orderMessages []string
+	for _, val := range logMessages {
+		if len(val) <= 1 {
+			continue
+		}
+		orderMessages = append(orderMessages, val[1:]...)
+	}
+
+	formattedLogs := strings.Join(orderMessages, "\n")
 
 	if _, err = writer.Write([]byte(formattedLogs)); err != nil {
 		s.logger.Errorf("failed to write log data, err: %s", err.Error())
@@ -268,7 +288,6 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 	}
 
 	return nil
-
 }
 
 func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) error {
