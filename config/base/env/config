@@ -41,6 +41,7 @@ LOGGING_PLUGIN_PROXY_PATH=/api/logs/v1/application
 LOGGING_PLUGIN_API_URL=
 LOGGING_PLUGIN_TOKEN_PATH=/var/run/secrets/kubernetes.io/serviceaccount/token
 LOGGING_PLUGIN_NAMESPACE_KEY=kubernetes_namespace_name
+LOGGING_PLUGIN_CONTAINER_KEY=kubernetes.container_name
 LOGGING_PLUGIN_STATIC_LABELS='log_type=application'
 LOGGING_PLUGIN_CA_CERT=
 LOGGING_PLUGIN_QUERY_LIMIT=1700
