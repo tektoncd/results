@@ -170,7 +170,11 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 	for k, v := range s.queryParams {
 		parameters.Add(k, v)
 	}
-	parameters.Add("query", `{ `+s.staticLabels+s.config.LOGGING_PLUGIN_NAMESPACE_KEY+`="`+parent+`" }|json uid="`+uidKey+`", message="message" |uid="`+rec.Name+`"| line_format "{{.message}}"`)
+	query := `{ ` + s.staticLabels + s.config.LOGGING_PLUGIN_NAMESPACE_KEY + `="` + parent + `" }|json uid="` + uidKey + `", message="message" |uid="` + rec.Name + `"| line_format "{{.message}}"`
+	if s.config.LOGGING_PLUGIN_CONTAINER_KEY != "" {
+		query = `{ ` + s.staticLabels + s.config.LOGGING_PLUGIN_NAMESPACE_KEY + `="` + parent + `" }|json uid="` + uidKey + `", container="` + s.config.LOGGING_PLUGIN_CONTAINER_KEY + `", message="message" |uid="` + rec.Name + `"| line_format "container-{{.container}}: message={{.message}}"`
+	}
+	parameters.Add("query", query)
 	parameters.Add("end", endTime)
 	parameters.Add("start", startTime)
 	parameters.Add("limit", strconv.FormatUint(uint64(s.queryLimit), 10))

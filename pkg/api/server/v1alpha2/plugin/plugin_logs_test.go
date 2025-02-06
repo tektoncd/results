@@ -60,19 +60,19 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 					{
 						"stream": map[string]string{},
 						"values": [][]string{
-							{"1625081600000000001", "Log Message 1"},
+							{"1625081600000000001", "container-step-foo: Log Message 1"},
 						},
 					},
 					{
 						"stream": map[string]string{},
 						"values": [][]string{
-							{"1625081600000000003", "Log Message 3"},
+							{"1625081600000000003", "container-step-foo: Log Message 3"},
 						},
 					},
 					{
 						"stream": map[string]string{},
 						"values": [][]string{
-							{"1625081600000000000", "Log Message 0"},
+							{"1625081600000000000", "container-step-foo: Log Message 0"},
 						},
 					},
 				},
@@ -99,6 +99,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
 		LOGGING_PLUGIN_STATIC_LABELS:            "namespace=\"foo\"",
 		LOGGING_PLUGIN_NAMESPACE_KEY:            "namespace",
+		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
 		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
 		LOGGING_PLUGIN_QUERY_PARAMS:             "direction=forward",
 	}, logger.Get("info"), test.NewDB(t))
@@ -151,7 +152,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		Name: log.FormatName(res.GetName(), "baz"),
 	}
 
-	expectedData := "Log Message 0\nLog Message 1\nLog Message 3"
+	expectedData := "container-step-foo: Log Message 0\ncontainer-step-foo: Log Message 1\ncontainer-step-foo: Log Message 3"
 	// Call GetLog
 	err = srv.LogPluginServer.GetLog(req, mockServer)
 	if err != nil {

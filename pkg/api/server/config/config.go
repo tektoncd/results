@@ -55,6 +55,7 @@ type Config struct {
 
 	LOGGING_PLUGIN_API_URL                  string `mapstructure:"LOGGING_PLUGIN_API_URL"`
 	LOGGING_PLUGIN_NAMESPACE_KEY            string `mapstructure:"LOGGING_PLUGIN_NAMESPACE_KEY"`
+	LOGGING_PLUGIN_CONTAINER_KEY            string `mapstructure:"LOGGING_PLUGIN_CONTAINER_KEY"`
 	LOGGING_PLUGIN_STATIC_LABELS            string `mapstructure:"LOGGING_PLUGIN_STATIC_LABELS"`
 	LOGGING_PLUGIN_TOKEN_PATH               string `mapstructure:"LOGGING_PLUGIN_TOKEN_PATH"`
 	LOGGING_PLUGIN_PROXY_PATH               string `mapstructure:"LOGGING_PLUGIN_PROXY_PATH"`

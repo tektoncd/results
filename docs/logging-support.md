@@ -43,6 +43,7 @@ These are the common configuration options for all third party logging APIs.
 - `LOGGING_PLUGIN_API_URL`: The URL of the third party logging API.
 - `LOGGING_PLUGIN_TOKEN_PATH`: The path to the file containing the API token. (optional)
 - `LOGGING_PLUGIN_NAMESPACE_KEY`: The key to use for the namespace filtering.
+- `LOGGING_PLUGIN_CONTAINER_KEY`: The key to use for adding container name to the logs. (optional)
 - `LOGGING_PLUGIN_STATIC_LABELS`: The static labels to use for the logs.
 - `LOGGING_PLUGIN_PROXY_PATH`: The path to the proxy to use for the third party logging API. (optional)
 - `LOGGING_PLUGIN_CA_CERT`: The CA certificate to use for the third party logging API. This should ideally be passed as environment variable in the deployment spec of the results-api pod. (optional)
