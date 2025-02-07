@@ -13,78 +13,80 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This operation is not supported for directory buckets.
+//	Deletes a metadata table configuration from a general purpose bucket. For more
 //
-// Deletes the tags from the bucket.
+// information, see [Accelerating data discovery with S3 Metadata]in the Amazon S3 User Guide.
 //
-// To use this operation, you must have permission to perform the
-// s3:PutBucketTagging action. By default, the bucket owner has this permission and
-// can grant this permission to others.
+// Permissions To use this operation, you must have the
+// s3:DeleteBucketMetadataTableConfiguration permission. For more information, see [Setting up permissions for configuring metadata tables]
+// in the Amazon S3 User Guide.
 //
-// The following operations are related to DeleteBucketTagging :
+// The following operations are related to DeleteBucketMetadataTableConfiguration :
 //
-// [GetBucketTagging]
+// [CreateBucketMetadataTableConfiguration]
 //
-// [PutBucketTagging]
+// [GetBucketMetadataTableConfiguration]
 //
-// [GetBucketTagging]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketTagging.html
-// [PutBucketTagging]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketTagging.html
-func (c *Client) DeleteBucketTagging(ctx context.Context, params *DeleteBucketTaggingInput, optFns ...func(*Options)) (*DeleteBucketTaggingOutput, error) {
+// [Setting up permissions for configuring metadata tables]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-permissions.html
+// [GetBucketMetadataTableConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketMetadataTableConfiguration.html
+// [CreateBucketMetadataTableConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketMetadataTableConfiguration.html
+// [Accelerating data discovery with S3 Metadata]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html
+func (c *Client) DeleteBucketMetadataTableConfiguration(ctx context.Context, params *DeleteBucketMetadataTableConfigurationInput, optFns ...func(*Options)) (*DeleteBucketMetadataTableConfigurationOutput, error) {
 	if params == nil {
-		params = &DeleteBucketTaggingInput{}
+		params = &DeleteBucketMetadataTableConfigurationInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketTagging", params, optFns, c.addOperationDeleteBucketTaggingMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteBucketMetadataTableConfiguration", params, optFns, c.addOperationDeleteBucketMetadataTableConfigurationMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DeleteBucketTaggingOutput)
+	out := result.(*DeleteBucketMetadataTableConfigurationOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DeleteBucketTaggingInput struct {
+type DeleteBucketMetadataTableConfigurationInput struct {
 
-	// The bucket that has the tag set to be removed.
+	//  The general purpose bucket that you want to remove the metadata table
+	// configuration from.
 	//
 	// This member is required.
 	Bucket *string
 
-	// The account ID of the expected bucket owner. If the account ID that you provide
-	// does not match the actual owner of the bucket, the request fails with the HTTP
-	// status code 403 Forbidden (access denied).
+	//  The expected bucket owner of the general purpose bucket that you want to
+	// remove the metadata table configuration from.
 	ExpectedBucketOwner *string
 
 	noSmithyDocumentSerde
 }
 
-func (in *DeleteBucketTaggingInput) bindEndpointParams(p *EndpointParameters) {
+func (in *DeleteBucketMetadataTableConfigurationInput) bindEndpointParams(p *EndpointParameters) {
 
 	p.Bucket = in.Bucket
 	p.UseS3ExpressControlEndpoint = ptr.Bool(true)
 }
 
-type DeleteBucketTaggingOutput struct {
+type DeleteBucketMetadataTableConfigurationOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDeleteBucketTaggingMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteBucketMetadataTableConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketTagging{}, middleware.After)
+	err = stack.Serialize.Add(&awsRestxml_serializeOpDeleteBucketMetadataTableConfiguration{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsRestxml_deserializeOpDeleteBucketTagging{}, middleware.After)
+	err = stack.Deserialize.Add(&awsRestxml_deserializeOpDeleteBucketMetadataTableConfiguration{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteBucketTagging"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteBucketMetadataTableConfiguration"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -142,10 +144,10 @@ func (c *Client) addOperationDeleteBucketTaggingMiddlewares(stack *middleware.St
 	if err = addIsExpressUserAgent(stack); err != nil {
 		return err
 	}
-	if err = addOpDeleteBucketTaggingValidationMiddleware(stack); err != nil {
+	if err = addOpDeleteBucketMetadataTableConfigurationValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteBucketTagging(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteBucketMetadataTableConfiguration(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addMetadataRetrieverMiddleware(stack); err != nil {
@@ -154,7 +156,7 @@ func (c *Client) addOperationDeleteBucketTaggingMiddlewares(stack *middleware.St
 	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
-	if err = addDeleteBucketTaggingUpdateEndpoint(stack, options); err != nil {
+	if err = addDeleteBucketMetadataTableConfigurationUpdateEndpoint(stack, options); err != nil {
 		return err
 	}
 	if err = addResponseErrorMiddleware(stack); err != nil {
@@ -190,35 +192,35 @@ func (c *Client) addOperationDeleteBucketTaggingMiddlewares(stack *middleware.St
 	return nil
 }
 
-func (v *DeleteBucketTaggingInput) bucket() (string, bool) {
+func (v *DeleteBucketMetadataTableConfigurationInput) bucket() (string, bool) {
 	if v.Bucket == nil {
 		return "", false
 	}
 	return *v.Bucket, true
 }
 
-func newServiceMetadataMiddleware_opDeleteBucketTagging(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDeleteBucketMetadataTableConfiguration(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DeleteBucketTagging",
+		OperationName: "DeleteBucketMetadataTableConfiguration",
 	}
 }
 
-// getDeleteBucketTaggingBucketMember returns a pointer to string denoting a
-// provided bucket member valueand a boolean indicating if the input has a modeled
-// bucket name,
-func getDeleteBucketTaggingBucketMember(input interface{}) (*string, bool) {
-	in := input.(*DeleteBucketTaggingInput)
+// getDeleteBucketMetadataTableConfigurationBucketMember returns a pointer to
+// string denoting a provided bucket member valueand a boolean indicating if the
+// input has a modeled bucket name,
+func getDeleteBucketMetadataTableConfigurationBucketMember(input interface{}) (*string, bool) {
+	in := input.(*DeleteBucketMetadataTableConfigurationInput)
 	if in.Bucket == nil {
 		return nil, false
 	}
 	return in.Bucket, true
 }
-func addDeleteBucketTaggingUpdateEndpoint(stack *middleware.Stack, options Options) error {
+func addDeleteBucketMetadataTableConfigurationUpdateEndpoint(stack *middleware.Stack, options Options) error {
 	return s3cust.UpdateEndpoint(stack, s3cust.UpdateEndpointOptions{
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
-			GetBucketFromInput: getDeleteBucketTaggingBucketMember,
+			GetBucketFromInput: getDeleteBucketMetadataTableConfigurationBucketMember,
 		},
 		UsePathStyle:                   options.UsePathStyle,
 		UseAccelerate:                  options.UseAccelerate,
