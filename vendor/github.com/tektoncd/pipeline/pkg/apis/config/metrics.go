@@ -29,12 +29,21 @@ const (
 	// metricsPipelinerunLevel determines to what level to aggregate metrics
 	// for pipelinerun
 	metricsPipelinerunLevelKey = "metrics.pipelinerun.level"
+	// metricsRunningPipelinerunLevelKey determines to what level to aggregate metrics
+	// for running pipelineruns
+	metricsRunningPipelinerunLevelKey = "metrics.running-pipelinerun.level"
 	// metricsDurationTaskrunType determines what type of
 	// metrics to use for aggregating duration for taskrun
 	metricsDurationTaskrunType = "metrics.taskrun.duration-type"
 	// metricsDurationPipelinerunType determines what type of
 	// metrics to use for aggregating duration for pipelinerun
 	metricsDurationPipelinerunType = "metrics.pipelinerun.duration-type"
+
+	// countWithReasonKey sets if the reason label should be included on count metrics
+	countWithReasonKey = "metrics.count.enable-reason"
+
+	// throttledWithNamespaceKey sets if the namespace label should be included on the taskrun throttled metrics
+	throttledWithNamespaceKey = "metrics.taskrun.throttle.enable-namespace"
 
 	// DefaultTaskrunLevel determines to what level to aggregate metrics
 	// when it isn't specified in configmap
@@ -49,6 +58,9 @@ const (
 	// DefaultPipelinerunLevel determines to what level to aggregate metrics
 	// when it isn't specified in configmap
 	DefaultPipelinerunLevel = PipelinerunLevelAtPipeline
+	// DefaultRunningPipelinerunLevel determines to what level to aggregate metrics
+	// when it isn't specified in configmap
+	DefaultRunningPipelinerunLevel = ""
 	// PipelinerunLevelAtPipelinerun specify that aggregation will be done at
 	// pipelinerun level
 	PipelinerunLevelAtPipelinerun = "pipelinerun"
@@ -82,13 +94,19 @@ const (
 	DurationPipelinerunTypeLastValue = "lastvalue"
 )
 
+// DefaultMetrics holds all the default configurations for the metrics.
+var DefaultMetrics, _ = newMetricsFromMap(map[string]string{})
+
 // Metrics holds the configurations for the metrics
 // +k8s:deepcopy-gen=true
 type Metrics struct {
 	TaskrunLevel            string
 	PipelinerunLevel        string
+	RunningPipelinerunLevel string
 	DurationTaskrunType     string
 	DurationPipelinerunType string
+	CountWithReason         bool
+	ThrottleWithNamespace   bool
 }
 
 // GetMetricsConfigName returns the name of the configmap containing all
@@ -110,7 +128,8 @@ func (cfg *Metrics) Equals(other *Metrics) bool {
 	return other.TaskrunLevel == cfg.TaskrunLevel &&
 		other.PipelinerunLevel == cfg.PipelinerunLevel &&
 		other.DurationTaskrunType == cfg.DurationTaskrunType &&
-		other.DurationPipelinerunType == cfg.DurationPipelinerunType
+		other.DurationPipelinerunType == cfg.DurationPipelinerunType &&
+		other.CountWithReason == cfg.CountWithReason
 }
 
 // newMetricsFromMap returns a Config given a map corresponding to a ConfigMap
@@ -118,8 +137,11 @@ func newMetricsFromMap(cfgMap map[string]string) (*Metrics, error) {
 	tc := Metrics{
 		TaskrunLevel:            DefaultTaskrunLevel,
 		PipelinerunLevel:        DefaultPipelinerunLevel,
+		RunningPipelinerunLevel: DefaultRunningPipelinerunLevel,
 		DurationTaskrunType:     DefaultDurationTaskrunType,
 		DurationPipelinerunType: DefaultDurationPipelinerunType,
+		CountWithReason:         false,
+		ThrottleWithNamespace:   false,
 	}
 
 	if taskrunLevel, ok := cfgMap[metricsTaskrunLevelKey]; ok {
@@ -129,12 +151,24 @@ func newMetricsFromMap(cfgMap map[string]string) (*Metrics, error) {
 	if pipelinerunLevel, ok := cfgMap[metricsPipelinerunLevelKey]; ok {
 		tc.PipelinerunLevel = pipelinerunLevel
 	}
+	if runningPipelinerunLevel, ok := cfgMap[metricsRunningPipelinerunLevelKey]; ok {
+		tc.RunningPipelinerunLevel = runningPipelinerunLevel
+	}
 	if durationTaskrun, ok := cfgMap[metricsDurationTaskrunType]; ok {
 		tc.DurationTaskrunType = durationTaskrun
 	}
 	if durationPipelinerun, ok := cfgMap[metricsDurationPipelinerunType]; ok {
 		tc.DurationPipelinerunType = durationPipelinerun
 	}
+
+	if countWithReason, ok := cfgMap[countWithReasonKey]; ok && countWithReason != "false" {
+		tc.CountWithReason = true
+	}
+
+	if throttleWithNamespace, ok := cfgMap[throttledWithNamespaceKey]; ok && throttleWithNamespace != "false" {
+		tc.ThrottleWithNamespace = true
+	}
+
 	return &tc, nil
 }
 
