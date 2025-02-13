@@ -35,6 +35,10 @@ $(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)…)
 
 ## Linters configuration and targets
 # TODO(vdemeester) gofmt and goimports checks (run them with -w and make a diff)
+FORCE:
+
+bin/%: cmd/% FORCE
+	$Q $(GO) build -mod=vendor $(LDFLAGS) -v -o $@ ./$<
 
 GOLINT = $(BIN)/golint
 $(BIN)/golint: PACKAGE=golang.org/x/lint/golint
