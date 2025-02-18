@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -172,7 +173,14 @@ func main() {
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
-	var serverMuxOptions []runtime.ServeMuxOption
+	serverMuxOptions := []runtime.ServeMuxOption{runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+		MarshalOptions: protojson.MarshalOptions{
+			UseProtoNames: true,
+		},
+		UnmarshalOptions: protojson.UnmarshalOptions{
+			DiscardUnknown: true,
+		},
+	})}
 	if serverConfig.AUTH_DISABLE {
 		log.Warn("Kubernetes RBAC authorization check disabled - all requests will be allowed by the API server")
 		authCheck = &auth.AllowAll{}

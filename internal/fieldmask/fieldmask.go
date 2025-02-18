@@ -144,7 +144,8 @@ func (fm FieldMask) Filter(message proto.Message) {
 				}
 			}
 		default:
-			// TODO: Either log or sent k8s events.
+			// TODO: We can configure zap logger from main instead of using default logger.
+			logger.Error(context.Background(), "unsupported field type: %s", fd.Kind())
 		}
 		return true
 	})
@@ -225,7 +226,6 @@ func UnaryServerInterceptor(enabled *atomic.Bool) grpc.UnaryServerInterceptor {
 
 		fm := FromMetadata(md)
 		fm.Filter(message)
-
 		return resp, err
 	}
 }
