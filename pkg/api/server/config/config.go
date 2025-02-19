@@ -23,6 +23,7 @@ type Config struct {
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
 	SQL_LOG_LEVEL            string `mapstructure:"SQL_LOG_LEVEL"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`
+	FEATURE_GATES            string `mapstructure:"FEATURE_GATES"`
 
 	GRPC_WORKER_POOL int `mapstructure:"GRPC_WORKER_POOL"`
 	K8S_QPS          int `mapstructure:"K8S_QPS"`

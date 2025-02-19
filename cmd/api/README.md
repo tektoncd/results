@@ -42,6 +42,7 @@
 | STORAGE_EMULATOR_HOST    | GCS Storage Emulator Server                                                                                                       | http://localhost:9004                                                                        |
 | CONVERTER_ENABLE         | Whether to start converter of v1beta1 TaskRun/PipelineRun records to v1                                                           | true                                                                                         |
 | CONVERTER_DB_LIMIT       | How many records to convert at a time in a transaction                                                                            | 50                                                                                           |
+| FEATURE_GATES            | Configuration to enable/disable a feature                                                                                         | PartialResponse=true,foo=false,bar=true                                                      |
 
 These values can also be set in the config file located in the `config/env/config` directory.
 
