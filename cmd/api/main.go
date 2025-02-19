@@ -26,6 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tektoncd/results/pkg/api/server/features"
+
+	"github.com/tektoncd/results/internal/fieldmask"
+
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"github.com/tektoncd/results/pkg/converter"
 	"golang.org/x/net/http2"
@@ -78,6 +82,12 @@ func main() {
 	// This defer statement will be executed at the end of the application lifecycle, so we do not lose
 	// any data in the event of an unhandled error.
 	defer log.Sync() //nolint:errcheck
+
+	// Load server features
+	f := features.NewFeatureGate()
+	if err := f.Set(serverConfig.FEATURE_GATES); err != nil {
+		log.Errorf("Failed to load feature gates: %v", err)
+	}
 
 	// Load server TLS
 	certFile := path.Join(serverConfig.TLS_PATH, "tls.crt")
@@ -221,6 +231,7 @@ func main() {
 			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
 			grpc_auth.UnaryServerInterceptor(determineAuth),
 			prometheus.UnaryServerInterceptor,
+			fieldmask.UnaryServerInterceptor(f.Get(features.PartialResponse)),
 			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
 		grpc_middleware.WithStreamServerChain(
@@ -294,7 +305,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error dialing gRPC endpoint: %v", err)
 	}
-	serverMuxOptions = append(serverMuxOptions, runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)))
+	serverMuxOptions = append(serverMuxOptions,
+		runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)),
+		runtime.WithMetadata(fieldmask.MetadataAnnotator),
+	)
 
 	// Create server for gRPC gateway
 	ctx := context.Background()

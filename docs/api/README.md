@@ -576,6 +576,33 @@ You must be providing the correct filter for the correct resource.
 | Get all the Records of the Runs that failed                                                               | `!(data.status.conditions[0].status == 'True')`                                                                    |
 | Get all the Records of the PipelineRuns which had 3 or more tasks                                         | `size(data.status.pipelineSpec.tasks) >= 3 && data_type == 'PIPELINE_RUN'`                                         |
 
+## Filtering Response
+
+Google's [AIP-157](https://google.aip.dev/157) is implemented in the all the APIs and allows the response to be filtered according to user need.
+
+### How to use
+A URL parameter called `fields`, containing the paths to the items required in the response needs to be sent along with the request. For gRPC requests this should be sent in the **header**. <br>
+The response will then contain only the elements specified by the paths. Leaving the field blank or not sending the header will return the whole response. <br>
+
+To enable this feature add `PartialResponse=true` in the `FEATURE_GATES` section in the config. 
+
+```fields: records.name, records.data.value.metadata.name```<br><br>
+This will only return `name` and `metadata` in the response. If a path is not valid in the proto, it will be ignored. If a path is not valid in a JSON field, the path will appear in the response with a `null` value. <br>
+Filtering a JSON array is **NOT** supported at the moment.
+
+### Examples
+```shell
+curl -kG \
+--data-urlencode "fields=records.name, records.data.value.metadata" \
+http://localhost:8080/apis/results.tekton.dev/v1alpha2/parents/default/results/-/records
+```
+```shell
+grpcurl --insecure \
+-H 'fields: records.name, records.data.value.metadata' \
+-d '{"parent": "default/results/-"}' \
+results.tekton.dev:8080 tekton.results.v1alpha2.Results/ListRecords
+```
+
 ## Ordering
 
 The reference implementation of the Results API supports ordering result and

@@ -1,7 +1,8 @@
 module github.com/tektoncd/results
 
-go 1.22.3
-toolchain go1.23.5
+go 1.22.7
+
+toolchain go1.23.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1
@@ -23,6 +24,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0
 	github.com/jackc/pgconn v1.14.3
 	github.com/jonboulle/clockwork v0.4.0
+	github.com/json-iterator/go v1.1.12
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/prometheus/client_golang v1.20.5
 	github.com/robfig/cron/v3 v3.0.1
@@ -31,6 +33,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.68.0
+	github.com/tidwall/gjson v1.12.1
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
@@ -164,7 +167,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
@@ -214,6 +216,8 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tektoncd/triggers v0.27.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
