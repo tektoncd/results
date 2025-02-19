@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package fieldmask;
+
+option go_package = "github.com/tektoncd/results/internal/fieldmask/test";
+
+message Test {
+  string id = 1;
+  string name = 2;
+  repeated Any data = 3;
+}
+
+message Any {
+  string type = 1;
+  bytes value = 2;
+}
