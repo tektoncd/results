@@ -21,6 +21,7 @@ type Config struct {
 	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
 	PROMETHEUS_HISTOGRAM     bool   `mapstructure:"PROMETHEUS_HISTOGRAM"`
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
+	SQL_LOG_LEVEL            string `mapstructure:"SQL_LOG_LEVEL"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`
 
 	GRPC_WORKER_POOL int `mapstructure:"GRPC_WORKER_POOL"`
