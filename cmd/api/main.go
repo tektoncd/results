@@ -42,6 +42,8 @@ import (
 
 	_ "net/http/pprof"
 
+	serverdb "github.com/tektoncd/results/pkg/api/server/db"
+
 	"github.com/golang-jwt/jwt/v4"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -66,7 +68,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -105,10 +106,12 @@ func main() {
 	var err error
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s sslrootcert=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE, serverConfig.DB_SSLROOTCERT)
+
 	gormConfig := &gorm.Config{}
-	if log.Level() != zap.DebugLevel {
-		gormConfig.Logger = gormlogger.Default.LogMode(gormlogger.Silent)
+	if err = serverdb.SetLogLevel(serverConfig.SQL_LOG_LEVEL); err != nil {
+		log.Warnf("Failed to configure sql log level: %v", err)
 	}
+
 	// Retry database connection, sometimes the database is not ready to accept connection
 	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) { //nolint:staticcheck
 		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
