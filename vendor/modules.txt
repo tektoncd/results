@@ -1117,7 +1117,7 @@ github.com/tektoncd/triggers/pkg/client/clientset/versioned
 github.com/tektoncd/triggers/pkg/client/clientset/versioned/scheme
 github.com/tektoncd/triggers/pkg/client/clientset/versioned/typed/triggers/v1alpha1
 github.com/tektoncd/triggers/pkg/client/clientset/versioned/typed/triggers/v1beta1
-# github.com/tidwall/gjson v1.12.1
+# github.com/tidwall/gjson v1.18.0
 ## explicit; go 1.12
 github.com/tidwall/gjson
 # github.com/tidwall/match v1.1.1
