@@ -1,9 +1,6 @@
 module github.com/tektoncd/results
 
 go 1.22.7
-
-toolchain go1.23.0
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1
 	github.com/aws/aws-sdk-go-v2/config v1.29.6
@@ -33,7 +30,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.68.0
-	github.com/tidwall/gjson v1.12.1
+	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
