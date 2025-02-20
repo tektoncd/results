@@ -50,7 +50,6 @@ import (
 	serverdb "github.com/tektoncd/results/pkg/api/server/db"
 
 	"github.com/golang-jwt/jwt/v4"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -233,7 +232,7 @@ func main() {
 
 	svrOpts := []grpc.ServerOption{
 		grpc.Creds(creds),
-		grpc_middleware.WithUnaryServerChain(
+		grpc.ChainUnaryInterceptor(
 			// The grpc_ctxtags context updater should be before everything else
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
@@ -242,7 +241,7 @@ func main() {
 			fieldmask.UnaryServerInterceptor(f.Get(features.PartialResponse)),
 			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
-		grpc_middleware.WithStreamServerChain(
+		grpc.ChainStreamInterceptor(
 			// The grpc_ctxtags context updater should be before everything else
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.StreamServerInterceptor(grpcLogger, zapOpts...),
