@@ -31,7 +31,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.68.0
-	github.com/tidwall/gjson v1.12.1
+	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
