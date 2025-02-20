@@ -5,12 +5,15 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tektoncd/results/pkg/cli/client"
 	"github.com/tektoncd/results/pkg/cli/cmd/logs"
+	"github.com/tektoncd/results/pkg/cli/cmd/pipelinerun"
 	"github.com/tektoncd/results/pkg/cli/cmd/records"
+	"github.com/tektoncd/results/pkg/cli/cmd/result"
 	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/flags"
 	"github.com/tektoncd/results/pkg/cli/portforward"
@@ -77,6 +80,8 @@ func Root() *cobra.Command {
 
 			params.PluginLogsClient = pluginLogsClient
 
+			params.Clock = clockwork.NewRealClock()
+
 			return nil
 		},
 		PersistentPostRun: func(_ *cobra.Command, _ []string) {
@@ -97,7 +102,11 @@ func Root() *cobra.Command {
 	cmd.PersistentFlags().Bool("insecure", false, "determines whether to run insecure GRPC tls request")
 	cmd.PersistentFlags().Bool("v1alpha2", false, "use v1alpha2 API for get log command")
 
-	cmd.AddCommand(ListCommand(params), records.Command(params), logs.Command(params))
+	cmd.AddCommand(result.Command(params),
+		records.Command(params),
+		logs.Command(params),
+		pipelinerun.Command(params),
+	)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
