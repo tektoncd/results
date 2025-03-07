@@ -1,16 +1,18 @@
 package cmd
 
 import (
-	_ "embed"
 	"flag"
 	"fmt"
+
+	"github.com/tektoncd/results/pkg/cli/cmd/config"
+	"github.com/tektoncd/results/pkg/cli/common"
 
 	"github.com/tektoncd/results/pkg/cli/dev/client"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/logs"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/pipelinerun"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/records"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/result"
-	"github.com/tektoncd/results/pkg/cli/dev/config"
+	devConfig "github.com/tektoncd/results/pkg/cli/dev/config"
 	"github.com/tektoncd/results/pkg/cli/dev/flags"
 	"github.com/tektoncd/results/pkg/cli/dev/portforward"
 
@@ -22,19 +24,19 @@ import (
 	_ "github.com/tektoncd/results/proto/pipeline/v1/pipeline_go_proto"
 )
 
-var (
-	//go:embed help.txt
-	help string
-)
+// var (
+//	//go:embed help.txt
+//	help string
+//)
 
 // Root returns a cobra command for `tkn-results` root sub commands
-func Root() *cobra.Command {
+func Root(p common.Params) *cobra.Command {
 	params := &flags.Params{}
 	var portForwardCloseChan chan struct{}
 	c := &cobra.Command{
 		Use:   "tkn-results",
-		Short: "tkn CLI plugin for Tekton Results API",
-		Long:  help,
+		Short: "Tekton Results CLI",
+		Long:  `tkn plugin to interact with Tekton Results`,
 		PersistentPreRunE: func(c *cobra.Command, _ []string) error {
 			// this will only run when older commands is being used
 			return persistentPreRunHandler(c, params, &portForwardCloseChan)
@@ -57,10 +59,13 @@ func Root() *cobra.Command {
 	c.PersistentFlags().Bool("insecure", false, "determines whether to run insecure GRPC tls request")
 	c.PersistentFlags().Bool("v1alpha2", false, "use v1alpha2 API for get log command")
 
-	c.AddCommand(result.Command(params),
+	c.AddCommand(
+		result.Command(params),
 		records.Command(params),
 		logs.Command(params),
 		pipelinerun.Command(params),
+		// new commands
+		config.Command(p),
 	)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -69,7 +74,7 @@ func Root() *cobra.Command {
 	if err != nil {
 		return nil
 	}
-	cobra.OnInitialize(config.Init)
+	cobra.OnInitialize(devConfig.Init)
 
 	return c
 }
@@ -78,7 +83,7 @@ func persistentPreRunHandler(c *cobra.Command, params *flags.Params, portForward
 	var overrideAPIAdr string
 
 	// Prepare to port-forward if addr config is not set
-	if cfg := config.GetConfig(); cfg.Portforward && cfg.Address == "" {
+	if cfg := devConfig.GetConfig(); cfg.Portforward && cfg.Address == "" {
 		portForward, err := portforward.NewPortForward()
 		if err != nil {
 			return err
