@@ -19,6 +19,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tektoncd/results/pkg/cli/dev/config"
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
+	"github.com/tektoncd/results/pkg/cli/dev/format"
+
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 
@@ -26,9 +30,6 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
-	"github.com/tektoncd/results/pkg/cli/config"
-	"github.com/tektoncd/results/pkg/cli/flags"
-	"github.com/tektoncd/results/pkg/cli/format"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 )
