@@ -42,6 +42,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
+	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
@@ -81,6 +82,9 @@ var (
 )
 
 func main() {
+	disableHighAvailability := flag.Bool("disable-ha", false, "Whether to disable high-availability functionality for this component.  This flag will be deprecated "+
+		"and removed when we have promoted this feature to stable, so do not pass it without filing an "+
+		"issue upstream!")
 	flag.Parse()
 
 	// Allow users to customize the number of workers used to process the
@@ -88,6 +92,8 @@ func main() {
 	controller.DefaultThreadsPerController = *threadiness
 
 	ctx := signals.NewContext()
+
+	ctx = filteredinformerfactory.WithSelectors(ctx, "app.kubernetes.io/name")
 
 	conn, err := connectToAPIServer(ctx, *apiAddr, *authMode)
 	if err != nil {
@@ -128,6 +134,9 @@ func main() {
 		if err := cfg.SetLabelSelector(selector); err != nil {
 			log.Fatalf("Malformed -label_selector value: %v", err)
 		}
+	}
+	if *disableHighAvailability {
+		ctx = sharedmain.WithHADisabled(ctx)
 	}
 
 	ctors := []injection.ControllerConstructor{
