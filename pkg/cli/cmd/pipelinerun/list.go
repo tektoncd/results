@@ -28,7 +28,7 @@ NAMESPACE	UID	STARTED	DURATION	STATUS
 
 type listOptions struct {
 	Namespace string
-	Limit     int
+	Limit     int32
 }
 
 // listCommand initializes a cobra command to list PipelineRuns
@@ -56,7 +56,7 @@ List all PipelineRuns in 'default' namespace:
 
 			resp, err := params.ResultsClient.ListRecords(cmd.Context(), &pb.ListRecordsRequest{
 				Parent:   fmt.Sprintf("%s/results/-", opts.Namespace),
-				PageSize: int32(opts.Limit),
+				PageSize: opts.Limit,
 				Filter:   `data_type==PIPELINE_RUN`,
 			})
 			if err != nil {
@@ -66,7 +66,7 @@ List all PipelineRuns in 'default' namespace:
 		},
 	}
 	cmd.Flags().StringVarP(&opts.Namespace, "namespace", "n", "default", "Namespace to list PipelineRuns in")
-	cmd.Flags().IntVarP(&opts.Limit, "limit", "l", 0, "Limit the number of PipelineRuns to return")
+	cmd.Flags().Int32VarP(&opts.Limit, "limit", "l", 0, "Limit the number of PipelineRuns to return")
 	return cmd
 }
 
