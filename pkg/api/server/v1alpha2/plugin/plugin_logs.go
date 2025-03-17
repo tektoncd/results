@@ -167,7 +167,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
 
 	default:
-		s.logger.Error("record type is invalid")
+		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
 		return errors.New("record type is invalid")
 	}
 
@@ -383,7 +383,7 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		}
 		logPath[""] = filepath.Join(s.config.LOGS_PATH, log.Status.Path)
 	default:
-		s.logger.Errorf("record type is invalid %s", rec.Type)
+		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
 		return fmt.Errorf("record type is invalid %s", rec.Type)
 	}
 
@@ -452,17 +452,20 @@ func (s *LogServer) LogMux() http.Handler {
 		if err != nil {
 			s.logger.Error(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		if rec == nil {
 			s.logger.Errorf("records not found: parent: %s, result: %s, recID: %s", parent, res, recID)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		err = s.getLog(s, w, parent, rec)
 		if err != nil {
 			s.logger.Error(err)
 			http.Error(w, "Failed to stream logs err: "+err.Error(), http.StatusInternalServerError)
+			return
 		}
 	})
 }
