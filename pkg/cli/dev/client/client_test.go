@@ -9,7 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tektoncd/results/pkg/cli/config"
+	"github.com/tektoncd/results/pkg/cli/dev/config"
+
 	v1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"

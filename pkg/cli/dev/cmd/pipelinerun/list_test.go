@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
+
 	"github.com/tektoncd/results/pkg/test"
 
-	"github.com/tektoncd/results/pkg/cli/flags"
 	"github.com/tektoncd/results/pkg/test/fake"
 
 	"github.com/jonboulle/clockwork"
