@@ -1,22 +1,25 @@
-package pipelinerun
+package result
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/tektoncd/results/pkg/cli/flags"
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
 )
 
 // Command initializes a cobra command for `pipelinerun` sub commands
 func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "pipelinerun",
-		Aliases: []string{"pr", "pipelineruns"},
-		Short:   "Query PipelineRuns",
+		Use:     "result",
+		Aliases: []string{"r", "results"},
+		Short:   "Query Results",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
 	}
 
-	cmd.AddCommand(listCommand(params))
+	cmd.AddCommand(
+		ListCommand(params),
+		describeCommand(params),
+	)
 
 	return cmd
 }
