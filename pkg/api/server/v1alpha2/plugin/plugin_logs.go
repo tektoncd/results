@@ -89,6 +89,11 @@ func (s *LogServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServer) er
 		return err
 	}
 
+	if rec == nil {
+		s.logger.Errorf("records not found: parent: %s, result: %s, name: %s", parent, res, name)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
 
 	err = s.getLog(s, writer, parent, rec)
@@ -445,6 +450,11 @@ func (s *LogServer) LogMux() http.Handler {
 		rec, err := getRecord(s.db, parent, res, recID)
 		if err != nil {
 			s.logger.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+		if rec == nil {
+			s.logger.Errorf("records not found: parent: %s, result: %s, recID: %s", parent, res, recID)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
