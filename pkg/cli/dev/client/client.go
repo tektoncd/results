@@ -9,7 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/tektoncd/results/pkg/cli/config"
+	"github.com/tektoncd/results/pkg/cli/dev/config"
+
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"golang.org/x/oauth2"

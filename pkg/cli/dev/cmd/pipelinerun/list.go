@@ -8,12 +8,13 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
+
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
 	"github.com/tektoncd/cli/pkg/formatted"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	"github.com/tektoncd/results/pkg/cli/flags"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 

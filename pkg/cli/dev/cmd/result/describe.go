@@ -6,10 +6,11 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
+	"github.com/tektoncd/results/pkg/cli/dev/format"
+
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
-	"github.com/tektoncd/results/pkg/cli/flags"
-	"github.com/tektoncd/results/pkg/cli/format"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 

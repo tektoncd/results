@@ -2,7 +2,7 @@ package records
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/tektoncd/results/pkg/cli/flags"
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
 )
 
 // Command returns a cobra command for `records` sub commands

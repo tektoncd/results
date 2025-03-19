@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tektoncd/results/pkg/cli/dev/flags"
+
 	"github.com/jonboulle/clockwork"
-	"github.com/tektoncd/results/pkg/cli/flags"
 	"github.com/tektoncd/results/pkg/test"
 	"github.com/tektoncd/results/pkg/test/fake"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
