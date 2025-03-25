@@ -1,6 +1,7 @@
 module github.com/tektoncd/results
 
-go 1.22.7
+go 1.23
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.1
 	github.com/aws/aws-sdk-go-v2/config v1.29.6
