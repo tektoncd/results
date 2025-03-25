@@ -8,7 +8,8 @@ TESTPKGS = $(shell env GO111MODULE=on $(GO) list -f \
 			$(PKGS))
 BIN      = $(CURDIR)/.bin
 
-GOLANGCI_VERSION = v1.52.2
+# Get golangci_version from tools/go.mod
+GOLANGCI_VERSION := $(shell yq '.jobs.golangci.steps[] | select(.name == "golangci-lint") | .with.version' .github/workflows/golangci-lint.yaml)
 
 GO           = go
 TIMEOUT_UNIT = 5m
@@ -75,13 +76,14 @@ $(BIN)/errcheck: PACKAGE=github.com/kisielk/errcheck
 errcheck: | $(ERRCHECK) ; $(info $(M) running errcheck…) ## Run errcheck
 	$Q $(ERRCHECK) ./...
 
-GOLANGCILINT = $(BIN)/golangci-lint
-$(BIN)/golangci-lint: ; $(info $(M) getting golangci-lint $(GOLANGCI_VERSION))
-	cd tools; GOBIN=$(BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_VERSION)
+GOLANGCILINT = $(BIN)/golangci-lint-$(GOLANGCI_VERSION)
+$(BIN)/golangci-lint-$(GOLANGCI_VERSION): ; $(info $(M) getting golangci-lint $(GOLANGCI_VERSION))
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(BIN) $(GOLANGCI_VERSION)
+	mv $(BIN)/golangci-lint $(BIN)/golangci-lint-$(GOLANGCI_VERSION)
 
 .PHONY: golangci-lint
 golangci-lint: | $(GOLANGCILINT) ; $(info $(M) running golangci-lint…) @ ## Run golangci-lint
-	$Q $(GOLANGCILINT) run --verbose --modules-download-mode=vendor --max-issues-per-linter=0 --max-same-issues=0 --deadline 15m
+	$Q $(GOLANGCILINT) run --verbose --modules-download-mode=vendor --max-issues-per-linter=0 --max-same-issues=0 --timeout 10m
 
 .PHONY: golangci-lint-check
 golangci-lint-check: | $(GOLANGCILINT) ; $(info $(M) Testing if golint has been done…) @ ## Run golangci-lint for build tests CI job
