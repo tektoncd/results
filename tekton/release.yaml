@@ -92,7 +92,7 @@ spec:
           - name: source
         steps:
           - name: publish
-            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
+            image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
             workingDir: $(workspaces.source.path)
             script: |
               gcloud auth list
@@ -169,7 +169,7 @@ spec:
               cat ${CONTAINER_REGISTRY_CREDENTIALS} | \
                 crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin ${IMAGE_REGISTRY}
           - name: publish
-            image: gcr.io/tekton-releases/dogfooding/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
+            image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
             workingDir: $(workspaces.source.path)
             script: |
               $(workspaces.source.path)/release/release.sh
