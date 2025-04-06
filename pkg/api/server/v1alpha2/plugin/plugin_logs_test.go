@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/tektoncd/results/pkg/api/server/test"
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/plugin"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
@@ -102,6 +104,7 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
 		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
 		LOGGING_PLUGIN_QUERY_PARAMS:             "direction=forward",
+		LOGGING_PLUGIN_MULTIPART_REGEX:          "",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
@@ -163,6 +166,88 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 	actualData := mockServer.receivedData.String()
 	if expectedData != actualData {
 		t.Errorf("expected to have received %q, got %q", expectedData, actualData)
+	}
+
+}
+
+func TestMergeLogParts(t *testing.T) {
+	tests := []struct {
+		name           string
+		regex          string
+		logParts       []string
+		expectedMerged [][]string
+	}{
+		{
+			name:  "Test with matching regexp",
+			regex: `-\d{10}.log$`,
+			logParts: []string{
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log",
+			},
+			expectedMerged: [][]string{
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log"},
+				{
+					"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log",
+					"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log",
+					"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log",
+				},
+			},
+		},
+		{
+			name:  "Test with empty regexp",
+			regex: ``,
+			logParts: []string{
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log",
+			},
+			expectedMerged: [][]string{
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log"},
+			},
+		},
+		{
+			name:  "Test with not matching regexp",
+			regex: `not-matching-regex`,
+			logParts: []string{
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log",
+				"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log",
+			},
+			expectedMerged: [][]string{
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/prepare-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/place-scripts-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090392.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090554.log"},
+				{"/logs/default/0c8ca3dc-92ea-40df-aa0d-dff9f5361ae8/0f66649d-b8fa-4bb6-a42f-169d96c70298/container-step-foo-1743090738.log"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			re := regexp.MustCompile(tt.regex)
+			result := plugin.MergeLogParts(tt.logParts, re)
+
+			for i, parts := range result {
+				for j, expectedPart := range parts {
+					if expectedPart != tt.expectedMerged[i][j] {
+						t.Errorf("Expected merged log part %d to be %q, got %q", i, tt.expectedMerged[i][j], expectedPart)
+					}
+				}
+			}
+		})
 	}
 
 }
