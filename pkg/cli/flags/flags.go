@@ -110,6 +110,7 @@ func GetResultsOptions(cmd *cobra.Command) ResultsOptions {
 // access flags, which may break symmetry with AddResultsOptions. This is because
 // it could be a subcommand trying to access flags defined by the parent command.
 func InitParams(p common.Params, cmd *cobra.Command) error {
+	// First set kubeconfig and context
 	kcPath, err := cmd.Flags().GetString(kubeConfig)
 	if err != nil {
 		return err
@@ -122,14 +123,14 @@ func InitParams(p common.Params, cmd *cobra.Command) error {
 	}
 	p.SetKubeContext(kubeContext)
 
+	// Then set namespace, which will use the kubeconfig and context if needed
 	ns, err := cmd.Flags().GetString(namespace)
 	if err != nil {
 		return err
 	}
-	if ns != "" {
-		p.SetNamespace(ns)
-	}
+	p.SetNamespace(ns)
 
+	// Set other flags
 	h, err := cmd.Flags().GetString(host)
 	if err != nil {
 		return err
