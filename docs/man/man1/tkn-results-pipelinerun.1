@@ -13,13 +13,62 @@ tkn-results-pipelinerun - Query PipelineRuns
 
 .SH DESCRIPTION
 .PP
-Query PipelineRuns
+Query PipelineRuns stored in Tekton Results.
+
+.PP
+This command allows you to list PipelineRuns stored in Tekton Results.
+You can filter results by namespace, labels, and other criteria.
+
+.PP
+Examples:
+  # List PipelineRuns in a namespace
+  tkn-results pipelinerun list -n default
+
+.PP
+# List PipelineRuns with a specific label
+  tkn-results pipelinerun list -l app=myapp
+
+.PP
+# List PipelineRuns from all namespaces
+  tkn-results pipelinerun list -A
+
+.PP
+# List PipelineRuns with pagination
+  tkn-results pipelinerun list --limit=20
 
 
 .SH OPTIONS
 .PP
+\fB--api-path\fP=""
+	api path to use (default: value provided in config set command)
+
+.PP
+\fB-c\fP, \fB--context\fP=""
+	name of the kubeconfig context to use (default: kubectl config current-context)
+
+.PP
 \fB-h\fP, \fB--help\fP[=false]
 	help for pipelinerun
+
+.PP
+\fB--host\fP=""
+	host to use (default: value provided in config set command)
+
+.PP
+\fB--insecure-skip-tls-verify\fP[=false]
+	skip server's certificate validation for requests (default: false)
+
+.PP
+\fB-k\fP, \fB--kubeconfig\fP=""
+	kubectl config file (default: $HOME/.kube/config)
+
+.PP
+\fB-n\fP, \fB--namespace\fP=""
+	namespace to use (default: from $KUBECONFIG)
+
+.PP
+\fB--token\fP=""
+	bearer token to use (default: value provided in config set command)
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS

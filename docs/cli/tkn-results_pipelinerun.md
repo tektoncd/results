@@ -2,10 +2,37 @@
 
 Query PipelineRuns
 
+### Synopsis
+
+Query PipelineRuns stored in Tekton Results.
+
+This command allows you to list PipelineRuns stored in Tekton Results.
+You can filter results by namespace, labels, and other criteria.
+
+Examples:
+  # List PipelineRuns in a namespace
+  tkn-results pipelinerun list -n default
+
+  # List PipelineRuns with a specific label
+  tkn-results pipelinerun list -l app=myapp
+
+  # List PipelineRuns from all namespaces
+  tkn-results pipelinerun list -A
+
+  # List PipelineRuns with pagination
+  tkn-results pipelinerun list --limit=20
+
 ### Options
 
 ```
-  -h, --help   help for pipelinerun
+      --api-path string            api path to use (default: value provided in config set command)
+  -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)
+  -h, --help                       help for pipelinerun
+      --host string                host to use (default: value provided in config set command)
+      --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
+  -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
+  -n, --namespace string           namespace to use (default: from $KUBECONFIG)
+      --token string               bearer token to use (default: value provided in config set command)
 ```
 
 ### Options inherited from parent commands
