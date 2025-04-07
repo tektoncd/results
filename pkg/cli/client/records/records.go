@@ -12,7 +12,7 @@ import (
 
 // RecordClient defines the interface for record-related operations
 type RecordClient interface {
-	ListRecords(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
+	ListRecords(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 }
 
 // recordClient implements the RecordClient interface
@@ -26,7 +26,7 @@ func NewClient(rc *client.RESTClient) RecordClient {
 }
 
 // ListRecords makes request to get record list
-func (c *recordClient) ListRecords(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+func (c *recordClient) ListRecords(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error) {
 	out := &pb.ListRecordsResponse{}
 
 	// Add query parameters
@@ -45,7 +45,10 @@ func (c *recordClient) ListRecords(ctx context.Context, in *pb.ListRecordsReques
 	}
 
 	// Add fields parameter for partial response
-	params.Set("fields", "records.name,records.uid,records.create_time,records.update_time,records.data.value.metadata,records.data.value.status,next_page_token")
+	// (Only add fields parameter if provided)
+	if fields != "" {
+		params.Set("fields", fields)
+	}
 
 	// Construct the URL with parents prefix
 	buildURL := c.BuildURL(fmt.Sprintf("parents/%s/records", in.Parent), params)

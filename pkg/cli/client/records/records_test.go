@@ -99,7 +99,7 @@ func TestListRecords(t *testing.T) {
 			}
 
 			recordClient := NewClient(restClient)
-			resp, err := recordClient.ListRecords(context.Background(), tt.req)
+			resp, err := recordClient.ListRecords(context.Background(), tt.req, "")
 
 			if (err != nil) != tt.expectedError {
 				t.Errorf("ListRecords() error = %v, wantErr %v", err, tt.expectedError)

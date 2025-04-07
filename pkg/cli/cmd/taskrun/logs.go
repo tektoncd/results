@@ -95,7 +95,7 @@ Get logs for a TaskRun from all namespaces:
 				Parent:   parent,
 				Filter:   filter,
 				PageSize: 25,
-			})
+			}, common.NameAndUIDField)
 			if err != nil {
 				return fmt.Errorf("failed to find TaskRun: %v", err)
 			}

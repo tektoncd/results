@@ -30,25 +30,25 @@ type testParams struct {
 // mockRecordClient implements the RecordClient interface for testing
 type mockRecordClient struct {
 	records.RecordClient
-	listRecordsFunc func(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
+	listRecordsFunc func(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 }
 
-func (m *mockRecordClient) ListRecords(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
-	return m.listRecordsFunc(ctx, in)
+func (m *mockRecordClient) ListRecords(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error) {
+	return m.listRecordsFunc(ctx, in, fields)
 }
 
 func TestListCommand(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           []string
-		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
+		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 		expectedOutput string
 		expectedError  bool
 	}{
 		{
 			name: "successful list with default options",
 			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return &pb.ListRecordsResponse{
 					Records: []*pb.Record{
 						{
@@ -74,7 +74,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with pipeline name filter",
 			args: []string{"list", "test-pipeline"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("test-pipeline")`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -97,7 +97,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with partial pipeline name match",
 			args: []string{"list", "build"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("build")`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -127,7 +127,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with namespace filter",
 			args: []string{"list", "--namespace", "test-ns"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := "data_type==PIPELINE_RUN"
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -165,7 +165,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with error",
 			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return nil, fmt.Errorf("test error")
 			},
 			expectedOutput: "",
@@ -174,7 +174,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "empty list",
 			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return &pb.ListRecordsResponse{
 					Records: []*pb.Record{},
 				}, nil
@@ -185,7 +185,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with pipeline name and namespace",
 			args: []string{"list", "test-pipeline", "-n", "test-ns"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("test-pipeline")`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -309,7 +309,7 @@ func TestListCommand(t *testing.T) {
 				}
 
 				// Use the mock client directly
-				resp, listErr := mockClient.ListRecords(cmd.Context(), req)
+				resp, listErr := mockClient.ListRecords(cmd.Context(), req, "")
 				if listErr != nil {
 					return listErr
 				}

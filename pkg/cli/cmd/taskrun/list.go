@@ -151,7 +151,7 @@ func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOption
 	// Interactive pagination
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		resp, err := recordClient.ListRecords(ctx, req)
+		resp, err := recordClient.ListRecords(ctx, req, common.ListFields)
 		if err != nil {
 			return err
 		}
