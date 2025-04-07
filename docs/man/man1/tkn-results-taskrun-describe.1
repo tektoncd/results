@@ -3,17 +3,17 @@
 
 .SH NAME
 .PP
-tkn-results-pipelinerun-describe - Describe a PipelineRun
+tkn-results-taskrun-describe - Describe a TaskRun
 
 
 .SH SYNOPSIS
 .PP
-\fBtkn-results pipelinerun describe [pipelinerun-name]\fP
+\fBtkn-results taskrun describe [taskrun-name]\fP
 
 
 .SH DESCRIPTION
 .PP
-Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun name is optional.
+Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is optional.
 
 
 .SH OPTIONS
@@ -27,7 +27,7 @@ Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun na
 
 .PP
 \fB--uid\fP=""
-	UID of the PipelineRun to describe the details
+	UID of the TaskRun to describe the details
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
@@ -90,15 +90,15 @@ Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun na
 
 .SH EXAMPLE
 .EX
-Describe a PipelineRun in namespace 'foo':
-    tkn-results pipelinerun describe my-pipelinerun -n foo
+Describe a TaskRun in namespace 'foo':
+    tkn-results taskrun describe my-taskrun -n foo
 
-Describe a PipelineRun in the current namespace:
-    tkn-results pipelinerun describe my-pipelinerun
+Describe a TaskRun in the current namespace
+    tkn-results taskrun describe my-taskrun
 
 .EE
 
 
 .SH SEE ALSO
 .PP
-\fBtkn-results-pipelinerun(1)\fP
+\fBtkn-results-taskrun(1)\fP

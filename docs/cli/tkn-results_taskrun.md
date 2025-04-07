@@ -50,6 +50,7 @@ Examples:
 ### SEE ALSO
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
+* [tkn-results taskrun describe](tkn-results_taskrun_describe.md)	 - Describe a TaskRun
 * [tkn-results taskrun list](tkn-results_taskrun_list.md)	 - List TaskRuns in a namespace
 * [tkn-results taskrun logs](tkn-results_taskrun_logs.md)	 - Get logs for a TaskRun
 
