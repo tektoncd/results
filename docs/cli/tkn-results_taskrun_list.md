@@ -1,47 +1,47 @@
-## tkn-results pipelinerun list
+## tkn-results taskrun list
 
-List PipelineRuns in a namespace
+List TaskRuns in a namespace
 
 ```
-tkn-results pipelinerun list [pipeline-name]
+tkn-results taskrun list [task-name]
 ```
 
 ### Examples
 
 ```
-List all PipelineRuns in a namespace 'foo':
-    tkn-results pipelinerun list -n foo
+List all TaskRuns in a namespace 'foo':
+    tkn-results taskrun list -n foo
 
-List all PipelineRuns in 'default' namespace:
-    tkn-results pipelinerun list -n default
+List all TaskRuns in 'default' namespace:
+    tkn-results taskrun list -n default
 
-List PipelineRuns with a specific label:
-    tkn-results pipelinerun list -L app=myapp
+List TaskRuns with a specific label:
+    tkn-results taskrun list -L app=myapp
 
-List PipelineRuns with multiple label selectors:
-    tkn-results pipelinerun list -L app=myapp,env=prod
+List TaskRuns with multiple labels:
+    tkn-results taskrun list --label app=myapp,env=prod
 
-List PipelineRuns from all namespaces:
-    tkn-results pipelinerun list -A
+List TaskRuns from all namespaces:
+    tkn-results taskrun list -A
 
-List PipelineRuns with limit of 20 per page:
-    tkn-results pipelinerun list --limit=20
+List TaskRuns with limit of 20 per page:
+    tkn-results taskrun list --limit=20
 
-List PipelineRuns for a specific pipeline:
-    tkn-results pipelinerun list foo -n namespace
+List TaskRuns for a specific task:
+    tkn-results taskrun list foo -n namespace
 
-List PipelineRuns with partial pipeline name match:
-    tkn-results pipelinerun list build -n namespace
+List TaskRuns with partial task name match:
+    tkn-results taskrun list build -n namespace
 
 ```
 
 ### Options
 
 ```
-  -A, --all-namespaces   List PipelineRuns from all namespaces
+  -A, --all-namespaces   List TaskRuns from all namespaces
   -h, --help             help for list
-  -L, --label string     Filter by label (format: key=value,key2=value2)
-      --limit int32      Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50) (default 50)
+  -L, --label string     Filter by label (format: key=value[,key=value...])
+      --limit int32      Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50) (default 50)
       --single-page      Return only a single page of results (default true)
 ```
 
@@ -66,5 +66,5 @@ List PipelineRuns with partial pipeline name match:
 
 ### SEE ALSO
 
-* [tkn-results pipelinerun](tkn-results_pipelinerun.md)	 - Query PipelineRuns
+* [tkn-results taskrun](tkn-results_taskrun.md)	 - Query TaskRuns
 

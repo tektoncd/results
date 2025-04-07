@@ -3,38 +3,38 @@
 
 .SH NAME
 .PP
-tkn-results-pipelinerun - Query PipelineRuns
+tkn-results-taskrun - Query TaskRuns
 
 
 .SH SYNOPSIS
 .PP
-\fBtkn-results pipelinerun\fP
+\fBtkn-results taskrun\fP
 
 
 .SH DESCRIPTION
 .PP
-Query PipelineRuns stored in Tekton Results.
+Query TaskRuns stored in Tekton Results.
 
 .PP
-This command allows you to list PipelineRuns stored in Tekton Results.
+This command allows you to list TaskRuns stored in Tekton Results.
 You can filter results by namespace, labels and other criteria.
 
 .PP
 Examples:
-  # List PipelineRuns in a namespace
-  tkn-results pipelinerun list -n default
+  # List TaskRuns in a namespace
+  tkn-results taskrun list -n default
 
 .PP
-# List PipelineRuns with a specific label
-  tkn-results pipelinerun list -L app=myapp
+# List TaskRuns with a specific label
+  tkn-results taskrun list -L app=myapp
 
 .PP
-# List PipelineRuns from all namespaces
-  tkn-results pipelinerun list -A
+# List TaskRuns from all namespaces
+  tkn-results taskrun list -A
 
 .PP
-# List PipelineRuns with limit
-  tkn-results pipelinerun list --limit=20
+# List TaskRuns with limit
+  tkn-results taskrun list --limit=20
 
 
 .SH OPTIONS
@@ -48,7 +48,7 @@ Examples:
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
-	help for pipelinerun
+	help for taskrun
 
 .PP
 \fB--host\fP=""
@@ -103,4 +103,4 @@ Examples:
 
 .SH SEE ALSO
 .PP
-\fBtkn-results(1)\fP, \fBtkn-results-pipelinerun-list(1)\fP
+\fBtkn-results(1)\fP, \fBtkn-results-taskrun-list(1)\fP

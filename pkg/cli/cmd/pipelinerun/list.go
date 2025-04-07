@@ -10,6 +10,8 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/tektoncd/results/pkg/cli/options"
+
 	"github.com/tektoncd/results/pkg/cli/client"
 	"github.com/tektoncd/results/pkg/cli/client/records"
 
@@ -40,18 +42,9 @@ NAME	UID	STARTED	DURATION	STATUS
 {{ end -}}{{- end -}}{{- end -}}
 {{- end -}}`
 
-type listOptions struct {
-	Client        *client.RESTClient
-	Limit         int32
-	AllNamespaces bool
-	Label         string
-	SinglePage    bool
-	PipelineName  string
-}
-
 // listCommand initializes a cobra command to list PipelineRuns
 func listCommand(p common.Params) *cobra.Command {
-	opts := &listOptions{
+	opts := &options.ListOptions{
 		Limit:         50,
 		AllNamespaces: false,
 		SinglePage:    true,
@@ -63,14 +56,11 @@ func listCommand(p common.Params) *cobra.Command {
 List all PipelineRuns in 'default' namespace:
     tkn-results pipelinerun list -n default
 
-List all PipelineRuns using the pagination, not the single page
-    tkn-results pipelinerun list --single-page false
-
 List PipelineRuns with a specific label:
-    tkn-results pipelinerun list -l app=myapp
+    tkn-results pipelinerun list -L app=myapp
 
 List PipelineRuns with multiple label selectors:
-    tkn-results pipelinerun list -l app=myapp,env=prod
+    tkn-results pipelinerun list -L app=myapp,env=prod
 
 List PipelineRuns from all namespaces:
     tkn-results pipelinerun list -A
@@ -107,40 +97,19 @@ List PipelineRuns with partial pipeline name match:
 			}
 
 			if len(args) > 0 {
-				opts.PipelineName = args[0]
+				opts.ResourceName = args[0]
 			}
 
 			// Validate label format if provided
 			if opts.Label != "" {
-				labelPairs := strings.Split(opts.Label, ",")
-				for _, pair := range labelPairs {
-					parts := strings.Split(strings.TrimSpace(pair), "=")
-					if len(parts) != 2 {
-						return fmt.Errorf("invalid label format: %s. Expected format: key=value", pair)
-					}
-
-					// Check for whitespace in key before trimming
-					if strings.ContainsAny(parts[0], " \t") {
-						return fmt.Errorf("label key cannot contain whitespace: %s", parts[0])
-					}
-
-					key := strings.TrimSpace(parts[0])
-					value := strings.TrimSpace(parts[1])
-
-					if key == "" {
-						return fmt.Errorf("label key cannot be empty in pair: %s", pair)
-					}
-					if value == "" {
-						return fmt.Errorf("label value cannot be empty in pair: %s", pair)
-					}
-				}
+				return common.ValidateLabels(opts.Label)
 			}
 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Build filter string
-			filter := buildFilterString(opts)
+			filter := common.BuildFilterString(opts, "pipelinerun")
 
 			// Handle all namespaces
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
@@ -237,7 +206,7 @@ List PipelineRuns with partial pipeline name match:
 		},
 	}
 
-	cmd.Flags().Int32VarP(&opts.Limit, "limit", "l", 50, "Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50)")
+	cmd.Flags().Int32VarP(&opts.Limit, "limit", "", 50, "Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50)")
 	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "List PipelineRuns from all namespaces")
 	cmd.Flags().StringVarP(&opts.Label, "label", "L", "", "Filter by label (format: key=value,key2=value2)")
 	cmd.Flags().BoolVar(&opts.SinglePage, "single-page", true, "Return only a single page of results")
@@ -285,41 +254,4 @@ func parseRecordsToPr(records []*pb.Record) (*v1.PipelineRunList, error) {
 		pipelineRuns.Items = append(pipelineRuns.Items, pr)
 	}
 	return pipelineRuns, nil
-}
-
-// buildFilterString constructs the filter string for the ListRecordsRequest
-func buildFilterString(opts *listOptions) string {
-	const (
-		contains = "data.metadata.%s.contains(\"%s\")"
-		equal    = "data.metadata.%s[\"%s\"]==\"%s\""
-		dataType = "data_type==\"%s\""
-	)
-
-	var filters []string
-
-	// Add data type filter for both v1 and v1beta1 PipelineRuns
-	filters = append(filters, fmt.Sprintf(`(%s || %s)`,
-		fmt.Sprintf(dataType, "tekton.dev/v1.PipelineRun"),
-		fmt.Sprintf(dataType, "tekton.dev/v1beta1.PipelineRun")))
-
-	// Handle label filters
-	if opts.Label != "" {
-		// Split by comma to get individual label pairs
-		labelPairs := strings.Split(opts.Label, ",")
-		for _, pair := range labelPairs {
-			// Split each pair by = to get key and value
-			parts := strings.Split(strings.TrimSpace(pair), "=")
-			if len(parts) == 2 {
-				key := strings.TrimSpace(parts[0])
-				value := strings.TrimSpace(parts[1])
-				filters = append(filters, fmt.Sprintf(equal, "labels", key, value))
-			}
-		}
-	}
-
-	// Handle pipeline name filter
-	if opts.PipelineName != "" {
-		filters = append(filters, fmt.Sprintf(contains, "name", opts.PipelineName))
-	}
-	return strings.Join(filters, " && ")
 }
