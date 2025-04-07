@@ -23,12 +23,12 @@ Examples:
   tkn-results pipelinerun list -n default
 
   # List PipelineRuns with a specific label
-  tkn-results pipelinerun list -l app=myapp
+  tkn-results pipelinerun list -L app=myapp
 
   # List PipelineRuns from all namespaces
   tkn-results pipelinerun list -A
 
-  # List PipelineRuns without pagination
+  # List PipelineRuns with limit
   tkn-results pipelinerun list --limit=20`,
 		PersistentPreRunE: prerun.PersistentPreRunE(p),
 		Annotations: map[string]string{

@@ -59,4 +59,5 @@ Example:
 * [tkn-results pipelinerun](tkn-results_pipelinerun.md)	 - Query PipelineRuns
 * [tkn-results records](tkn-results_records.md)	 - Command sub-group for querying Records
 * [tkn-results result](tkn-results_result.md)	 - Query Results
+* [tkn-results taskrun](tkn-results_taskrun.md)	 - Query TaskRuns
 

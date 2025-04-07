@@ -3,23 +3,23 @@
 
 .SH NAME
 .PP
-tkn-results-pipelinerun-list - List PipelineRuns in a namespace
+tkn-results-taskrun-list - List TaskRuns in a namespace
 
 
 .SH SYNOPSIS
 .PP
-\fBtkn-results pipelinerun list [pipeline-name]\fP
+\fBtkn-results taskrun list [task-name]\fP
 
 
 .SH DESCRIPTION
 .PP
-List PipelineRuns in a namespace
+List TaskRuns in a namespace
 
 
 .SH OPTIONS
 .PP
 \fB-A\fP, \fB--all-namespaces\fP[=false]
-	List PipelineRuns from all namespaces
+	List TaskRuns from all namespaces
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
@@ -27,11 +27,11 @@ List PipelineRuns in a namespace
 
 .PP
 \fB-L\fP, \fB--label\fP=""
-	Filter by label (format: key=value,key2=value2)
+	Filter by label (format: key=value[,key=value...])
 
 .PP
 \fB--limit\fP=50
-	Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50)
+	Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50)
 
 .PP
 \fB--single-page\fP[=true]
@@ -98,33 +98,33 @@ List PipelineRuns in a namespace
 
 .SH EXAMPLE
 .EX
-List all PipelineRuns in a namespace 'foo':
-    tkn-results pipelinerun list -n foo
+List all TaskRuns in a namespace 'foo':
+    tkn-results taskrun list -n foo
 
-List all PipelineRuns in 'default' namespace:
-    tkn-results pipelinerun list -n default
+List all TaskRuns in 'default' namespace:
+    tkn-results taskrun list -n default
 
-List PipelineRuns with a specific label:
-    tkn-results pipelinerun list -L app=myapp
+List TaskRuns with a specific label:
+    tkn-results taskrun list -L app=myapp
 
-List PipelineRuns with multiple label selectors:
-    tkn-results pipelinerun list -L app=myapp,env=prod
+List TaskRuns with multiple labels:
+    tkn-results taskrun list --label app=myapp,env=prod
 
-List PipelineRuns from all namespaces:
-    tkn-results pipelinerun list -A
+List TaskRuns from all namespaces:
+    tkn-results taskrun list -A
 
-List PipelineRuns with limit of 20 per page:
-    tkn-results pipelinerun list --limit=20
+List TaskRuns with limit of 20 per page:
+    tkn-results taskrun list --limit=20
 
-List PipelineRuns for a specific pipeline:
-    tkn-results pipelinerun list foo -n namespace
+List TaskRuns for a specific task:
+    tkn-results taskrun list foo -n namespace
 
-List PipelineRuns with partial pipeline name match:
-    tkn-results pipelinerun list build -n namespace
+List TaskRuns with partial task name match:
+    tkn-results taskrun list build -n namespace
 
 .EE
 
 
 .SH SEE ALSO
 .PP
-\fBtkn-results-pipelinerun(1)\fP
+\fBtkn-results-taskrun(1)\fP

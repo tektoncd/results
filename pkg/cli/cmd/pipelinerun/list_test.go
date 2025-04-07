@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tektoncd/results/pkg/cli/options"
+
 	"github.com/tektoncd/results/pkg/cli/flags"
 
 	"github.com/jonboulle/clockwork"
@@ -248,8 +250,8 @@ func TestListCommand(t *testing.T) {
 			// Override PreRunE to bypass kubeconfig check
 			cmd.PreRunE = func(_ *cobra.Command, args []string) error {
 				if len(args) > 0 {
-					opts := &listOptions{}
-					opts.PipelineName = args[0]
+					opts := &options.ListOptions{}
+					opts.ResourceName = args[0]
 				}
 				return nil
 			}
@@ -258,7 +260,7 @@ func TestListCommand(t *testing.T) {
 
 			// Override RunE to use mock client
 			cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-				opts := &listOptions{
+				opts := &options.ListOptions{
 					Limit:         10,
 					AllNamespaces: false,
 					SinglePage:    true,
@@ -280,7 +282,7 @@ func TestListCommand(t *testing.T) {
 					opts.Label = label
 				}
 				if len(tt.args) > 1 && tt.args[1] != "-n" && tt.args[1] != "--namespace" {
-					opts.PipelineName = tt.args[1]
+					opts.ResourceName = tt.args[1]
 				}
 
 				// Build filter string
@@ -288,8 +290,8 @@ func TestListCommand(t *testing.T) {
 				if opts.Label != "" {
 					filter = append(filter, fmt.Sprintf(`labels.%s`, opts.Label))
 				}
-				if opts.PipelineName != "" {
-					filter = append(filter, fmt.Sprintf(`data.metadata.name.contains("%s")`, opts.PipelineName))
+				if opts.ResourceName != "" {
+					filter = append(filter, fmt.Sprintf(`data.metadata.name.contains("%s")`, opts.ResourceName))
 				}
 
 				// Handle all namespaces
@@ -353,35 +355,35 @@ func TestListCommand(t *testing.T) {
 func TestBuildFilterString(t *testing.T) {
 	tests := []struct {
 		name          string
-		opts          *listOptions
+		opts          *options.ListOptions
 		expected      string
 		expectedError string
 	}{
 		{
 			name: "single label",
-			opts: &listOptions{
+			opts: &options.ListOptions{
 				Label: "app.kubernetes.io/name=test-app",
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
 		},
 		{
 			name: "multiple labels",
-			opts: &listOptions{
+			opts: &options.ListOptions{
 				Label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
 		},
 		{
 			name: "with pipeline name",
-			opts: &listOptions{
+			opts: &options.ListOptions{
 				Label:        "app.kubernetes.io/name=test-app",
-				PipelineName: "my-pipeline",
+				ResourceName: "my-pipeline",
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
 		},
 		{
 			name: "empty label",
-			opts: &listOptions{
+			opts: &options.ListOptions{
 				Label: "",
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun")`,
@@ -390,7 +392,7 @@ func TestBuildFilterString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildFilterString(tt.opts)
+			got := common.BuildFilterString(tt.opts, "pipelinerun")
 			if got != tt.expected {
 				t.Errorf("buildFilterString() = %v, want %v", got, tt.expected)
 			}
@@ -449,7 +451,7 @@ func TestValidateLabels(t *testing.T) {
 			// Create a minimal command with just the label option
 			cmd := &cobra.Command{
 				PreRunE: func(_ *cobra.Command, _ []string) error {
-					opts := &listOptions{
+					opts := &options.ListOptions{
 						Label: tt.label,
 					}
 					// Validate label format if provided

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/tektoncd/results/pkg/cli/cmd/taskrun"
+
 	"github.com/tektoncd/results/pkg/cli/cmd/pipelinerun"
 
 	"github.com/tektoncd/results/pkg/cli/cmd/config"
@@ -68,6 +70,7 @@ func Root(p common.Params) *cobra.Command {
 		// new commands
 		config.Command(p),
 		pipelinerun.Command(p),
+		taskrun.Command(p),
 	)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
