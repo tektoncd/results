@@ -1,5 +1,9 @@
 package common
 
+import (
+	"k8s.io/client-go/tools/clientcmd"
+)
+
 // ResultsParams holds configuration parameters for interacting with Kubernetes and API endpoints.
 type ResultsParams struct {
 	kubeConfigPath string
@@ -42,8 +46,24 @@ func (p *ResultsParams) SetKubeContext(context string) {
 // SetNamespace sets the Kubernetes namespace.
 //
 // Parameters:
-//   - ns: The namespace to set.
+//   - ns: The namespace to set. If empty, the default namespace from kubeconfig will be used.
 func (p *ResultsParams) SetNamespace(ns string) {
+	if ns == "" {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		if p.kubeConfigPath != "" {
+			loadingRules.ExplicitPath = p.kubeConfigPath
+		}
+		configOverrides := &clientcmd.ConfigOverrides{}
+		if p.kubeContext != "" {
+			configOverrides.CurrentContext = p.kubeContext
+		}
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+		namespace, _, err := kubeConfig.Namespace()
+		if err == nil {
+			p.namespace = namespace
+			return
+		}
+	}
 	p.namespace = ns
 }
 

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"github.com/tektoncd/results/pkg/cli/client"
 	"github.com/tektoncd/results/pkg/cli/common"
 	"github.com/tektoncd/results/pkg/cli/config"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -104,8 +105,8 @@ func (c *Config) Set(_ bool, _ common.Params) error {
 }
 
 // Get implements the Get method for testing
-func (c *Config) Get() *common.Config {
-	return &common.Config{}
+func (c *Config) Get() *client.Config {
+	return &client.Config{}
 }
 
 // GetObject implements the GetObject method for testing

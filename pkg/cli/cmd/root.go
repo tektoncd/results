@@ -5,12 +5,13 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/tektoncd/results/pkg/cli/cmd/pipelinerun"
+
 	"github.com/tektoncd/results/pkg/cli/cmd/config"
 	"github.com/tektoncd/results/pkg/cli/common"
 
 	"github.com/tektoncd/results/pkg/cli/dev/client"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/logs"
-	"github.com/tektoncd/results/pkg/cli/dev/cmd/pipelinerun"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/records"
 	"github.com/tektoncd/results/pkg/cli/dev/cmd/result"
 	devConfig "github.com/tektoncd/results/pkg/cli/dev/config"
@@ -64,9 +65,9 @@ func Root(p common.Params) *cobra.Command {
 		result.Command(params),
 		records.Command(params),
 		logs.Command(params),
-		pipelinerun.Command(params),
 		// new commands
 		config.Command(p),
+		pipelinerun.Command(p),
 	)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
