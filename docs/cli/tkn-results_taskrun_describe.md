@@ -1,23 +1,23 @@
-## tkn-results pipelinerun describe
+## tkn-results taskrun describe
 
-Describe a PipelineRun
+Describe a TaskRun
 
 ### Synopsis
 
-Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun name is optional.
+Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is optional.
 
 ```
-tkn-results pipelinerun describe [pipelinerun-name]
+tkn-results taskrun describe [taskrun-name]
 ```
 
 ### Examples
 
 ```
-Describe a PipelineRun in namespace 'foo':
-    tkn-results pipelinerun describe my-pipelinerun -n foo
+Describe a TaskRun in namespace 'foo':
+    tkn-results taskrun describe my-taskrun -n foo
 
-Describe a PipelineRun in the current namespace:
-    tkn-results pipelinerun describe my-pipelinerun
+Describe a TaskRun in the current namespace
+    tkn-results taskrun describe my-taskrun
 
 ```
 
@@ -26,7 +26,7 @@ Describe a PipelineRun in the current namespace:
 ```
   -A, --all-namespaces   use all namespaces
   -h, --help             help for describe
-      --uid string       UID of the PipelineRun to describe the details
+      --uid string       UID of the TaskRun to describe the details
 ```
 
 ### Options inherited from parent commands
@@ -50,5 +50,5 @@ Describe a PipelineRun in the current namespace:
 
 ### SEE ALSO
 
-* [tkn-results pipelinerun](tkn-results_pipelinerun.md)	 - Query PipelineRuns
+* [tkn-results taskrun](tkn-results_taskrun.md)	 - Query TaskRuns
 
