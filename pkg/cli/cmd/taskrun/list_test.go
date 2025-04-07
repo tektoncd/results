@@ -35,11 +35,11 @@ type taskRunListTestParams struct {
 
 type mockRecordClient struct {
 	records.RecordClient
-	listRecordsFunc func(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
+	listRecordsFunc func(ctx context.Context, req *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 }
 
-func (m *mockRecordClient) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
-	return m.listRecordsFunc(ctx, req)
+func (m *mockRecordClient) ListRecords(ctx context.Context, req *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error) {
+	return m.listRecordsFunc(ctx, req, fields)
 }
 
 // Mock implementation of GetRecordClient
@@ -51,7 +51,7 @@ func TestListCommand(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           []string
-		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
+		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 		expectedOutput string
 		expectedError  bool
 		expectedFilter string
@@ -59,7 +59,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "successful list with default options",
 			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return &pb.ListRecordsResponse{
 					Records: []*pb.Record{
 						{
@@ -85,7 +85,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with task name filter",
 			args: []string{"list", "test-task"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.name.contains("test-task")`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -108,7 +108,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with single label filter",
 			args: []string{"list", "--label", "app=test"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test"`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -131,7 +131,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with multiple label filters",
 			args: []string{"list", "--label", "app=test,env=prod"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.labels["env"]=="prod"`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -154,7 +154,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with invalid label format",
 			args: []string{"list", "--label", "app=test,invalid"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return nil, nil
 			},
 			expectedOutput: "",
@@ -163,7 +163,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with empty label value",
 			args: []string{"list", "--label", "app="},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return nil, nil
 			},
 			expectedOutput: "",
@@ -172,7 +172,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with empty label key",
 			args: []string{"list", "--label", "=test"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				return nil, nil
 			},
 			expectedOutput: "",
@@ -181,7 +181,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with task name and label filter",
 			args: []string{"list", "test-task", "--label", "app=test"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.name.contains("test-task")`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -204,7 +204,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with pipelinerun filter",
 			args: []string{"list", "--pipelinerun", "test-pipeline"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -227,7 +227,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with pipelinerun and label filters",
 			args: []string{"list", "--pipelinerun", "test-pipeline", "--label", "app=test"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -250,7 +250,7 @@ func TestListCommand(t *testing.T) {
 		{
 			name: "list with pipelinerun and name filters",
 			args: []string{"list", "test-task", "--pipelinerun", "test-pipeline"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
 				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.name.contains("test-task") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
 				if in.Filter != expectedFilter {
 					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
@@ -359,7 +359,7 @@ func TestListCommand(t *testing.T) {
 				}
 
 				// Use the mock client directly
-				resp, listErr := mockClient.ListRecords(cmd.Context(), req)
+				resp, listErr := mockClient.ListRecords(cmd.Context(), req, "")
 				if listErr != nil {
 					return listErr
 				}

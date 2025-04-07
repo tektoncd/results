@@ -134,7 +134,7 @@ List PipelineRuns with partial pipeline name match:
 			// Interactive pagination
 			reader := bufio.NewReader(os.Stdin)
 			for {
-				resp, err := recordClient.ListRecords(cmd.Context(), req)
+				resp, err := recordClient.ListRecords(cmd.Context(), req, common.ListFields)
 				if err != nil {
 					return err
 				}

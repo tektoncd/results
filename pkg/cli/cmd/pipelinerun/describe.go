@@ -1,0 +1,248 @@
+package pipelinerun
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"text/tabwriter"
+	"text/template"
+
+	"github.com/tektoncd/results/pkg/cli/options"
+
+	"github.com/tektoncd/results/pkg/cli/client"
+	"github.com/tektoncd/results/pkg/cli/client/records"
+
+	"github.com/jonboulle/clockwork"
+	"github.com/spf13/cobra"
+	"github.com/tektoncd/cli/pkg/cli"
+	"github.com/tektoncd/cli/pkg/formatted"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"github.com/tektoncd/results/pkg/cli/common"
+	"github.com/tektoncd/results/pkg/cli/config"
+	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+)
+
+const describeTemplate = `{{decorate "bold" "Name"}}: {{ .PipelineRun.Name }}
+{{decorate "bold" "Namespace"}}: {{ .PipelineRun.Namespace }}
+{{- if .PipelineRun.Spec.PipelineRef }}
+{{- if ne .PipelineRun.Spec.PipelineRef.Name "" }}
+{{decorate "bold" "Pipeline Ref"}}: {{ .PipelineRun.Spec.PipelineRef.Name }}
+{{- end }}
+{{- end }}
+{{- if .PipelineRun.Spec.TaskRunTemplate.ServiceAccountName }}
+{{decorate "bold" "Service Account"}}: {{ .PipelineRun.Spec.TaskRunTemplate.ServiceAccountName }}
+{{- end }}
+{{- $l := len .PipelineRun.Labels }}{{ if eq $l 0 }}
+{{- else }}
+{{decorate "bold" "Labels"}}:
+{{- range $k, $v := .PipelineRun.Labels }}
+ {{ $k }}={{ $v }}
+{{- end }}
+{{- end }}
+{{- if .PipelineRun.Annotations }}
+{{decorate "bold" "Annotations"}}:
+{{- range $k, $v := .PipelineRun.Annotations }}
+ {{ $k }}={{ $v }}
+{{- end }}
+{{- end }}
+
+📌 {{decorate "underline bold" "Status"}}
+STARTED          DURATION         STATUS
+{{ formatAge .PipelineRun.Status.StartTime .Time | printf "%-16s" }} {{ formatDuration .PipelineRun.Status.StartTime .PipelineRun.Status.CompletionTime | printf "%-16s" }} {{ formatCondition .PipelineRun.Status.Conditions }}
+
+⏱ {{decorate "underline bold" "Timeouts"}}
+{{- if .PipelineRun.Spec.Timeouts }}
+{{- if .PipelineRun.Spec.Timeouts.Pipeline }}
+Pipeline:   {{ .PipelineRun.Spec.Timeouts.Pipeline.Duration.String }}
+{{- end }}
+{{- if .PipelineRun.Spec.Timeouts.Tasks }}
+Tasks:      {{ .PipelineRun.Spec.Timeouts.Tasks.Duration.String }}
+{{- end }}
+{{- if .PipelineRun.Spec.Timeouts.Finally }}
+Finally:    {{ .PipelineRun.Spec.Timeouts.Finally.Duration.String }}
+{{- end }}
+{{- end }}
+
+⚓ {{decorate "underline bold" "Params"}}
+{{- if ne (len .PipelineRun.Spec.Params) 0 }}
+  NAME                          VALUE
+{{- range $i, $p := .PipelineRun.Spec.Params }}
+  • {{ $p.Name | printf "% -28s" }}{{ if eq $p.Value.Type "string" }}{{ $p.Value.StringVal }}{{ else if eq $p.Value.Type "array" }}{{ $p.Value.ArrayVal }}{{ else }}{{ $p.Value.ObjectVal }}{{ end }}
+{{- end }}
+{{- end }}
+
+{{- if ne (len .PipelineRun.Status.Results) 0 }}
+📝 {{decorate "underline bold" "Results"}}
+  NAME                          VALUE
+{{- range $result := .PipelineRun.Status.Results }}
+  • {{ $result.Name | printf "% -28s" }}{{ if eq $result.Value.Type "string" }}{{ $result.Value.StringVal }}{{ else if eq $result.Value.Type "array" }}{{ $result.Value.ArrayVal }}{{ else }}{{ $result.Value.ObjectVal }}{{ end }}
+{{- end }}
+{{- end }}
+
+{{- if ne (len .PipelineRun.Spec.Workspaces) 0 }}
+
+🗂  {{decorate "underline bold" "Workspaces"}}
+  NAME                SUB PATH            WORKSPACE BINDING
+{{- range $workspace := .PipelineRun.Spec.Workspaces }}
+  • {{ $workspace.Name | printf "% -19s" }}{{ if not $workspace.SubPath }}{{ "---" | printf "% -19s" }}{{ else }}{{ $workspace.SubPath | printf "% -19s" }}{{ end }}{{ formatWorkspace $workspace }}
+{{- end }}
+{{- end }}
+
+{{- if ne (len .PipelineRun.Status.ChildReferences) 0 }}
+
+📦 {{decorate "underline bold" "Taskruns"}}
+  NAME                                                                         TASK NAME
+{{- range $taskrun := .PipelineRun.Status.ChildReferences }}
+  • {{ $taskrun.Name | printf "% -75s" }}{{ $taskrun.PipelineTaskName }}
+{{- end }}
+{{- end }}
+
+{{- if ne (len .PipelineRun.Status.SkippedTasks) 0 }}
+⏭️  {{decorate "underline bold" "Skipped Tasks"}}
+NAME
+{{- range $skippedTask := .PipelineRun.Status.SkippedTasks }}
+• {{ $skippedTask.Name }}
+{{- end }}
+{{- end }}
+`
+
+// describeCommand initializes a cobra command to describe a PipelineRun
+func describeCommand(p common.Params) *cobra.Command {
+	opts := &options.DescribeOptions{
+		ResourceType: common.ResourceTypePipelineRun,
+	}
+
+	eg := `Describe a PipelineRun in namespace 'foo':
+    tkn-results pipelinerun describe my-pipelinerun -n foo
+
+Describe a PipelineRun in the current namespace:
+    tkn-results pipelinerun describe my-pipelinerun
+`
+	cmd := &cobra.Command{
+		Use:     "describe [pipelinerun-name]",
+		Aliases: []string{"desc"},
+		Short:   "Describe a PipelineRun",
+		Long:    "Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun name is optional.",
+		Annotations: map[string]string{
+			"commandType": "main",
+		},
+		Example: eg,
+		Args: func(_ *cobra.Command, args []string) error {
+			// If UID is provided, no arguments are required
+			if opts.UID != "" {
+				return nil
+			}
+			// Otherwise, require exactly one argument
+			if len(args) != 1 {
+				return fmt.Errorf("requires exactly one argument when --uid is not provided")
+			}
+			return nil
+		},
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			allNs, _ := cmd.Flags().GetBool("all-namespaces")
+			nsSet := cmd.Flags().Changed("namespace")
+			if allNs && nsSet {
+				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
+			}
+			c, err := config.NewConfig(p)
+			if err != nil {
+				return err
+			}
+			opts.Client, err = client.NewRESTClient(c.Get())
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if len(args) > 0 {
+				opts.ResourceName = args[0]
+			}
+
+			// Build filter string to find the PipelineRun
+			filter := common.BuildFilterString(opts)
+
+			// Handle namespace
+			parent := fmt.Sprintf("%s/results/-", p.Namespace())
+			if opts.AllNamespaces {
+				parent = "*/results/-"
+			}
+
+			// Create record client
+			recordClient := records.NewClient(opts.Client)
+
+			// Find the PipelineRun record
+			resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
+				Parent:   parent,
+				Filter:   filter,
+				PageSize: 25,
+			}, "")
+
+			if err != nil {
+				return fmt.Errorf("failed to find PipelineRun: %v", err)
+			}
+			if len(resp.Records) == 0 {
+				if opts.UID != "" && opts.ResourceName != "" {
+					return fmt.Errorf("no PipelineRun found with name %s and UID %s", opts.ResourceName, opts.UID)
+				} else if opts.UID != "" {
+					return fmt.Errorf("no PipelineRun found with UID %s", opts.UID)
+				}
+				return fmt.Errorf("no PipelineRun found with name %s", opts.ResourceName)
+			}
+
+			// If multiple PipelineRuns are found, return an error
+			if len(resp.Records) > 1 {
+				var uids []string
+				for _, record := range resp.Records {
+					uids = append(uids, record.Uid)
+				}
+				return fmt.Errorf("multiple PipelineRuns found. Use a more specific name or UID. Available UIDs: %s",
+					strings.Join(uids, ", "))
+			}
+
+			// Parse record to PipelineRun
+			var pr v1.PipelineRun
+			if err := json.Unmarshal(resp.Records[0].Data.Value, &pr); err != nil {
+				return fmt.Errorf("failed to unmarshal PipelineRun data: %v", err)
+			}
+
+			// Print formatted output
+			stream := &cli.Stream{
+				Out: cmd.OutOrStdout(),
+				Err: cmd.OutOrStderr(),
+			}
+
+			var data = struct {
+				PipelineRun *v1.PipelineRun
+				Time        clockwork.Clock
+			}{
+				PipelineRun: &pr,
+				Time:        clockwork.NewRealClock(),
+			}
+
+			funcMap := template.FuncMap{
+				"formatAge":       common.FormatAge,
+				"formatDuration":  formatted.Duration,
+				"formatCondition": formatted.Condition,
+				"formatWorkspace": formatted.Workspace,
+				"decorate":        formatted.DecorateAttr,
+			}
+
+			w := tabwriter.NewWriter(stream.Out, 0, 5, 3, ' ', tabwriter.TabIndent)
+			t := template.Must(template.New("Describe PipelineRun").Funcs(funcMap).Parse(describeTemplate))
+
+			if err := t.Execute(w, data); err != nil {
+				return err
+			}
+
+			return w.Flush()
+		},
+	}
+
+	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "use all namespaces")
+	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the PipelineRun to describe the details")
+
+	return cmd
+}

@@ -50,5 +50,6 @@ Examples:
 ### SEE ALSO
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
+* [tkn-results pipelinerun describe](tkn-results_pipelinerun_describe.md)	 - Describe a PipelineRun
 * [tkn-results pipelinerun list](tkn-results_pipelinerun_list.md)	 - List PipelineRuns in a namespace
 
