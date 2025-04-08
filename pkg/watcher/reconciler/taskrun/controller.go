@@ -27,7 +27,6 @@ import (
 	taskrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -66,10 +65,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		}
 	})
 
-	_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    impl.Enqueue,
-		UpdateFunc: controller.PassNew(impl.Enqueue),
-	})
+	_, err := informer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 	if err != nil {
 		logger.Panicf("Couldn't register TaskRun informer event handler: %w", err)
 	}
