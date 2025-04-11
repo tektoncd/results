@@ -1,26 +1,11 @@
-## tkn-results records list
+## tkn-results result list
 
-List Records for a given Result
-
-### Synopsis
-
-List Records for a given Result. <result-name> is typically of format <namespace>/results/<parent-run-uuid>. '-' may be used in place of  <parent-run-uuid> to query all Records for a given parent.
+List Results
 
 ```
-tkn-results records list [flags] <result-name>
-```
+tkn-results result list [flags] <parent>
 
-### Examples
-
-```
-  - List all Records for PipelineRun with UUID 0dfc883d-722a-4489-9ab8-3cccc74ca4f6 in 'default' namespace:
-    tkn-results records list default/results/0dfc883d-722a-4489-9ab8-3cccc74ca4f6
-
-  - List all Records for all Runs in 'default' namespace:
-    tkn-results records list default/results/-
-	
-  - List only TaskRuns Records in 'default' namespace:
-    tkn-results records list default/results/- --filter="data_type=='tekton.dev/v1beta1.TaskRun'"
+  <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents.
 ```
 
 ### Options
@@ -47,5 +32,5 @@ tkn-results records list [flags] <result-name>
 
 ### SEE ALSO
 
-* [tkn-results records](tkn-results_records.md)	 - Command sub-group for querying Records
+* [tkn-results result](tkn-results_result.md)	 - Query Results
 

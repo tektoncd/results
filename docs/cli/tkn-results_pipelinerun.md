@@ -1,11 +1,11 @@
-## tkn-results records
+## tkn-results pipelinerun
 
-Command sub-group for querying Records
+Query PipelineRuns
 
 ### Options
 
 ```
-  -h, --help   help for records
+  -h, --help   help for pipelinerun
 ```
 
 ### Options inherited from parent commands
@@ -23,6 +23,5 @@ Command sub-group for querying Records
 ### SEE ALSO
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
-* [tkn-results records get](tkn-results_records_get.md)	 - Get Record by <record-name>
-* [tkn-results records list](tkn-results_records_list.md)	 - List Records for a given Result
+* [tkn-results pipelinerun list](tkn-results_pipelinerun_list.md)	 - List PipelineRuns in a namespace
 
