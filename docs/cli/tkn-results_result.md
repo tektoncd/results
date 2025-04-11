@@ -1,11 +1,11 @@
-## tkn-results records
+## tkn-results result
 
-Command sub-group for querying Records
+Query Results
 
 ### Options
 
 ```
-  -h, --help   help for records
+  -h, --help   help for result
 ```
 
 ### Options inherited from parent commands
@@ -23,6 +23,6 @@ Command sub-group for querying Records
 ### SEE ALSO
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
-* [tkn-results records get](tkn-results_records_get.md)	 - Get Record by <record-name>
-* [tkn-results records list](tkn-results_records_list.md)	 - List Records for a given Result
+* [tkn-results result describe](tkn-results_result_describe.md)	 - Describes a Result
+* [tkn-results result list](tkn-results_result_list.md)	 - List Results
 
