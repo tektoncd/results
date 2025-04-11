@@ -1,11 +1,28 @@
-## tkn-results records
+## tkn-results pipelinerun list
 
-Command sub-group for querying Records
+List PipelineRuns in a namespace
+
+```
+tkn-results pipelinerun list
+```
+
+### Examples
+
+```
+List all PipelineRuns in a namespace 'foo':
+    tkn-results pipelinerun list -n foo
+
+List all PipelineRuns in 'default' namespace:
+    tkn-results pipelinerun list -n default
+
+```
 
 ### Options
 
 ```
-  -h, --help   help for records
+  -h, --help               help for list
+  -l, --limit int32        Limit the number of PipelineRuns to return
+  -n, --namespace string   Namespace to list PipelineRuns in (default "default")
 ```
 
 ### Options inherited from parent commands
@@ -22,7 +39,5 @@ Command sub-group for querying Records
 
 ### SEE ALSO
 
-* [tkn-results](tkn-results.md)	 - Tekton Results CLI
-* [tkn-results records get](tkn-results_records_get.md)	 - Get Record by <record-name>
-* [tkn-results records list](tkn-results_records_list.md)	 - List Records for a given Result
+* [tkn-results pipelinerun](tkn-results_pipelinerun.md)	 - Query PipelineRuns
 

@@ -1,0 +1,111 @@
+.nh
+.TH "TKN-RESULTS" "1" "Apr 2025" "Tekton Results CLI" ""
+
+.SH NAME
+.PP
+tkn-results-config-reset - Reset CLI configuration to defaults
+
+
+.SH SYNOPSIS
+.PP
+\fBtkn-results config reset\fP
+
+
+.SH DESCRIPTION
+.PP
+Reset all configuration settings to their default values.
+
+.PP
+This command will:
+1. Remove all custom configuration settings
+2. Reset to default values:
+   - API server endpoint
+   - Authentication token
+   - Cluster context and namespace
+   - TLS verification settings
+
+.PP
+Warning: This will remove all custom configuration settings.
+         You will need to reconfigure the CLI after resetting.
+
+.PP
+Examples:
+  # Reset all configuration settings
+  tkn-results config reset
+
+.PP
+# Reset and verify the changes
+  tkn-results config reset && tkn-results config view
+
+.PP
+# Reset and immediately reconfigure
+  tkn-results config reset && tkn-results config set
+
+
+.SH OPTIONS
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for reset
+
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+.PP
+\fB-a\fP, \fB--addr\fP=""
+	Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+
+.PP
+\fB--api-path\fP=""
+	api path to use (default: value provided in config set command)
+
+.PP
+\fB-t\fP, \fB--authtoken\fP=""
+	authorization bearer token to use for authenticated requests
+
+.PP
+\fB-c\fP, \fB--context\fP=""
+	name of the kubeconfig context to use (default: kubectl config current-context)
+
+.PP
+\fB--host\fP=""
+	host to use (default: value provided in config set command)
+
+.PP
+\fB--insecure\fP[=false]
+	determines whether to run insecure GRPC tls request
+
+.PP
+\fB--insecure-skip-tls-verify\fP[=false]
+	skip server's certificate validation for requests (default: false)
+
+.PP
+\fB-k\fP, \fB--kubeconfig\fP=""
+	kubectl config file (default: $HOME/.kube/config)
+
+.PP
+\fB-n\fP, \fB--namespace\fP=""
+	namespace to use (default: from $KUBECONFIG)
+
+.PP
+\fB--portforward\fP[=true]
+	enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
+
+.PP
+\fB--sa\fP=""
+	ServiceAccount to use instead of token for authorization and authentication
+
+.PP
+\fB--sa-ns\fP=""
+	ServiceAccount Namespace, if not given, it will be taken from current context
+
+.PP
+\fB--token\fP=""
+	bearer token to use (default: value provided in config set command)
+
+.PP
+\fB--v1alpha2\fP[=false]
+	use v1alpha2 API for get log command
+
+
+.SH SEE ALSO
+.PP
+\fBtkn-results-config(1)\fP
