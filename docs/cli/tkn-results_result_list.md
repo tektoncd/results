@@ -5,7 +5,7 @@ List Results
 ```
 tkn-results result list [flags] <parent>
 
-  <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents.
+  <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents. This will list results for namespaces the token has access to
 ```
 
 ### Options

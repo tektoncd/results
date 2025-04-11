@@ -101,8 +101,10 @@ fmt: ; $(info $(M) running gofmt…) @ ## Run gofmt on all source files
 	$Q $(GO) fmt $(PKGS)
 
 .PHONY: cli-docs
-cli-docs: ; $(info $(M) generating tkn-results docs) ## Generate tkn-results docs
-	$(GO) run ./cmd/cli-docs
+cli-docs: ; $(info $(M) Generating docs…) ## update docs
+	@mkdir -p ./docs/cli ./docs/man/man1
+	@go run ./cmd/cli-docs --root=. --target=./docs/cli
+	@go run ./cmd/cli-docs --root=. --target=./docs/man/man1 --kind=man
 
 # Misc
 

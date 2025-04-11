@@ -1,6 +1,6 @@
 # GJSON Path Syntax
 
-A GJSON Path is a text string syntax that describes a search pattern for quickly retreiving values from a JSON payload.
+A GJSON Path is a text string syntax that describes a search pattern for quickly retrieving values from a JSON payload.
 
 This document is designed to explain the structure of a GJSON Path through examples.
 
@@ -15,14 +15,14 @@ This document is designed to explain the structure of a GJSON Path through examp
 - [Multipaths](#multipaths)
 - [Literals](#literals)
 
-The definitive implemenation is [github.com/tidwall/gjson](https://github.com/tidwall/gjson).  
+The definitive implementation is [github.com/tidwall/gjson](https://github.com/tidwall/gjson).  
 Use the [GJSON Playground](https://gjson.dev) to experiment with the syntax online.
 
 ## Path structure
 
-A GJSON Path is intended to be easily expressed as a series of components seperated by a `.` character. 
+A GJSON Path is intended to be easily expressed as a series of components separated by a `.` character. 
 
-Along with `.` character, there are a few more that have special meaning, including `|`, `#`, `@`, `\`, `*`, and `?`.
+Along with `.` character, there are a few more that have special meaning, including `|`, `#`, `@`, `\`, `*`, `!`, and `?`.
 
 ## Example
 
@@ -46,7 +46,7 @@ The following GJSON Paths evaluate to the accompanying values.
 
 ### Basic 
 
-In many cases you'll just want to retreive values by object name or array index.
+In many cases you'll just want to retrieve values by object name or array index.
 
 ```go
 name.last              "Anderson"
@@ -77,7 +77,7 @@ Special purpose characters, such as `.`, `*`, and `?` can be escaped with `\`.
 fav\.movie             "Deer Hunter"
 ```
 
-You'll also need to make sure that the `\` character is correctly escaped when hardcoding a path in you source code.
+You'll also need to make sure that the `\` character is correctly escaped when hardcoding a path in your source code.
 
 ```go
 // Go
@@ -137,12 +137,21 @@ next major release.*
 
 The `~` (tilde) operator will convert a value to a boolean before comparison.
 
+Supported tilde comparison type are:
+
+```
+~true      Converts true-ish values to true
+~false     Converts false-ish and non-existent values to true
+~null      Converts null and non-existent values to true
+~*         Converts any existing value to true
+```
+
 For example, using the following JSON:
 
 ```json
 {
   "vals": [
-    { "a": 1, "b": true },
+    { "a": 1, "b": "data" },
     { "a": 2, "b": true },
     { "a": 3, "b": false },
     { "a": 4, "b": "0" },
@@ -157,14 +166,22 @@ For example, using the following JSON:
 }
 ```
 
-You can now query for all true(ish) or false(ish) values:
+To query for all true-ish or false-ish values:
 
 ```
-vals.#(b==~true)#.a    >> [1,2,6,7,8]
+vals.#(b==~true)#.a    >> [2,6,7,8]
 vals.#(b==~false)#.a   >> [3,4,5,9,10,11]
 ```
 
 The last value which was non-existent is treated as `false`
+
+To query for null and explicit value existence:
+
+```
+vals.#(b==~null)#.a    >> [10,11]
+vals.#(b==~*)#.a       >> [1,2,3,4,5,6,7,8,9,10]
+vals.#(b!=~*)#.a       >> [11]
+```
 
 ### Dot vs Pipe
 
@@ -238,6 +255,10 @@ There are currently the following built-in modifiers:
 - `@join`: Joins multiple objects into a single object.
 - `@keys`: Returns an array of keys for an object.
 - `@values`: Returns an array of values for an object.
+- `@tostr`: Converts json to a string. Wraps a json string.
+- `@fromstr`: Converts a string from json. Unwraps a json string.
+- `@group`: Groups arrays of objects. See [e4fc67c](https://github.com/tidwall/gjson/commit/e4fc67c92aeebf2089fabc7872f010e340d105db).
+- `@dig`: Search for a value without providing its entire path. See [e8e87f2](https://github.com/tidwall/gjson/commit/e8e87f2a00dc41f3aba5631094e21f59a8cf8cbf).
 
 #### Modifier arguments
 

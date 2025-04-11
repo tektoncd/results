@@ -27,23 +27,26 @@ Manual Configuration (if automatic detection fails):
 Configuration Options:
   --host                    API server host URL
   --token                   Authentication token
+  --api-path                API server path prefix
+  --insecure-skip-tls-verify Skip TLS certificate verification
   --kubeconfig, -k          Path to kubeconfig file
   --context, -c             Kubernetes context to use
   --namespace, -n           Kubernetes namespace
-  --api-path                API server path prefix
-  --insecure-skip-tls-verify Skip TLS certificate verification
 
-Note: When using configuration flags, you must also use --no-prompt to skip interactive prompts.
+Note: Interactive prompts will be skipped if any configuration flag (host, token, api-path, insecure-skip-tls-verify) is used.
 
 Examples:
   # Configure with automatic detection and interactive prompts
   tkn-results config set
 
-  # Configure with specific parameters (must use --no-prompt)
-  tkn-results config set --no-prompt --host=http://localhost:8080 --token=my-token
+  # Configure with specific parameters (no prompts)
+  tkn-results config set --host=http://localhost:8080 --token=my-token
 
-  # Configure with custom kubeconfig and context (must use --no-prompt)
-  tkn-results config set --no-prompt --kubeconfig=/path/to/kubeconfig --context=my-cluster
+  # Configure with custom API path and namespace (no prompts)
+  tkn-results config set --api-path=/api/v1 --namespace=my-namespace
+
+  # Configure with custom kubeconfig and context
+  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
 
 ```
 tkn-results config set
@@ -52,8 +55,7 @@ tkn-results config set
 ### Options
 
 ```
-  -h, --help        help for set
-      --no-prompt   Skip interactive prompts and use default values
+  -h, --help   help for set
 ```
 
 ### Options inherited from parent commands
