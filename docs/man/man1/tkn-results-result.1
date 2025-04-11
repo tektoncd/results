@@ -1,0 +1,57 @@
+.nh
+.TH "TKN-RESULTS" "1" "Apr 2025" "Tekton Results CLI" ""
+
+.SH NAME
+.PP
+tkn-results-result - Query Results
+
+
+.SH SYNOPSIS
+.PP
+\fBtkn-results result\fP
+
+
+.SH DESCRIPTION
+.PP
+Query Results
+
+
+.SH OPTIONS
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for result
+
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+.PP
+\fB-a\fP, \fB--addr\fP=""
+	Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+
+.PP
+\fB-t\fP, \fB--authtoken\fP=""
+	authorization bearer token to use for authenticated requests
+
+.PP
+\fB--insecure\fP[=false]
+	determines whether to run insecure GRPC tls request
+
+.PP
+\fB--portforward\fP[=true]
+	enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
+
+.PP
+\fB--sa\fP=""
+	ServiceAccount to use instead of token for authorization and authentication
+
+.PP
+\fB--sa-ns\fP=""
+	ServiceAccount Namespace, if not given, it will be taken from current context
+
+.PP
+\fB--v1alpha2\fP[=false]
+	use v1alpha2 API for get log command
+
+
+.SH SEE ALSO
+.PP
+\fBtkn-results(1)\fP, \fBtkn-results-result-describe(1)\fP, \fBtkn-results-result-list(1)\fP

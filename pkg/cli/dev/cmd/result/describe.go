@@ -47,10 +47,10 @@ type describeOptions struct {
 func describeCommand(params *flags.Params) *cobra.Command {
 	opts := &describeOptions{}
 	eg := `Query by name:
-tkn-result result describe default/results/e6b4b2e3-d876-4bbe-a927-95c691b6fdc7
+tkn-results result describe default/results/e6b4b2e3-d876-4bbe-a927-95c691b6fdc7
 
 Query by parent and uid:
-tkn-result result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035f10
+tkn-results result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035f10
 `
 	cmd := &cobra.Command{
 		Use:     "describe [-p parent -u uid] [name]",

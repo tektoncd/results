@@ -1,0 +1,85 @@
+.nh
+.TH "TKN-RESULTS" "1" "Apr 2025" "Tekton Results CLI" ""
+
+.SH NAME
+.PP
+tkn-results-logs-list - List Logs for a given Result
+
+
+.SH SYNOPSIS
+.PP
+\fBtkn-results logs list [flags] \fP
+
+
+.SH DESCRIPTION
+.PP
+List Logs for a given Result.  is typically of format /results/\&. '-' may be used in place of  to query all Logs for a given parent.
+
+
+.SH OPTIONS
+.PP
+\fB-f\fP, \fB--filter\fP=""
+	CEL Filter
+
+.PP
+\fB-h\fP, \fB--help\fP[=false]
+	help for list
+
+.PP
+\fB-l\fP, \fB--limit\fP=0
+	number of items to return. Response may be truncated due to server limits.
+
+.PP
+\fB-o\fP, \fB--output\fP="tab"
+	output format. Valid values: tab|textproto|json
+
+.PP
+\fB-p\fP, \fB--page\fP=""
+	pagination token to use for next page
+
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+.PP
+\fB-a\fP, \fB--addr\fP=""
+	Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+
+.PP
+\fB-t\fP, \fB--authtoken\fP=""
+	authorization bearer token to use for authenticated requests
+
+.PP
+\fB--insecure\fP[=false]
+	determines whether to run insecure GRPC tls request
+
+.PP
+\fB--portforward\fP[=true]
+	enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
+
+.PP
+\fB--sa\fP=""
+	ServiceAccount to use instead of token for authorization and authentication
+
+.PP
+\fB--sa-ns\fP=""
+	ServiceAccount Namespace, if not given, it will be taken from current context
+
+.PP
+\fB--v1alpha2\fP[=false]
+	use v1alpha2 API for get log command
+
+
+.SH EXAMPLE
+.EX
+  - List all Logs for PipelineRun with UUID 0dfc883d-722a-4489-9ab8-3cccc74ca4f6 in 'default' namespace:
+    tkn-results logs list default/results/0dfc883d-722a-4489-9ab8-3cccc74ca4f6
+  - List all logs for all Runs in 'default' namespace:
+    tkn-results logs list default/results/-
+  - List only TaskRuns logs in 'default' namespace:
+    tkn-results logs list default/results/- --filter="data.spec.resource.kind=TaskRun"
+
+.EE
+
+
+.SH SEE ALSO
+.PP
+\fBtkn-results-logs(1)\fP
