@@ -41,7 +41,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	gocloud.dev v0.40.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/oauth2 v0.26.0
 	google.golang.org/api v0.222.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250207221924-e9438ea467c6
