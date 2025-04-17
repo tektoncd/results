@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/tektoncd/results/pkg/cli/client"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/tektoncd/results/pkg/cli/common"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,7 +31,7 @@ const (
 
 // Config defines the interface for managing Tekton Results configuration.
 type Config interface {
-	Get() *common.Config
+	Get() *client.Config
 	GetObject() runtime.Object
 	Set(prompt bool, p common.Params) error
 	Reset(p common.Params) error
@@ -39,7 +41,7 @@ type config struct {
 	ConfigAccess clientcmd.ConfigAccess
 	APIConfig    *api.Config
 	RESTConfig   *rest.Config
-	ClientConfig *common.Config
+	ClientConfig *client.Config
 	Extension    *Extension
 }
 
@@ -144,7 +146,7 @@ func (c *config) LoadClientConfig() error {
 	}
 	u.Path = p
 
-	c.ClientConfig = &common.Config{
+	c.ClientConfig = &client.Config{
 		Transport: tc,
 		URL:       u,
 		Timeout:   c.RESTConfig.Timeout,
@@ -167,7 +169,7 @@ func (c *config) GetObject() runtime.Object {
 }
 
 // Get retrieves the current common configuration.
-func (c *config) Get() *common.Config {
+func (c *config) Get() *client.Config {
 	return c.ClientConfig
 }
 
