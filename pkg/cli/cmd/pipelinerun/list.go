@@ -66,6 +66,14 @@ List all PipelineRuns in 'default' namespace:
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -l app=myapp
 
+List PipelineRuns with multiple label selectors:
+    tkn-results pipelinerun list -l app=myapp,env=prod
+
+List PipelineRuns with label expressions:
+    tkn-results pipelinerun list -l 'app in (myapp,webapp)'
+    tkn-results pipelinerun list -l 'env notin (dev,test)'
+    tkn-results pipelinerun list -l 'app=myapp,!env'
+
 List PipelineRuns from all namespaces:
     tkn-results pipelinerun list -A
 
@@ -103,17 +111,38 @@ List PipelineRuns with partial pipeline name match:
 			if len(args) > 0 {
 				opts.PipelineName = args[0]
 			}
+
+			// Validate label format if provided
+			if opts.Label != "" {
+				labelPairs := strings.Split(opts.Label, ",")
+				for _, pair := range labelPairs {
+					parts := strings.Split(strings.TrimSpace(pair), "=")
+					if len(parts) != 2 {
+						return fmt.Errorf("invalid label format: %s. Expected format: key=value", pair)
+					}
+
+					// Check for whitespace in key before trimming
+					if strings.ContainsAny(parts[0], " \t") {
+						return fmt.Errorf("label key cannot contain whitespace: %s", parts[0])
+					}
+
+					key := strings.TrimSpace(parts[0])
+					value := strings.TrimSpace(parts[1])
+
+					if key == "" {
+						return fmt.Errorf("label key cannot be empty in pair: %s", pair)
+					}
+					if value == "" {
+						return fmt.Errorf("label value cannot be empty in pair: %s", pair)
+					}
+				}
+			}
+
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Build filter string
-			filter := []string{`data_type==PIPELINE_RUN`}
-			if opts.Label != "" {
-				filter = append(filter, fmt.Sprintf(`labels.%s`, opts.Label))
-			}
-			if opts.PipelineName != "" {
-				filter = append(filter, fmt.Sprintf(`data.metadata.name.contains("%s")`, opts.PipelineName))
-			}
+			filter := buildFilterString(opts)
 
 			// Handle all namespaces
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
@@ -124,7 +153,7 @@ List PipelineRuns with partial pipeline name match:
 			// Create initial request
 			req := &pb.ListRecordsRequest{
 				Parent:   parent,
-				Filter:   strings.Join(filter, " && "),
+				Filter:   filter,
 				OrderBy:  "create_time desc",
 				PageSize: opts.Limit,
 			}
@@ -212,7 +241,7 @@ List PipelineRuns with partial pipeline name match:
 
 	cmd.Flags().Int32VarP(&opts.Limit, "limit", "l", 10, "Maximum number of PipelineRuns to return")
 	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "List PipelineRuns from all namespaces")
-	cmd.Flags().StringVarP(&opts.Label, "label", "L", "", "Filter by label (format: key=value)")
+	cmd.Flags().StringVarP(&opts.Label, "label", "L", "", "Filter by label (format: key=value,key2=value2)")
 	cmd.Flags().BoolVar(&opts.SinglePage, "single-page", false, "Return only a single page of results")
 
 	return cmd
@@ -258,4 +287,39 @@ func parseRecordsToPr(records []*pb.Record) (*v1.PipelineRunList, error) {
 		pipelineRuns.Items = append(pipelineRuns.Items, pr)
 	}
 	return pipelineRuns, nil
+}
+
+// buildFilterString constructs the filter string for the ListRecordsRequest
+func buildFilterString(opts *listOptions) string {
+	const (
+		contains = "data.metadata.%s.contains(\"%s\")"
+		equal    = "data.metadata.%s[\"%s\"]==\"%s\""
+		dataType = "data_type==\"%s\""
+	)
+
+	var filters []string
+
+	// Add data type filter
+	filters = append(filters, fmt.Sprintf(dataType, "tekton.dev/v1.PipelineRun"))
+
+	// Handle label filters
+	if opts.Label != "" {
+		// Split by comma to get individual label pairs
+		labelPairs := strings.Split(opts.Label, ",")
+		for _, pair := range labelPairs {
+			// Split each pair by = to get key and value
+			parts := strings.Split(strings.TrimSpace(pair), "=")
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				filters = append(filters, fmt.Sprintf(equal, "labels", key, value))
+			}
+		}
+	}
+
+	// Handle pipeline name filter
+	if opts.PipelineName != "" {
+		filters = append(filters, fmt.Sprintf(contains, "name", opts.PipelineName))
+	}
+	return strings.Join(filters, " && ")
 }

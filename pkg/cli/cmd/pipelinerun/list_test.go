@@ -352,48 +352,156 @@ func TestListCommand(t *testing.T) {
 
 func TestBuildFilterString(t *testing.T) {
 	tests := []struct {
-		name     string
-		opts     *listOptions
-		expected string
+		name          string
+		opts          *listOptions
+		expected      string
+		expectedError string
 	}{
 		{
-			name:     "no filters",
-			opts:     &listOptions{},
-			expected: "data_type==\"PIPELINE_RUN\"",
+			name: "single label",
+			opts: &listOptions{
+				Label: "app.kubernetes.io/name=test-app",
+			},
+			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
 		},
 		{
-			name: "with label",
+			name: "multiple labels",
 			opts: &listOptions{
-				Label: "key=value",
+				Label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
 			},
-			expected: "data_type==\"PIPELINE_RUN\" AND data.metadata.labels.key==\"value\"",
+			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
 		},
 		{
-			name: "with namespace and label",
+			name: "with pipeline name",
 			opts: &listOptions{
-				Label: "key=value",
+				Label:        "app.kubernetes.io/name=test-app",
+				PipelineName: "my-pipeline",
 			},
-			expected: "data_type==\"PIPELINE_RUN\" AND data.metadata.labels.key==\"value\"",
+			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
+		},
+		{
+			name: "empty label",
+			opts: &listOptions{
+				Label: "",
+			},
+			expected: `data_type=="tekton.dev/v1.PipelineRun"`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := buildFilterString(tt.opts)
-			if filter != tt.expected {
-				t.Errorf("unexpected filter string: got %v, want %v", filter, tt.expected)
+			got := buildFilterString(tt.opts)
+			if got != tt.expected {
+				t.Errorf("buildFilterString() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
 }
 
-func buildFilterString(opts *listOptions) string {
-	filter := "data_type==\"PIPELINE_RUN\""
-	if opts.Label != "" {
-		parts := strings.Split(opts.Label, "=")
-		if len(parts) == 2 {
-			filter += fmt.Sprintf(" AND data.metadata.labels.%s==\"%s\"", parts[0], parts[1])
-		}
+func TestValidateLabels(t *testing.T) {
+	tests := []struct {
+		name          string
+		label         string
+		expectedError string
+	}{
+		{
+			name:  "valid single label",
+			label: "app.kubernetes.io/name=test-app",
+		},
+		{
+			name:  "valid multiple labels",
+			label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
+		},
+		{
+			name:          "missing equals sign",
+			label:         "app.kubernetes.io/name test-app",
+			expectedError: "invalid label format: app.kubernetes.io/name test-app. Expected format: key=value",
+		},
+		{
+			name:          "missing value",
+			label:         "app.kubernetes.io/name=",
+			expectedError: "label value cannot be empty in pair: app.kubernetes.io/name=",
+		},
+		{
+			name:          "missing key",
+			label:         "=test-app",
+			expectedError: "label key cannot be empty in pair: =test-app",
+		},
+		{
+			name:          "empty pair",
+			label:         "app.kubernetes.io/name=test-app,,",
+			expectedError: "invalid label format: . Expected format: key=value",
+		},
+		{
+			name:          "malformed pair",
+			label:         "app.kubernetes.io/name=test-app,key2",
+			expectedError: "invalid label format: key2. Expected format: key=value",
+		},
+		{
+			name:          "whitespace in key",
+			label:         "app.kubernetes.io/name =test-app",
+			expectedError: "label key cannot contain whitespace: app.kubernetes.io/name ",
+		},
 	}
-	return filter
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a minimal command with just the label option
+			cmd := &cobra.Command{
+				PreRunE: func(_ *cobra.Command, _ []string) error {
+					opts := &listOptions{
+						Label: tt.label,
+					}
+					// Validate label format if provided
+					if opts.Label != "" {
+						labelPairs := strings.Split(opts.Label, ",")
+						for _, pair := range labelPairs {
+							pair = strings.TrimSpace(pair)
+							if pair == "" {
+								return fmt.Errorf("invalid label format: . Expected format: key=value")
+							}
+
+							// Split on the first equals sign only
+							parts := strings.SplitN(pair, "=", 2)
+							if len(parts) != 2 {
+								return fmt.Errorf("invalid label format: %s. Expected format: key=value", pair)
+							}
+
+							// Check for whitespace in key before trimming
+							if strings.ContainsAny(parts[0], " \t") {
+								return fmt.Errorf("label key cannot contain whitespace: %s", parts[0])
+							}
+
+							key := strings.TrimSpace(parts[0])
+							value := strings.TrimSpace(parts[1])
+
+							if key == "" {
+								return fmt.Errorf("label key cannot be empty in pair: %s", pair)
+							}
+							if value == "" {
+								return fmt.Errorf("label value cannot be empty in pair: %s", pair)
+							}
+						}
+					}
+					return nil
+				},
+			}
+
+			err := cmd.PreRunE(cmd, []string{})
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("expected error: %v, got nil", tt.expectedError)
+				} else if err.Error() != tt.expectedError {
+					t.Errorf("expected error: %q (bytes: %v), got: %q (bytes: %v)",
+						tt.expectedError, []byte(tt.expectedError),
+						err.Error(), []byte(err.Error()))
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
 }
