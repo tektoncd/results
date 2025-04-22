@@ -15,8 +15,14 @@ List all PipelineRuns in a namespace 'foo':
 List all PipelineRuns in 'default' namespace:
     tkn-results pipelinerun list -n default
 
+List all PipelineRuns using the pagination, not the single page
+    tkn-results pipelinerun list --single-page false
+
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -l app=myapp
+
+List PipelineRuns with multiple label selectors:
+    tkn-results pipelinerun list -l app=myapp,env=prod
 
 List PipelineRuns from all namespaces:
     tkn-results pipelinerun list -A
@@ -35,12 +41,11 @@ List PipelineRuns with partial pipeline name match:
 ### Options
 
 ```
-  -A, --all-namespaces     List PipelineRuns from all namespaces
-  -h, --help               help for list
-  -L, --label string       Filter by label (format: key=value)
-  -l, --limit int32        Maximum number of PipelineRuns to return (default 10)
-  -n, --namespace string   Namespace to list PipelineRuns in (default "default")
-      --single-page        Return only a single page of results
+  -A, --all-namespaces   List PipelineRuns from all namespaces
+  -h, --help             help for list
+  -L, --label string     Filter by label (format: key=value,key2=value2)
+  -l, --limit int32      Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50) (default 50)
+      --single-page      Return only a single page of results (default true)
 ```
 
 ### Options inherited from parent commands
@@ -54,6 +59,7 @@ List PipelineRuns with partial pipeline name match:
       --insecure                   determines whether to run insecure GRPC tls request
       --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
   -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
+  -n, --namespace string           namespace to use (default: from $KUBECONFIG)
       --portforward                enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
       --sa string                  ServiceAccount to use instead of token for authorization and authentication
       --sa-ns string               ServiceAccount Namespace, if not given, it will be taken from current context

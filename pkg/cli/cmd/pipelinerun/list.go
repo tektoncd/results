@@ -52,9 +52,9 @@ type listOptions struct {
 // listCommand initializes a cobra command to list PipelineRuns
 func listCommand(p common.Params) *cobra.Command {
 	opts := &listOptions{
-		Limit:         10,
+		Limit:         50,
 		AllNamespaces: false,
-		SinglePage:    false,
+		SinglePage:    true,
 	}
 
 	eg := `List all PipelineRuns in a namespace 'foo':
@@ -63,16 +63,14 @@ func listCommand(p common.Params) *cobra.Command {
 List all PipelineRuns in 'default' namespace:
     tkn-results pipelinerun list -n default
 
+List all PipelineRuns using the pagination, not the single page
+    tkn-results pipelinerun list --single-page false
+
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -l app=myapp
 
 List PipelineRuns with multiple label selectors:
     tkn-results pipelinerun list -l app=myapp,env=prod
-
-List PipelineRuns with label expressions:
-    tkn-results pipelinerun list -l 'app in (myapp,webapp)'
-    tkn-results pipelinerun list -l 'env notin (dev,test)'
-    tkn-results pipelinerun list -l 'app=myapp,!env'
 
 List PipelineRuns from all namespaces:
     tkn-results pipelinerun list -A
@@ -104,8 +102,8 @@ List PipelineRuns with partial pipeline name match:
 				return err
 			}
 
-			if opts.Limit < 5 || opts.Limit > 100 {
-				return errors.New("limit should be between 5 and 100")
+			if opts.Limit < 5 || opts.Limit > 1000 {
+				return errors.New("limit should be between 5 and 1000")
 			}
 
 			if len(args) > 0 {
@@ -239,10 +237,10 @@ List PipelineRuns with partial pipeline name match:
 		},
 	}
 
-	cmd.Flags().Int32VarP(&opts.Limit, "limit", "l", 10, "Maximum number of PipelineRuns to return")
+	cmd.Flags().Int32VarP(&opts.Limit, "limit", "l", 50, "Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50)")
 	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "List PipelineRuns from all namespaces")
 	cmd.Flags().StringVarP(&opts.Label, "label", "L", "", "Filter by label (format: key=value,key2=value2)")
-	cmd.Flags().BoolVar(&opts.SinglePage, "single-page", false, "Return only a single page of results")
+	cmd.Flags().BoolVar(&opts.SinglePage, "single-page", true, "Return only a single page of results")
 
 	return cmd
 }
@@ -299,8 +297,10 @@ func buildFilterString(opts *listOptions) string {
 
 	var filters []string
 
-	// Add data type filter
-	filters = append(filters, fmt.Sprintf(dataType, "tekton.dev/v1.PipelineRun"))
+	// Add data type filter for both v1 and v1beta1 PipelineRuns
+	filters = append(filters, fmt.Sprintf(`(%s || %s)`,
+		fmt.Sprintf(dataType, "tekton.dev/v1.PipelineRun"),
+		fmt.Sprintf(dataType, "tekton.dev/v1beta1.PipelineRun")))
 
 	// Handle label filters
 	if opts.Label != "" {

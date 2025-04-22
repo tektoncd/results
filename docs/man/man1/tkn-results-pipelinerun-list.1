@@ -27,18 +27,14 @@ List PipelineRuns in a namespace
 
 .PP
 \fB-L\fP, \fB--label\fP=""
-	Filter by label (format: key=value)
+	Filter by label (format: key=value,key2=value2)
 
 .PP
-\fB-l\fP, \fB--limit\fP=10
-	Maximum number of PipelineRuns to return
+\fB-l\fP, \fB--limit\fP=50
+	Maximum number of PipelineRuns to return (must be between 5 and 1000 and defaults to 50)
 
 .PP
-\fB-n\fP, \fB--namespace\fP="default"
-	Namespace to list PipelineRuns in
-
-.PP
-\fB--single-page\fP[=false]
+\fB--single-page\fP[=true]
 	Return only a single page of results
 
 
@@ -76,6 +72,10 @@ List PipelineRuns in a namespace
 	kubectl config file (default: $HOME/.kube/config)
 
 .PP
+\fB-n\fP, \fB--namespace\fP=""
+	namespace to use (default: from $KUBECONFIG)
+
+.PP
 \fB--portforward\fP[=true]
 	enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
 
@@ -104,8 +104,14 @@ List all PipelineRuns in a namespace 'foo':
 List all PipelineRuns in 'default' namespace:
     tkn-results pipelinerun list -n default
 
+List all PipelineRuns using the pagination, not the single page
+    tkn-results pipelinerun list --single-page false
+
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -l app=myapp
+
+List PipelineRuns with multiple label selectors:
+    tkn-results pipelinerun list -l app=myapp,env=prod
 
 List PipelineRuns from all namespaces:
     tkn-results pipelinerun list -A
