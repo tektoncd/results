@@ -7,7 +7,7 @@ Query PipelineRuns
 Query PipelineRuns stored in Tekton Results.
 
 This command allows you to list PipelineRuns stored in Tekton Results.
-You can filter results by namespace, labels, and other criteria.
+You can filter results by namespace, labels and other criteria.
 
 Examples:
   # List PipelineRuns in a namespace
@@ -19,7 +19,7 @@ Examples:
   # List PipelineRuns from all namespaces
   tkn-results pipelinerun list -A
 
-  # List PipelineRuns with pagination
+  # List PipelineRuns without pagination
   tkn-results pipelinerun list --limit=20
 
 ### Options

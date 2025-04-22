@@ -362,14 +362,14 @@ func TestBuildFilterString(t *testing.T) {
 			opts: &listOptions{
 				Label: "app.kubernetes.io/name=test-app",
 			},
-			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
+			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
 		},
 		{
 			name: "multiple labels",
 			opts: &listOptions{
 				Label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
 			},
-			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
+			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
 		},
 		{
 			name: "with pipeline name",
@@ -377,14 +377,14 @@ func TestBuildFilterString(t *testing.T) {
 				Label:        "app.kubernetes.io/name=test-app",
 				PipelineName: "my-pipeline",
 			},
-			expected: `data_type=="tekton.dev/v1.PipelineRun" && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
+			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
 		},
 		{
 			name: "empty label",
 			opts: &listOptions{
 				Label: "",
 			},
-			expected: `data_type=="tekton.dev/v1.PipelineRun"`,
+			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun")`,
 		},
 	}
 
