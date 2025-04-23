@@ -232,7 +232,7 @@ func printFormattedTr(s *cli.Stream, trs *v1.TaskRunList, c clockwork.Clock, all
 	}
 
 	funcMap := template.FuncMap{
-		"formatAge":       formatted.Age,
+		"formatAge":       common.FormatAge,
 		"formatDuration":  formatted.Duration,
 		"formatCondition": formatted.Condition,
 	}
