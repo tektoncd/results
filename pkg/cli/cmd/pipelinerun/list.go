@@ -228,7 +228,7 @@ func printFormattedPr(s *cli.Stream, prs *v1.PipelineRunList, c clockwork.Clock,
 	}
 
 	funcMap := template.FuncMap{
-		"formatAge":       formatted.Age,
+		"formatAge":       common.FormatAge,
 		"formatDuration":  formatted.Duration,
 		"formatCondition": formatted.Condition,
 	}
