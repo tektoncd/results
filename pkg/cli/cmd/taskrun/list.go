@@ -74,6 +74,9 @@ List TaskRuns for a specific task:
 
 List TaskRuns with partial task name match:
     tkn-results taskrun list build -n namespace
+
+List TaskRuns for a specific PipelineRun:
+    tkn-results taskrun list --pipelinerun my-pipeline-run -n namespace
 `
 	cmd := &cobra.Command{
 		Use:     "list [task-name]",
@@ -115,6 +118,7 @@ List TaskRuns with partial task name match:
 	cmd.Flags().Int32VarP(&opts.Limit, "limit", "", 50, "Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50)")
 	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "List TaskRuns from all namespaces")
 	cmd.Flags().StringVarP(&opts.Label, "label", "L", "", "Filter by label (format: key=value[,key=value...])")
+	cmd.Flags().StringVarP(&opts.PipelineRun, "pipelinerun", "", "", "Filter TaskRuns by PipelineRun name. Note that multiple PipelineRuns can have the same name, so this will return TaskRuns from all PipelineRuns with the matching name.")
 	cmd.Flags().BoolVar(&opts.SinglePage, "single-page", true, "Return only a single page of results")
 
 	return cmd

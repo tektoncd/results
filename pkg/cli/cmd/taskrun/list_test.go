@@ -54,6 +54,7 @@ func TestListCommand(t *testing.T) {
 		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error)
 		expectedOutput string
 		expectedError  bool
+		expectedFilter string
 	}{
 		{
 			name: "successful list with default options",
@@ -200,6 +201,75 @@ func TestListCommand(t *testing.T) {
 			expectedOutput: "test-task-run-1",
 			expectedError:  false,
 		},
+		{
+			name: "list with pipelinerun filter",
+			args: []string{"list", "--pipelinerun", "test-pipeline"},
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
+				if in.Filter != expectedFilter {
+					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
+				}
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{
+						{
+							Name: "test-record",
+							Uid:  "test-uid",
+							Data: &pb.Any{
+								Value: []byte(`{"metadata":{"name":"test-taskrun","labels":{"tekton.dev/pipelineRun":"test-pipeline"}},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
+							},
+						},
+					},
+				}, nil
+			},
+			expectedOutput: "test-taskrun",
+			expectedError:  false,
+		},
+		{
+			name: "list with pipelinerun and label filters",
+			args: []string{"list", "--pipelinerun", "test-pipeline", "--label", "app=test"},
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
+				if in.Filter != expectedFilter {
+					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
+				}
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{
+						{
+							Name: "test-record",
+							Uid:  "test-uid",
+							Data: &pb.Any{
+								Value: []byte(`{"metadata":{"name":"test-taskrun","labels":{"app":"test","tekton.dev/pipelineRun":"test-pipeline"}},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
+							},
+						},
+					},
+				}, nil
+			},
+			expectedOutput: "test-taskrun",
+			expectedError:  false,
+		},
+		{
+			name: "list with pipelinerun and name filters",
+			args: []string{"list", "test-task", "--pipelinerun", "test-pipeline"},
+			listRecords: func(_ context.Context, in *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+				expectedFilter := `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.name.contains("test-task") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`
+				if in.Filter != expectedFilter {
+					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
+				}
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{
+						{
+							Name: "test-record",
+							Uid:  "test-uid",
+							Data: &pb.Any{
+								Value: []byte(`{"metadata":{"name":"test-task","labels":{"tekton.dev/pipelineRun":"test-pipeline"}},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
+							},
+						},
+					},
+				}, nil
+			},
+			expectedOutput: "test-task",
+			expectedError:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -263,7 +333,10 @@ func TestListCommand(t *testing.T) {
 						return err
 					}
 				}
-				if len(tt.args) > 1 && tt.args[1] != "--label" {
+				if pipelinerun, prErr := cmd.Flags().GetString("pipelinerun"); prErr == nil && pipelinerun != "" {
+					opts.PipelineRun = pipelinerun
+				}
+				if len(tt.args) > 1 && tt.args[1] != "--label" && tt.args[1] != "--pipelinerun" {
 					opts.ResourceName = tt.args[1]
 				}
 
@@ -323,6 +396,18 @@ func TestListCommand(t *testing.T) {
 			output := outBuf.String()
 			if !strings.Contains(output, tt.expectedOutput) {
 				t.Errorf("expected output to contain %q, got %q", tt.expectedOutput, output)
+			}
+
+			// Verify the filter string
+			if tt.expectedFilter != "" {
+				opts := &options.ListOptions{
+					PipelineRun: cmd.Flag("pipelinerun").Value.String(),
+					Label:       cmd.Flag("label").Value.String(),
+				}
+				actualFilter := common.BuildFilterString(opts, "taskrun")
+				if actualFilter != tt.expectedFilter {
+					t.Errorf("Expected filter: %s, got: %s", tt.expectedFilter, actualFilter)
+				}
 			}
 		})
 	}
@@ -403,6 +488,51 @@ func TestParseRecordsToTr(t *testing.T) {
 			}
 			if !tt.wantErr && len(got.Items) != tt.want {
 				t.Errorf("parseRecordsToTr() got %d items, want %d", len(got.Items), tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildFilterString(t *testing.T) {
+	tests := []struct {
+		name           string
+		opts           *options.ListOptions
+		resourceType   string
+		expectedFilter string
+	}{
+		{
+			name: "pipelinerun filter only",
+			opts: &options.ListOptions{
+				PipelineRun: "test-pipeline",
+			},
+			resourceType:   "taskrun",
+			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
+		},
+		{
+			name: "pipelinerun and label filters",
+			opts: &options.ListOptions{
+				PipelineRun: "test-pipeline",
+				Label:       "app=test",
+			},
+			resourceType:   "taskrun",
+			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
+		},
+		{
+			name: "pipelinerun and name filters",
+			opts: &options.ListOptions{
+				PipelineRun:  "test-pipeline",
+				ResourceName: "test-task",
+			},
+			resourceType:   "taskrun",
+			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.name.contains("test-task") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualFilter := common.BuildFilterString(tt.opts, tt.resourceType)
+			if actualFilter != tt.expectedFilter {
+				t.Errorf("Expected filter: %s, got: %s", tt.expectedFilter, actualFilter)
 			}
 		})
 	}

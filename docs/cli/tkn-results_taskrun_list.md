@@ -33,16 +33,20 @@ List TaskRuns for a specific task:
 List TaskRuns with partial task name match:
     tkn-results taskrun list build -n namespace
 
+List TaskRuns for a specific PipelineRun:
+    tkn-results taskrun list --pipelinerun my-pipeline-run -n namespace
+
 ```
 
 ### Options
 
 ```
-  -A, --all-namespaces   List TaskRuns from all namespaces
-  -h, --help             help for list
-  -L, --label string     Filter by label (format: key=value[,key=value...])
-      --limit int32      Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50) (default 50)
-      --single-page      Return only a single page of results (default true)
+  -A, --all-namespaces       List TaskRuns from all namespaces
+  -h, --help                 help for list
+  -L, --label string         Filter by label (format: key=value[,key=value...])
+      --limit int32          Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50) (default 50)
+      --pipelinerun string   Filter TaskRuns by PipelineRun name. Note that multiple PipelineRuns can have the same name, so this will return TaskRuns from all PipelineRuns with the matching name.
+      --single-page          Return only a single page of results (default true)
 ```
 
 ### Options inherited from parent commands
