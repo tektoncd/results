@@ -1,6 +1,8 @@
 package options
 
-import "github.com/tektoncd/results/pkg/cli/client"
+import (
+	"github.com/tektoncd/results/pkg/cli/client"
+)
 
 // ListOptions holds the options for listing resources
 type ListOptions struct {
@@ -11,6 +13,7 @@ type ListOptions struct {
 	PipelineRun   string
 	SinglePage    bool
 	ResourceName  string
+	ResourceType  string
 }
 
 // GetLabel implements FilterOptions interface
@@ -26,4 +29,14 @@ func (o *ListOptions) GetResourceName() string {
 // GetPipelineRun implements FilterOptions interface
 func (o *ListOptions) GetPipelineRun() string {
 	return o.PipelineRun
+}
+
+// GetResourceType implements FilterOptions interface
+func (o *ListOptions) GetResourceType() string {
+	return o.ResourceType
+}
+
+// GetUID implements FilterOptions interface
+func (o *ListOptions) GetUID() string {
+	return ""
 }

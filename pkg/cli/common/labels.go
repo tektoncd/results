@@ -40,10 +40,12 @@ type FilterOptions interface {
 	GetLabel() string
 	GetResourceName() string
 	GetPipelineRun() string
+	GetResourceType() string
+	GetUID() string
 }
 
 // BuildFilterString constructs the filter string for the ListRecordsRequest
-func BuildFilterString(opts FilterOptions, resourceType string) string {
+func BuildFilterString(opts FilterOptions) string {
 	const (
 		contains = "data.metadata.%s.contains(\"%s\")"
 		equal    = "data.metadata.%s[\"%s\"]==\"%s\""
@@ -52,13 +54,13 @@ func BuildFilterString(opts FilterOptions, resourceType string) string {
 
 	var filters []string
 
-	switch resourceType {
-	case "pipelinerun":
+	switch opts.GetResourceType() {
+	case ResourceTypePipelineRun:
 		// Add data type filter for both v1 and v1beta1 PipelineRuns
 		filters = append(filters, fmt.Sprintf(`(%s || %s)`,
 			fmt.Sprintf(dataType, "tekton.dev/v1.PipelineRun"),
 			fmt.Sprintf(dataType, "tekton.dev/v1beta1.PipelineRun")))
-	case "taskrun":
+	case ResourceTypeTaskRun:
 		// Add data type filter for both v1 and v1beta1 TaskRuns
 		filters = append(filters, fmt.Sprintf(`(%s || %s)`,
 			fmt.Sprintf(dataType, "tekton.dev/v1.TaskRun"),
@@ -85,9 +87,15 @@ func BuildFilterString(opts FilterOptions, resourceType string) string {
 		filters = append(filters, fmt.Sprintf(contains, "name", opts.GetResourceName()))
 	}
 
+	// Handle UID filter
+	if opts.GetUID() != "" {
+		filters = append(filters, fmt.Sprintf(contains, "uid", opts.GetUID()))
+	}
+
 	// Add PipelineRun filter if provided
 	if opts.GetPipelineRun() != "" {
 		filters = append(filters, fmt.Sprintf(`data.metadata.labels['tekton.dev/pipelineRun'] == '%s'`, opts.GetPipelineRun()))
 	}
+
 	return strings.Join(filters, " && ")
 }

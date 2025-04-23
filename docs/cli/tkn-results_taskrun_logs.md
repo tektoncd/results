@@ -1,38 +1,45 @@
-## tkn-results taskrun
+## tkn-results taskrun logs
 
-Query TaskRuns
+Get logs for a TaskRun
 
 ### Synopsis
 
-Query TaskRuns stored in Tekton Results.
+Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is optional.
 
-This command allows you to list TaskRuns stored in Tekton Results.
-You can filter results by namespace, labels and other criteria.
+```
+tkn-results taskrun logs [taskrun-name]
+```
 
-Examples:
-  # List TaskRuns in a namespace
-  tkn-results taskrun list -n default
+### Examples
 
-  # List TaskRuns with a specific label
-  tkn-results taskrun list -L app=myapp
+```
+Get logs for a TaskRun named 'foo' in the current namespace:
+  tkn-results taskrun logs foo
 
-  # List TaskRuns from all namespaces
-  tkn-results taskrun list -A
+Get logs for a TaskRun in a specific namespace:
+  tkn-results taskrun logs foo -n my-namespace
 
-  # List TaskRuns with limit
-  tkn-results taskrun list --limit=20
+Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
+  tkn-results taskrun logs --uid 12345678-1234-1234-1234-1234567890ab
+
+Get logs for a TaskRun from all namespaces:
+  tkn-results taskrun logs foo -A
+
+```
 
 ### Options
 
 ```
+  -A, --all-namespaces             use all namespaces
       --api-path string            api path to use (default: value provided in config set command)
   -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)
-  -h, --help                       help for taskrun
+  -h, --help                       help for logs
       --host string                host to use (default: value provided in config set command)
       --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
   -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
   -n, --namespace string           namespace to use (default: from $KUBECONFIG)
       --token string               bearer token to use (default: value provided in config set command)
+      --uid string                 UID of the TaskRun to get logs for
 ```
 
 ### Options inherited from parent commands
@@ -49,7 +56,5 @@ Examples:
 
 ### SEE ALSO
 
-* [tkn-results](tkn-results.md)	 - Tekton Results CLI
-* [tkn-results taskrun list](tkn-results_taskrun_list.md)	 - List TaskRuns in a namespace
-* [tkn-results taskrun logs](tkn-results_taskrun_logs.md)	 - Get logs for a TaskRun
+* [tkn-results taskrun](tkn-results_taskrun.md)	 - Query TaskRuns
 

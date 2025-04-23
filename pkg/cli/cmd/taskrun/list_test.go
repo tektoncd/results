@@ -312,6 +312,7 @@ func TestListCommand(t *testing.T) {
 					Limit:         10,
 					AllNamespaces: false,
 					SinglePage:    true,
+					ResourceType:  common.ResourceTypeTaskRun,
 				}
 
 				if ns, nsErr := cmd.Flags().GetString("namespace"); nsErr == nil {
@@ -341,7 +342,7 @@ func TestListCommand(t *testing.T) {
 				}
 
 				// Build filter string
-				filter := common.BuildFilterString(opts, "taskrun")
+				filter := common.BuildFilterString(opts)
 
 				// Handle all namespaces
 				parent := fmt.Sprintf("%s/results/-", params.Namespace())
@@ -401,10 +402,11 @@ func TestListCommand(t *testing.T) {
 			// Verify the filter string
 			if tt.expectedFilter != "" {
 				opts := &options.ListOptions{
-					PipelineRun: cmd.Flag("pipelinerun").Value.String(),
-					Label:       cmd.Flag("label").Value.String(),
+					PipelineRun:  cmd.Flag("pipelinerun").Value.String(),
+					Label:        cmd.Flag("label").Value.String(),
+					ResourceType: common.ResourceTypeTaskRun,
 				}
-				actualFilter := common.BuildFilterString(opts, "taskrun")
+				actualFilter := common.BuildFilterString(opts)
 				if actualFilter != tt.expectedFilter {
 					t.Errorf("Expected filter: %s, got: %s", tt.expectedFilter, actualFilter)
 				}
@@ -503,18 +505,20 @@ func TestBuildFilterString(t *testing.T) {
 		{
 			name: "pipelinerun filter only",
 			opts: &options.ListOptions{
-				PipelineRun: "test-pipeline",
+				PipelineRun:  "test-pipeline",
+				ResourceType: common.ResourceTypeTaskRun,
 			},
-			resourceType:   "taskrun",
+			resourceType:   common.ResourceTypeTaskRun,
 			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
 		},
 		{
 			name: "pipelinerun and label filters",
 			opts: &options.ListOptions{
-				PipelineRun: "test-pipeline",
-				Label:       "app=test",
+				PipelineRun:  "test-pipeline",
+				Label:        "app=test",
+				ResourceType: common.ResourceTypeTaskRun,
 			},
-			resourceType:   "taskrun",
+			resourceType:   common.ResourceTypeTaskRun,
 			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.labels["app"]=="test" && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
 		},
 		{
@@ -522,15 +526,15 @@ func TestBuildFilterString(t *testing.T) {
 			opts: &options.ListOptions{
 				PipelineRun:  "test-pipeline",
 				ResourceName: "test-task",
+				ResourceType: common.ResourceTypeTaskRun,
 			},
-			resourceType:   "taskrun",
 			expectedFilter: `(data_type=="tekton.dev/v1.TaskRun" || data_type=="tekton.dev/v1beta1.TaskRun") && data.metadata.name.contains("test-task") && data.metadata.labels['tekton.dev/pipelineRun'] == 'test-pipeline'`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualFilter := common.BuildFilterString(tt.opts, tt.resourceType)
+			actualFilter := common.BuildFilterString(tt.opts)
 			if actualFilter != tt.expectedFilter {
 				t.Errorf("Expected filter: %s, got: %s", tt.expectedFilter, actualFilter)
 			}
