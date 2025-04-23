@@ -73,20 +73,22 @@ func NewRESTClient(c *Config) (*RESTClient, error) {
 	}, nil
 }
 
-// Send performs an HTTP request and unmarshals the response
-func (c *RESTClient) Send(ctx context.Context, method, url string, in, out proto.Message) error {
+// DoRequest performs an HTTP request and handles the response.
+// If out is non-nil, the response will be unmarshaled into it.
+// The raw response data is always returned.
+func (c *RESTClient) DoRequest(ctx context.Context, method, url string, in, out proto.Message) ([]byte, error) {
 	var body io.Reader
 	if in != nil {
 		data, err := protojson.Marshal(in)
 		if err != nil {
-			return fmt.Errorf("failed to marshal request: %v", err)
+			return nil, fmt.Errorf("failed to marshal request: %v", err)
 		}
 		body = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -94,27 +96,27 @@ func (c *RESTClient) Send(ctx context.Context, method, url string, in, out proto
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %v", err)
+		return nil, fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return NewError(string(body), resp.StatusCode)
+		return nil, NewError(string(body), resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	if out != nil {
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to read response body: %v", err)
-		}
-
 		if err := protojson.Unmarshal(data, out); err != nil {
-			return fmt.Errorf("failed to unmarshal response: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal response: %v", err)
 		}
 	}
 
-	return nil
+	return data, nil
 }
 
 // BuildURL constructs a URL with the given path and query parameters

@@ -49,6 +49,7 @@ func listCommand(p common.Params) *cobra.Command {
 		Limit:         50, // Default to 50
 		AllNamespaces: false,
 		SinglePage:    true, // Default to true
+		ResourceType:  common.ResourceTypeTaskRun,
 	}
 
 	eg := `List all TaskRuns in a namespace 'foo':
@@ -128,7 +129,7 @@ List TaskRuns for a specific PipelineRun:
 
 func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOptions) error {
 	// Build filter string
-	filter := common.BuildFilterString(opts, "taskrun")
+	filter := common.BuildFilterString(opts)
 
 	// Handle all namespaces
 	parent := fmt.Sprintf("%s/results/-", p.Namespace())

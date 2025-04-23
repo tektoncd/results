@@ -362,14 +362,16 @@ func TestBuildFilterString(t *testing.T) {
 		{
 			name: "single label",
 			opts: &options.ListOptions{
-				Label: "app.kubernetes.io/name=test-app",
+				Label:        "app.kubernetes.io/name=test-app",
+				ResourceType: common.ResourceTypePipelineRun,
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
 		},
 		{
 			name: "multiple labels",
 			opts: &options.ListOptions{
-				Label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
+				Label:        "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
+				ResourceType: common.ResourceTypePipelineRun,
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
 		},
@@ -378,13 +380,15 @@ func TestBuildFilterString(t *testing.T) {
 			opts: &options.ListOptions{
 				Label:        "app.kubernetes.io/name=test-app",
 				ResourceName: "my-pipeline",
+				ResourceType: common.ResourceTypePipelineRun,
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
 		},
 		{
 			name: "empty label",
 			opts: &options.ListOptions{
-				Label: "",
+				Label:        "",
+				ResourceType: common.ResourceTypePipelineRun,
 			},
 			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun")`,
 		},
@@ -392,7 +396,7 @@ func TestBuildFilterString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := common.BuildFilterString(tt.opts, "pipelinerun")
+			got := common.BuildFilterString(tt.opts)
 			if got != tt.expected {
 				t.Errorf("buildFilterString() = %v, want %v", got, tt.expected)
 			}

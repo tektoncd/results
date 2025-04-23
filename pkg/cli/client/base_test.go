@@ -168,7 +168,7 @@ func TestSend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			url := client.BuildURL(tt.path, nil)
-			err := client.Send(context.Background(), tt.method, url, tt.in, tt.out)
+			_, err := client.DoRequest(context.Background(), tt.method, url, tt.in, tt.out)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Send() error = %v, wantErr %v", err, tt.wantErr)
 			}

@@ -3,41 +3,24 @@
 
 .SH NAME
 .PP
-tkn-results-taskrun - Query TaskRuns
+tkn-results-taskrun-logs - Get logs for a TaskRun
 
 
 .SH SYNOPSIS
 .PP
-\fBtkn-results taskrun\fP
+\fBtkn-results taskrun logs [taskrun-name]\fP
 
 
 .SH DESCRIPTION
 .PP
-Query TaskRuns stored in Tekton Results.
-
-.PP
-This command allows you to list TaskRuns stored in Tekton Results.
-You can filter results by namespace, labels and other criteria.
-
-.PP
-Examples:
-  # List TaskRuns in a namespace
-  tkn-results taskrun list -n default
-
-.PP
-# List TaskRuns with a specific label
-  tkn-results taskrun list -L app=myapp
-
-.PP
-# List TaskRuns from all namespaces
-  tkn-results taskrun list -A
-
-.PP
-# List TaskRuns with limit
-  tkn-results taskrun list --limit=20
+Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is optional.
 
 
 .SH OPTIONS
+.PP
+\fB-A\fP, \fB--all-namespaces\fP[=false]
+	use all namespaces
+
 .PP
 \fB--api-path\fP=""
 	api path to use (default: value provided in config set command)
@@ -48,7 +31,7 @@ Examples:
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
-	help for taskrun
+	help for logs
 
 .PP
 \fB--host\fP=""
@@ -69,6 +52,10 @@ Examples:
 .PP
 \fB--token\fP=""
 	bearer token to use (default: value provided in config set command)
+
+.PP
+\fB--uid\fP=""
+	UID of the TaskRun to get logs for
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
@@ -101,6 +88,23 @@ Examples:
 	use v1alpha2 API for get log command
 
 
+.SH EXAMPLE
+.EX
+Get logs for a TaskRun named 'foo' in the current namespace:
+  tkn-results taskrun logs foo
+
+Get logs for a TaskRun in a specific namespace:
+  tkn-results taskrun logs foo -n my-namespace
+
+Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
+  tkn-results taskrun logs --uid 12345678-1234-1234-1234-1234567890ab
+
+Get logs for a TaskRun from all namespaces:
+  tkn-results taskrun logs foo -A
+
+.EE
+
+
 .SH SEE ALSO
 .PP
-\fBtkn-results(1)\fP, \fBtkn-results-taskrun-list(1)\fP, \fBtkn-results-taskrun-logs(1)\fP
+\fBtkn-results-taskrun(1)\fP

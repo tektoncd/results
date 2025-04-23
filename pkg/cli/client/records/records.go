@@ -51,5 +51,6 @@ func (c *recordClient) ListRecords(ctx context.Context, in *pb.ListRecordsReques
 	buildURL := c.BuildURL(fmt.Sprintf("parents/%s/records", in.Parent), params)
 
 	// Make the request
-	return out, c.Send(ctx, http.MethodGet, buildURL, in, out)
+	_, err := c.DoRequest(ctx, http.MethodGet, buildURL, in, out)
+	return out, err
 }

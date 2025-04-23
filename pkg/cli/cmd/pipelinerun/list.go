@@ -48,6 +48,7 @@ func listCommand(p common.Params) *cobra.Command {
 		Limit:         50,
 		AllNamespaces: false,
 		SinglePage:    true,
+		ResourceType:  common.ResourceTypePipelineRun,
 	}
 
 	eg := `List all PipelineRuns in a namespace 'foo':
@@ -111,7 +112,7 @@ List PipelineRuns with partial pipeline name match:
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Build filter string
-			filter := common.BuildFilterString(opts, "pipelinerun")
+			filter := common.BuildFilterString(opts)
 
 			// Handle all namespaces
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
