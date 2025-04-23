@@ -34,6 +34,10 @@ List TaskRuns in a namespace
 	Maximum number of TaskRuns to return (must be between 5 and 1000, default is 50)
 
 .PP
+\fB--pipelinerun\fP=""
+	Filter TaskRuns by PipelineRun name. Note that multiple PipelineRuns can have the same name, so this will return TaskRuns from all PipelineRuns with the matching name.
+
+.PP
 \fB--single-page\fP[=true]
 	Return only a single page of results
 
@@ -121,6 +125,9 @@ List TaskRuns for a specific task:
 
 List TaskRuns with partial task name match:
     tkn-results taskrun list build -n namespace
+
+List TaskRuns for a specific PipelineRun:
+    tkn-results taskrun list --pipelinerun my-pipeline-run -n namespace
 
 .EE
 

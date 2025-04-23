@@ -3,8 +3,6 @@ package common
 import (
 	"fmt"
 	"strings"
-
-	"github.com/tektoncd/results/pkg/cli/options"
 )
 
 // ValidateLabels validates the format of the provided labels string.
@@ -37,8 +35,15 @@ func ValidateLabels(labels string) error {
 	return nil
 }
 
+// FilterOptions defines the interface for filter options
+type FilterOptions interface {
+	GetLabel() string
+	GetResourceName() string
+	GetPipelineRun() string
+}
+
 // BuildFilterString constructs the filter string for the ListRecordsRequest
-func BuildFilterString(opts *options.ListOptions, resourceType string) string {
+func BuildFilterString(opts FilterOptions, resourceType string) string {
 	const (
 		contains = "data.metadata.%s.contains(\"%s\")"
 		equal    = "data.metadata.%s[\"%s\"]==\"%s\""
@@ -61,9 +66,9 @@ func BuildFilterString(opts *options.ListOptions, resourceType string) string {
 	}
 
 	// Handle label filters
-	if opts.Label != "" {
+	if opts.GetLabel() != "" {
 		// Split by comma to get individual label pairs
-		labelPairs := strings.Split(opts.Label, ",")
+		labelPairs := strings.Split(opts.GetLabel(), ",")
 		for _, pair := range labelPairs {
 			// Split each pair by = to get key and value
 			parts := strings.Split(strings.TrimSpace(pair), "=")
@@ -76,8 +81,13 @@ func BuildFilterString(opts *options.ListOptions, resourceType string) string {
 	}
 
 	// Handle pipeline name filter
-	if opts.ResourceName != "" {
-		filters = append(filters, fmt.Sprintf(contains, "name", opts.ResourceName))
+	if opts.GetResourceName() != "" {
+		filters = append(filters, fmt.Sprintf(contains, "name", opts.GetResourceName()))
+	}
+
+	// Add PipelineRun filter if provided
+	if opts.GetPipelineRun() != "" {
+		filters = append(filters, fmt.Sprintf(`data.metadata.labels['tekton.dev/pipelineRun'] == '%s'`, opts.GetPipelineRun()))
 	}
 	return strings.Join(filters, " && ")
 }
