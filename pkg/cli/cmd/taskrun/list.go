@@ -86,7 +86,12 @@ List TaskRuns for a specific PipelineRun:
 			"commandType": "main",
 		},
 		Example: eg,
-		PreRunE: func(_ *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			allNs, _ := cmd.Flags().GetBool("all-namespaces")
+			nsSet := cmd.Flags().Changed("namespace")
+			if allNs && nsSet {
+				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
+			}
 			c, err := config.NewConfig(p)
 			if err != nil {
 				return err
@@ -145,26 +150,6 @@ func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOption
 	// Create record client
 	recordClient := records.NewClient(opts.Client)
 
-	// If single page is requested, just fetch and print
-	if opts.SinglePage {
-		resp, err := recordClient.ListRecords(ctx, req)
-		if err != nil {
-			return err
-		}
-
-		stream := &cli.Stream{
-			Out: os.Stdout,
-			Err: os.Stderr,
-		}
-
-		// Parse records to TaskRuns before printing
-		trs, err := parseRecordsToTr(resp.Records)
-		if err != nil {
-			return err
-		}
-		return printFormattedTr(stream, trs, clockwork.NewRealClock(), opts.AllNamespaces, false)
-	}
-
 	// Interactive pagination
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -185,6 +170,11 @@ func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOption
 		}
 		if err := printFormattedTr(stream, trs, clockwork.NewRealClock(), opts.AllNamespaces, false); err != nil {
 			return err
+		}
+
+		// If single page is requested, break after first iteration
+		if opts.SinglePage {
+			break
 		}
 
 		// If there's no next page token, we're done

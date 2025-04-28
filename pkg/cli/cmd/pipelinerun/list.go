@@ -82,7 +82,12 @@ List PipelineRuns with partial pipeline name match:
 			"commandType": "main",
 		},
 		Example: eg,
-		PreRunE: func(_ *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			allNs, _ := cmd.Flags().GetBool("all-namespaces")
+			nsSet := cmd.Flags().Changed("namespace")
+			if allNs && nsSet {
+				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
+			}
 			c, err := config.NewConfig(p)
 			if err != nil {
 				return err
@@ -128,26 +133,6 @@ List PipelineRuns with partial pipeline name match:
 			// Create record client
 			recordClient := records.NewClient(opts.Client)
 
-			// If single page is requested, just fetch and print
-			if opts.SinglePage {
-				resp, err := recordClient.ListRecords(cmd.Context(), req)
-				if err != nil {
-					return err
-				}
-
-				stream := &cli.Stream{
-					Out: cmd.OutOrStdout(),
-					Err: cmd.OutOrStderr(),
-				}
-
-				// Parse records to PipelineRuns before printing
-				prs, err := parseRecordsToPr(resp.Records)
-				if err != nil {
-					return err
-				}
-				return printFormattedPr(stream, prs, clockwork.NewRealClock(), opts.AllNamespaces, false)
-			}
-
 			// Interactive pagination
 			reader := bufio.NewReader(os.Stdin)
 			for {
@@ -168,6 +153,11 @@ List PipelineRuns with partial pipeline name match:
 				}
 				if err := printFormattedPr(stream, prs, clockwork.NewRealClock(), opts.AllNamespaces, false); err != nil {
 					return err
+				}
+
+				// If single page is requested, break after first iteration
+				if opts.SinglePage {
+					break
 				}
 
 				// If there's no next page token, we're done
