@@ -53,9 +53,6 @@ func listCommand(p common.Params) *cobra.Command {
 	eg := `List all PipelineRuns in a namespace 'foo':
     tkn-results pipelinerun list -n foo
 
-List all PipelineRuns in 'default' namespace:
-    tkn-results pipelinerun list -n default
-
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -L app=myapp
 
@@ -155,13 +152,9 @@ List PipelineRuns with partial pipeline name match:
 					return err
 				}
 
-				// If single page is requested, break after first iteration
-				if opts.SinglePage {
-					break
-				}
-
-				// If there's no next page token, we're done
-				if resp.NextPageToken == "" {
+				// If single page is requested or if there's no next page token,
+				// we're done break after first iteration
+				if opts.SinglePage || resp.NextPageToken == "" {
 					break
 				}
 

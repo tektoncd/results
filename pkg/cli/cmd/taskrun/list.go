@@ -54,9 +54,6 @@ func listCommand(p common.Params) *cobra.Command {
 	eg := `List all TaskRuns in a namespace 'foo':
     tkn-results taskrun list -n foo
 
-List all TaskRuns in 'default' namespace:
-    tkn-results taskrun list -n default
-
 List TaskRuns with a specific label:
     tkn-results taskrun list -L app=myapp
 
@@ -172,13 +169,9 @@ func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOption
 			return err
 		}
 
-		// If single page is requested, break after first iteration
-		if opts.SinglePage {
-			break
-		}
-
-		// If there's no next page token, we're done
-		if resp.NextPageToken == "" {
+		// If single page is requested or if there's no next page token,
+		// we're done break after first iteration
+		if opts.SinglePage || resp.NextPageToken == "" {
 			break
 		}
 
