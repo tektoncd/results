@@ -12,9 +12,6 @@ tkn-results pipelinerun list [pipeline-name]
 List all PipelineRuns in a namespace 'foo':
     tkn-results pipelinerun list -n foo
 
-List all PipelineRuns in 'default' namespace:
-    tkn-results pipelinerun list -n default
-
 List PipelineRuns with a specific label:
     tkn-results pipelinerun list -L app=myapp
 
