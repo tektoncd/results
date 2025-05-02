@@ -51,6 +51,17 @@ func (c *recordClient) ListRecords(ctx context.Context, in *pb.ListRecordsReques
 	buildURL := c.BuildURL(fmt.Sprintf("parents/%s/records", in.Parent), params)
 
 	// Make the request
-	_, err := c.DoRequest(ctx, http.MethodGet, buildURL, in, out)
+	resp, err := c.DoRequest(ctx, http.MethodGet, buildURL, in)
+
+	if err != nil {
+		return out, err
+	}
+
+	// Unmarshall the response
+	err = resp.ProtoUnmarshal(out)
+	if err != nil {
+		return out, err
+	}
+
 	return out, err
 }
