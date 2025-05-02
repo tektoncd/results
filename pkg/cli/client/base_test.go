@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/proto"
 	k8stransport "k8s.io/client-go/transport"
 )
@@ -152,7 +151,6 @@ func TestSend(t *testing.T) {
 		method  string
 		path    string
 		in      proto.Message
-		out     proto.Message
 		wantErr bool
 	}{
 		{
@@ -160,7 +158,6 @@ func TestSend(t *testing.T) {
 			method:  http.MethodGet,
 			path:    "test",
 			in:      nil,
-			out:     &pb.ListRecordsResponse{},
 			wantErr: false,
 		},
 	}
@@ -168,7 +165,7 @@ func TestSend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			url := client.BuildURL(tt.path, nil)
-			_, err := client.DoRequest(context.Background(), tt.method, url, tt.in, tt.out)
+			_, err := client.DoRequest(context.Background(), tt.method, url, tt.in)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Send() error = %v, wantErr %v", err, tt.wantErr)
 			}

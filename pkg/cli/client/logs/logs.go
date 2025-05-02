@@ -34,14 +34,14 @@ func (c *Client) GetLog(ctx context.Context, req *pb.GetLogRequest) (io.Reader, 
 		url := c.BuildURL(fmt.Sprintf("parents/%s", strings.Replace(req.Name, "records", "logs", 1)), nil)
 
 		// Make the request using the RESTClient's DoRequest method
-		out, err := c.DoRequest(ctx, http.MethodGet, url, nil, nil)
+		resp, err := c.DoRequest(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			pw.CloseWithError(fmt.Errorf("failed to get log: %v", err))
 			return
 		}
 
 		// Write the log data to the pipe
-		if _, err := pw.Write(out); err != nil {
+		if _, err := pw.Write(resp.Body()); err != nil {
 			pw.CloseWithError(fmt.Errorf("failed to write log data: %v", err))
 			return
 		}
