@@ -133,6 +133,10 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 	// Reconcile the pipelinerun to ensure that it is stored in the database
 	rerr := r.ReconcileKind(ctx, pr)
 
+	return r.finalize(ctx, pr, rerr)
+}
+
+func (r *Reconciler) finalize(ctx context.Context, pr *pipelinev1.PipelineRun, rerr error) knativereconciler.Event {
 	// If logsClient isn't nil, it means we have logging storage enabled
 	// and we can't use finalizers to coordinate deletion.
 	if r.logsClient != nil {
@@ -150,7 +154,6 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 		return nil
 	}
 
-	var requeueAfter time.Duration
 	var storeDeadline, now time.Time
 
 	// Check if the store deadline is configured
@@ -160,31 +163,37 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRu
 				pr.Namespace, pr.Name)
 			return nil
 		}
-		now = time.Now()
-		storeDeadline = pr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
-		requeueAfter = storeDeadline.Sub(now)
+		now = time.Now().UTC()
+		storeDeadline = pr.Status.CompletionTime.UTC().Add(*r.cfg.StoreDeadline)
 		if now.After(storeDeadline) {
+			logging.FromContext(ctx).Debugf("store deadline: %s now: %s, completion time: %s", storeDeadline.String(), now.String(),
+				pr.Status.CompletionTime.UTC().String())
 			logging.FromContext(ctx).Debugf("store deadline has passed for pipelinerun %s/%s", pr.Namespace, pr.Name)
+			_, ok := pr.Annotations[resultsannotation.Stored]
+			if !ok {
+				logging.FromContext(ctx).Errorf("pipelinerun not stored: %s/%s, uid: %s,",
+					pr.Namespace, pr.Name, pr.UID)
+			}
 			return nil // Proceed with deletion
 		}
 	}
 
 	if pr.Annotations == nil {
-		logging.FromContext(ctx).Debugf("pipelinerun %s/%s annotations are missing, now: %s, storeDeadline: %s, requeueAfter: %s",
-			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		logging.FromContext(ctx).Debugf("pipelinerun %s/%s annotations are missing, now: %s, storeDeadline: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 
 	stored, ok := pr.Annotations[resultsannotation.Stored]
 	if !ok {
-		logging.FromContext(ctx).Debugf("stored annotation is missing on pipelinerun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
-			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		logging.FromContext(ctx).Debugf("stored annotation is missing on pipelinerun %s/%s, now: %s, storeDeadline: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 	if rerr != nil || stored != "true" {
-		logging.FromContext(ctx).Debugf("stored annotation is not true on pipelinerun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
-			pr.Namespace, pr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		logging.FromContext(ctx).Debugf("stored annotation is not true on pipelinerun %s/%s, now: %s, storeDeadline: %s",
+			pr.Namespace, pr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 
 	return nil

@@ -54,7 +54,8 @@ import (
 const (
 	// Service Account token path. See https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod
 	// This is a fixed path which does not contain a hard-coded secret or credential
-	podTokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
+	podTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
+	finalizerRequeueInterval = 10 * time.Second
 )
 
 var (
@@ -122,6 +123,7 @@ func main() {
 		DynamicReconcileTimeout:      dynamicReconcileTimeout,
 		StoreEvent:                   *storeEvent,
 		StoreDeadline:                storeDeadline,
+		FinalizerRequeueInterval:     finalizerRequeueInterval,
 		ForwardBuffer:                forwardBuffer,
 		LogsTimestamps:               *logsTimestamps,
 		SummaryLabels:                *summaryLabels,

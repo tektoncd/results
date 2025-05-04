@@ -67,6 +67,10 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 	// Reconcile the taskrun to ensure that it is stored in the database
 	rerr := r.ReconcileKind(ctx, tr)
 
+	return r.finalize(ctx, tr, rerr)
+}
+
+func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr error) knativereconciler.Event {
 	// If logsClient isn't nil, it means we have logging storage enabled
 	// and we can't use finalizers to coordinate deletion.
 	if r.logsClient != nil {
@@ -84,7 +88,7 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 		return nil
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// Check if the forwarding buffer is configured and passed
 	if r.cfg.ForwardBuffer != nil {
@@ -93,15 +97,13 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 				tr.Namespace, tr.Name)
 			return nil
 		}
-		buffer := tr.Status.CompletionTime.Add(*r.cfg.ForwardBuffer)
-		requeueAfter := buffer.Sub(now)
+		buffer := tr.Status.CompletionTime.UTC().Add(*r.cfg.ForwardBuffer)
 		if !now.After(buffer) {
 			logging.FromContext(ctx).Debugf("log forwarding buffer wait for taskrun %s/%s", tr.Namespace, tr.Name)
-			return controller.NewRequeueAfter(requeueAfter)
+			return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 		}
 	}
 
-	var requeueAfter time.Duration
 	var storeDeadline time.Time
 
 	// Check if the store deadline is configured
@@ -111,30 +113,36 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 				tr.Namespace, tr.Name)
 			return nil
 		}
-		storeDeadline = tr.Status.CompletionTime.Add(*r.cfg.StoreDeadline)
-		requeueAfter = storeDeadline.Sub(now)
+		storeDeadline = tr.Status.CompletionTime.UTC().Add(*r.cfg.StoreDeadline)
 		if now.After(storeDeadline) {
+			logging.FromContext(ctx).Debugf("store deadline: %s now: %s, completion time: %s", storeDeadline.String(), now.String(),
+				tr.Status.CompletionTime.UTC().String())
 			logging.FromContext(ctx).Debugf("store deadline has passed for taskrun %s/%s", tr.Namespace, tr.Name)
+			_, ok := tr.Annotations[resultsannotation.Stored]
+			if !ok {
+				logging.FromContext(ctx).Errorf("taskrun not stored: %s/%s, uid: %s,",
+					tr.Namespace, tr.Name, tr.UID)
+			}
 			return nil // Proceed with deletion
 		}
 	}
 
 	if tr.Annotations == nil {
-		logging.FromContext(ctx).Debugf("taskrun %s/%s annotations are missing, now: %s, storeDeadline: %s, requeueAfter: %s",
-			tr.Namespace, tr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		logging.FromContext(ctx).Debugf("taskrun %s/%s annotations are missing, now: %s, storeDeadline: %s",
+			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 
 	stored, ok := tr.Annotations[resultsannotation.Stored]
 	if !ok {
-		logging.FromContext(ctx).Debugf("stored annotation is missing on taskrun %s/%s, now: %s, storeDeadline: %s, requeueAfter: %s",
-			tr.Namespace, tr.Name, now.String(), storeDeadline.String(), requeueAfter.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		logging.FromContext(ctx).Debugf("stored annotation is missing on taskrun %s/%s, now: %s, storeDeadline: %s",
+			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 	if rerr != nil || stored != "true" {
 		logging.FromContext(ctx).Debugf("stored annotation is not true on taskrun %s/%s, now: %s, storeDeadline: %s",
 			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
-		return controller.NewRequeueAfter(requeueAfter)
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 
 	return nil
