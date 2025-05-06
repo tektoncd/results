@@ -19,7 +19,7 @@ nodes:
 - &node
   role: control-plane
   # Set a fixed Kubernetes version: https://github.com/kubernetes-sigs/kind/releases
-  image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+  image: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
 # Merge the same definition as the control-plane to reuse the same Kindest image
 # in the data-plane. We'll set specific values of the data-plane afterwards.
 # For further details on merge keys, please refer to https://learnxinyminutes.com/docs/yaml/.
