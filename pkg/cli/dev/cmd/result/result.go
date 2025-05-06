@@ -10,7 +10,7 @@ func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "result",
 		Aliases: []string{"r", "results"},
-		Short:   "Query Results",
+		Short:   "[To be deprecated] Query Results",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

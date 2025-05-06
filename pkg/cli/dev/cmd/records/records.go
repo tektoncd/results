@@ -9,7 +9,7 @@ import (
 func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "records",
-		Short: "Command sub-group for querying Records",
+		Short: "[To be deprecated] Command sub-group for querying Records",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

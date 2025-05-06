@@ -55,7 +55,7 @@ tkn-results result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035
 	cmd := &cobra.Command{
 		Use:     "describe [-p parent -u uid] [name]",
 		Aliases: []string{"desc"},
-		Short:   "Describes a Result",
+		Short:   "[To be deprecated] Describes a Result",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -89,8 +89,8 @@ tkn-results result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.Parent, "parent", "p", "", "parent of the result")
-	cmd.Flags().StringVarP(&opts.UID, "uid", "u", "", "uid of the result")
+	cmd.Flags().StringVarP(&opts.Parent, "parent", "p", "", "[To be deprecated] parent of the result")
+	cmd.Flags().StringVarP(&opts.UID, "uid", "u", "", "[To be deprecated] uid of the result")
 	return cmd
 }
 

@@ -1,33 +1,21 @@
-Environment Variables:
-    TKN_RESULTS_SSL_ROOTS_FILE_PATH: Path to local SSL cert to use.
-    TKN_RESULTS_SSL_SERVER_NAME_OVERRIDE: SSL server name override (useful if using with a proxy such as kubectl port-forward).
+tkn-results CLI
 
-Config:
-    A config file may be stored in `~/.config/tkn/results.yaml` to configure the CLI client.
+tkn-results is a command-line interface (CLI) designed to interact with Tekton Results. This CLI provides tools to configure how you interact with the Tekton Results API server, query TaskRuns and PipelineRuns and their associated data.
 
-    Fields:
-    - address: Results API Server address
-    - service_account: When specified, the CLI will first fetch a bearer token
-                       for the specified ServiceAccount and attach that to Result API requests.
-        - namespace: ServiceAccount namespace
-        - name: ServiceAccount name
-    - token: Bearer token to use for API requests. Takes priority over service_account.
-    - ssl: SSL connection options
-        - roots_file_path: Path to a certificate to include in the cert pool. Useful for adding allowed self-signed certs.
-        - server_name_override: For testing only. Sets the grpc.ssl_target_name_override value for requests.
-    - portforward: enable auto portforwarding to tekton-results-api-service when address is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
-
-Example:
-
-    ```
-    address: results.dogfooding.tekton.dev:443
-    token: abcd1234
-    ssl:
-        roots_file_path: path/to/file
-        server_name_override: example.com
-    service_account:
-        namespace: default
-        name: result-reader
-    portforward: false
-    ```
-
+This CLI helps to:
+  config        Manage Tekton Results CLI configuration:
+                - set:  Configure the CLI to connect to a Tekton Results instance.
+                - view: Display the current CLI configuration.
+                - reset: Reset the CLI configuration to defaults.
+  taskrun       Query TaskRuns stored in Tekton Results:
+                - list:  List TaskRun with filtering options.
+                - describe:  Show detailed information about a specific TaskRun.
+                - logs: Get logs for a TaskRun.
+  pipelinerun   Query PipelineRuns stored in Tekton Results:
+                - list:  List PipelineRuns with filtering options.
+                - describe:  Show detailed information about a specific PipelineRun.
+Examples:
+  tkn-results config set
+  tkn-results config view
+  tkn-results taskrun list -n default
+  tkn-results pipelinerun describe my-pipelineRun

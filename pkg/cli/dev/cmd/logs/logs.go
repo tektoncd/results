@@ -23,7 +23,7 @@ import (
 func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs",
-		Short: "Commands for finding and retrieving logs",
+		Short: "[To be deprecated] Commands for finding and retrieving logs",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
