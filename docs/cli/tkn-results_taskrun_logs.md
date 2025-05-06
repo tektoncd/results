@@ -30,9 +30,8 @@ Get logs for a TaskRun from all namespaces:
 ### Options
 
 ```
-  -A, --all-namespaces   use all namespaces
-  -h, --help             help for logs
-      --uid string       UID of the TaskRun to get logs for
+  -h, --help         help for logs
+      --uid string   UID of the TaskRun to get logs for
 ```
 
 ### Options inherited from parent commands

@@ -4,11 +4,10 @@ import "github.com/tektoncd/results/pkg/cli/client"
 
 // LogsOptions contains options for fetching logs for a resource.
 type LogsOptions struct {
-	Client        *client.RESTClient
-	AllNamespaces bool
-	UID           string
-	ResourceType  string
-	ResourceName  string
+	Client       *client.RESTClient
+	UID          string
+	ResourceType string
+	ResourceName string
 }
 
 // GetLabel implements FilterOptions interface

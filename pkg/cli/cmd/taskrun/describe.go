@@ -2,7 +2,6 @@ package taskrun
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -100,12 +99,7 @@ Describe a TaskRun in the current namespace
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			allNs, _ := cmd.Flags().GetBool("all-namespaces")
-			nsSet := cmd.Flags().Changed("namespace")
-			if allNs && nsSet {
-				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
-			}
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			c, err := config.NewConfig(p)
 			if err != nil {
 				return err
@@ -124,9 +118,6 @@ Describe a TaskRun in the current namespace
 
 			filter := common.BuildFilterString(opts)
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
-			if opts.AllNamespaces {
-				parent = "*/results/-"
-			}
 
 			recordClient := records.NewClient(opts.Client)
 			resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
@@ -151,7 +142,7 @@ Describe a TaskRun in the current namespace
 				for _, record := range resp.Records {
 					uids = append(uids, record.Uid)
 				}
-				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs: %s",
+				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs are: %s",
 					strings.Join(uids, ", "))
 			}
 
@@ -191,9 +182,7 @@ Describe a TaskRun in the current namespace
 			return w.Flush()
 		},
 	}
-
-	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "use all namespaces")
-	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the TaskRun to describe the details")
+	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the TaskRun to describe")
 
 	return cmd
 }

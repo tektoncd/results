@@ -24,9 +24,8 @@ Describe a PipelineRun in the current namespace:
 ### Options
 
 ```
-  -A, --all-namespaces   use all namespaces
-  -h, --help             help for describe
-      --uid string       UID of the PipelineRun to describe the details
+  -h, --help         help for describe
+      --uid string   UID of the PipelineRun to describe
 ```
 
 ### Options inherited from parent commands

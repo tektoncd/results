@@ -143,6 +143,7 @@ func TestDescribeCommand(t *testing.T) {
 			cmd.SilenceUsage = true
 			cmd.PreRunE = func(_ *cobra.Command, _ []string) error { return nil }
 			cmd.RunE = func(_ *cobra.Command, args []string) error {
+
 				if tt.mockListFunc == nil {
 					if len(args) != 1 {
 						return fmt.Errorf("requires exactly one argument when --uid is not provided")

@@ -1,7 +1,6 @@
 package taskrun
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -56,12 +55,7 @@ Get logs for a TaskRun from all namespaces:
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			allNs, _ := cmd.Flags().GetBool("all-namespaces")
-			nsSet := cmd.Flags().Changed("namespace")
-			if allNs && nsSet {
-				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
-			}
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			c, err := config.NewConfig(p)
 			if err != nil {
 				return err
@@ -83,9 +77,6 @@ Get logs for a TaskRun from all namespaces:
 
 			// Handle namespace
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
-			if opts.AllNamespaces {
-				parent = "*/results/-"
-			}
 
 			// Create record client
 			recordClient := records.NewClient(opts.Client)
@@ -114,7 +105,7 @@ Get logs for a TaskRun from all namespaces:
 				for _, record := range resp.Records {
 					uids = append(uids, record.Uid)
 				}
-				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs: %s",
+				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs are: %s",
 					strings.Join(uids, ", "))
 			}
 
@@ -148,7 +139,6 @@ Get logs for a TaskRun from all namespaces:
 			return nil
 		},
 	}
-	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "use all namespaces")
 	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the TaskRun to get logs for")
 
 	return cmd
