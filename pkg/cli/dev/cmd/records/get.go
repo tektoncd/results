@@ -47,7 +47,7 @@ func GetRecordCommand(params *flags.Params) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get [flags] <record-name>",
-		Short: "Get Record by <record-name>",
+		Short: "[To be deprecated] Get Record by <record-name>",
 		Long:  "Get Record by <record-name>. <record-name> is typically of format <namespace>/results/<parent-run-uuid>/records/<child-run-uuid>",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			record, err := params.ResultsClient.GetRecord(cmd.Context(), &pb.GetRecordRequest{

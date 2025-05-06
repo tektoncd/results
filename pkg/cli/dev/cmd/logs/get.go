@@ -41,7 +41,7 @@ func GetLogCommand(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "get [flags] <log-name>",
 
-		Short: "Get Log by <log-name>",
+		Short: "[To be deprecated] Get Log by <log-name>",
 		Long:  "Get Log by <log-name>. <log-name> is typically of format <namespace>/results/<parent-run-uuid>/logs/<child-run-uuid>",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var resp grpc.ServerStreamingClient[httpbody.HttpBody]

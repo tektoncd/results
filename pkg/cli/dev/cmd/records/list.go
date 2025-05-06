@@ -17,7 +17,7 @@ func ListRecordsCommand(params *flags.Params) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list [flags] <result-name>",
-		Short: "List Records for a given Result",
+		Short: "[To be deprecated] List Records for a given Result",
 		Long:  "List Records for a given Result. <result-name> is typically of format <namespace>/results/<parent-run-uuid>. '-' may be used in place of  <parent-run-uuid> to query all Records for a given parent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := params.ResultsClient.ListRecords(cmd.Context(), &pb.ListRecordsRequest{

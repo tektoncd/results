@@ -26,10 +26,10 @@ type ListOptions struct {
 
 // AddListFlags is a helper function that adds common flags for commands that list things
 func AddListFlags(options *ListOptions, cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&options.Filter, "filter", "f", "", "CEL Filter")
-	cmd.Flags().Int32VarP(&options.Limit, "limit", "l", 0, "number of items to return. Response may be truncated due to server limits.")
-	cmd.Flags().StringVarP(&options.PageToken, "page", "p", "", "pagination token to use for next page")
-	cmd.Flags().StringVarP(&options.Format, "output", "o", "tab", "output format. Valid values: tab|textproto|json")
+	cmd.Flags().StringVarP(&options.Filter, "filter", "f", "", "[To be deprecated] CEL Filter")
+	cmd.Flags().Int32VarP(&options.Limit, "limit", "l", 0, "[To be deprecated] number of items to return. Response may be truncated due to server limits.")
+	cmd.Flags().StringVarP(&options.PageToken, "page", "p", "", "[To be deprecated] pagination token to use for next page")
+	cmd.Flags().StringVarP(&options.Format, "output", "o", "tab", "[To be deprecated] output format. Valid values: tab|textproto|json")
 }
 
 // GetOptions used on commands that get a single Result, Record or Log
@@ -39,5 +39,5 @@ type GetOptions struct {
 
 // AddGetFlags is a helper function that adds common flags for get commands
 func AddGetFlags(options *GetOptions, cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&options.Format, "output", "o", "json", "output format. Valid values: textproto|json")
+	cmd.Flags().StringVarP(&options.Format, "output", "o", "json", "[To be deprecated] output format. Valid values: textproto|json")
 }
