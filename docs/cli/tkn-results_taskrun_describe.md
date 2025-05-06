@@ -24,9 +24,8 @@ Describe a TaskRun in the current namespace
 ### Options
 
 ```
-  -A, --all-namespaces   use all namespaces
-  -h, --help             help for describe
-      --uid string       UID of the TaskRun to describe the details
+  -h, --help         help for describe
+      --uid string   UID of the TaskRun to describe
 ```
 
 ### Options inherited from parent commands

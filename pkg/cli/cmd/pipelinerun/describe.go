@@ -2,7 +2,6 @@ package pipelinerun
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -139,12 +138,7 @@ Describe a PipelineRun in the current namespace:
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			allNs, _ := cmd.Flags().GetBool("all-namespaces")
-			nsSet := cmd.Flags().Changed("namespace")
-			if allNs && nsSet {
-				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
-			}
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			c, err := config.NewConfig(p)
 			if err != nil {
 				return err
@@ -166,9 +160,6 @@ Describe a PipelineRun in the current namespace:
 
 			// Handle namespace
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())
-			if opts.AllNamespaces {
-				parent = "*/results/-"
-			}
 
 			// Create record client
 			recordClient := records.NewClient(opts.Client)
@@ -198,7 +189,7 @@ Describe a PipelineRun in the current namespace:
 				for _, record := range resp.Records {
 					uids = append(uids, record.Uid)
 				}
-				return fmt.Errorf("multiple PipelineRuns found. Use a more specific name or UID. Available UIDs: %s",
+				return fmt.Errorf("multiple PipelineRuns found. Use a more specific name or UID. Available UIDs are: %s",
 					strings.Join(uids, ", "))
 			}
 
@@ -241,8 +232,7 @@ Describe a PipelineRun in the current namespace:
 		},
 	}
 
-	cmd.Flags().BoolVarP(&opts.AllNamespaces, "all-namespaces", "A", false, "use all namespaces")
-	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the PipelineRun to describe the details")
+	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the PipelineRun to describe")
 
 	return cmd
 }

@@ -4,11 +4,10 @@ import "github.com/tektoncd/results/pkg/cli/client"
 
 // DescribeOptions contains options for describing a resource.
 type DescribeOptions struct {
-	Client        *client.RESTClient
-	AllNamespaces bool
-	UID           string
-	ResourceType  string
-	ResourceName  string
+	Client       *client.RESTClient
+	UID          string
+	ResourceType string
+	ResourceName string
 }
 
 // GetLabel implements FilterOptions interface
