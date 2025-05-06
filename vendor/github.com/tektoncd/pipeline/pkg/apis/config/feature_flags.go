@@ -57,8 +57,6 @@ const (
 	ResultExtractionMethodTerminationMessage = "termination-message"
 	// ResultExtractionMethodSidecarLogs is the value used for "results-from" as a way to extract results from tasks using sidecar logs.
 	ResultExtractionMethodSidecarLogs = "sidecar-logs"
-	// DefaultDisableAffinityAssistant is the default value for "disable-affinity-assistant".
-	DefaultDisableAffinityAssistant = false
 	// DefaultDisableCredsInit is the default value for "disable-creds-init".
 	DefaultDisableCredsInit = false
 	// DefaultRunningInEnvWithInjectedSidecars is the default value for "running-in-environment-with-injected-sidecars".
@@ -99,8 +97,6 @@ const (
 	KeepPodOnCancel = "keep-pod-on-cancel"
 	// EnableCELInWhenExpression is the flag to enabled CEL in WhenExpression
 	EnableCELInWhenExpression = "enable-cel-in-whenexpression"
-	// EnableStepActions is the flag to enable the use of StepActions in Steps
-	EnableStepActions = "enable-step-actions"
 	// EnableArtifacts is the flag to enable the use of Artifacts in Steps
 	EnableArtifacts = "enable-artifacts"
 	// EnableParamEnum is the flag to enabled enum in params
@@ -111,12 +107,13 @@ const (
 	EnableKubernetesSidecar = "enable-kubernetes-sidecar"
 	// DefaultEnableKubernetesSidecar is the default value for EnableKubernetesSidecar
 	DefaultEnableKubernetesSidecar = false
+	// EnableStepActions is the flag to enable step actions (no-op since it's stable)
+	EnableStepActions = "enable-step-actions"
 
 	// DisableInlineSpec is the flag to disable embedded spec
 	// in Taskrun or Pipelinerun
 	DisableInlineSpec = "disable-inline-spec"
 
-	disableAffinityAssistantKey         = "disable-affinity-assistant"
 	disableCredsInitKey                 = "disable-creds-init"
 	runningInEnvWithInjectedSidecarsKey = "running-in-environment-with-injected-sidecars"
 	awaitSidecarReadinessKey            = "await-sidecar-readiness"
@@ -142,8 +139,8 @@ var (
 	// DefaultEnableKeepPodOnCancel is the default PerFeatureFlag value for "keep-pod-on-cancel"
 	DefaultEnableKeepPodOnCancel = PerFeatureFlag{
 		Name:      KeepPodOnCancel,
-		Stability: AlphaAPIFields,
-		Enabled:   DefaultAlphaFeatureEnabled,
+		Stability: BetaAPIFields,
+		Enabled:   DefaultBetaFeatureEnabled,
 	}
 
 	// DefaultEnableCELInWhenExpression is the default PerFeatureFlag value for EnableCELInWhenExpression
@@ -151,13 +148,6 @@ var (
 		Name:      EnableCELInWhenExpression,
 		Stability: AlphaAPIFields,
 		Enabled:   DefaultAlphaFeatureEnabled,
-	}
-
-	// DefaultEnableStepActions is the default PerFeatureFlag value for EnableStepActions
-	DefaultEnableStepActions = PerFeatureFlag{
-		Name:      EnableStepActions,
-		Stability: BetaAPIFields,
-		Enabled:   DefaultBetaFeatureEnabled,
 	}
 
 	// DefaultEnableArtifacts is the default PerFeatureFlag value for EnableArtifacts
@@ -185,12 +175,9 @@ var (
 // FeatureFlags holds the features configurations
 // +k8s:deepcopy-gen=true
 type FeatureFlags struct {
-	DisableAffinityAssistant         bool `json:"disableAffinityAssistant,omitempty"`
 	DisableCredsInit                 bool `json:"disableCredsInit,omitempty"`
 	RunningInEnvWithInjectedSidecars bool `json:"runningInEnvWithInjectedSidecars,omitempty"`
 	RequireGitSSHSecretKnownHosts    bool `json:"requireGitSSHSecretKnownHosts,omitempty"`
-	// EnableTektonOCIBundles           bool // Deprecated: this is now ignored
-	// ScopeWhenExpressionsToTask       bool // Deprecated: this is now ignored
 
 	EnableAPIFields          string `json:"enableAPIFields,omitempty"`
 	SendCloudEventsForRuns   bool   `json:"sendCloudEventsForRuns,omitempty"`
@@ -210,12 +197,13 @@ type FeatureFlags struct {
 	SetSecurityContextReadOnlyRootFilesystem bool   `json:"setSecurityContextReadOnlyRootFilesystem,omitempty"`
 	Coschedule                               string `json:"coschedule,omitempty"`
 	EnableCELInWhenExpression                bool   `json:"enableCELInWhenExpression,omitempty"`
-	EnableStepActions                        bool   `json:"enableStepActions,omitempty"`
-	EnableParamEnum                          bool   `json:"enableParamEnum,omitempty"`
-	EnableArtifacts                          bool   `json:"enableArtifacts,omitempty"`
-	DisableInlineSpec                        string `json:"disableInlineSpec,omitempty"`
-	EnableConciseResolverSyntax              bool   `json:"enableConciseResolverSyntax,omitempty"`
-	EnableKubernetesSidecar                  bool   `json:"enableKubernetesSidecar,omitempty"`
+	// EnableStepActions is a no-op flag since StepActions are stable
+	EnableStepActions           bool   `json:"enableStepActions,omitempty"`
+	EnableParamEnum             bool   `json:"enableParamEnum,omitempty"`
+	EnableArtifacts             bool   `json:"enableArtifacts,omitempty"`
+	DisableInlineSpec           string `json:"disableInlineSpec,omitempty"`
+	EnableConciseResolverSyntax bool   `json:"enableConciseResolverSyntax,omitempty"`
+	EnableKubernetesSidecar     bool   `json:"enableKubernetesSidecar,omitempty"`
 }
 
 // GetFeatureFlagsConfigName returns the name of the configmap containing all
@@ -256,9 +244,6 @@ func NewFeatureFlagsFromMap(cfgMap map[string]string) (*FeatureFlags, error) {
 	}
 
 	tc := FeatureFlags{}
-	if err := setFeature(disableAffinityAssistantKey, DefaultDisableAffinityAssistant, &tc.DisableAffinityAssistant); err != nil {
-		return nil, err
-	}
 	if err := setFeature(disableCredsInitKey, DefaultDisableCredsInit, &tc.DisableCredsInit); err != nil {
 		return nil, err
 	}
@@ -301,13 +286,10 @@ func NewFeatureFlagsFromMap(cfgMap map[string]string) (*FeatureFlags, error) {
 	if err := setFeature(setSecurityContextReadOnlyRootFilesystemKey, DefaultSetSecurityContextReadOnlyRootFilesystem, &tc.SetSecurityContextReadOnlyRootFilesystem); err != nil {
 		return nil, err
 	}
-	if err := setCoschedule(cfgMap, DefaultCoschedule, tc.DisableAffinityAssistant, &tc.Coschedule); err != nil {
+	if err := setCoschedule(cfgMap, DefaultCoschedule, &tc.Coschedule); err != nil {
 		return nil, err
 	}
 	if err := setPerFeatureFlag(EnableCELInWhenExpression, DefaultEnableCELInWhenExpression, &tc.EnableCELInWhenExpression); err != nil {
-		return nil, err
-	}
-	if err := setPerFeatureFlag(EnableStepActions, DefaultEnableStepActions, &tc.EnableStepActions); err != nil {
 		return nil, err
 	}
 	if err := setPerFeatureFlag(EnableParamEnum, DefaultEnableParamEnum, &tc.EnableParamEnum); err != nil {
@@ -347,8 +329,7 @@ func setEnabledAPIFields(cfgMap map[string]string, defaultValue string, feature 
 }
 
 // setCoschedule sets the "coschedule" flag based on the content of a given map.
-// If the feature gate is invalid or incompatible with `disable-affinity-assistant`, then an error is returned.
-func setCoschedule(cfgMap map[string]string, defaultValue string, disabledAffinityAssistant bool, feature *string) error {
+func setCoschedule(cfgMap map[string]string, defaultValue string, feature *string) error {
 	value := defaultValue
 	if cfg, ok := cfgMap[coscheduleKey]; ok {
 		value = strings.ToLower(cfg)
@@ -356,11 +337,6 @@ func setCoschedule(cfgMap map[string]string, defaultValue string, disabledAffini
 
 	switch value {
 	case CoscheduleDisabled, CoscheduleWorkspaces, CoschedulePipelineRuns, CoscheduleIsolatePipelineRun:
-		// validate that "coschedule" is compatible with "disable-affinity-assistant"
-		// "coschedule" must be set to "workspaces" when "disable-affinity-assistant" is false
-		if !disabledAffinityAssistant && value != CoscheduleWorkspaces {
-			return fmt.Errorf("coschedule value %v is incompatible with %v setting to false", value, disableAffinityAssistantKey)
-		}
 		*feature = value
 	default:
 		return fmt.Errorf("invalid value for feature flag %q: %q", coscheduleKey, value)
