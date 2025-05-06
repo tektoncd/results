@@ -56,6 +56,8 @@ spec:
               value: tekton-results-api-service.tekton-pipelines.svc.cluster.local:8080
             - name: AUTH_MODE
               value: token
+            - name: KUBERNETES_MIN_VERSION
+              value: "v1.28.0"
           ports:
             - name: metrics
               containerPort: 9090
