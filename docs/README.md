@@ -11,6 +11,13 @@ cascade:
 ---
 
 -->
+> [!IMPORTANT]
+> **Migrate Images from *gcr.io* to *ghcr.io*.**
+>
+> To reduce costs, we've migrated all our new and old Tekton releases to the free tier on [ghcr.io/tektoncd](https://github.com/orgs/tektoncd/packages?repo_name=results). <br />
+> Read more [here](https://tekton.dev/blog/2025/04/03/migration-to-github-container-registry/).
+
+---
 
 # Tekton Results
 
