@@ -58,6 +58,9 @@ const (
 
 	// BlobLogType defines the log type for logs stored in the Blob - GCS, S3 compatible storage.
 	BlobLogType LogType = "blob"
+
+	// SplunkLogType defines the log type for logs stored in the Splunk.
+	SplunkLogType LogType = "splunk"
 )
 
 // LogStatus defines the current status of the log resource.

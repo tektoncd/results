@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -44,6 +46,7 @@ import (
 
 const (
 	lokiQueryPath      = "/loki/api/v1/query_range"
+	splunkQueryPath    = "/services/search/v2/jobs"
 	typePipelineRun    = "tekton.dev/v1.PipelineRun"
 	typeTaskRun        = "tekton.dev/v1.TaskRun"
 	typeTaskRunV1Beta1 = "tekton.dev/v1beta1.TaskRun"
@@ -53,8 +56,12 @@ const (
 	defaultBlobPathParams = "/%s/%s/%s/" // parent/result/record
 
 	// TODO make these key configurable in a future release
-	pipelineRunUIDKey = "kubernetes.labels.tekton_dev_pipelineRunUID"
-	taskRunUIDKey     = "kubernetes.labels.tekton_dev_taskRunUID"
+	pipelineRunUIDKey         = "kubernetes.labels.tekton_dev_pipelineRunUID"
+	taskRunUIDKey             = "kubernetes.labels.tekton_dev_taskRunUID"
+	splunkPollInterval        = 5 * time.Second
+	splunkPollTimeoutDuration = 1 * time.Minute
+	splunkTokenEnv            = "SPLUNK_SEARCH_TOKEN"
+	splunkOutputFormat        = "?output_mode=json"
 )
 
 var (
@@ -458,6 +465,244 @@ func mergeLogParts(logPath []string, re *regexp.Regexp) [][]string {
 	return merged
 }
 
+// getSplunkLogs retrieves logs for a given record from a Splunk backend and writes them to the provided writer.
+//
+// It constructs a Splunk search job using the record's UID and namespace, submits the job, polls for completion, and fetches the resulting logs.
+// The function requires a valid Splunk API URL, a search token from the environment, and an "index" query parameter.
+// Returns an error if any step in the process fails, including job creation, polling, or log retrieval.
+func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) error {
+	URL, err := url.Parse(s.config.LOGGING_PLUGIN_API_URL)
+	if err != nil {
+		s.logger.Error(err)
+		return err
+	}
+	URL.Path = path.Join(URL.Path, splunkQueryPath)
+
+	token := os.Getenv(splunkTokenEnv)
+	if token == "" {
+		s.logger.Error("splunk token not set SPLUNK_SEARCH_TOKEN")
+		return errors.New("splunk token not set")
+
+	}
+
+	var uidKey string
+	switch rec.Type {
+	case typePipelineRun:
+		uidKey = pipelineRunUIDKey
+	case typeTaskRun:
+		uidKey = taskRunUIDKey
+	default:
+		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v, rec Type: %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID, rec.Type)
+		return errors.New("record type is invalid")
+	}
+	index, ok := s.queryParams["index"]
+	if !ok {
+		s.logger.Errorf("index not specified in queryParams: %v\n", s.queryParams)
+		return errors.New("index not specified in query parameters")
+
+	}
+	s.logger.Debugf("splunk request url:%s", URL.String()+splunkOutputFormat)
+
+	query := fmt.Sprintf(`search index=%s %s=%q %s=%q | table message structured.msg %s`,
+		index, uidKey, rec.Name, s.config.LOGGING_PLUGIN_NAMESPACE_KEY, parent,
+		s.config.LOGGING_PLUGIN_CONTAINER_KEY)
+
+	queryData := url.Values{}
+	queryData.Set("search", query)
+
+	req, err := http.NewRequest("POST", URL.String()+splunkOutputFormat, bytes.NewReader([]byte(queryData.Encode())))
+	if err != nil {
+		s.logger.Errorf("new request to splunk failed, err: %s:", err.Error())
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	if resp == nil {
+		s.logger.Errorf("request to splunk failed, received nil response")
+		s.logger.Debugf("splunk request url:%s", URL.String())
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
+		return status.Error(codes.Internal, "Error fetching log data - search job creation failed")
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.logger.Errorf("failed to read response body, err: %s", err.Error())
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	var searchResponse struct {
+		SID string `json:"sid"`
+	}
+
+	if err := json.Unmarshal(data, &searchResponse); err != nil {
+		s.logger.Errorf("failed to unmarshal Splunk Search response, err: %s, data: %s", err.Error(), string(data))
+		return status.Error(codes.Internal, fmt.Sprintf("Error processing fetched log data, err: %s, data: %s",
+			err.Error(), string(data)))
+	}
+
+	if err := pollSplunkJobStatus(s, URL.String()+"/"+searchResponse.SID+splunkOutputFormat, token); err != nil {
+		s.logger.Errorf("failed to poll splunk job status, err: %v", err)
+		return status.Error(codes.Internal, fmt.Sprintf("Error failed to poll splunk search job status, err: %s", err.Error()))
+	}
+
+	req, err = http.NewRequest("GET", URL.String()+"/"+searchResponse.SID+"/results?output_mode=json_rows&count=0", nil)
+	if err != nil {
+		s.logger.Errorf("new request to splunk failed, err: %s:", err.Error())
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	lresp, err := s.client.Do(req)
+	if err != nil {
+		s.logger.Errorf("request to fetch log from  splunk failed, err: %s, req: %v", err.Error(), req)
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	if lresp == nil {
+		s.logger.Errorf("request to splunk failed, received nil response")
+		s.logger.Debugf("splunk request url:%s", URL.String())
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+	defer lresp.Body.Close()
+
+	if lresp.StatusCode != http.StatusOK {
+		s.logger.Errorf("Splunk Fetch Log API request failed with HTTP status code: %d", resp.StatusCode)
+		return status.Error(codes.Internal, "Error fetching log data - fetch log api failed")
+	}
+
+	data, err = io.ReadAll(lresp.Body)
+	if err != nil {
+		s.logger.Errorf("failed to read response body, err: %s", err.Error())
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	var logData struct {
+		Rows [][]string `json:"rows"`
+	}
+	if err := json.Unmarshal(data, &logData); err != nil {
+		s.logger.Errorf("failed to unmarshal Splunk log data, err: %s, data: %s", err.Error(), string(data))
+		return fmt.Errorf("failed to unmarshal Splunk log data, err: %s", err.Error())
+	}
+
+	var logMessages []string
+	step := ""
+	for _, msg := range logData.Rows {
+		if len(msg) != 3 {
+			s.logger.Errorf("mismatch in column data, should be 3 received: %v, %v", len(msg), msg)
+			continue
+		}
+		if step != msg[2] {
+			step = msg[2]
+			logMessages = append(logMessages, step+":-")
+		}
+		logMessages = append(logMessages, msg[0]+msg[1])
+	}
+
+	formattedLogs := strings.Join(logMessages, "\n")
+	if _, err = writer.Write([]byte(formattedLogs)); err != nil {
+		s.logger.Errorf("failed to write log data, err: %s", err.Error())
+		return status.Error(codes.Internal, "Error streaming log")
+	}
+
+	return nil
+}
+
+// pollSplunkJobStatus polls the status of a Splunk search job until it is complete, fails, or times out.
+// It sends periodic GET requests to the provided Splunk job status URL using the given token.
+// Returns an error if the job fails, is canceled, or does not complete within the timeout period.
+func pollSplunkJobStatus(s *LogServer, url, token string) error {
+	ticker := time.NewTicker(splunkPollInterval)
+	defer ticker.Stop()
+
+	timeout := time.After(splunkPollTimeoutDuration)
+
+	errSplunkJobFailed := errors.New("splunk job failed")
+
+	for {
+		select {
+		case <-timeout:
+			s.logger.Errorf("timeout reached for splunk search job, url: %v", url)
+			return fmt.Errorf("timeout reached for splunk search job, url: %v", url)
+		case <-ticker.C:
+			err := func() error {
+				req, err := http.NewRequest("GET", url, nil)
+				if err != nil {
+					s.logger.Errorf("new request to splunk failed, err: %s:", err.Error())
+					return fmt.Errorf("new request to splunk failed: err: %s", err.Error())
+				}
+
+				req.Header.Set("Authorization", "Bearer "+token)
+				resp, err := s.client.Do(req)
+				if err != nil {
+					s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
+					return fmt.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
+				}
+
+				if resp == nil {
+					s.logger.Errorf("request to splunk failed, received nil response,: %s", url)
+					return fmt.Errorf("request to splunk failed, received nil response,: %s", url)
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
+					return fmt.Errorf("splunk job creation API request failed with HTTP status code: %d", resp.StatusCode)
+				}
+
+				data, err := io.ReadAll(resp.Body)
+				if err != nil {
+					s.logger.Errorf("failed to read response body, err: %s", err.Error())
+					return fmt.Errorf("failed to read response body, err: %s", err.Error())
+				}
+
+				var jobResp struct {
+					Entry []struct {
+						Content struct {
+							DispatchState string `json:"dispatchState"`
+						} `json:"content"`
+					} `json:"entry"`
+				}
+
+				if err := json.Unmarshal(data, &jobResp); err != nil {
+					s.logger.Errorf("failed to unmarshal Splunk Search response, err: %s, data: %s", err.Error(), string(data))
+					return fmt.Errorf("failed to unmarshal Splunk Search response, err: %s, data: %s", err.Error(), string(data))
+				}
+				if len(jobResp.Entry) == 0 {
+					s.logger.Errorf("empty Splunk Search response entry, data: %s", string(data))
+					return fmt.Errorf("empty Splunk Search response entry, data: %s", string(data))
+				}
+
+				switch jobResp.Entry[0].Content.DispatchState {
+				case "DONE":
+					return nil
+				case "INTERNAL_CANCEL", "USER_CANCEL", "BAD_INPUT_CANCEL", "QUIT", "FAILED":
+					return fmt.Errorf("%w: state: %s", errSplunkJobFailed, jobResp.Entry[0].Content.DispatchState)
+				default:
+					return fmt.Errorf("waiting for job to be done: current state %s", jobResp.Entry[0].Content.DispatchState)
+				}
+			}()
+			if err != nil {
+				if errors.Is(err, errSplunkJobFailed) {
+					return err
+				}
+				continue
+			}
+			return nil
+		}
+	}
+}
+
 func (s *LogServer) setLogPlugin() bool {
 	switch strings.ToLower(s.config.LOGS_TYPE) {
 	case string(v1alpha3.LokiLogType):
@@ -466,6 +711,9 @@ func (s *LogServer) setLogPlugin() bool {
 	case string(v1alpha3.BlobLogType):
 		s.IsLogPluginEnabled = true
 		s.getLog = getBlobLogs
+	case string(v1alpha3.SplunkLogType):
+		s.IsLogPluginEnabled = true
+		s.getLog = getSplunkLogs
 	default:
 		// TODO(xinnjie) when s.config.LOGS_TYPE is File also show this error log
 		s.IsLogPluginEnabled = false
