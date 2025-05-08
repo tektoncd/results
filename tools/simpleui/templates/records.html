@@ -22,7 +22,7 @@
             {{range .Response.Records}}
             <tr>
                 <td>{{.Name}}</td>
-                <td>{{trimprefix .Data.TypeUrl "type.googleapis.com/"}}</td>
+                <td>{{trimprefix .Data.Type "type.googleapis.com/"}}</td>
                 <td><a href="/{{parent .Name}}">{{parent .Name}}</a></td>
                 <td>{{.CreatedTime.AsTime}}</td>
                 <td><span style="white-space: pre-wrap"><code>{{textproto .Data}}</code></span></td>
