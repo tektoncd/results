@@ -251,3 +251,141 @@ func TestMergeLogParts(t *testing.T) {
 	}
 
 }
+
+func TestSplunkLogs(t *testing.T) {
+
+	mockSplunk := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log the received request for debugging
+		t.Logf("Received request: %s %s", r.Method, r.URL.String())
+		t.Logf("Received headers: %v", r.Header)
+
+		// Verify the request path and query parameters
+		switch r.URL.Path {
+		case "/services/search/v2/jobs":
+			w.WriteHeader(http.StatusCreated)
+			w.Write(json.RawMessage(`{"sid":"1234567"}`))
+			return
+		case "/services/search/v2/jobs/1234567":
+			w.WriteHeader(http.StatusOK)
+			w.Write(json.RawMessage(`{
+    "entry": [
+        {
+            "content": {
+                "dispatchState": "DONE"
+            }
+        }
+    ]
+}`))
+			return
+		case "/services/search/v2/jobs/1234567/results":
+			w.WriteHeader(http.StatusOK)
+			w.Write(json.RawMessage(`{
+    "rows": [
+        [
+            "foo",
+			"",
+            "step-test"
+        ],
+        [
+            "bar",
+			"",
+            "step-test"
+        ],
+        [
+            "",
+			"foo-bar",
+            "step-test"
+        ]
+    ]
+}`))
+		}
+	}))
+	defer mockSplunk.Close()
+
+	os.Setenv("SPLUNK_SEARCH_TOKEN",
+		"eyJraWQiOiJzcGx1bmsuc2VjcmV0IiwiYWxnIjoiSFM1MTIiLCJ2ZXIiOiJ2MiIsInR0eXAiOiJzdGF0aWMifQ.eyJpc3MiOiJzY19hZG1pbiBmcm9tIGZlZG9yYSIsInN1YiI6InNjX2FkbWluIiwiYXVkIjoia3ViZXJuZXRlcyIsImlkcCI6IlNwbHVuayIsImp0aSI6IjI0MGM1MDY3NGJkNDgxYjU5ZWE5MTY5ZDJjN2MyZjM5NDVmZDFhOTM3MWU0Yzg0MTQ0N2NkYTYzYmQ4NmZjMGQiLCJpYXQiOjE3NDYzODA1NDgsImV4cCI6MTc3MjM4OTc1NSwibmJyIjoxNzQ2MzgwNTQ4fQ.WnMJE6Dd0Fmn5AipZtl_bpfwIpfGR6feW63Xs1890XPh1o1CrBTNbslTeIH1b9ewluOfrY7rxToAQMoCO3ZJQA")
+
+	cfg := &config.Config{
+		LOGS_API:                                true,
+		LOGS_TYPE:                               "Splunk",
+		DB_ENABLE_AUTO_MIGRATION:                true,
+		LOGGING_PLUGIN_API_URL:                  mockSplunk.URL,
+		LOGGING_PLUGIN_NAMESPACE_KEY:            "kubernetes.namespace_name",
+		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
+		LOGGING_PLUGIN_QUERY_PARAMS:             "index=konflux",
+		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
+	}
+
+	srv, err := server.New(cfg, logger.Get("info"), test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+	// Create a mock GetLogServer
+	mockServer := &mockGetLogServer{
+		ctx: ctx,
+	}
+
+	res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "rh-acs-tenant",
+		Result: &pb.Result{
+			Name: "rh-acs-tenant/results/test-result",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+
+	_, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: res.GetName(),
+		Record: &pb.Record{
+			Name: record.FormatName(res.GetName(), "25274ae9-d521-4a9c-b254-122c17f64941"),
+			Data: &pb.Any{
+				Type: "tekton.dev/v1.TaskRun",
+				Value: jsonutil.AnyBytes(t, pipelinev1.TaskRun{
+					ObjectMeta: metav1.ObjectMeta{
+						UID: "25274ae9-d521-4a9c-b254-122c17f64941",
+					},
+					Status: pipelinev1.TaskRunStatus{
+						TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
+							StartTime: &metav1.Time{
+								Time: time.Now().Add(-time.Hour),
+							},
+							CompletionTime: &metav1.Time{
+								Time: time.Now(),
+							},
+						},
+					},
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord: %v", err)
+	}
+
+	// Create a test request
+	req := &pb3.GetLogRequest{
+		Name: log.FormatName(res.GetName(), "25274ae9-d521-4a9c-b254-122c17f64941"),
+	}
+
+	// Call GetLog
+	err = srv.LogPluginServer.GetLog(req, mockServer)
+	t.Logf("recv error: %v", err)
+	if err != nil {
+		t.Fatalf("GetLog returned unexpected error: %v", err)
+	}
+
+	expectedData := "step-test:-\nfoo\nbar\nfoo-bar"
+
+	if mockServer.receivedData == nil {
+		t.Fatalf("no data received from GetLog")
+	}
+
+	actualData := mockServer.receivedData.String()
+	if expectedData != actualData {
+		t.Errorf("expected to have received %q, got %q", expectedData, actualData)
+	}
+
+}

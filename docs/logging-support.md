@@ -35,6 +35,12 @@ region = us-east-1
 endpoint_url = https://play.min.io:9000
 ```
 
+## Splunk
+ The following environment variables are required:
+- `SPLUNK_SEARCH_TOKEN`: Token with permission to use search api in splunk.
+- `LOGGING_PLUGIN_API_URL`: The URL of the splunk alongwith port.
+- `LOGGING_PLUGIN_QUERY_PARAMS`: Index needs to be passed as index=name where name is the index name.
+
 ## Common Configuration
 
 These are the common configuration options for all third party logging APIs.
