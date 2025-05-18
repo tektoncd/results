@@ -20,6 +20,8 @@ import (
 	"github.com/tektoncd/results/pkg/cli/common"
 	"github.com/tektoncd/results/pkg/cli/config"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+
+	"k8s.io/cli-runtime/pkg/printers"
 )
 
 const describeTemplate = `{{decorate "bold" "Name"}}: {{ .PipelineRun.Name }}
@@ -112,11 +114,19 @@ func describeCommand(p common.Params) *cobra.Command {
 		ResourceType: common.ResourceTypePipelineRun,
 	}
 
+	var outputFormat string
+
 	eg := `Describe a PipelineRun in namespace 'foo':
     tkn-results pipelinerun describe my-pipelinerun -n foo
 
 Describe a PipelineRun in the current namespace:
     tkn-results pipelinerun describe my-pipelinerun
+
+Describe a PipelineRun as yaml:
+    tkn-results pipelinerun describe my-pipelinerun -o yaml
+
+Describe a PipelineRun as json:
+    tkn-results pipelinerun describe my-pipelinerun -o json
 `
 	cmd := &cobra.Command{
 		Use:     "describe [pipelinerun-name]",
@@ -199,6 +209,16 @@ Describe a PipelineRun in the current namespace:
 				return fmt.Errorf("failed to unmarshal PipelineRun data: %v", err)
 			}
 
+			// Output as json or yaml if requested
+			if outputFormat == "json" {
+				printer := &printers.JSONPrinter{}
+				return printer.PrintObj(&pr, cmd.OutOrStdout())
+			}
+			if outputFormat == "yaml" {
+				printer := &printers.YAMLPrinter{}
+				return printer.PrintObj(&pr, cmd.OutOrStdout())
+			}
+
 			// Print formatted output
 			stream := &cli.Stream{
 				Out: cmd.OutOrStdout(),
@@ -233,6 +253,7 @@ Describe a PipelineRun in the current namespace:
 	}
 
 	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the PipelineRun to describe")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: json|yaml (Default format is used if not specified)")
 
 	return cmd
 }

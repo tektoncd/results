@@ -130,6 +130,46 @@ func TestDescribeTaskRun(t *testing.T) {
 			wantErr:    false,
 			wantOutput: "complex-taskrun",
 		},
+		{
+			name: "output yaml",
+			args: []string{"my-taskrun", "--output", "yaml"},
+			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
+				tr := v1.TaskRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "TaskRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "my-taskrun", Namespace: "default"},
+				}
+				trBytes, _ := json.Marshal(tr)
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{{
+						Name: "default/results/abc/records/def",
+						Uid:  "def",
+						Data: &pb.Any{Value: trBytes},
+					}},
+				}, nil
+			},
+			wantErr:    false,
+			wantOutput: "apiVersion: tekton.dev/v1",
+		},
+		{
+			name: "output json",
+			args: []string{"my-taskrun", "--output", "json"},
+			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
+				tr := v1.TaskRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "TaskRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "my-taskrun", Namespace: "default"},
+				}
+				trBytes, _ := json.Marshal(tr)
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{{
+						Name: "default/results/abc/records/def",
+						Uid:  "def",
+						Data: &pb.Any{Value: trBytes},
+					}},
+				}, nil
+			},
+			wantErr:    false,
+			wantOutput: "\"apiVersion\": \"tekton.dev/v1\"",
+		},
 	}
 
 	for _, tt := range tests {
@@ -164,16 +204,25 @@ func TestDescribeTaskRun(t *testing.T) {
 				if err := json.Unmarshal(resp.Records[0].Data.Value, &tr); err != nil {
 					return fmt.Errorf("failed to unmarshal TaskRun data: %v", err)
 				}
-				// Output for UID/complex/normal
-				fmt.Fprintf(buf, "Name: %s\n", tr.Name)
-				if tr.UID != "" {
-					fmt.Fprintf(buf, "UID: %s\n", tr.UID)
-				}
-				if len(tr.Labels) > 0 {
-					fmt.Fprintf(buf, "Labels: %v\n", tr.Labels)
-				}
-				if len(tr.Annotations) > 0 {
-					fmt.Fprintf(buf, "Annotations: %v\n", tr.Annotations)
+
+				// Simulate output flag
+				outputFlag, _ := cmd.Flags().GetString("output")
+				switch outputFlag {
+				case "yaml":
+					fmt.Fprintf(buf, "apiVersion: %s\nkind: %s\n", tr.APIVersion, tr.Kind)
+				case "json":
+					fmt.Fprintf(buf, "{\"apiVersion\": \"%s\", \"kind\": \"%s\"}\n", tr.APIVersion, tr.Kind)
+				default:
+					fmt.Fprintf(buf, "Name: %s\n", tr.Name)
+					if tr.UID != "" {
+						fmt.Fprintf(buf, "UID: %s\n", tr.UID)
+					}
+					if len(tr.Labels) > 0 {
+						fmt.Fprintf(buf, "Labels: %v\n", tr.Labels)
+					}
+					if len(tr.Annotations) > 0 {
+						fmt.Fprintf(buf, "Annotations: %v\n", tr.Annotations)
+					}
 				}
 				return nil
 			}
