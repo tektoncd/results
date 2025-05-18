@@ -3,7 +3,7 @@
 
 .SH NAME
 .PP
-tkn-results-logs-list - List Logs for a given Result
+tkn-results-logs-list - [To be deprecated] List Logs for a given Result
 
 
 .SH SYNOPSIS
@@ -19,7 +19,7 @@ List Logs for a given Result.  is typically of format /results/\&. '-' may be us
 .SH OPTIONS
 .PP
 \fB-f\fP, \fB--filter\fP=""
-	CEL Filter
+	[To be deprecated] CEL Filter
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
@@ -27,45 +27,45 @@ List Logs for a given Result.  is typically of format /results/\&. '-' may be us
 
 .PP
 \fB-l\fP, \fB--limit\fP=0
-	number of items to return. Response may be truncated due to server limits.
+	[To be deprecated] number of items to return. Response may be truncated due to server limits.
 
 .PP
 \fB-o\fP, \fB--output\fP="tab"
-	output format. Valid values: tab|textproto|json
+	[To be deprecated] output format. Valid values: tab|textproto|json
 
 .PP
 \fB-p\fP, \fB--page\fP=""
-	pagination token to use for next page
+	[To be deprecated] pagination token to use for next page
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
 .PP
 \fB-a\fP, \fB--addr\fP=""
-	Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
 
 .PP
 \fB-t\fP, \fB--authtoken\fP=""
-	authorization bearer token to use for authenticated requests
+	[To be deprecated] authorization bearer token to use for authenticated requests
 
 .PP
 \fB--insecure\fP[=false]
-	determines whether to run insecure GRPC tls request
+	[To be deprecated] determines whether to run insecure GRPC tls request
 
 .PP
 \fB--portforward\fP[=true]
-	enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
+	[To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
 
 .PP
 \fB--sa\fP=""
-	ServiceAccount to use instead of token for authorization and authentication
+	[To be deprecated] ServiceAccount to use instead of token for authorization and authentication
 
 .PP
 \fB--sa-ns\fP=""
-	ServiceAccount Namespace, if not given, it will be taken from current context
+	[To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
 
 .PP
 \fB--v1alpha2\fP[=false]
-	use v1alpha2 API for get log command
+	[To be deprecated] use v1alpha2 API for get log command
 
 
 .SH EXAMPLE

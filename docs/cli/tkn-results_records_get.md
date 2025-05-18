@@ -1,6 +1,6 @@
 ## tkn-results records get
 
-Get Record by <record-name>
+[To be deprecated] Get Record by <record-name>
 
 ### Synopsis
 
@@ -32,22 +32,22 @@ tkn-results records get [flags] <record-name>
 
 ```
   -h, --help            help for get
-  -o, --output string   output format. Valid values: textproto|json (default "json")
+  -o, --output string   [To be deprecated] output format. Valid values: textproto|json (default "json")
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -a, --addr string        Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-  -t, --authtoken string   authorization bearer token to use for authenticated requests
-      --insecure           determines whether to run insecure GRPC tls request
-      --portforward        enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
-      --sa string          ServiceAccount to use instead of token for authorization and authentication
-      --sa-ns string       ServiceAccount Namespace, if not given, it will be taken from current context
-      --v1alpha2           use v1alpha2 API for get log command
+  -a, --addr string        [To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+  -t, --authtoken string   [To be deprecated] authorization bearer token to use for authenticated requests
+      --insecure           [To be deprecated] determines whether to run insecure GRPC tls request
+      --portforward        [To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
+      --sa string          [To be deprecated] ServiceAccount to use instead of token for authorization and authentication
+      --sa-ns string       [To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
+      --v1alpha2           [To be deprecated] use v1alpha2 API for get log command
 ```
 
 ### SEE ALSO
 
-* [tkn-results records](tkn-results_records.md)	 - Command sub-group for querying Records
+* [tkn-results records](tkn-results_records.md)	 - [To be deprecated] Command sub-group for querying Records
 

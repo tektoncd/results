@@ -40,6 +40,7 @@ Examples:
 	flags.AddResultsOptions(cmd)
 
 	cmd.AddCommand(listCommand(p))
+	cmd.AddCommand(logsCommand(p))
 	cmd.AddCommand(describeCommand(p))
 
 	return cmd

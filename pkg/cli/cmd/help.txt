@@ -2,7 +2,7 @@ tkn-results CLI
 
 tkn-results is a command-line interface (CLI) designed to interact with Tekton Results. This CLI provides tools to configure how you interact with the Tekton Results API server, query TaskRuns and PipelineRuns and their associated data.
 
-This CLI helps to:
+The following commands are supported:
   config        Manage Tekton Results CLI configuration:
                 - set:  Configure the CLI to connect to a Tekton Results instance.
                 - view: Display the current CLI configuration.
@@ -14,6 +14,7 @@ This CLI helps to:
   pipelinerun   Query PipelineRuns stored in Tekton Results:
                 - list:  List PipelineRuns with filtering options.
                 - describe:  Show detailed information about a specific PipelineRun.
+                - logs: Get logs for a PipelineRun.
 Examples:
   tkn-results config set
   tkn-results config view

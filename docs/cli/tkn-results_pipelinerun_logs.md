@@ -1,31 +1,41 @@
-## tkn-results pipelinerun describe
+## tkn-results pipelinerun logs
 
-Describe a PipelineRun
+Get logs for a PipelineRun
 
 ### Synopsis
 
-Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun name is optional.
+Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun name is optional.
+
+NOTE:
+Logs are not supported for the system namespace or for the default namespace used by LokiStack.
+Additionally, PipelineRun logs are not supported for S3 log storage.
 
 ```
-tkn-results pipelinerun describe [pipelinerun-name]
+tkn-results pipelinerun logs [pipelinerun-name]
 ```
 
 ### Examples
 
 ```
-Describe a PipelineRun in namespace 'foo':
-    tkn-results pipelinerun describe my-pipelinerun -n foo
+Get logs for a PipelineRun named 'foo' in the current namespace:
+  tkn-results pipelinerun logs foo
 
-Describe a PipelineRun in the current namespace:
-    tkn-results pipelinerun describe my-pipelinerun
+Get logs for a PipelineRun in a specific namespace:
+  tkn-results pipelinerun logs foo -n my-namespace
+
+Get logs for a PipelineRun by UID if there are multiple PipelineRuns with the same name:
+  tkn-results pipelinerun logs --uid 12345678-1234-1234-1234-1234567890ab
+
+Get logs for a PipelineRun from all namespaces:
+  tkn-results pipelinerun logs foo -A
 
 ```
 
 ### Options
 
 ```
-  -h, --help         help for describe
-      --uid string   UID of the PipelineRun to describe
+  -h, --help         help for logs
+      --uid string   UID of the PipelineRun to get logs for
 ```
 
 ### Options inherited from parent commands
