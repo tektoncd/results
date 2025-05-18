@@ -1,4 +1,4 @@
-package taskrun
+package pipelinerun
 
 import (
 	"fmt"
@@ -17,35 +17,33 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
-// NOTE:
-// Logs are not supported for the system namespace and the default namespace for the LokiStack.
-
-// logsCommand returns a cobra.Command that logs a TaskRun.
+// logsCommand returns a cobra.Command that logs a PipelineRun.
 func logsCommand(p common.Params) *cobra.Command {
 	opts := &options.LogsOptions{
-		ResourceType: common.ResourceTypeTaskRun,
+		ResourceType: common.ResourceTypePipelineRun,
 	}
 
-	eg := `Get logs for a TaskRun named 'foo' in the current namespace:
-  tkn-results taskrun logs foo
+	eg := `Get logs for a PipelineRun named 'foo' in the current namespace:
+  tkn-results pipelinerun logs foo
 
-Get logs for a TaskRun in a specific namespace:
-  tkn-results taskrun logs foo -n my-namespace
+Get logs for a PipelineRun in a specific namespace:
+  tkn-results pipelinerun logs foo -n my-namespace
 
-Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
-  tkn-results taskrun logs --uid 12345678-1234-1234-1234-1234567890ab
+Get logs for a PipelineRun by UID if there are multiple PipelineRuns with the same name:
+  tkn-results pipelinerun logs --uid 12345678-1234-1234-1234-1234567890ab
 
-Get logs for a TaskRun from all namespaces:
-  tkn-results taskrun logs foo -A
+Get logs for a PipelineRun from all namespaces:
+  tkn-results pipelinerun logs foo -A
 `
 
 	cmd := &cobra.Command{
-		Use:   "logs [taskrun-name]",
-		Short: "Get logs for a TaskRun",
-		Long: `Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is optional.
+		Use:   "logs [pipelinerun-name]",
+		Short: "Get logs for a PipelineRun",
+		Long: `Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun name is optional.
 
 NOTE:
-Logs are not supported for the system namespace or for the default namespace used by LokiStack.`,
+Logs are not supported for the system namespace or for the default namespace used by LokiStack.
+Additionally, PipelineRun logs are not supported for S3 log storage.`,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -78,7 +76,7 @@ Logs are not supported for the system namespace or for the default namespace use
 				opts.ResourceName = args[0]
 			}
 
-			// Build filter string to find the TaskRun
+			// Build filter string to find the PipelineRun
 			filter := common.BuildFilterString(opts)
 
 			// Handle namespace
@@ -87,35 +85,35 @@ Logs are not supported for the system namespace or for the default namespace use
 			// Create record client
 			recordClient := records.NewClient(opts.Client)
 
-			// Find the TaskRun record
+			// Find the PipelineRun record
 			resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
 				Parent:   parent,
 				Filter:   filter,
 				PageSize: 25,
 			}, common.NameAndUIDField)
 			if err != nil {
-				return fmt.Errorf("failed to find TaskRun: %v", err)
+				return fmt.Errorf("failed to find PipelineRun: %v", err)
 			}
 			if len(resp.Records) == 0 {
 				if opts.UID != "" && opts.ResourceName != "" {
-					return fmt.Errorf("no TaskRun found with name %s and UID %s", opts.ResourceName, opts.UID)
+					return fmt.Errorf("no PipelineRun found with name %s and UID %s", opts.ResourceName, opts.UID)
 				} else if opts.UID != "" {
-					return fmt.Errorf("no TaskRun found with UID %s", opts.UID)
+					return fmt.Errorf("no PipelineRun found with UID %s", opts.UID)
 				}
-				return fmt.Errorf("no TaskRun found with name %s", opts.ResourceName)
+				return fmt.Errorf("no PipelineRun found with name %s", opts.ResourceName)
 			}
 
-			// If multiple TaskRuns are found, return an error
+			// If multiple PipelineRuns are found, return an error
 			if len(resp.Records) > 1 {
 				var uids []string
 				for _, record := range resp.Records {
 					uids = append(uids, record.Uid)
 				}
-				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs are: %s",
+				return fmt.Errorf("multiple PipelineRuns found. Use a more specific name or UID. Available UIDs are: %s",
 					strings.Join(uids, ", "))
 			}
 
-			// Get the TaskRun record
+			// Get the PipelineRun record
 			record := resp.Records[0]
 
 			// Create a new logs client
@@ -145,7 +143,7 @@ Logs are not supported for the system namespace or for the default namespace use
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the TaskRun to get logs for")
+	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the PipelineRun to get logs for")
 
 	return cmd
 }
