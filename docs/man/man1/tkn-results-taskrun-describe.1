@@ -22,6 +22,10 @@ Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is op
 	help for describe
 
 .PP
+\fB-o\fP, \fB--output\fP=""
+	Output format. One of: json|yaml (Default format is used if not specified)
+
+.PP
 \fB--uid\fP=""
 	UID of the TaskRun to describe
 
@@ -91,6 +95,12 @@ Describe a TaskRun in namespace 'foo':
 
 Describe a TaskRun in the current namespace
     tkn-results taskrun describe my-taskrun
+
+Describe a TaskRun as yaml
+    tkn-results taskrun describe my-taskrun -o yaml
+
+Describe a TaskRun as json
+    tkn-results taskrun describe my-taskrun -o json
 
 .EE
 

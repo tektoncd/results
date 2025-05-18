@@ -130,6 +130,46 @@ func TestDescribeCommand(t *testing.T) {
 			wantErr:    false,
 			wantOutput: "complex-pipelinerun",
 		},
+		{
+			name: "output yaml",
+			args: []string{"my-pipelinerun", "--output", "yaml"},
+			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
+				pr := v1.PipelineRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "PipelineRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "my-pipelinerun", Namespace: "default"},
+				}
+				prBytes, _ := json.Marshal(pr)
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{{
+						Name: "default/results/abc/records/def",
+						Uid:  "def",
+						Data: &pb.Any{Value: prBytes},
+					}},
+				}, nil
+			},
+			wantErr:    false,
+			wantOutput: "apiVersion: tekton.dev/v1",
+		},
+		{
+			name: "output json",
+			args: []string{"my-pipelinerun", "--output", "json"},
+			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
+				pr := v1.PipelineRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "PipelineRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "my-pipelinerun", Namespace: "default"},
+				}
+				prBytes, _ := json.Marshal(pr)
+				return &pb.ListRecordsResponse{
+					Records: []*pb.Record{{
+						Name: "default/results/abc/records/def",
+						Uid:  "def",
+						Data: &pb.Any{Value: prBytes},
+					}},
+				}, nil
+			},
+			wantErr:    false,
+			wantOutput: "\"apiVersion\": \"tekton.dev/v1\"",
+		},
 	}
 
 	for _, tt := range tests {
@@ -142,8 +182,7 @@ func TestDescribeCommand(t *testing.T) {
 			cmd.SilenceErrors = true
 			cmd.SilenceUsage = true
 			cmd.PreRunE = func(_ *cobra.Command, _ []string) error { return nil }
-			cmd.RunE = func(_ *cobra.Command, args []string) error {
-
+			cmd.RunE = func(cmd *cobra.Command, args []string) error {
 				if tt.mockListFunc == nil {
 					if len(args) != 1 {
 						return fmt.Errorf("requires exactly one argument when --uid is not provided")
@@ -165,16 +204,25 @@ func TestDescribeCommand(t *testing.T) {
 				if err := json.Unmarshal(resp.Records[0].Data.Value, &pr); err != nil {
 					return fmt.Errorf("failed to unmarshal PipelineRun data: %v", err)
 				}
-				// Output for UID/complex/normal
-				fmt.Fprintf(buf, "Name: %s\n", pr.Name)
-				if pr.UID != "" {
-					fmt.Fprintf(buf, "UID: %s\n", pr.UID)
-				}
-				if len(pr.Labels) > 0 {
-					fmt.Fprintf(buf, "Labels: %v\n", pr.Labels)
-				}
-				if len(pr.Annotations) > 0 {
-					fmt.Fprintf(buf, "Annotations: %v\n", pr.Annotations)
+
+				// Simulate output flag
+				outputFlag, _ := cmd.Flags().GetString("output")
+				switch outputFlag {
+				case "yaml":
+					fmt.Fprintf(buf, "apiVersion: %s\nkind: %s\n", pr.APIVersion, pr.Kind)
+				case "json":
+					fmt.Fprintf(buf, "{\"apiVersion\": \"%s\", \"kind\": \"%s\"}\n", pr.APIVersion, pr.Kind)
+				default:
+					fmt.Fprintf(buf, "Name: %s\n", pr.Name)
+					if pr.UID != "" {
+						fmt.Fprintf(buf, "UID: %s\n", pr.UID)
+					}
+					if len(pr.Labels) > 0 {
+						fmt.Fprintf(buf, "Labels: %v\n", pr.Labels)
+					}
+					if len(pr.Annotations) > 0 {
+						fmt.Fprintf(buf, "Annotations: %v\n", pr.Annotations)
+					}
 				}
 				return nil
 			}

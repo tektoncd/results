@@ -22,6 +22,10 @@ Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun na
 	help for describe
 
 .PP
+\fB-o\fP, \fB--output\fP=""
+	Output format. One of: json|yaml (Default format is used if not specified)
+
+.PP
 \fB--uid\fP=""
 	UID of the PipelineRun to describe
 
@@ -91,6 +95,12 @@ Describe a PipelineRun in namespace 'foo':
 
 Describe a PipelineRun in the current namespace:
     tkn-results pipelinerun describe my-pipelinerun
+
+Describe a PipelineRun as yaml:
+    tkn-results pipelinerun describe my-pipelinerun -o yaml
+
+Describe a PipelineRun as json:
+    tkn-results pipelinerun describe my-pipelinerun -o json
 
 .EE
 

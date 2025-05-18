@@ -19,13 +19,20 @@ Describe a PipelineRun in namespace 'foo':
 Describe a PipelineRun in the current namespace:
     tkn-results pipelinerun describe my-pipelinerun
 
+Describe a PipelineRun as yaml:
+    tkn-results pipelinerun describe my-pipelinerun -o yaml
+
+Describe a PipelineRun as json:
+    tkn-results pipelinerun describe my-pipelinerun -o json
+
 ```
 
 ### Options
 
 ```
-  -h, --help         help for describe
-      --uid string   UID of the PipelineRun to describe
+  -h, --help            help for describe
+  -o, --output string   Output format. One of: json|yaml (Default format is used if not specified)
+      --uid string      UID of the PipelineRun to describe
 ```
 
 ### Options inherited from parent commands

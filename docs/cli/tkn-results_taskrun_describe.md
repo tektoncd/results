@@ -19,13 +19,20 @@ Describe a TaskRun in namespace 'foo':
 Describe a TaskRun in the current namespace
     tkn-results taskrun describe my-taskrun
 
+Describe a TaskRun as yaml
+    tkn-results taskrun describe my-taskrun -o yaml
+
+Describe a TaskRun as json
+    tkn-results taskrun describe my-taskrun -o json
+
 ```
 
 ### Options
 
 ```
-  -h, --help         help for describe
-      --uid string   UID of the TaskRun to describe
+  -h, --help            help for describe
+  -o, --output string   Output format. One of: json|yaml (Default format is used if not specified)
+      --uid string      UID of the TaskRun to describe
 ```
 
 ### Options inherited from parent commands

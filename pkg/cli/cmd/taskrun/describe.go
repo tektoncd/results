@@ -18,6 +18,8 @@ import (
 	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/options"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+
+	"k8s.io/cli-runtime/pkg/printers"
 )
 
 const describeTemplate = `{{decorate "bold" "Name"}}: {{ .TaskRun.Name }}
@@ -75,11 +77,19 @@ func describeCommand(p common.Params) *cobra.Command {
 		ResourceType: common.ResourceTypeTaskRun,
 	}
 
+	var outputFormat string
+
 	eg := `Describe a TaskRun in namespace 'foo':
     tkn-results taskrun describe my-taskrun -n foo
 
 Describe a TaskRun in the current namespace
     tkn-results taskrun describe my-taskrun
+
+Describe a TaskRun as yaml
+    tkn-results taskrun describe my-taskrun -o yaml
+
+Describe a TaskRun as json
+    tkn-results taskrun describe my-taskrun -o json
 `
 	cmd := &cobra.Command{
 		Use:     "describe [taskrun-name]",
@@ -151,6 +161,15 @@ Describe a TaskRun in the current namespace
 				return fmt.Errorf("failed to unmarshal TaskRun data: %v", err)
 			}
 
+			if outputFormat == "json" {
+				printer := &printers.JSONPrinter{}
+				return printer.PrintObj(&tr, cmd.OutOrStdout())
+			}
+			if outputFormat == "yaml" {
+				printer := &printers.YAMLPrinter{}
+				return printer.PrintObj(&tr, cmd.OutOrStdout())
+			}
+
 			stream := &cli.Stream{
 				Out: cmd.OutOrStdout(),
 				Err: cmd.OutOrStderr(),
@@ -183,6 +202,7 @@ Describe a TaskRun in the current namespace
 		},
 	}
 	cmd.Flags().StringVar(&opts.UID, "uid", "", "UID of the TaskRun to describe")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: json|yaml (Default format is used if not specified)")
 
 	return cmd
 }
