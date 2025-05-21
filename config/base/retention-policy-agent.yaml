@@ -29,6 +29,7 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
       labels:
         app.kubernetes.io/name: tekton-results-retention-policy-agent
+        app: tekton-results-retention-policy-agent
     spec:
       serviceAccountName: watcher
       containers:
