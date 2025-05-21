@@ -50,7 +50,7 @@ require (
 	gorm.io/driver/mysql v1.5.1
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/driver/sqlite v1.5.7
-	gorm.io/gorm v1.25.7-0.20240204074919-46816ad31dde
+	gorm.io/gorm v1.26.1
 	k8s.io/api v0.32.5
 	k8s.io/apimachinery v0.32.5
 	k8s.io/apiserver v0.32.4
