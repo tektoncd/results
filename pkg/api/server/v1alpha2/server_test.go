@@ -25,8 +25,8 @@ import (
 
 var (
 	// Used for deterministically increasing UUID generation.
-	lastID                 = uint32(0)
-	fakeClock cw.FakeClock = cw.NewFakeClock()
+	lastID                  = uint32(0)
+	fakeClock *cw.FakeClock = cw.NewFakeClock()
 )
 
 func TestMain(m *testing.M) {
