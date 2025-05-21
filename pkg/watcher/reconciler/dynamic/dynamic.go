@@ -124,7 +124,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 			return
 		}
 		if ctxErr == context.Canceled {
-			logger.Infow("Leaving dynamic Reconciler normally with context properly canceled",
+			logger.Debugw("Leaving dynamic Reconciler normally with context properly canceled",
 				zap.String("namespace", o.GetNamespace()),
 				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
 				zap.String("name", o.GetName()))
