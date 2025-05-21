@@ -77,7 +77,7 @@ func (p *Pod) Wait() (*corev1.Pod, error) {
 	}
 
 	stopC := make(chan struct{})
-	eventC := make(chan interface{})
+	eventC := make(chan interface{}, 10)
 	mu := sync.Mutex{}
 	defer func() {
 		mu.Lock()
@@ -174,7 +174,7 @@ func checkPodStatus(obj interface{}) (*corev1.Pod, error) {
 	for _, c := range pod.Status.Conditions {
 		if c.Type == corev1.PodInitialized || c.Type == corev1.ContainersReady {
 			if c.Status == corev1.ConditionUnknown {
-				return pod, fmt.Errorf(c.Message)
+				return pod, fmt.Errorf("%s", c.Message)
 			}
 		}
 	}
