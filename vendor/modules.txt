@@ -738,8 +738,8 @@ github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery
 # github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 ## explicit
 github.com/grpc-ecosystem/go-grpc-prometheus
-# github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1
-## explicit; go 1.22
+# github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3
+## explicit; go 1.23.0
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
 github.com/grpc-ecosystem/grpc-gateway/v2/utilities
