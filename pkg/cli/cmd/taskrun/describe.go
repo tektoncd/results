@@ -108,19 +108,19 @@ Describe a TaskRun as json
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 			opts.Client, err = prerun.InitClient(p, cmd)
 			if err != nil {
 				return err
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
 			if len(args) > 0 {
 				opts.ResourceName = args[0]
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
 			filter := common.BuildFilterString(opts)
 			parent := fmt.Sprintf("%s/results/-", p.Namespace())

@@ -30,9 +30,6 @@ Get logs for a PipelineRun in a specific namespace:
 
 Get logs for a PipelineRun by UID if there are multiple PipelineRuns with the same name:
   tkn-results pipelinerun logs --uid 12345678-1234-1234-1234-1234567890ab
-
-Get logs for a PipelineRun from all namespaces:
-  tkn-results pipelinerun logs foo -A
 `
 
 	cmd := &cobra.Command{
@@ -58,20 +55,20 @@ Additionally, PipelineRun logs are not supported for S3 log storage.`,
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Initialize the client using the shared prerun function
 			var err error
 			opts.Client, err = prerun.InitClient(p, cmd)
 			if err != nil {
 				return err
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
 			if len(args) > 0 {
 				opts.ResourceName = args[0]
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
 			// Build filter string to find the PipelineRun
 			filter := common.BuildFilterString(opts)

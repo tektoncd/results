@@ -11,4 +11,6 @@ const (
 	// NameAndUIDField is the string used to fetch only name and
 	// UID in an API call
 	NameAndUIDField = "records.name,records.uid"
+	// AllNamespacesResultsParent is the parent path used for listing results across all namespaces.
+	AllNamespacesResultsParent = "-/results/-"
 )

@@ -347,7 +347,7 @@ func TestListCommand(t *testing.T) {
 				// Handle all namespaces
 				parent := fmt.Sprintf("%s/results/-", params.Namespace())
 				if opts.AllNamespaces {
-					parent = "*/results/-"
+					parent = common.AllNamespacesResultsParent
 				}
 
 				// Create initial request
