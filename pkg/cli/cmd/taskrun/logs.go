@@ -33,9 +33,6 @@ Get logs for a TaskRun in a specific namespace:
 
 Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
   tkn-results taskrun logs --uid 12345678-1234-1234-1234-1234567890ab
-
-Get logs for a TaskRun from all namespaces:
-  tkn-results taskrun logs foo -A
 `
 
 	cmd := &cobra.Command{
@@ -60,20 +57,20 @@ Logs are not supported for the system namespace or for the default namespace use
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Initialize the client using the shared prerun function
 			var err error
 			opts.Client, err = prerun.InitClient(p, cmd)
 			if err != nil {
 				return err
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
 			if len(args) > 0 {
 				opts.ResourceName = args[0]
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
 			// Build filter string to find the TaskRun
 			filter := common.BuildFilterString(opts)
