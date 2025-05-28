@@ -26,9 +26,6 @@ Get logs for a PipelineRun in a specific namespace:
 Get logs for a PipelineRun by UID if there are multiple PipelineRuns with the same name:
   tkn-results pipelinerun logs --uid 12345678-1234-1234-1234-1234567890ab
 
-Get logs for a PipelineRun from all namespaces:
-  tkn-results pipelinerun logs foo -A
-
 ```
 
 ### Options

@@ -35,7 +35,7 @@ NAME	UID	STARTED	DURATION	STATUS
 {{ end -}}
 {{- end -}}
 {{- range $_, $tr := .TaskRuns.Items }}{{- if $tr }}{{- if $.AllNamespaces -}}
-{{ $tr.Namespace }}	{{ $tr.Name }} {{ $tr.UID }}	{{ formatAge $tr.Status.StartTime $.Time }}	{{ formatDuration $tr.Status.StartTime $tr.Status.CompletionTime }}	{{ formatCondition $tr.Status.Conditions }}
+{{ $tr.Namespace }}	{{ $tr.Name }}	{{ $tr.UID }}	{{ formatAge $tr.Status.StartTime $.Time }}	{{ formatDuration $tr.Status.StartTime $tr.Status.CompletionTime }}	{{ formatCondition $tr.Status.Conditions }}
 {{ else -}}
 {{ $tr.Name }}	{{ $tr.UID }}	{{ formatAge $tr.Status.StartTime $.Time }}	{{ formatDuration $tr.Status.StartTime $tr.Status.CompletionTime }}	{{ formatCondition $tr.Status.Conditions }}
 {{ end -}}{{- end -}}{{- end -}}
@@ -88,7 +88,6 @@ List TaskRuns for a specific PipelineRun:
 			if allNs && nsSet {
 				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
 			}
-
 			// Initialize the client using the shared prerun function
 			var err error
 			opts.Client, err = prerun.InitClient(p, cmd)
@@ -99,12 +98,10 @@ List TaskRuns for a specific PipelineRun:
 			if opts.Limit < 5 || opts.Limit > 1000 {
 				return errors.New("limit should be between 5 and 1000")
 			}
-
 			// Validate label format if provided
 			if opts.Label != "" {
 				return common.ValidateLabels(opts.Label)
 			}
-
 			if len(args) > 0 {
 				opts.ResourceName = args[0]
 			}
@@ -131,7 +128,7 @@ func listTaskRuns(ctx context.Context, p common.Params, opts *options.ListOption
 	// Handle all namespaces
 	parent := fmt.Sprintf("%s/results/-", p.Namespace())
 	if opts.AllNamespaces {
-		parent = "*/results/-"
+		parent = common.AllNamespacesResultsParent
 	}
 
 	// Create initial request
