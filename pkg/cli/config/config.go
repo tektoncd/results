@@ -11,6 +11,7 @@ import (
 	"github.com/tektoncd/results/pkg/cli/client"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/spf13/cobra"
 	"github.com/tektoncd/results/pkg/cli/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -350,4 +351,55 @@ func getRawKubeConfigLoader(kubeconfigPath string) clientcmd.ClientConfig {
 
 	// Return the clientcmd.ClientConfig (equivalent to ToRawKubeConfigLoader)
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+}
+
+// ServerConnectionFlagsChanged returns true if any server connection flags are set.
+func ServerConnectionFlagsChanged(cmd *cobra.Command) bool {
+	return cmd.Flags().Changed("host") ||
+		cmd.Flags().Changed("token") ||
+		cmd.Flags().Changed("insecure-skip-tls-verify") ||
+		cmd.Flags().Changed("api-path")
+}
+
+// BuildDirectClientConfig builds a client.Config from CLI flags (host, token, api-path, insecure-skip-tls-verify).
+func BuildDirectClientConfig(p common.Params) (*client.Config, error) {
+	host := p.Host()
+	token := p.Token()
+	if host == "" || token == "" {
+		return nil, errors.New("--host and --token flag must be set if using direct connection flags")
+	}
+	rc := &rest.Config{
+		Host:        host,
+		BearerToken: token,
+	}
+	if p.APIPath() != "" {
+		rc.APIPath = p.APIPath()
+	}
+
+	rc.Insecure = p.SkipTLSVerify()
+	// Optionally set timeout (default 60s)
+	rc.Timeout = 60 * time.Second
+
+	rc.APIPath = path.Join(rc.APIPath, Path)
+
+	rc.GroupVersion = &schema.GroupVersion{
+		Group:   Group,
+		Version: Version,
+	}
+	u, pth, err := rest.DefaultServerUrlFor(rc)
+	if err != nil {
+		return nil, err
+	}
+	u.Path = pth
+
+	tcfg, err := rc.TransportConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return &client.Config{
+		URL:       u,
+		Timeout:   rc.Timeout,
+		Transport: tcfg,
+	}, nil
 }
