@@ -12,7 +12,6 @@ import (
 
 	"github.com/tektoncd/results/pkg/cli/options"
 
-	"github.com/tektoncd/results/pkg/cli/client"
 	"github.com/tektoncd/results/pkg/cli/client/records"
 
 	"github.com/jonboulle/clockwork"
@@ -21,7 +20,7 @@ import (
 	"github.com/tektoncd/cli/pkg/formatted"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/cli/common"
-	"github.com/tektoncd/results/pkg/cli/config"
+	"github.com/tektoncd/results/pkg/cli/common/prerun"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
@@ -86,11 +85,10 @@ List PipelineRuns with partial pipeline name match:
 			if allNs && nsSet {
 				return errors.New("cannot use --all-namespaces/-A and --namespace/-n together")
 			}
-			c, err := config.NewConfig(p)
-			if err != nil {
-				return err
-			}
-			opts.Client, err = client.NewRESTClient(c.Get())
+
+			// Initialize the client
+			var err error
+			opts.Client, err = prerun.InitClient(p, cmd)
 			if err != nil {
 				return err
 			}
