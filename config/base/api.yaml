@@ -80,6 +80,7 @@ spec:
             seccompProfile:
               type: RuntimeDefault
             runAsNonRoot: true
+            readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:

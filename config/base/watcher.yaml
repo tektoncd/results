@@ -73,6 +73,7 @@ spec:
               type: RuntimeDefault
             runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
