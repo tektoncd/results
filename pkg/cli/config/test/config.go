@@ -118,3 +118,8 @@ func (c *Config) GetObject() runtime.Object {
 func (c *Config) Reset(_ common.Params) error {
 	return nil
 }
+
+// Validate implements the Validate method for testing
+func (c *Config) Validate() error {
+	return nil
+}
