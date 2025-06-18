@@ -1,18 +1,15 @@
 .nh
-.TH "TKN-RESULTS" "1" "May 2025" "Tekton Results CLI" ""
+.TH "TKN-RESULTS" "1" "Jun 2025" "Tekton Results CLI" ""
 
 .SH NAME
-.PP
 tkn-results-pipelinerun-logs - Get logs for a PipelineRun
 
 
 .SH SYNOPSIS
-.PP
 \fBtkn-results pipelinerun logs [pipelinerun-name]\fP
 
 
 .SH DESCRIPTION
-.PP
 Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun name is optional.
 
 .PP
@@ -22,7 +19,6 @@ Additionally, PipelineRun logs are not supported for S3 log storage.
 
 
 .SH OPTIONS
-.PP
 \fB-h\fP, \fB--help\fP[=false]
 	help for logs
 
@@ -32,7 +28,6 @@ Additionally, PipelineRun logs are not supported for S3 log storage.
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
-.PP
 \fB-a\fP, \fB--addr\fP=""
 	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
 
@@ -107,5 +102,4 @@ Get logs for a PipelineRun from all namespaces:
 
 
 .SH SEE ALSO
-.PP
 \fBtkn-results-pipelinerun(1)\fP

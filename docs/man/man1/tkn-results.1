@@ -1,26 +1,20 @@
 .nh
-.TH "TKN-RESULTS" "1" "May 2025" "Tekton Results CLI" ""
+.TH "TKN-RESULTS" "1" "Jun 2025" "Tekton Results CLI" ""
 
 .SH NAME
-.PP
 tkn-results - Tekton Results CLI
 
 
 .SH SYNOPSIS
-.PP
 \fBtkn-results\fP
 
 
 .SH DESCRIPTION
-.PP
-tkn-results CLI
-
-.PP
-tkn-results is a command-line interface (CLI) designed to interact with Tekton Results. This CLI provides tools to configure how you interact with the Tekton Results API server, query TaskRuns and PipelineRuns and their associated data.
+Command-line interface (CLI) designed to interact with Tekton Results. This CLI provides tools to configure how you interact with the Tekton Results API server, query TaskRuns and PipelineRuns and their associated data.
 
 .PP
 The following commands are supported:
-  config        Manage Tekton Results CLI configuration:
+  config        Manage CLI configuration for Results:
                 - set:  Configure the CLI to connect to a Tekton Results instance.
                 - view: Display the current CLI configuration.
                 - reset: Reset the CLI configuration to defaults.
@@ -32,15 +26,9 @@ The following commands are supported:
                 - list:  List PipelineRuns with filtering options.
                 - describe:  Show detailed information about a specific PipelineRun.
                 - logs: Get logs for a PipelineRun.
-Examples:
-  tkn-results config set
-  tkn-results config view
-  tkn-results taskrun list -n default
-  tkn-results pipelinerun describe my-pipelineRun
 
 
 .SH OPTIONS
-.PP
 \fB-a\fP, \fB--addr\fP=""
 	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
 
@@ -74,5 +62,4 @@ Examples:
 
 
 .SH SEE ALSO
-.PP
 \fBtkn-results-config(1)\fP, \fBtkn-results-logs(1)\fP, \fBtkn-results-pipelinerun(1)\fP, \fBtkn-results-records(1)\fP, \fBtkn-results-result(1)\fP, \fBtkn-results-taskrun(1)\fP
