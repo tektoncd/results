@@ -47,6 +47,9 @@ Examples:
   # Reset configuration to defaults
   tkn-results config reset`,
 		PersistentPreRunE: prerun.PersistentPreRunE(p),
+		Annotations: map[string]string{
+			"commandType": "main",
+		},
 	}
 
 	// Add flags to the config command
