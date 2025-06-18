@@ -1,6 +1,8 @@
 package prerun
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/tektoncd/results/pkg/cli/client"
 	"github.com/tektoncd/results/pkg/cli/common"
@@ -47,6 +49,10 @@ func InitClient(p common.Params, cmd *cobra.Command) (*client.RESTClient, error)
 	c, err := config.NewConfig(p)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := c.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config. You may need to run the 'config set' command to configure the CLI: %w", err)
 	}
 	return client.NewRESTClient(c.Get())
 }
