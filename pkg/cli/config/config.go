@@ -36,6 +36,7 @@ type Config interface {
 	GetObject() runtime.Object
 	Set(prompt bool, p common.Params) error
 	Reset(p common.Params) error
+	Validate() error
 }
 
 type config struct {
@@ -402,4 +403,33 @@ func BuildDirectClientConfig(p common.Params) (*client.Config, error) {
 		Timeout:   rc.Timeout,
 		Transport: tcfg,
 	}, nil
+}
+
+// Validate validates the configuration of the client.
+// It checks if the client configuration and extension are properly set up.
+//
+// Parameters:
+//   - c: A Config interface containing the client configuration and extension.
+//
+// Returns:
+//   - error: An error if the configuration is invalid, nil otherwise.
+func (c *config) Validate() error {
+	// Check if the configuration is properly set up
+	clientConfig := c.Get()
+	if clientConfig == nil || clientConfig.URL == nil {
+		return fmt.Errorf("client configuration missing: URL not set")
+	}
+
+	// Check if essential configuration values are missing
+	extensionObj := c.GetObject()
+	extension, ok := extensionObj.(*Extension)
+	if !ok {
+		return fmt.Errorf("invalid extension type: expected *Extension, got %T", extensionObj)
+	}
+
+	if extension.Host == "" {
+		return fmt.Errorf("API server host not configured: host field is empty")
+	}
+
+	return nil
 }
