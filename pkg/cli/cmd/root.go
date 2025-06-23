@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/tektoncd/results/pkg/cli/cmd/taskrun"
 
 	"github.com/tektoncd/results/pkg/cli/cmd/pipelinerun"
@@ -35,6 +37,7 @@ var (
 
 // Root returns a cobra command for `tkn-results` root sub commands
 func Root(p common.Params) *cobra.Command {
+	// params values are populated in the preRun Handler
 	params := &flags.Params{}
 	var portForwardCloseChan chan struct{}
 	c := &cobra.Command{
@@ -124,6 +127,8 @@ func persistentPreRunHandler(c *cobra.Command, params *flags.Params, portForward
 		return err
 	}
 	params.PluginLogsClient = pluginLogsClient
+
+	params.Clock = clockwork.NewRealClock()
 
 	return nil
 }
