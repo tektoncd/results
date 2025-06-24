@@ -22,7 +22,7 @@ cascade:
 # Tekton Results
 
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/tektoncd/results)
-[![Go Report Card](https://goreportcard.com/badge/tektoncd/pipeline)](https://goreportcard.com/report/tektoncd/results)
+[![Go Report Card](https://goreportcard.com/badge/tektoncd/results)](https://goreportcard.com/report/tektoncd/results)
 
 Tekton Results aims to help users logically group CI/CD workload history and
 separate out long term result storage away from the Pipeline controller. This
@@ -41,13 +41,13 @@ Additional background and design motivations can be found in
 
 ## Overview
 
-Tekton Results is composed of 2 main components:
+Tekton Results is composed of 3 main components:
 
 - A [queryable gRPC API server](api/) backed by persistent storage (see
   [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
 - A [controller to watch and report](watcher/) TaskRun and PipelineRun updates
   to the API server.
-- A [retention policy agent](retention-policy-agent/) An agent which deletes older data from DB.
+- A [retention policy agent](retention-policy-agent/), an agent which deletes older data from DB.
 
 ### Life of a Result
 
@@ -67,7 +67,7 @@ sequenceDiagram
 1. User creates a TaskRun or PipelineRun via the Kubernetes API as usual.
 2. Result Watcher listens for all TaskRun/PipelineRun changes.
 3. If a TaskRun/PipelineRun has changed, Watcher updates (or creates) a
-   corresponding `Record` (and `Result` if necessary using the Results API.
+   corresponding `Record` (and `Result` if necessary) using the Results API.
     - Watcher will also annotate the original TaskRun/PipelineRun with
     identifiers as well.
 4. Users can get/query Result/Record data directly from the API. Once the
