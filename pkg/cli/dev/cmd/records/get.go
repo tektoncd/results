@@ -15,31 +15,14 @@
 package records
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"text/tabwriter"
-	"text/template"
+	"os"
 
+	"github.com/spf13/cobra"
 	"github.com/tektoncd/results/pkg/cli/dev/flags"
 	"github.com/tektoncd/results/pkg/cli/dev/format"
-
-	"github.com/jonboulle/clockwork"
-	"github.com/spf13/cobra"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
-
-const tmpl = `Name:              {{.Record.Name}}
-UID:               {{.Record.Uid}}
-Status:
-Created:	{{ formatAge .Record.CreateTime .Time }}	Duration:	{{formatDuration .Record.CreateTime .Record.UpdateTime}}
-{{- if .Record.Data }}
-Type:         {{.Record.Data.Type}}
-Data:
-{{formatJSON .Record.Data.Value}}
-{{ end -}}
-`
 
 // GetRecordCommand returns a cobra sub command that will fetch a record by name
 func GetRecordCommand(params *flags.Params) *cobra.Command {
@@ -50,14 +33,14 @@ func GetRecordCommand(params *flags.Params) *cobra.Command {
 		Short: "[To be deprecated] Get Record by <record-name>",
 		Long:  "Get Record by <record-name>. <record-name> is typically of format <namespace>/results/<parent-run-uuid>/records/<child-run-uuid>",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			record, err := params.ResultsClient.GetRecord(cmd.Context(), &pb.GetRecordRequest{
+			resp, err := params.ResultsClient.GetRecord(cmd.Context(), &pb.GetRecordRequest{
 				Name: args[0],
 			})
 			if err != nil {
 				fmt.Printf("GetRecord: %v\n", err)
 				return err
 			}
-			return formatRecord(cmd.OutOrStdout(), record, params.Clock)
+			return format.PrintProto(os.Stdout, resp, opts.Format)
 		},
 		Args: cobra.ExactArgs(1),
 		Annotations: map[string]string{
@@ -81,32 +64,4 @@ func GetRecordCommand(params *flags.Params) *cobra.Command {
 	flags.AddGetFlags(opts, cmd)
 
 	return cmd
-}
-
-func formatRecord(out io.Writer, record *pb.Record, c clockwork.Clock) error {
-	data := struct {
-		Record *pb.Record
-		Time   clockwork.Clock
-	}{
-		Record: record,
-		Time:   c,
-	}
-
-	funcMap := template.FuncMap{
-		"formatAge":      format.Age,
-		"formatDuration": format.Duration,
-		"formatJSON": func(data []byte) string {
-			if len(data) == 0 {
-				return "No data"
-			}
-			var prettyJSON bytes.Buffer
-			if err := json.Indent(&prettyJSON, data, "       ", "  "); err != nil {
-				return fmt.Sprintf("Error formatting JSON: %v", err)
-			}
-			return prettyJSON.String()
-		},
-	}
-	w := tabwriter.NewWriter(out, 0, 5, 3, ' ', tabwriter.TabIndent)
-	t := template.Must(template.New("record").Funcs(funcMap).Parse(tmpl))
-	return t.Execute(w, data)
 }
