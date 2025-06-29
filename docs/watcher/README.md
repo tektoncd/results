@@ -71,8 +71,6 @@ Results stores PipelineRun and TaskRun as v1. If there are older records, it's p
 
 ## Finalizer for blocking deletion
 
-Watcher implements a finalizer to block deletion by an external pruner when logs are streamed via the Watcher.```
+Watcher implements a finalizer to block deletion by an external pruner when objects are stored via the Watcher.
 
-@khrm Please verify that's what you meant.
-
-This requires that we pass `store_deadline` (default 10m). If deletion request comes, then it will block until completion + store_deadline is passed or resource is stored as record.
+When deletion request comes, it will block until completion time + `completed_run_grace_period` period is passed. A hard limit could be set as `store_deadline` (default 10m), after which the object will be removed from the cluster even without confirmation it's been stored in the DB.
