@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -77,7 +78,9 @@ func TestFieldMask_Paths(t *testing.T) {
 	f := &fieldmaskpb.FieldMask{Paths: p}
 	f.Normalize()
 	want := f.Paths
+	slices.Sort(want)
 	got := fm.Paths(nil)
+	slices.Sort(got)
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Paths mismatch (-want +got):\n%s", diff)
 	}
