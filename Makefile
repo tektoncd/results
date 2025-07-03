@@ -34,6 +34,10 @@ $(BIN)/%: | $(BIN) ; $(info $(M) building $(PACKAGE)…)
 		|| ret=$$?; \
 	   rm -rf $$tmp ; exit $$ret
 
+FORCE:
+
+bin/%: cmd/% FORCE
+	$Q $(GO) build -mod=vendor $(LDFLAGS) -v -o $@ ./$<
 ## Linters configuration and targets
 # TODO(vdemeester) gofmt and goimports checks (run them with -w and make a diff)
 
