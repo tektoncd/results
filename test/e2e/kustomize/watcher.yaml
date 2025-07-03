@@ -36,3 +36,6 @@
 - op: add
   path: "/spec/template/spec/containers/0/args/-"
   value: "-logs_api=true"
+- op: add
+  path: "/spec/template/spec/containers/0/args/-"
+  value: "-disable_storing_incomplete_runs=true"
