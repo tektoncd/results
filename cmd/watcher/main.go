@@ -59,27 +59,28 @@ const (
 )
 
 var (
-	apiAddr                 = flag.String("api_addr", "localhost:8080", "Address of API server to report to")
-	authMode                = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
-	disableCRDUpdate        = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
-	authToken               = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
-	completedRunGracePeriod = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
-	threadiness             = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
-	qps                     = flag.Float64("qps", float64(rest.DefaultQPS), "Kubernetes client QPS setting")
-	burst                   = flag.Int("burst", rest.DefaultBurst, "Kubernetes client Burst setting")
-	logsAPI                 = flag.Bool("logs_api", false, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
-	logsTimestamps          = flag.Bool("logs_timestamps", false, "Collect logs with timestamps")
-	labelSelector           = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
-	requeueInterval         = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
-	namespace               = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
-	summaryLabels           = flag.String("summary_labels", "tekton.dev/pipeline", "List of Labels keys separated by comma which should be part of the summary of the result")
-	summaryAnnotations      = flag.String("summary_annotations", "", "List of Annotations keys separated by comma which should be part of the summary of the result")
-	checkOwner              = flag.Bool("check_owner", true, "If enabled, owner references will be checked while deleting objects")
-	updateLogTimeout        = flag.Duration("update_log_timeout", 300*time.Second, "How log the Watcher waits for the UpdateLog operation for storing logs to complete before it aborts.")
-	dynamicReconcileTimeout = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
-	storeEvent              = flag.Bool("store_event", false, "If enabled, events related to runs will also be stored")
-	storeDeadline           = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
-	forwardBuffer           = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
+	apiAddr                      = flag.String("api_addr", "localhost:8080", "Address of API server to report to")
+	authMode                     = flag.String("auth_mode", "", "Authentication mode to use when making requests. If not set, no additional credentials will be used in the request. Valid values: [google]")
+	disableCRDUpdate             = flag.Bool("disable_crd_update", false, "Disables Tekton CRD annotation update on reconcile.")
+	authToken                    = flag.String("token", "", "Authentication token to use in requests. If not specified, on-cluster configuration is assumed.")
+	completedRunGracePeriod      = flag.Duration("completed_run_grace_period", 0, "Grace period duration before Runs should be deleted. If 0, Runs will not be deleted. If < 0, Runs will be deleted immediately.")
+	threadiness                  = flag.Int("threadiness", controller.DefaultThreadsPerController, "Number of threads (Go routines) allocated to each controller")
+	qps                          = flag.Float64("qps", float64(rest.DefaultQPS), "Kubernetes client QPS setting")
+	burst                        = flag.Int("burst", rest.DefaultBurst, "Kubernetes client Burst setting")
+	logsAPI                      = flag.Bool("logs_api", false, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
+	logsTimestamps               = flag.Bool("logs_timestamps", false, "Collect logs with timestamps")
+	labelSelector                = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
+	requeueInterval              = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
+	namespace                    = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
+	summaryLabels                = flag.String("summary_labels", "tekton.dev/pipeline", "List of Labels keys separated by comma which should be part of the summary of the result")
+	summaryAnnotations           = flag.String("summary_annotations", "", "List of Annotations keys separated by comma which should be part of the summary of the result")
+	checkOwner                   = flag.Bool("check_owner", true, "If enabled, owner references will be checked while deleting objects")
+	updateLogTimeout             = flag.Duration("update_log_timeout", 300*time.Second, "How log the Watcher waits for the UpdateLog operation for storing logs to complete before it aborts.")
+	dynamicReconcileTimeout      = flag.Duration("dynamic_reconcile_timeout", 30*time.Second, "How long the Watcher waits for the dynamic reconciler to complete before it aborts.")
+	storeEvent                   = flag.Bool("store_event", false, "If enabled, events related to runs will also be stored")
+	disableStoringIncompleteRuns = flag.Bool("disable_storing_incomplete_runs", false, "If enabled, Runs will not be stored until they are complete. If disabled, Runs will be initially stored upon creation and continuously upserted until after they're deleted")
+	storeDeadline                = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
+	forwardBuffer                = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
 )
 
 func main() {
@@ -128,6 +129,7 @@ func main() {
 		LogsTimestamps:               *logsTimestamps,
 		SummaryLabels:                *summaryLabels,
 		SummaryAnnotations:           *summaryAnnotations,
+		DisableStoringIncompleteRuns: *disableStoringIncompleteRuns,
 	}
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())

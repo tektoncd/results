@@ -66,6 +66,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineR
 
 	logger.Infof("Initiating reconciliation for PipelineRun '%s/%s'", pr.Namespace, pr.Name)
 
+	if !pr.IsDone() && r.cfg.DisableStoringIncompleteRuns {
+		logger.Debugf("pipelinerun %s/%s is not done and incomplete runs are disabled, skipping storing", pr.Namespace, pr.Name)
+		return nil
+	}
+
 	pipelineRunClient := &dynamic.PipelineRunClient{
 		PipelineRunInterface: r.pipelineClient.TektonV1().PipelineRuns(pr.Namespace),
 	}

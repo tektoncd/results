@@ -47,6 +47,11 @@ var _ taskrunreconciler.Finalizer = (*Reconciler)(nil)
 func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
 	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
 
+	if !tr.IsDone() && r.cfg.DisableStoringIncompleteRuns {
+		logger.Debugf("taskrun %s/%s is not done and incomplete runs are disabled, skipping storing", tr.Namespace, tr.Name)
+		return nil
+	}
+
 	taskRunClient := &dynamic.TaskRunClient{
 		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(tr.Namespace),
 	}

@@ -36,6 +36,39 @@ import (
 	knativereconciler "knative.dev/pkg/reconciler"
 )
 
+func TestReconcile(t *testing.T) {
+	cfg := &reconciler.Config{
+		DisableStoringIncompleteRuns: true,
+	}
+
+	pr := &pipelinev1.PipelineRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pr",
+			Namespace: "test-ns",
+		},
+		Status: pipelinev1.PipelineRunStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{
+					apis.Condition{
+						Type:   apis.ConditionSucceeded,
+						Status: corev1.ConditionUnknown,
+					},
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	ctx = logging.WithLogger(ctx, zaptest.NewLogger(t).Sugar())
+
+	r := &Reconciler{
+		cfg: cfg,
+	}
+	got := r.ReconcileKind(ctx, pr)
+	if got != nil {
+		t.Errorf("ReconcileKind() = %v, want nil", got)
+	}
+}
 func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	tests := []struct {
 		name string
