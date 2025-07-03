@@ -72,6 +72,9 @@ type Config struct {
 
 	// SummaryAnnotations are annotations which should be part of the summary of the result
 	SummaryAnnotations string
+
+	// DisableStoringIncompleteRuns disables the collection of incomplete Runs data
+	DisableStoringIncompleteRuns bool
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

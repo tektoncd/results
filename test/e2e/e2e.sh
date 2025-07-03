@@ -41,6 +41,7 @@ main() {
 
     # Build static binaries; otherwise go test complains.
     export CGO_ENABLED=0
+    kubectl get pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-watcher | sed "s/^.\{4\}//") -n tekton-pipelines -o yaml
     go test -v -count=1 --tags=e2e $(go list --tags=e2e ${REPO}/test/e2e/... | grep -v /client)
     kubectl apply -f ${REPO}/test/e2e/gcs-emulator.yaml
     kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-api | sed "s/^.\{4\}//") -n tekton-pipelines
