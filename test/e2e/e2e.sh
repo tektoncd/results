@@ -41,8 +41,15 @@ main() {
 
     # Build static binaries; otherwise go test complains.
     export CGO_ENABLED=0
+    kubectl patch configmap tekton-results-config-logging -n tekton-pipelines --type='merge' -p='{ "data": {
+        "zap-logger-config": "{\n  \"level\": \"debug\",\n  \"development\": false,\n  \"outputPaths\": [\"stdout\"],\n  \"errorOutputPaths\": [\"stderr\"],\n  \"encoding\": \"json\",\n  \"encoderConfig\": {\n    \"timeKey\": \"time\",\n    \"levelKey\": \"level\",\n    \"nameKey\": \"logger\",\n    \"callerKey\": \"caller\",\n    \"messageKey\": \"msg\",\n    \"stacktraceKey\": \"stacktrace\",\n    \"lineEnding\": \"\",\n    \"levelEncoder\": \"\",\n    \"timeEncoder\": \"iso8601\",\n    \"durationEncoder\": \"string\",\n    \"callerEncoder\": \"\"\n  }\n}",
+        "loglevel.watcher": "debug"}
+    }'
     kubectl get pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-watcher | sed "s/^.\{4\}//") -n tekton-pipelines -o yaml
     go test -v -count=1 --tags=e2e $(go list --tags=e2e ${REPO}/test/e2e/... | grep -v /client)
+    kubectl logs $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-watcher | sed "s/^.\{4\}//") -n tekton-pipelines
+
+    # Test GCS logging
     kubectl apply -f ${REPO}/test/e2e/gcs-emulator.yaml
     kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-api | sed "s/^.\{4\}//") -n tekton-pipelines
     kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
