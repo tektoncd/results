@@ -31,6 +31,23 @@ spec:
         app.kubernetes.io/name: tekton-results-api
         app: tekton-results-api
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/os
+                  operator: NotIn
+                  values:
+                  - windows
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: tekton-results-api
+              topologyKey: kubernetes.io/hostname
+            weight: 100
       serviceAccountName: api
       containers:
         - name: api
