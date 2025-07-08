@@ -1,0 +1,109 @@
+name: Integration Tests on microshift
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches:
+      - main
+      - release-*
+  pull_request:
+    branches:
+      - main
+      - release-*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tekton-results-integration-tests-microshift:
+    runs-on: ubuntu-24.04
+    name: Integration Tests on microshift
+    strategy:
+      fail-fast: false
+
+    env:
+      SHELL: /bin/bash
+      GOPATH: ${{ github.workspace }}
+      GO111MODULE: on
+      KO_DOCKER_REPO: ko.local
+      CLUSTER_DOMAIN: ${{ github.run_id }}.local
+      ARTIFACTS: ${{ github.workspace }}/artifacts
+      SKIP_SETUP: true
+      DOCKER_HOST: tcp://localhost:24816
+      SKIP_KIND: true
+      SKIP_PORT_FORWARD: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: ${{ github.workspace }}/src/github.com/tektoncd/results
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache-dependency-path: "${{ github.workspace }}/src/github.com/tektoncd/results/go.sum"
+          go-version-file: "${{ github.workspace }}/src/github.com/tektoncd/results/go.mod"
+
+      - name: Install dependencies
+        working-directory: ./
+        run: |
+          echo '::group::install ko'
+          curl -L https://github.com/ko-build/ko/releases/download/v0.15.4/ko_0.15.4_Linux_x86_64.tar.gz | tar xzf - ko
+          echo '::group:: install go-junit-report'
+          go install github.com/jstemmer/go-junit-report@v0.9.1
+          echo '::endgroup::'
+          chmod +x ./ko
+          sudo mv ko /usr/local/bin
+          echo '::endgroup::'
+
+          echo '::group::create required folders'
+          mkdir -p "${ARTIFACTS}"
+          echo '::endgroup::'
+
+          echo "${GOPATH}/bin" >> "$GITHUB_PATH"
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        run: |
+          echo -e "\n************************ Install openshift client ************************\n"
+          wget https://github.com/okd-project/okd/releases/download/4.19.0-okd-scos.6/openshift-client-linux-amd64-rhel9-4.19.0-okd-scos.6.tar.gz
+          tar -xzvf openshift-client-linux-amd64-rhel9-4.19.0-okd-scos.6.tar.gz
+          export PATH=${PATH}:${PWD}
+
+          echo -e "\n************************** Setup Podman **********************************\n"
+          sudo podman system service --time=0 tcp://localhost:24816 &
+          sleep 7
+
+          echo -e "\ntest the podman tcp connection\n"
+          curl http://localhost:24816/_ping
+
+          echo -e "\n************************ Setup Microshift ************************\n"
+          curl -L -o minc  https://github.com/minc-org/minc/releases/latest/download/minc_linux_amd64
+          chmod +x minc
+          ./minc create --log-level debug
+          rm ./minc
+
+          export KUBECONFIG=$HOME/.kube/config
+
+          kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+          ./oc adm policy add-scc-to-user hostmount-anyuid -z local-path-provisioner-service-account -n local-path-storage
+          kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+          curl https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml | yq 'del(.spec.template.spec.containers[]?.securityContext.runAsUser, .spec.template.spec.containers[]?.securityContext.runAsGroup)' > release.yaml
+          export TEKTON_PIPELINE_CONFIG=$(realpath ./release.yaml)
+
+          ${{ github.workspace }}/src/github.com/tektoncd/results/test/e2e/e2e.sh
+
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ failure() }}
+        with:
+          path: ${{ env.ARTIFACTS }}
