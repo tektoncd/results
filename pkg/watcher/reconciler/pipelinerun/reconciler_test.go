@@ -37,36 +37,74 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
-	cfg := &reconciler.Config{
-		DisableStoringIncompleteRuns: true,
-	}
-
-	pr := &pipelinev1.PipelineRun{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pr",
-			Namespace: "test-ns",
-		},
-		Status: pipelinev1.PipelineRunStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					apis.Condition{
-						Type:   apis.ConditionSucceeded,
-						Status: corev1.ConditionUnknown,
+	for _, tc := range []struct {
+		name string
+		pr   *pipelinev1.PipelineRun
+		cfg  *reconciler.Config
+		want knativereconciler.Event
+	}{
+		{
+			name: "incomplete run with disable storing - skip",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionUnknown,
+							},
+						},
 					},
 				},
 			},
+			cfg: &reconciler.Config{
+				DisableStoringIncompleteRuns: true,
+			},
+			want: nil,
 		},
-	}
+		{
+			name: "already stored - skip",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				DisableStoringIncompleteRuns: true,
+			},
+			want: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = logging.WithLogger(ctx, zaptest.NewLogger(t).Sugar())
 
-	ctx := context.Background()
-	ctx = logging.WithLogger(ctx, zaptest.NewLogger(t).Sugar())
-
-	r := &Reconciler{
-		cfg: cfg,
-	}
-	got := r.ReconcileKind(ctx, pr)
-	if got != nil {
-		t.Errorf("ReconcileKind() = %v, want nil", got)
+			r := &Reconciler{
+				cfg: tc.cfg,
+			}
+			got := r.ReconcileKind(ctx, tc.pr)
+			if got != tc.want {
+				t.Errorf("ReconcileKind() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
