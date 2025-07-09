@@ -263,13 +263,16 @@ func TestSetWithPrompt(t *testing.T) {
 	// In a test environment, we expect either:
 	// 1. An EOF error when prompting for user input
 	// 2. A network error from our mock config
-	// Both are expected behaviors in a test environment
+	// 3. A route detection error (no Tekton Results routes found)
+	// All are expected behaviors in a test environment
 	if err != nil {
-		// Check if the error is EOF or contains our mock error
-		if err == io.EOF || err.Error() == "EOF" || strings.Contains(err.Error(), "mock network error") {
+		// Check if the error is EOF, contains our mock error, or is a route detection error
+		if err == io.EOF || err.Error() == "EOF" ||
+			strings.Contains(err.Error(), "mock network error") ||
+			strings.Contains(err.Error(), "no Tekton Results routes found") {
 			t.Log("Received expected error when prompting for user input in test environment")
 		} else {
-			t.Errorf("Expected EOF error, mock network error, or no error, got %v", err)
+			t.Errorf("Expected EOF error, mock network error, route detection error, or no error, got %v", err)
 		}
 	}
 

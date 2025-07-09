@@ -123,3 +123,8 @@ func (c *Config) Reset(_ common.Params) error {
 func (c *Config) Validate() error {
 	return nil
 }
+
+// Host implements the Host method for testing
+func (c *Config) Host() any {
+	return []string{"http://test-host"}
+}
