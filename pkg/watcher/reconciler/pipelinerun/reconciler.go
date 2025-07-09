@@ -187,6 +187,7 @@ func (r *Reconciler) finalize(ctx context.Context, pr *pipelinev1.PipelineRun, r
 			if !ok {
 				logging.FromContext(ctx).Errorf("pipelinerun not stored: %s/%s, uid: %s,",
 					pr.Namespace, pr.Name, pr.UID)
+				r.metrics.CountRunNotStored(ctx, logging.FromContext(ctx), pr)
 			}
 			return nil // Proceed with deletion
 		}
