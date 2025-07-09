@@ -137,6 +137,7 @@ func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr 
 			if !ok {
 				logging.FromContext(ctx).Errorf("taskrun not stored: %s/%s, uid: %s,",
 					tr.Namespace, tr.Name, tr.UID)
+				r.metrics.CountRunNotStored(ctx, logging.FromContext(ctx), tr)
 			}
 			return nil // Proceed with deletion
 		}
