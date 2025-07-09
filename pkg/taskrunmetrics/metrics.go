@@ -7,9 +7,6 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
-	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"github.com/tektoncd/results/pkg/apis/config"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -17,17 +14,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/metrics"
+
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"github.com/tektoncd/results/pkg/apis/config"
+	sharedMetrics "github.com/tektoncd/results/pkg/metrics"
 )
 
 var (
-	trDeleteCount        = stats.Int64("taskrun_delete_count", "total number of deleted taskruns", stats.UnitDimensionless)
-	trDeleteCountView    *view.View
-	trDeleteDuration     = stats.Float64("taskrun_delete_duration_seconds", "the duration between taskrun completion and deletion, in seconds", stats.UnitSeconds)
+	trDeleteCount     = stats.Int64("taskrun_delete_count", "total number of deleted taskruns", stats.UnitDimensionless)
+	trDeleteCountView *view.View
+
+	trDeleteDuration     = stats.Float64("taskrun_delete_duration_seconds", "the pipelinerun deletion time in seconds", stats.UnitSeconds)
 	trDeleteDurationView *view.View
-	pipelineTag          = tag.MustNewKey("pipeline")
-	taskTag              = tag.MustNewKey("task")
-	namespaceTag         = tag.MustNewKey("namespace")
-	statusTag            = tag.MustNewKey("status")
+
+	runsNotStoredCount = stats.Int64("runs_not_stored_count", "total number of runs which were deleted without being stored", stats.UnitDimensionless)
+	runsNotStoredView  *view.View
+
+	pipelineTag  = tag.MustNewKey("pipeline")
+	taskTag      = tag.MustNewKey("task")
+	namespaceTag = tag.MustNewKey("namespace")
+	statusTag    = tag.MustNewKey("status")
+	kindTag      = tag.MustNewKey("kind")
 )
 
 // Recorder is used to actually record TaskRun metrics
@@ -41,7 +49,7 @@ func NewRecorder() *Recorder {
 	return &Recorder{clock: clockwork.NewRealClock()}
 }
 
-func viewRegister(logger *zap.SugaredLogger, cfg *config.Metrics) error {
+func registerViews(logger *zap.SugaredLogger, cfg *config.Metrics) error {
 	var tags []tag.Key
 	switch cfg.TaskrunLevel {
 	case config.TaskrunLevelAtTask:
@@ -81,23 +89,22 @@ func viewRegister(logger *zap.SugaredLogger, cfg *config.Metrics) error {
 		Measure:     trDeleteDuration,
 		Aggregation: distribution,
 	}
+
 	logger.Debug("registering taskrun metrics view")
-	return view.Register(trDeleteCountView, trDeleteDurationView)
+	return view.Register(trDeleteDurationView, trDeleteCountView)
 }
 
-func viewUnregister(logger *zap.SugaredLogger) {
+func unregisterViews(logger *zap.SugaredLogger) {
 	logger.Debug("unregistering taskrun metrics view")
-	if trDeleteCountView != nil {
-		view.Unregister(trDeleteCountView)
-	}
-	if trDeleteDurationView != nil {
-		view.Unregister(trDeleteDurationView)
+	for _, v := range []*view.View{trDeleteDurationView, trDeleteCountView} {
+		if v != nil {
+			view.Unregister(v)
+		}
 	}
 }
 
 // MetricsOnStore returns a function that checks if metrics are configured for a config.Store, and registers it if so
-func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
-	value any) {
+func MetricsOnStore(logger *zap.SugaredLogger) func(name string, value any) {
 	return func(name string, value any) {
 		if name != config.GetMetricsConfigName() {
 			return
@@ -107,12 +114,19 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
 			logger.Error("Failed to do type insertion for extracting metrics config")
 			return
 		}
-		viewUnregister(logger)
-		err := viewRegister(logger, cfg)
+		unregisterViews(logger)
+		err := registerViews(logger, cfg)
 		if err != nil {
 			logger.Errorf("Failed to register View %v ", err)
 			return
 		}
+		sharedMetrics.IdempotentRegisterViews(logger)
+	}
+}
+
+func (r *Recorder) CountRunNotStored(ctx context.Context, logger *zap.SugaredLogger, tr *pipelinev1.TaskRun) {
+	if err := sharedMetrics.CountRunNotStored(ctx, tr.GetNamespace(), "TaskRun"); err != nil {
+		logger.Errorf("error counting TaskRun as stored: %w", err)
 	}
 }
 
