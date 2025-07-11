@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/metrics"
 	"github.com/tektoncd/results/pkg/pipelinerunmetrics"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
@@ -46,14 +47,15 @@ type Reconciler struct {
 	// kubeClientSet allows us to talk to the k8s for core APIs
 	kubeClientSet kubernetes.Interface
 
-	resultsClient     pb.ResultsClient
-	logsClient        pb.LogsClient
-	pipelineRunLister pipelinev1listers.PipelineRunLister
-	taskRunLister     pipelinev1listers.TaskRunLister
-	pipelineClient    versioned.Interface
-	cfg               *reconciler.Config
-	metrics           *pipelinerunmetrics.Recorder
-	configStore       *config.Store
+	resultsClient      pb.ResultsClient
+	logsClient         pb.LogsClient
+	pipelineRunLister  pipelinev1listers.PipelineRunLister
+	taskRunLister      pipelinev1listers.TaskRunLister
+	pipelineClient     versioned.Interface
+	cfg                *reconciler.Config
+	metrics            *metrics.Recorder
+	pipelineRunMetrics *pipelinerunmetrics.Recorder
+	configStore        *config.Store
 }
 
 // Check that our Reconciler implements pipelinerunreconciler.Interface and pipelinerunreconciler.Finalizer
@@ -92,7 +94,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineR
 	dyn.IsReadyForDeletionFunc = r.areAllUnderlyingTaskRunsReadyForDeletion
 	dyn.AfterDeletion = func(ctx context.Context, object results.Object) error {
 		pr := object.(*pipelinev1.PipelineRun)
-		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr)
+		return r.pipelineRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr)
+	}
+	dyn.AfterStorage = func(ctx context.Context, object results.Object, _ bool) error {
+		pr := object.(*pipelinev1.PipelineRun)
+		return r.metrics.RecordStorageLatency(ctx, pr)
 	}
 
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), pr)
@@ -187,7 +193,9 @@ func (r *Reconciler) finalize(ctx context.Context, pr *pipelinev1.PipelineRun, r
 			if !ok {
 				logging.FromContext(ctx).Errorf("pipelinerun not stored: %s/%s, uid: %s,",
 					pr.Namespace, pr.Name, pr.UID)
-				r.metrics.CountRunNotStored(ctx, logging.FromContext(ctx), pr)
+				if err := metrics.CountRunNotStored(ctx, pr.Namespace, "PipelineRun"); err != nil {
+					logging.FromContext(ctx).Errorf("error counting PipelineRun as not stored: %w", err)
+				}
 			}
 			return nil // Proceed with deletion
 		}
