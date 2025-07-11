@@ -65,6 +65,7 @@ type Reconciler struct {
 	cfg                    *reconciler.Config
 	IsReadyForDeletionFunc IsReadyForDeletion
 	AfterDeletion          AfterDeletion
+	AfterStorage           AfterStorage
 }
 
 func init() {
@@ -83,6 +84,9 @@ type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, 
 
 // AfterDeletion is the function called after object is deleted
 type AfterDeletion func(ctx context.Context, object results.Object) error
+
+// AfterStorage is called after an object has been successfully stored
+type AfterStorage func(ctx context.Context, object results.Object, storageSuccess bool) error
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
 func NewDynamicReconciler(kubeClientSet kubernetes.Interface, rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
@@ -163,6 +167,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 	if err != nil {
 		logger.Debugw("Error upserting record to API server", zap.Error(err), timeTakenField)
+
 		if ctxCancel != nil {
 			ctxCancel()
 		}
@@ -713,7 +718,7 @@ func filterEventList(events *v1.EventList) *v1.EventList {
 	return events
 }
 
-// addStoreAnnotations adds store annotations to the object in question if
+// addStoredAnnotations adds stored annotations to the object in question if
 // annotation patching is enabled.
 func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object) error {
 	logger := logging.FromContext(ctx)
@@ -725,6 +730,13 @@ func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object)
 	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
 		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
 		return nil
+	}
+
+	// Check if the object was previously stored
+	objAnnotations := o.GetAnnotations()
+	wasStored := false
+	if storedVal, exists := objAnnotations[annotation.Stored]; exists {
+		wasStored = storedVal == "true"
 	}
 
 	stored := annotation.Annotation{Name: annotation.Stored, Value: "false"}
@@ -772,5 +784,18 @@ func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object)
 		logger.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
 		return fmt.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
 	}
+
+	// Call AfterStorage callback if this is the first time we're marking it as stored after completion
+	// This ensures storage latency metrics are recorded exactly once per object when it transitions
+	// from "not stored after completion" to "stored after completion"
+	if !wasStored && stored.Value == "true" && r.AfterStorage != nil {
+		logger.Infow("Calling AfterStorage callback (first storage after completion)",
+			zap.String("object", o.GetName()),
+		)
+		if err := r.AfterStorage(ctx, o, true); err != nil {
+			logger.Warnw("Failed to call AfterStorage callback", zap.Error(err))
+		}
+	}
+
 	return nil
 }
