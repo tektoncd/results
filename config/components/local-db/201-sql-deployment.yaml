@@ -28,6 +28,8 @@ metadata:
   labels:
     app.kubernetes.io/name: tekton-results-postgres
 spec:
+  securityContext:
+    fsGroup: 1001
   serviceName: "postgres"
   replicas: 1
   selector:
