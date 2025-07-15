@@ -118,13 +118,6 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string, value any) {
 	}
 }
 
-// CountRunNotStored records a TaskRun that was not stored due to deletion or timeout
-func (r *Recorder) CountRunNotStored(ctx context.Context, logger *zap.SugaredLogger, tr *pipelinev1.TaskRun) {
-	if err := sharedMetrics.CountRunNotStored(ctx, tr.GetNamespace(), "TaskRun"); err != nil {
-		logger.Errorf("error counting TaskRun as stored: %w", err)
-	}
-}
-
 // DurationAndCountDeleted counts deleted number and record duration for TaskRuns
 func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, tr *pipelinev1.TaskRun) error {
 	taskName := "anonymous"
