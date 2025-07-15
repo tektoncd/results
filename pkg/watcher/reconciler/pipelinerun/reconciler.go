@@ -93,11 +93,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineR
 	// properly archived into the API server.
 	dyn.IsReadyForDeletionFunc = r.areAllUnderlyingTaskRunsReadyForDeletion
 	dyn.AfterDeletion = func(ctx context.Context, object results.Object) error {
-		pr := object.(*pipelinev1.PipelineRun)
+		pr, ok := object.(*pipelinev1.PipelineRun)
+		if !ok {
+			return fmt.Errorf("expected PipelineRun, got %T", object)
+		}
 		return r.pipelineRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr)
 	}
 	dyn.AfterStorage = func(ctx context.Context, object results.Object, _ bool) error {
-		pr := object.(*pipelinev1.PipelineRun)
+		pr, ok := object.(*pipelinev1.PipelineRun)
+		if !ok {
+			return fmt.Errorf("expected PipelineRun, got %T", object)
+		}
 		return r.metrics.RecordStorageLatency(ctx, pr)
 	}
 
