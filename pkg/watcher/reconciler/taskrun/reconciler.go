@@ -2,6 +2,7 @@ package taskrun
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/tektoncd/results/pkg/apis/config"
@@ -70,11 +71,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 
 	dyn := dynamic.NewDynamicReconciler(r.kubeClientSet, r.resultsClient, r.logsClient, taskRunClient, r.cfg)
 	dyn.AfterDeletion = func(ctx context.Context, object results.Object) error {
-		tr := object.(*pipelinev1.TaskRun)
+		tr, ok := object.(*pipelinev1.TaskRun)
+		if !ok {
+			return fmt.Errorf("expected TaskRun, got %T", object)
+		}
 		return r.taskRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
 	}
 	dyn.AfterStorage = func(ctx context.Context, o results.Object, _ bool) error {
-		tr := o.(*pipelinev1.TaskRun)
+		tr, ok := o.(*pipelinev1.TaskRun)
+		if !ok {
+			return fmt.Errorf("expected TaskRun, got %T", o)
+		}
 		return r.metrics.RecordStorageLatency(ctx, tr)
 	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)

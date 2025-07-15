@@ -1,3 +1,5 @@
+// Package metrics provides unified metrics recording for Tekton Results.
+// It includes metrics for tracking runs not stored and storage latency for both PipelineRuns and TaskRuns.
 package metrics
 
 import (
@@ -76,8 +78,9 @@ func unregisterViews(logger *zap.SugaredLogger) {
 	registeredAt = nil
 }
 
-// IdempotentRegisterViews Ensures all shared views are registered.
-// Does not unregister views if they have already been registered.
+// IdempotentRegisterViews ensures all shared views are registered exactly once.
+// If views are already registered, it does nothing.
+// If views were previously registered but may be stale, it unregisters and re-registers them.
 func IdempotentRegisterViews(logger *zap.SugaredLogger) {
 	registerMutex.Lock()
 	defer registerMutex.Unlock()

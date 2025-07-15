@@ -9,6 +9,7 @@ import (
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
+	sharedMetrics "github.com/tektoncd/results/pkg/metrics"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -105,13 +106,6 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
 			return
 		}
 		sharedMetrics.IdempotentRegisterViews(logger)
-	}
-}
-
-// CountRunNotStored records a PipelineRun that was not stored due to deletion or timeout
-func (r *Recorder) CountRunNotStored(ctx context.Context, logger *zap.SugaredLogger, pr *pipelinev1.PipelineRun) {
-	if err := sharedMetrics.CountRunNotStored(ctx, pr.GetNamespace(), "PipelineRun"); err != nil {
-		logger.Errorf("error counting PipelineRun as stored: %w", err)
 	}
 }
 
