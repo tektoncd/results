@@ -37,6 +37,7 @@ type Config interface {
 	Set(prompt bool, p common.Params) error
 	Reset(p common.Params) error
 	Validate() error
+	Host() any
 }
 
 type config struct {
@@ -301,9 +302,6 @@ func (c *config) LoadExtension(p common.Params) error {
 
 // Host retrieves a list of host URLs for the Tekton Results API based on the routes in the cluster.
 // It constructs the URLs using either HTTP or HTTPS depending on the TLS configuration of each route.
-//
-// Parameters:
-//   - p: common.Params containing configuration parameters (unused in this function but kept for consistency).
 //
 // Returns:
 //   - any: A slice of strings containing the host URLs if successful, or an error if route retrieval fails.
