@@ -38,6 +38,8 @@ spec:
       labels:
         app.kubernetes.io/name: tekton-results-postgres
     spec:
+      securityContext:
+        fsGroup: 1001
       containers:
       - name: postgres
         image: bitnami/postgresql@sha256:ac8dd0d6512c4c5fb146c16b1c5f05862bd5f600d73348506ab4252587e7fcc6 # 17.5.0
