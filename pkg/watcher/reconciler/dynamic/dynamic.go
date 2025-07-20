@@ -117,31 +117,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		}
 		ctxErr := ctx.Err()
 		if ctxErr == nil {
-			logger.Warnw("Leaving dynamic Reconciler somehow but the context channel is not closed",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()))
+			logger.Warn("Leaving dynamic Reconciler somehow but the context channel is not closed")
 			return
 		}
 		if ctxErr == context.Canceled {
-			logger.Debugw("Leaving dynamic Reconciler normally with context properly canceled",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()))
+			logger.Debug("Leaving dynamic Reconciler normally with context properly canceled")
 			return
 		}
 		if ctxErr == context.DeadlineExceeded {
-			logger.Warnw("Leaving dynamic Reconciler only after context timeout",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()))
+			logger.Warn("Leaving dynamic Reconciler only after context timeout")
 			return
 		}
-		logger.Warnw("Leaving dynamic Reconciler with unexpected error",
-			zap.String("error", ctxErr.Error()),
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()))
+		logger.Warnw("Leaving dynamic Reconciler with unexpected error", zap.String("error", ctxErr.Error()))
 	}()
 
 	if o.GetObjectKind().GroupVersionKind().Empty() {
@@ -174,12 +161,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		if r.cfg == nil || r.cfg.UpdateLogTimeout == nil {
 			// single threaded for unit tests given fragility of fake k8s client
 			if err = r.sendLog(ctx, o); err != nil {
-				logger.Errorw("Error sending log",
-					zap.String("namespace", o.GetNamespace()),
-					zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-					zap.String("name", o.GetName()),
-					zap.Error(err),
-				)
+				logger.Errorw("Error sending log", zap.Error(err))
 			}
 
 		} else {
@@ -206,12 +188,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 				go func() {
 					if err = r.sendLog(backgroundCtx, o); err != nil {
-						logger.Errorw("Error sending log",
-							zap.String("namespace", o.GetNamespace()),
-							zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-							zap.String("name", o.GetName()),
-							zap.Error(err),
-						)
+						logger.Errorw("Error sending log", zap.Error(err))
 					}
 					once.Do(func() { close(stopCh) })
 					// TODO once we have the log status available, report the error there for retry if needed
@@ -220,10 +197,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 				select {
 				case <-eventTicker.C:
 					once.Do(func() { close(stopCh) })
-					logger.Warnw("Leaving sendLogs thread only after timeout",
-						zap.String("namespace", o.GetNamespace()),
-						zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-						zap.String("name", o.GetName()))
+					logger.Warn("Leaving sendLogs thread only after timeout")
 
 				case <-stopCh:
 					// this is safe to call twice, as it does not need to close its buffered channel
@@ -237,22 +211,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	// CreateEvents if enabled
 	if r.cfg.StoreEvent {
 		if err := r.storeEvents(ctx, o); err != nil {
-			logger.Errorw("Error storing eventlist",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()),
-				zap.Error(err),
-			)
+			logger.Errorw("Error storing eventlist", zap.Error(err))
 			if ctxCancel != nil {
 				ctxCancel()
 			}
 			return err
 		}
-		logger.Debugw("Successfully store eventlist",
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()),
-		)
+		logger.Debug("Successfully store eventlist")
 	}
 	logger = logger.With(zap.String("results.tekton.dev/result", res.Name),
 		zap.String("results.tekton.dev/record", rec.Name))
@@ -469,27 +434,14 @@ func (r *Reconciler) sendLog(ctx context.Context, o results.Object) error {
 			return err
 		}
 
-		logger.Debugw("Streaming log started",
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()),
-		)
+		logger.Debug("Streaming log started")
 
 		err = r.streamLogs(ctx, o, logType, logName)
 		if err != nil {
-			logger.Errorw("Error streaming log",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()),
-				zap.Error(err),
-			)
+			logger.Errorw("Error streaming log", zap.Error(err))
 			// TODO once we have the log status available, report the error there for retry if needed
 		}
-		logger.Infow("Streaming log completed",
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-			zap.String("name", o.GetName()),
-		)
+		logger.Info("Streaming log completed")
 
 	}
 
@@ -549,18 +501,12 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 	bufStdout := inMemWriteBufferStdout.Bytes()
 	cntStdout, writeStdOutErr := writer.Write(bufStdout)
 	if writeStdOutErr != nil {
-		logger.Warnw("streamLogs in mem bufStdout write err",
-			zap.String("error", writeStdOutErr.Error()),
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("name", o.GetName()),
-		)
+		logger.Warnw("streamLogs in mem bufStdout write err", zap.String("error", writeStdOutErr.Error()))
 	}
 	if cntStdout != len(bufStdout) {
 		logger.Warnw("streamLogs bufStdout write len inconsistent",
 			zap.Int("in", len(bufStdout)),
 			zap.Int("out", cntStdout),
-			zap.String("namespace", o.GetNamespace()),
-			zap.String("name", o.GetName()),
 		)
 
 	}
@@ -578,8 +524,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 
 	_, flushErr := writer.Flush()
 	if flushErr != nil {
-		logger.Warnw("flush ret err",
-			zap.String("error", flushErr.Error()))
+		logger.Warnw("flush ret err", zap.String("error", flushErr.Error()))
 		logger.Error(flushErr)
 		return flushErr
 	}
@@ -605,10 +550,7 @@ func (r *Reconciler) streamLogs(ctx context.Context, o results.Object, logType, 
 		return closeErr
 	}
 
-	logger.Debugw("Exiting streamLogs",
-		zap.String("namespace", o.GetNamespace()),
-		zap.String("name", o.GetName()),
-	)
+	logger.Debug("Exiting streamLogs")
 
 	return nil
 }
@@ -639,12 +581,7 @@ func (r *Reconciler) storeEvents(ctx context.Context, o results.Object) error {
 			FieldSelector: "involvedObject.uid=" + string(o.GetUID()),
 		})
 		if err != nil {
-			logger.Errorf("Failed to store events - retrieve",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()),
-				zap.String("err", err.Error()),
-			)
+			logger.Errorf("Failed to store events - retrieve", zap.String("err", err.Error()))
 			return err
 		}
 
@@ -657,9 +594,6 @@ func (r *Reconciler) storeEvents(ctx context.Context, o results.Object) error {
 			})
 			if err != nil {
 				logger.Errorf("Failed to fetch taskrun pod events",
-					zap.String("namespace", o.GetNamespace()),
-					zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-					zap.String("name", o.GetName()),
 					zap.String("podname", podName),
 					zap.String("err", err.Error()),
 				)
@@ -673,12 +607,7 @@ func (r *Reconciler) storeEvents(ctx context.Context, o results.Object) error {
 		data := filterEventList(events)
 		eventList, err := json.Marshal(data)
 		if err != nil {
-			logger.Errorf("Failed to store events - marshal",
-				zap.String("namespace", o.GetNamespace()),
-				zap.String("kind", o.GetObjectKind().GroupVersionKind().Kind),
-				zap.String("name", o.GetName()),
-				zap.String("err", err.Error()),
-			)
+			logger.Errorf("Failed to store events - marshal", zap.String("err", err.Error()))
 			return err
 		}
 
