@@ -110,13 +110,6 @@ func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
 	}
 }
 
-// CountRunNotStored records a PipelineRun that was not stored due to deletion or timeout
-func (r *Recorder) CountRunNotStored(ctx context.Context, logger *zap.SugaredLogger, pr *pipelinev1.PipelineRun) {
-	if err := sharedMetrics.CountRunNotStored(ctx, pr.GetNamespace(), "PipelineRun"); err != nil {
-		logger.Errorf("error counting PipelineRun as stored: %w", err)
-	}
-}
-
 // DurationAndCountDeleted counts for deleted number and records duration PipelineRuns
 func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, pr *pipelinev1.PipelineRun) error {
 	pipelineName := "anonymous"
