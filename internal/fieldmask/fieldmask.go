@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -151,11 +152,20 @@ func (fm FieldMask) Filter(message proto.Message) {
 	})
 }
 
-// Paths return the dot "." JSON notation os all the paths in the FieldMask.
-// Parameter root []string is used internally for recursion, but it can also be used for setting an initial root path.
+// Paths return the dot "." JSON notation of all the paths in the FieldMask.
+// Parameter path []string is used internally for recursion, but it can also be used for setting an initial root path.
 func (fm FieldMask) Paths(path []string) (paths []string) {
-	for k, v := range fm {
-		path = append(path, k)
+	// Get all keys and sort them to ensure consistent order
+	keys := make([]string, 0, len(fm))
+	for k := range fm {
+		keys = append(keys, k)
+	}
+
+	// Sort keys to ensure deterministic output
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := fm[k]
 		if len(v) == 0 {
 			paths = append(paths, strings.Join(path, "."))
 		}
