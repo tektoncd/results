@@ -15,6 +15,7 @@ import (
 	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
@@ -61,7 +62,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 		}
 	}
 
-	taskRunClient := &dynamic.TaskRunClient{
+	taskRunClient := &client.TaskRunClient{
 		TaskRunInterface: r.pipelineClient.TektonV1().TaskRuns(tr.Namespace),
 	}
 
