@@ -15,13 +15,19 @@
 package annotation
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"slices"
 
+	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/logging"
 )
 
 const (
-
 	// Result identifier.
 	Result = "results.tekton.dev/result"
 
@@ -51,7 +57,23 @@ const (
 	// (e.g. TaskRun owned by a PipelineRun) is done and up to date in the
 	// API server and therefore, ready to be garbage collected.
 	ChildReadyForDeletion = "results.tekton.dev/childReadyForDeletion"
+
+	// FieldManager identifier to be used with Server-Side Apply patches
+	fieldManager = "tekton-results-watcher"
 )
+
+// ManagedAnnotations contains all annotation keys managed by the results watcher.
+// When adding new annotations above, add them to this slice as well.
+var ManagedAnnotations = []string{
+	Result,
+	Record,
+	Log,
+	EventList,
+	Stored,
+	ResultAnnotations,
+	RecordSummaryAnnotations,
+	ChildReadyForDeletion,
+}
 
 // Annotation is wrapper for Kubernetes resource annotations stored in the metadata.
 type Annotation struct {
@@ -59,65 +81,108 @@ type Annotation struct {
 	Value string
 }
 
-type mergePatch struct {
-	Metadata metadata `json:"metadata"`
+// Server-side apply patch structure
+type applyPatch struct {
+	APIVersion string   `json:"apiVersion"`
+	Kind       string   `json:"kind"`
+	Metadata   metadata `json:"metadata"`
 }
 
 type metadata struct {
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace"`
 	Annotations map[string]string `json:"annotations"`
 }
 
-// Patch creates a jsonpatch path used for adding result / record identifiers as
-// well as other internal annotations to an object's annotations field.
-func Patch(object metav1.Object, annotations ...Annotation) ([]byte, error) {
-	data := mergePatch{
+// Patch builds and applies a patch with the given annotations to the object using the provided object client.
+func Patch(
+	ctx context.Context,
+	object metav1.Object,
+	objectClient client.ObjectClient,
+	annotations ...Annotation,
+) error {
+
+	logger := logging.FromContext(ctx)
+
+	// Get the API version and kind from the object
+	var apiVersion, kind string
+	if runtimeObj, ok := object.(runtime.Object); ok {
+		if gvk := runtimeObj.GetObjectKind().GroupVersionKind(); !gvk.Empty() {
+			kind = gvk.Kind
+			apiVersion = gvk.GroupVersion().String()
+		}
+	}
+	// If we couldn't determine the kind or apiVersion, fail
+	if kind == "" || apiVersion == "" {
+		logger.Errorf("could not determine apiVersion and kind from object %s/%s", object.GetNamespace(), object.GetName())
+		return fmt.Errorf("could not determine apiVersion and kind from object %s/%s", object.GetNamespace(), object.GetName())
+	}
+
+	if IsPatched(object, annotations...) {
+		logger.Debugf("Skipping CRD annotation patch: annotations are already set ObjectName: %s", object.GetName())
+		return nil
+	}
+
+	data := applyPatch{
+		APIVersion: apiVersion,
+		Kind:       kind,
 		Metadata: metadata{
+			Name:        object.GetName(),
+			Namespace:   object.GetNamespace(),
 			Annotations: map[string]string{},
 		},
 	}
 
+	// Copy existing managed annotations from the object
+	// Only include annotations that we manage (results.tekton.dev/* annotations)
+	// to avoid conflicts with other controllers using server-side apply
+	currentAnnotations := object.GetAnnotations()
+	for key, value := range currentAnnotations {
+		if slices.Contains(ManagedAnnotations, key) {
+			data.Metadata.Annotations[key] = value
+		}
+	}
+
+	// Add/overwrite with new annotations
 	for _, annotation := range annotations {
 		if len(annotation.Value) != 0 {
 			data.Metadata.Annotations[annotation.Name] = annotation.Value
 		}
 	}
-
-	if isChildAndDone(object) {
-		data.Metadata.Annotations[ChildReadyForDeletion] = "true"
-	}
-	return json.Marshal(data)
-}
-
-// isChildAndDone returns true if the object in question is a child resource
-// (i.e. has owner references) and it's done, therefore eligible to be patched
-// with the results.tekton.dev/childReadyForDeletion annotation.
-func isChildAndDone(objecct metav1.Object) bool {
-	if len(objecct.GetOwnerReferences()) == 0 {
-		return false
+	patch, err := json.Marshal(data)
+	if err != nil {
+		return err
 	}
 
-	doneObj, ok := objecct.(interface{ IsDone() bool })
-	if !ok {
-		return false
+	patchOptions := metav1.PatchOptions{
+		FieldManager: fieldManager,
+		Force:        &[]bool{true}[0], // Force the update if conflict as only we should be updating those annotations
 	}
-	return doneObj.IsDone()
+	err = objectClient.Patch(ctx, object.GetName(), types.ApplyPatchType, patch, patchOptions)
+
+	// After successful patch, update in-memory object
+	if err == nil {
+		currentAnnotations := object.GetAnnotations()
+		if currentAnnotations == nil {
+			currentAnnotations = make(map[string]string)
+		}
+		for _, ann := range annotations {
+			currentAnnotations[ann.Name] = ann.Value
+		}
+		object.SetAnnotations(currentAnnotations)
+	}
+
+	return err
 }
 
 // IsPatched returns true if the object in question contains all relevant
 // annotations or false otherwise.
 func IsPatched(object metav1.Object, annotations ...Annotation) bool {
 	objAnnotations := object.GetAnnotations()
-	if isChildAndDone(object) {
-		if _, found := objAnnotations[ChildReadyForDeletion]; !found {
-			return false
-		}
-	}
-
 	for _, annotation := range annotations {
 		if objAnnotations[annotation.Name] != annotation.Value {
 			return false
 		}
 	}
-
 	return true
 }

@@ -27,8 +27,8 @@ import (
 	pipelinerunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/pipelinerun"
 	pipelinev1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
-
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -80,7 +80,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineR
 		}
 	}
 
-	pipelineRunClient := &dynamic.PipelineRunClient{
+	pipelineRunClient := &client.PipelineRunClient{
 		PipelineRunInterface: r.pipelineClient.TektonV1().PipelineRuns(pr.Namespace),
 	}
 
