@@ -1,6 +1,7 @@
 package config
 
 import (
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -28,10 +29,8 @@ type ViewOptions struct {
 // Returns:
 //   - *cobra.Command: A configured cobra.Command ready to be added to the CLI.
 func viewCommand(p common.Params) *cobra.Command {
-	ios := &genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
 	opts := &ViewOptions{
 		PrintFlags: genericclioptions.NewPrintFlags("").WithTypeSetter(scheme.Scheme).WithDefaultOutput("yaml"),
-		IOStreams:  ios,
 	}
 	c := &cobra.Command{
 		Use:   "view",
@@ -49,7 +48,22 @@ The configuration is displayed in YAML format.
 Examples:
   # View current configuration
   tkn-results config view`,
-		PreRunE: func(_ *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Set up IOStreams using command's output if available, otherwise use os streams
+			var out, errOut io.Writer = os.Stdout, os.Stderr
+			if cmd.OutOrStdout() != nil {
+				out = cmd.OutOrStdout()
+			}
+			if cmd.ErrOrStderr() != nil {
+				errOut = cmd.ErrOrStderr()
+			}
+
+			opts.IOStreams = &genericiooptions.IOStreams{
+				In:     os.Stdin,
+				Out:    out,
+				ErrOut: errOut,
+			}
+
 			printer, err := opts.PrintFlags.ToPrinter()
 			if err != nil {
 				return err

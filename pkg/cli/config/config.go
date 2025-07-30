@@ -22,7 +22,6 @@ import (
 
 // Constants defining various labels, names, and paths used in the Tekton Results configuration.
 const (
-	ServiceLabel  string = "app.kubernetes.io/name=tekton-results-api"
 	ExtensionName string = "tekton-results"
 	Group         string = "results.tekton.dev"
 	Version       string = "v1alpha2"
@@ -34,7 +33,7 @@ const (
 type Config interface {
 	Get() *client.Config
 	GetObject() runtime.Object
-	Set(prompt bool, p common.Params) error
+	Set(prompt bool, p common.Params, resultsNamespace string) error
 	Reset(p common.Params) error
 	Validate() error
 }
@@ -193,10 +192,10 @@ func (c *config) Persist(p common.Params) error {
 //
 // Returns:
 //   - error: An error if any step in the configuration process fails, nil otherwise.
-func (c *config) Set(prompt bool, p common.Params) error {
+func (c *config) Set(prompt bool, p common.Params, resultsNamespace string) error {
 	// get data from prompt in enabled
 	if prompt {
-		host := c.Host()
+		host := c.Host(resultsNamespace)
 		if err, ok := host.(error); ok {
 			return fmt.Errorf("failed to get host: %w", err)
 		}
@@ -299,29 +298,17 @@ func (c *config) LoadExtension(p common.Params) error {
 	return json.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
 }
 
-// Host retrieves a list of host URLs for the Tekton Results API based on the routes in the cluster.
-// It constructs the URLs using either HTTP or HTTPS depending on the TLS configuration of each route.
-//
-// Parameters:
-//   - p: common.Params containing configuration parameters (unused in this function but kept for consistency).
+// Host retrieves a list of host URLs for the Tekton Results API based on external access detection.
+// It automatically detects the platform and uses routes (OpenShift) or ingresses (Kubernetes).
 //
 // Returns:
-//   - any: A slice of strings containing the host URLs if successful, or an error if route retrieval fails.
-func (c *config) Host() any {
-	routes, err := getRoutes(c.RESTConfig)
+//   - any: A slice of strings containing the host URLs if successful, or an error if detection fails.
+func (c *config) Host(resultsNamespace string) any {
+	urls, err := getHostURLs(c.RESTConfig, resultsNamespace)
 	if err != nil {
 		return err
 	}
-
-	var hosts []string
-	for _, route := range routes {
-		host := "http://" + route.Spec.Host
-		if route.Spec.TLS != nil {
-			host = "https://" + route.Spec.Host
-		}
-		hosts = append(hosts, host)
-	}
-	return hosts
+	return urls
 }
 
 // Token returns the bearer token from the REST configuration.
