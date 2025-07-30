@@ -8,6 +8,7 @@ import (
 // PlatformType represents the type of Kubernetes platform
 type PlatformType string
 
+// Platform types for identifying the underlying Kubernetes platform
 const (
 	PlatformUnknown    PlatformType = "Unknown"
 	PlatformOpenShift  PlatformType = "OpenShift"

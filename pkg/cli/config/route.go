@@ -74,14 +74,9 @@ func getRoutesWithClients(routeClient routev1.RouteV1Interface, coreClient kuber
 	return allRoutes, nil
 }
 
-// isTektonResultsRoute checks if a route is for Tekton Results API
+// isTektonResultsRoute checks if a route is for the Tekton Results API
 func isTektonResultsRoute(route v1.Route) bool {
-	// Check if route points to tekton-results service
-	if route.Spec.To.Name == "tekton-results-api-service" {
-		return true
-	}
-
-	return false
+	return route.Spec.To.Name == "tekton-results-api-service"
 }
 
 // constructRouteURLs builds URLs from route configuration
