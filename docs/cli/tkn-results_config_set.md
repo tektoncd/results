@@ -1,6 +1,6 @@
 ## tkn-results config set
 
-Configure Tekton Results CLI settings
+Set Tekton Results CLI configuration values
 
 ### Synopsis
 
@@ -10,43 +10,52 @@ This command allows you to configure how the CLI interacts with the Tekton Resul
 It can automatically detect the API server in your cluster or allow manual configuration.
 
 The command will:
-1. Automatically detect the Tekton Results API server in your cluster
-2. Prompt for any missing configuration values
-3. Save the configuration for future use
+1. Automatically detect platform type (OpenShift vs Kubernetes)
+2. Search for routes (OpenShift) or ingresses (Kubernetes) in the appropriate namespace
+3. Prompt for any missing configuration values
+4. Save the configuration for future use
 
-Automatic Detection:
-- Cluster context and namespace
-- API server endpoint
-- Service account token (if available)
-
-Manual Configuration (if automatic detection fails):
-- API server host (e.g., http://localhost:8080)
-- Authentication token
-- Additional cluster settings
-
-Configuration Options:
-  --host                    API server host URL
-  --token                   Authentication token
-  --api-path                API server path prefix
-  --insecure-skip-tls-verify Skip TLS certificate verification
-  --kubeconfig, -k          Path to kubeconfig file
-  --context, -c             Kubernetes context to use
-  --namespace, -n           Kubernetes namespace
-
-Note: Interactive prompts will be skipped if any configuration flag (host, token, api-path, insecure-skip-tls-verify) is used.
+Detection Strategy:
+- OpenShift: Automatically detects routes in openshift-pipelines namespace (default) or custom namespace
+- Kubernetes: Automatically detects ingresses in tekton-pipelines namespace (default) or custom namespace
 
 Examples:
-  # Configure with automatic detection and interactive prompts
+  # Automatic detection with default namespace
   tkn-results config set
 
-  # Configure with specific parameters (no prompts)
-  tkn-results config set --host=http://localhost:8080 --token=my-token
+  # Automatic detection with custom Results namespace
+  tkn-results config set --results-namespace=my-tekton-namespace
 
-  # Configure with custom API path and namespace (no prompts)
-  tkn-results config set --api-path=/api/v1 --namespace=my-namespace
+  # Manual configuration (when automatic detection fails)
+  tkn-results config set --host=<api-server-url> --token=<token> --api-path=<path>
 
-  # Configure with custom kubeconfig and context
-  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
+  # Manual configuration with custom settings
+  tkn-results config set --host=<api-server-url> --token=<token> --api-path=/api/v1 --insecure-skip-tls-verify
+
+Automatic Detection:
+- OpenShift: Detects routes in openshift-pipelines namespace (default) or user-provided namespace
+- Kubernetes: Detects ingresses in tekton-pipelines namespace (default) or user-provided namespace
+- Constructs API URLs from route/ingress configuration
+- Filters routes/ingresses by service name (tekton-results-api-service) for better accuracy
+
+Manual Configuration (when automatic detection fails):
+- API server host URL
+- Authentication token
+- API path prefix
+- TLS verification settings
+
+If automatic detection fails or RBAC permissions are insufficient, you can provide values manually using the available flags.
+
+Results Namespace:
+The --results-namespace flag allows you to specify where Tekton Results is installed:
+- Default: tekton-pipelines (Kubernetes) or openshift-pipelines (OpenShift)
+- Custom: Use --results-namespace to specify a different namespace
+
+Permission Requirements:
+- Namespace access (get namespaces)
+- Route access (OpenShift: get routes)
+- Ingress access (Kubernetes: get ingresses)
+If you encounter permission errors, ask your admin to setup RBAC or use manual configuration.
 
 ```
 tkn-results config set
@@ -55,26 +64,27 @@ tkn-results config set
 ### Options
 
 ```
-  -h, --help   help for set
+      --api-path string            api path to use (default: value provided in config set command)
+  -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)
+  -h, --help                       help for set
+      --host string                host to use (default: value provided in config set command)
+      --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
+  -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
+  -n, --namespace string           namespace to use (default: from $KUBECONFIG)
+      --results-namespace string   namespace where Tekton Results is installed (default: tekton-pipelines for K8s, openshift-pipelines for OpenShift)
+      --token string               bearer token to use (default: value provided in config set command)
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -a, --addr string                [To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-      --api-path string            api path to use (default: value provided in config set command)
-  -t, --authtoken string           [To be deprecated] authorization bearer token to use for authenticated requests
-  -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)
-      --host string                host to use (default: value provided in config set command)
-      --insecure                   [To be deprecated] determines whether to run insecure GRPC tls request
-      --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
-  -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
-  -n, --namespace string           namespace to use (default: from $KUBECONFIG)
-      --portforward                [To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
-      --sa string                  [To be deprecated] ServiceAccount to use instead of token for authorization and authentication
-      --sa-ns string               [To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
-      --token string               bearer token to use (default: value provided in config set command)
-      --v1alpha2                   [To be deprecated] use v1alpha2 API for get log command
+  -a, --addr string        [To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+  -t, --authtoken string   [To be deprecated] authorization bearer token to use for authenticated requests
+      --insecure           [To be deprecated] determines whether to run insecure GRPC tls request
+      --portforward        [To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
+      --sa string          [To be deprecated] ServiceAccount to use instead of token for authorization and authentication
+      --sa-ns string       [To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
+      --v1alpha2           [To be deprecated] use v1alpha2 API for get log command
 ```
 
 ### SEE ALSO

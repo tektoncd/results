@@ -1,8 +1,8 @@
 .nh
-.TH "TKN-RESULTS" "1" "Jun 2025" "Tekton Results CLI" ""
+.TH "TKN-RESULTS" "1" "Jul 2025" "Tekton Results CLI" ""
 
 .SH NAME
-tkn-results-config-set - Configure Tekton Results CLI settings
+tkn-results-config-set - Set Tekton Results CLI configuration values
 
 
 .SH SYNOPSIS
@@ -18,81 +18,79 @@ It can automatically detect the API server in your cluster or allow manual confi
 
 .PP
 The command will:
-1. Automatically detect the Tekton Results API server in your cluster
-2. Prompt for any missing configuration values
-3. Save the configuration for future use
+1. Automatically detect platform type (OpenShift vs Kubernetes)
+2. Search for routes (OpenShift) or ingresses (Kubernetes) in the appropriate namespace
+3. Prompt for any missing configuration values
+4. Save the configuration for future use
 
 .PP
-Automatic Detection:
-- Cluster context and namespace
-- API server endpoint
-- Service account token (if available)
-
-.PP
-Manual Configuration (if automatic detection fails):
-- API server host (e.g., http://localhost:8080)
-- Authentication token
-- Additional cluster settings
-
-.PP
-Configuration Options:
-  --host                    API server host URL
-  --token                   Authentication token
-  --api-path                API server path prefix
-  --insecure-skip-tls-verify Skip TLS certificate verification
-  --kubeconfig, -k          Path to kubeconfig file
-  --context, -c             Kubernetes context to use
-  --namespace, -n           Kubernetes namespace
-
-.PP
-Note: Interactive prompts will be skipped if any configuration flag (host, token, api-path, insecure-skip-tls-verify) is used.
+Detection Strategy:
+- OpenShift: Automatically detects routes in openshift-pipelines namespace (default) or custom namespace
+- Kubernetes: Automatically detects ingresses in tekton-pipelines namespace (default) or custom namespace
 
 .PP
 Examples:
-  # Configure with automatic detection and interactive prompts
+  # Automatic detection with default namespace
   tkn-results config set
 
 .PP
-# Configure with specific parameters (no prompts)
-  tkn-results config set --host=http://localhost:8080 --token=my-token
+# Automatic detection with custom Results namespace
+  tkn-results config set --results-namespace=my-tekton-namespace
 
 .PP
-# Configure with custom API path and namespace (no prompts)
-  tkn-results config set --api-path=/api/v1 --namespace=my-namespace
+# Manual configuration (when automatic detection fails)
+  tkn-results config set --host= --token= --api-path=
 
 .PP
-# Configure with custom kubeconfig and context
-  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
+# Manual configuration with custom settings
+  tkn-results config set --host= --token= --api-path=/api/v1 --insecure-skip-tls-verify
+
+.PP
+Automatic Detection:
+- OpenShift: Detects routes in openshift-pipelines namespace (default) or user-provided namespace
+- Kubernetes: Detects ingresses in tekton-pipelines namespace (default) or user-provided namespace
+- Constructs API URLs from route/ingress configuration
+- Filters routes/ingresses by service name (tekton-results-api-service) for better accuracy
+
+.PP
+Manual Configuration (when automatic detection fails):
+- API server host URL
+- Authentication token
+- API path prefix
+- TLS verification settings
+
+.PP
+If automatic detection fails or RBAC permissions are insufficient, you can provide values manually using the available flags.
+
+.PP
+Results Namespace:
+The --results-namespace flag allows you to specify where Tekton Results is installed:
+- Default: tekton-pipelines (Kubernetes) or openshift-pipelines (OpenShift)
+- Custom: Use --results-namespace to specify a different namespace
+
+.PP
+Permission Requirements:
+- Namespace access (get namespaces)
+- Route access (OpenShift: get routes)
+- Ingress access (Kubernetes: get ingresses)
+If you encounter permission errors, ask your admin to setup RBAC or use manual configuration.
 
 
 .SH OPTIONS
-\fB-h\fP, \fB--help\fP[=false]
-	help for set
-
-
-.SH OPTIONS INHERITED FROM PARENT COMMANDS
-\fB-a\fP, \fB--addr\fP=""
-	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-
-.PP
 \fB--api-path\fP=""
 	api path to use (default: value provided in config set command)
-
-.PP
-\fB-t\fP, \fB--authtoken\fP=""
-	[To be deprecated] authorization bearer token to use for authenticated requests
 
 .PP
 \fB-c\fP, \fB--context\fP=""
 	name of the kubeconfig context to use (default: kubectl config current-context)
 
 .PP
-\fB--host\fP=""
-	host to use (default: value provided in config set command)
+\fB-h\fP, \fB--help\fP[=false]
+	help for set
 
 .PP
-\fB--insecure\fP[=false]
-	[To be deprecated] determines whether to run insecure GRPC tls request
+\fB--host\fP=""
+	host to use (default: value provided in config set command)
 
 .PP
 \fB--insecure-skip-tls-verify\fP[=false]
@@ -107,6 +105,27 @@ Examples:
 	namespace to use (default: from $KUBECONFIG)
 
 .PP
+\fB--results-namespace\fP=""
+	namespace where Tekton Results is installed (default: tekton-pipelines for K8s, openshift-pipelines for OpenShift)
+
+.PP
+\fB--token\fP=""
+	bearer token to use (default: value provided in config set command)
+
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+\fB-a\fP, \fB--addr\fP=""
+	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+
+.PP
+\fB-t\fP, \fB--authtoken\fP=""
+	[To be deprecated] authorization bearer token to use for authenticated requests
+
+.PP
+\fB--insecure\fP[=false]
+	[To be deprecated] determines whether to run insecure GRPC tls request
+
+.PP
 \fB--portforward\fP[=true]
 	[To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
 
@@ -117,10 +136,6 @@ Examples:
 .PP
 \fB--sa-ns\fP=""
 	[To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
-
-.PP
-\fB--token\fP=""
-	bearer token to use (default: value provided in config set command)
 
 .PP
 \fB--v1alpha2\fP[=false]

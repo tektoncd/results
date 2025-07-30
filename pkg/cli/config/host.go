@@ -1,72 +1,69 @@
 package config
 
 import (
-	"context"
 	"errors"
+	"fmt"
 
-	v1 "github.com/openshift/api/route/v1"
-	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
 
-// getRoutes retrieves the OpenShift routes associated with Tekton Results services.
-//
-// It uses the provided Kubernetes REST configuration to create clients for core and route resources.
-// The function then lists services with a specific label, finds corresponding routes,
-// and matches them based on service name and port.
+// getHostURLs retrieves the external access URLs for Tekton Results API.
+// It automatically detects the platform (OpenShift vs Kubernetes) and uses the appropriate method.
 //
 // Parameters:
 //   - c: A pointer to a rest.Config struct containing the Kubernetes REST configuration.
+//   - resultsNamespace: The namespace where Tekton Results is installed. If empty, uses platform defaults.
 //
 // Returns:
-//   - A slice of pointers to v1.Route objects representing the matched routes.
-//   - An error if any step in the process fails, including if no services or routes are found.
-func getRoutes(c *rest.Config) ([]*v1.Route, error) {
-	coreV1Client, err := corev1.NewForConfig(c)
+//   - A slice of strings containing the external access URLs.
+//   - An error if any step in the process fails.
+func getHostURLs(c *rest.Config, resultsNamespace string) ([]string, error) {
+	if c == nil {
+		return nil, errors.New("nil REST config provided")
+	}
+
+	platform := DetectPlatform(c)
+
+	// Use provided namespace or default based on platform
+	namespace := resultsNamespace
+	if namespace == "" {
+		namespace = GetDefaultResultsNamespace(platform)
+	}
+
+	switch platform {
+	case PlatformOpenShift:
+		return getOpenShiftRoutes(c, namespace)
+	case PlatformKubernetes:
+		return getKubernetesIngress(c, namespace)
+	default:
+		return nil, errors.New("unable to detect platform type")
+	}
+}
+
+// getOpenShiftRoutes retrieves OpenShift routes for Tekton Results API
+func getOpenShiftRoutes(c *rest.Config, namespace string) ([]string, error) {
+	routes, err := getRoutes(c, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	routeV1Client, err := routev1.NewForConfig(c)
+	if len(routes) == 0 {
+		return nil, fmt.Errorf("no Tekton Results routes found in namespace %s.\n\nEither:\n  1. Create a route for the tekton-results-api-service\n  2. Use manual configuration: tkn-results config set --host=<url> --token=<token> --api-path=<path>\n  3. Check if Results is installed in a different namespace using --results-namespace", namespace)
+	}
+
+	return constructRouteURLs(routes), nil
+}
+
+// getKubernetesIngress retrieves Kubernetes ingresses for Tekton Results API
+func getKubernetesIngress(c *rest.Config, namespace string) ([]string, error) {
+	ingresses, err := getIngresses(c, namespace)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to detect ingresses: %w.\n\nTry manual configuration:\n  tkn-results config set --host=<url> --token=<token> --api-path=<path>", err)
 	}
 
-	ctx := context.Background()
-	serviceList, err := coreV1Client.
-		Services("").
-		List(ctx, metav1.ListOptions{
-			LabelSelector: ServiceLabel,
-		})
-	if err != nil {
-		return nil, err
-	}
-	if len(serviceList.Items) == 0 {
-		return nil, errors.New("services for tekton results not found, try manual configuration")
+	if len(ingresses) == 0 {
+		return nil, fmt.Errorf("no Tekton Results ingresses found in namespace %s.\n\nEither:\n  1. Create an ingress for the tekton-results-api-service\n  2. Use manual configuration: tkn-results config set --host=<url> --token=<token> --api-path=<path>\n  3. Check if Results is installed in a different namespace using --results-namespace", namespace)
 	}
 
-	var routes []*v1.Route
-	for _, service := range serviceList.Items {
-		routeList, err := routeV1Client.Routes(service.Namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if len(routeList.Items) == 0 {
-			return nil, errors.New("routes for tekton results not found, try manual configuration")
-		}
-
-		for _, route := range routeList.Items {
-			if route.Spec.To.Name == service.Name {
-				port := route.Spec.Port.TargetPort
-				for _, p := range service.Spec.Ports {
-					if p.Port == port.IntVal || p.Name == port.StrVal {
-						routes = append(routes, &route)
-					}
-				}
-			}
-		}
-	}
-	return routes, nil
+	return constructIngressURLs(ingresses), nil
 }
