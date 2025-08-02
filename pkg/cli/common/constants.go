@@ -8,9 +8,8 @@ const (
 	// ListFields is the string used to fetch partial response
 	//  for the list command in the API calls
 	ListFields = "records.name,records.uid,records.create_time,records.update_time,records.data.value.metadata,records.data.value.status,next_page_token"
-	// NameAndUIDField is the string used to fetch only name and
-	// UID in an API call
-	NameAndUIDField = "records.name,records.uid"
+	// NameUIDAndDataField is the string used to fetch name, UID and Data
+	NameUIDAndDataField = "records.name,records.uid,records.data.value"
 	// AllNamespacesResultsParent is the parent path used for listing results across all namespaces.
 	AllNamespacesResultsParent = "-/results/-"
 )

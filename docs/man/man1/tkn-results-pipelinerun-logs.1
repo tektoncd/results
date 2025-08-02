@@ -1,5 +1,5 @@
 .nh
-.TH "TKN-RESULTS" "1" "Jun 2025" "Tekton Results CLI" ""
+.TH "TKN-RESULTS" "1" "Aug 2025" "Tekton Results CLI" ""
 
 .SH NAME
 tkn-results-pipelinerun-logs - Get logs for a PipelineRun
@@ -16,6 +16,7 @@ Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
 Additionally, PipelineRun logs are not supported for S3 log storage.
+Logs are only available for completed PipelineRuns. Running PipelineRuns do not have logs available yet.
 
 
 .SH OPTIONS
