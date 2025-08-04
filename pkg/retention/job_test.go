@@ -20,78 +20,148 @@ import (
 	"testing"
 	"time"
 
-	"github.com/robfig/cron/v3"
-	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/apis/config"
-	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
-func TestAgent_job(t *testing.T) {
-	// Setup in-memory SQLite database
-	dbMem, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("Failed to connect to in-memory database: %v", err)
+func Test_buildCaseStatement(t *testing.T) {
+	type args struct {
+		policies     []config.Policy
+		maxRetention time.Duration
 	}
-
-	// Auto migrate the schema
-	err = dbMem.AutoMigrate(&db.Record{}, &db.Result{})
-	if err != nil {
-		t.Fatalf("Failed to migrate database schema: %v", err)
-	}
-
-	// Create test agent
-	agent := &Agent{
-		db:     dbMem,
-		Logger: zap.NewExample().Sugar(),
-
-		RetentionPolicy: config.RetentionPolicy{
-			MaxRetention: 24 * time.Hour,
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "no policies",
+			args: args{
+				policies:     nil,
+				maxRetention: 30 * 24 * time.Hour,
+			},
+			want: "NOW() - INTERVAL '2592000.000000 seconds'",
 		},
-		cron: cron.New(),
+		{
+			name: "with policies",
+			args: args{
+				policies: []config.Policy{
+					{
+						Selector: config.Selector{
+							MatchLabels: map[string][]string{"app": {"foo"}},
+						},
+						Retention: "10d",
+					},
+				},
+				maxRetention: 30 * 24 * time.Hour,
+			},
+			want: "CASE WHEN data->'metadata'->'labels'->>'app' IN ('foo') THEN NOW() - INTERVAL '864000.000000 seconds' ELSE NOW() - INTERVAL '2592000.000000 seconds' END",
+		},
+		{
+			name: "with policies without suffix",
+			args: args{
+				policies: []config.Policy{
+					{
+						Selector: config.Selector{
+							MatchLabels: map[string][]string{"app": {"foo"}},
+						},
+						Retention: "10",
+					},
+				},
+				maxRetention: 30 * 24 * time.Hour,
+			},
+			want: "CASE WHEN data->'metadata'->'labels'->>'app' IN ('foo') THEN NOW() - INTERVAL '864000.000000 seconds' ELSE NOW() - INTERVAL '2592000.000000 seconds' END",
+		},
 	}
-
-	// Insert test data
-	now := time.Now()
-	oldResult := db.Result{UpdatedTime: now.Add(-25 * time.Hour), Parent: "foo", ID: "foo", Name: "foo"}
-	newResult := db.Result{UpdatedTime: now, Parent: "foo", ID: "foo-new", Name: "foo-new"}
-
-	oldRecord := db.Record{UpdatedTime: now.Add(-25 * time.Hour), Parent: "foo",
-		Result:     oldResult,
-		ResultName: "foo", ResultID: "foo", ID: "foo"}
-	newRecord := db.Record{UpdatedTime: now, Parent: "foo",
-		Result:     newResult,
-		ResultName: "foo-new", ResultID: "foo-new", ID: "foo-new"}
-
-	dbMem.Save(&oldRecord)
-	dbMem.Create(&newRecord)
-
-	// Run the job
-	agent.job()
-
-	// Check if old records and results are deleted
-	var count int64
-	dbMem.Model(&db.Record{}).Count(&count)
-	if count != 1 {
-		t.Errorf("Expected 1 record, got %d", count)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildCaseStatement(tt.args.policies, tt.args.maxRetention)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildCaseStatement() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("buildCaseStatement() = %v, want %v", got, tt.want)
+			}
+		})
 	}
+}
 
-	dbMem.Model(&db.Result{}).Count(&count)
-	if count != 1 {
-		t.Errorf("Expected 1 result, got %d", count)
+func Test_buildWhereClause(t *testing.T) {
+	type args struct {
+		selector config.Selector
 	}
-
-	// Check if new records and results are retained
-	var remainingRecord db.Record
-	dbMem.First(&remainingRecord)
-	if !remainingRecord.UpdatedTime.Equal(newRecord.UpdatedTime) {
-		t.Errorf("Expected remaining record to be the new one")
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "empty selector",
+			args: args{
+				selector: config.Selector{},
+			},
+			want: "1=1",
+		},
+		{
+			name: "with labels",
+			args: args{
+				selector: config.Selector{
+					MatchLabels: map[string][]string{"app": {"foo"}},
+				},
+			},
+			want: "data->'metadata'->'labels'->>'app' IN ('foo')",
+		},
+		{
+			name: "with annotations",
+			args: args{
+				selector: config.Selector{
+					MatchAnnotations: map[string][]string{"tekton.dev/image": {"bar"}},
+				},
+			},
+			want: "data->'metadata'->'annotations'->>'tekton.dev/image' IN ('bar')",
+		},
+		{
+			name: "with status",
+			args: args{
+				selector: config.Selector{
+					Status: []string{"Succeeded"},
+				},
+			},
+			want: "data->'status'->'conditions'->0->>'reason' IN ('Succeeded')",
+		},
+		{
+			name: "with namespace",
+			args: args{
+				selector: config.Selector{
+					MatchNamespace: []string{"prod"},
+				},
+			},
+			want: "parent IN ('prod')",
+		},
+		{
+			name: "with multiple conditions",
+			args: args{
+				selector: config.Selector{
+					MatchNamespace: []string{"prod"},
+					MatchLabels:    map[string][]string{"app": {"foo"}},
+					Status:         []string{"Succeeded"},
+				},
+			},
+			want: "parent IN ('prod') AND data->'metadata'->'labels'->>'app' IN ('foo') AND data->'status'->'conditions'->0->>'reason' IN ('Succeeded')",
+		},
 	}
-
-	var remainingResult db.Result
-	dbMem.First(&remainingResult)
-	if !remainingResult.UpdatedTime.Equal(newResult.UpdatedTime) {
-		t.Errorf("Expected remaining result to be the new one")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildWhereClause(tt.args.selector)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildWhereClause() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("buildWhereClause() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

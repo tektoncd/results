@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
 	runAt           = "runAt"
 	maxRetention    = "maxRetention"
+	policiesKey     = "policies"
 	retentionCMName = "tekton-results-config-results-retention-policy"
 	// DefaultRunAt is the default value for RunAt
 	DefaultRunAt = "7 7 * * 7"
@@ -19,10 +22,43 @@ const (
 	DefaultMaxRetention = time.Hour * 24 * 30
 )
 
+// ParseDuration parses a string into a time.Duration.
+// It handles standard formats like "24h", "90m", as well as the "d" suffix for days.
+// If no unit is specified, it defaults to days.
+func ParseDuration(durationStr string) (time.Duration, error) {
+	if strings.HasSuffix(durationStr, "d") {
+		days, err := strconv.Atoi(strings.TrimSuffix(durationStr, "d"))
+		if err != nil {
+			return 0, err
+		}
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	if days, err := strconv.Atoi(durationStr); err == nil {
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(durationStr)
+}
+
+// Policy defines a single retention policy rule.
+type Policy struct {
+	Name      string   `yaml:"name"`
+	Selector  Selector `yaml:"selector"`
+	Retention string   `yaml:"retention"`
+}
+
+// Selector defines the selection criteria for a policy.
+type Selector struct {
+	MatchNamespace   []string            `yaml:"matchNamespace"`
+	MatchLabels      map[string][]string `yaml:"matchLabels"`
+	MatchAnnotations map[string][]string `yaml:"matchAnnotations"`
+	Status           []string            `yaml:"status"`
+}
+
 // RetentionPolicy holds the configurations for the Retention Policy of the DB
 type RetentionPolicy struct {
 	RunAt        string
 	MaxRetention time.Duration
+	Policies     []Policy
 }
 
 // DeepCopy copying the receiver, creating a new RetentionPolicy.
@@ -31,6 +67,7 @@ func (cfg *RetentionPolicy) DeepCopy() *RetentionPolicy {
 	return &RetentionPolicy{
 		RunAt:        cfg.RunAt,
 		MaxRetention: cfg.MaxRetention,
+		Policies:     cfg.Policies,
 	}
 }
 
@@ -59,12 +96,21 @@ func newRetentionPolicyFromMap(cfgMap map[string]string) (*RetentionPolicy, erro
 	}
 
 	if duration, ok := cfgMap[maxRetention]; ok {
-		v, err := strconv.Atoi(duration)
+		v, err := ParseDuration(duration)
 		if err != nil {
-			return nil, fmt.Errorf("incorrect configuration for maxRetention:%s", err.Error())
+			return nil, fmt.Errorf("incorrect configuration for maxRetention: %w", err)
 		}
-		rp.MaxRetention = time.Hour * 24 * time.Duration(v)
+		rp.MaxRetention = v
 	}
+
+	if policiesYAML, ok := cfgMap[policiesKey]; ok {
+		var policies []Policy
+		if err := yaml.Unmarshal([]byte(policiesYAML), &policies); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal policies: %w", err)
+		}
+		rp.Policies = policies
+	}
+
 	return &rp, nil
 }
 

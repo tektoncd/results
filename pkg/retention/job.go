@@ -17,11 +17,13 @@ limitations under the License.
 package retention
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/robfig/cron/v3"
-	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/db/errors"
+	"github.com/tektoncd/results/pkg/apis/config"
 )
 
 func (a *Agent) start() {
@@ -42,23 +44,91 @@ func (a *Agent) stop() {
 }
 
 func (a *Agent) job() {
-	now := time.Now().Add(-a.MaxRetention)
-	a.Logger.Infof("retention job started at: %s, deleting data older than %s, retention policy: %s",
-		time.Now().String(), now, a.RetentionPolicy)
+	a.Logger.Infof("retention job started at: %s, retention policy: %+v", time.Now().String(), a.RetentionPolicy)
 
-	q := a.db.Unscoped().
-		Where("updated_time < ?", now).
-		Delete(&db.Record{})
-	if err := errors.Wrap(q.Error); err != nil {
-		a.Logger.Errorf("failed to delete record %s", err.Error())
+	caseStatement, err := buildCaseStatement(a.Policies, a.MaxRetention)
+	if err != nil {
+		a.Logger.Errorf("failed to build case statement: %v", err)
+		return
 	}
-	q = a.db.Unscoped().
-		Where("updated_time < ?", now).
-		Delete(&db.Result{})
-	if err := errors.Wrap(q.Error); err != nil {
-		a.Logger.Errorf("failed to delete result %s", err.Error())
-	}
+
+	// First, clean up PipelineRun results.
+	a.cleanupResults(caseStatement, "tekton.dev/v1.PipelineRun")
+
+	// Second, clean up top-level TaskRun results.
+	a.cleanupResults(caseStatement, "tekton.dev/v1.TaskRun")
 
 	a.Logger.Infof("retention job finished at: %s", time.Now().String())
+}
 
+func (a *Agent) cleanupResults(caseStatement, recordType string) {
+	deleteQuery := fmt.Sprintf(`
+        DELETE FROM results
+        WHERE id IN (
+            SELECT result_id FROM (
+                SELECT
+                    r.result_id,
+                    r.updated_time,
+                    %s AS expiration_time
+                FROM records r
+                WHERE r.type = '%s'
+            ) AS subquery
+            WHERE updated_time < expiration_time
+        )
+    `, caseStatement, recordType)
+
+	if err := errors.Wrap(a.db.Exec(deleteQuery).Error); err != nil {
+		a.Logger.Errorf("failed to delete results for record type %s: %s", recordType, err.Error())
+	}
+}
+
+func buildCaseStatement(policies []config.Policy, maxRetention time.Duration) (string, error) {
+	if len(policies) == 0 {
+		return fmt.Sprintf("NOW() - INTERVAL '%f seconds'", maxRetention.Seconds()), nil
+	}
+	var caseClauses []string
+	for _, policy := range policies {
+		whereClause, err := buildWhereClause(policy.Selector)
+		if err != nil {
+			return "", err
+		}
+		retentionDuration, err := config.ParseDuration(policy.Retention)
+		if err != nil {
+			return "", err
+		}
+		caseClauses = append(caseClauses, fmt.Sprintf("WHEN %s THEN NOW() - INTERVAL '%f seconds'", whereClause, retentionDuration.Seconds()))
+	}
+
+	maxRetentionSeconds := maxRetention.Seconds()
+	caseClauses = append(caseClauses, fmt.Sprintf("ELSE NOW() - INTERVAL '%f seconds'", maxRetentionSeconds))
+
+	return fmt.Sprintf("CASE %s END", strings.Join(caseClauses, " ")), nil
+}
+
+func buildWhereClause(selector config.Selector) (string, error) {
+	var conditions []string
+	if len(selector.MatchNamespace) > 0 {
+		conditions = append(conditions, fmt.Sprintf("parent IN (%s)", quoteAndJoin(selector.MatchNamespace)))
+	}
+	for key, values := range selector.MatchLabels {
+		conditions = append(conditions, fmt.Sprintf("data->'metadata'->'labels'->>'%s' IN (%s)", key, quoteAndJoin(values)))
+	}
+	for key, values := range selector.MatchAnnotations {
+		conditions = append(conditions, fmt.Sprintf("data->'metadata'->'annotations'->>'%s' IN (%s)", key, quoteAndJoin(values)))
+	}
+	if len(selector.Status) > 0 {
+		conditions = append(conditions, fmt.Sprintf("data->'status'->'conditions'->0->>'reason' IN (%s)", quoteAndJoin(selector.Status)))
+	}
+	if len(conditions) == 0 {
+		return "1=1", nil // No specific selectors, so match all.
+	}
+	return strings.Join(conditions, " AND "), nil
+}
+
+func quoteAndJoin(items []string) string {
+	quoted := make([]string, len(items))
+	for i, item := range items {
+		quoted[i] = fmt.Sprintf("'%s'", item)
+	}
+	return strings.Join(quoted, ",")
 }
