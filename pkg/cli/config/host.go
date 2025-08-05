@@ -1,10 +1,9 @@
 package config
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net/http"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -47,15 +46,16 @@ func tryConnectToRoute(c *rest.Config) (string, error) {
 
 	// OpenShift route patterns: tekton-results-api-service-{namespace}.apps.{cluster-domain}
 	namespace := "openshift-pipelines"
+	serviceName := "tekton-results-api-service"
 
 	// Try HTTPS first (most common for OpenShift routes)
-	httpsURL := fmt.Sprintf("https://tekton-results-api-service-%s.apps.%s", namespace, clusterDomain)
+	httpsURL := fmt.Sprintf("https://%s-%s.apps.%s", serviceName, namespace, clusterDomain)
 	if isURLReachable(httpsURL) {
 		return httpsURL, nil
 	}
 
 	// Try HTTP as fallback
-	httpURL := fmt.Sprintf("http://tekton-results-api-service-%s.apps.%s", namespace, clusterDomain)
+	httpURL := fmt.Sprintf("http://%s-%s.apps.%s", serviceName, namespace, clusterDomain)
 	if isURLReachable(httpURL) {
 		return httpURL, nil
 	}
@@ -101,23 +101,33 @@ func extractClusterDomain(apiServerURL string) (string, error) {
 	return "", fmt.Errorf("unable to extract cluster domain")
 }
 
-// isURLReachable checks if a URL is reachable with a simple HTTP request
+// isURLReachable checks if a URL is reachable with a simple TCP connection test
 func isURLReachable(testURL string) bool {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-		// Allow insecure connections for testing
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
-	resp, err := client.Get(testURL)
+	// Parse URL to extract hostname and determine port
+	parsedURL, err := url.Parse(testURL)
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
 
-	// Consider any HTTP response (even errors like 401, 403) as "reachable"
-	// because it means the service is there, just might need authentication
-	return resp.StatusCode < 500 // 2xx, 3xx, 4xx are all considered reachable
+	// Get hostname and add appropriate port
+	hostname := parsedURL.Hostname()
+	var port string
+	switch parsedURL.Scheme {
+	case "https":
+		port = "443"
+	case "http":
+		port = "80"
+	default:
+		return false // unsupported scheme
+	}
+
+	// Create host:port for dialing
+	hostPort := hostname + ":" + port
+
+	// Test TCP connectivity
+	conn, err := net.DialTimeout("tcp", hostPort, 5*time.Second)
+	if conn != nil {
+		_ = conn.Close()
+	}
+	return err == nil
 }

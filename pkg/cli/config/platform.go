@@ -27,47 +27,30 @@ func DetectPlatform(c *rest.Config) PlatformType {
 		return PlatformKubernetes // Default to Kubernetes if discovery fails
 	}
 
-	// Check for OpenShift-specific API groups
-	openShiftAPIGroups := []string{
-		"route.openshift.io",    // Routes (core OpenShift feature)
-		"image.openshift.io",    // Image streams
-		"apps.openshift.io",     // DeploymentConfigs
-		"security.openshift.io", // Security Context Constraints
-		"project.openshift.io",  // Projects
-		"user.openshift.io",     // Users and groups
-		"oauth.openshift.io",    // OAuth
-		"config.openshift.io",   // Cluster configuration
+	// Check for OpenShift-specific API groups using a map for efficient lookup
+	openShiftAPIGroups := map[string]bool{
+		"route.openshift.io":    true, // Routes (core OpenShift feature)
+		"image.openshift.io":    true, // Image streams
+		"apps.openshift.io":     true, // DeploymentConfigs
+		"security.openshift.io": true, // Security Context Constraints
+		"project.openshift.io":  true, // Projects
+		"user.openshift.io":     true, // Users and groups
+		"oauth.openshift.io":    true, // OAuth
+		"config.openshift.io":   true, // Cluster configuration
 	}
 
 	apiGroupList, err := discoveryClient.ServerGroups()
 	if err != nil {
-		return PlatformKubernetes // Default to Kubernetes if API discovery fails
-	}
-
-	availableGroups := make(map[string]bool)
-	for _, group := range apiGroupList.Groups {
-		availableGroups[group.Name] = true
+		return PlatformUnknown
 	}
 
 	// Check if any OpenShift API groups are present
-	for _, osGroup := range openShiftAPIGroups {
-		if _, found := availableGroups[osGroup]; found {
+	for _, group := range apiGroupList.Groups {
+		if openShiftAPIGroups[group.Name] {
 			return PlatformOpenShift
 		}
 	}
 
 	// No OpenShift API groups found - this is Kubernetes
 	return PlatformKubernetes
-}
-
-// GetDefaultResultsNamespace returns the default namespace based on platform
-func GetDefaultResultsNamespace(platform PlatformType) string {
-	switch platform {
-	case PlatformOpenShift:
-		return "openshift-pipelines"
-	case PlatformKubernetes:
-		return "tekton-pipelines"
-	default:
-		return "tekton-pipelines" // default to K8s
-	}
 }
