@@ -30,7 +30,7 @@ Use manual configuration when:
 Route Requirements (OpenShift):
 - Route name: tekton-results-api-service
 - Namespace: openshift-pipelines
-- Expected URL format: https://tekton-results-api-service-openshift-pipelines.apps.<cluster-domain>
+- Expected URL format: https://<route-name>-<namespace>.apps.<cluster-domain>
 
 If your route deviates from this standard format, use manual configuration.
 
