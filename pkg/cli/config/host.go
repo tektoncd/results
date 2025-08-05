@@ -1,72 +1,123 @@
 package config
 
 import (
-	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
-	v1 "github.com/openshift/api/route/v1"
-	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
 
-// getRoutes retrieves the OpenShift routes associated with Tekton Results services.
-//
-// It uses the provided Kubernetes REST configuration to create clients for core and route resources.
-// The function then lists services with a specific label, finds corresponding routes,
-// and matches them based on service name and port.
+// getHostURL retrieves the external access URL for Tekton Results API.
+// It automatically detects the platform and tries to connect to the standard tekton-results-api-service endpoint.
 //
 // Parameters:
 //   - c: A pointer to a rest.Config struct containing the Kubernetes REST configuration.
 //
 // Returns:
-//   - A slice of pointers to v1.Route objects representing the matched routes.
-//   - An error if any step in the process fails, including if no services or routes are found.
-func getRoutes(c *rest.Config) ([]*v1.Route, error) {
-	coreV1Client, err := corev1.NewForConfig(c)
+//   - A string containing the external access URL.
+//   - An error if any step in the process fails.
+func getHostURL(c *rest.Config) (string, error) {
+	if c == nil {
+		return "", errors.New("nil REST config provided")
+	}
+
+	platform := DetectPlatform(c)
+
+	switch platform {
+	case PlatformOpenShift:
+		return tryConnectToRoute(c)
+	case PlatformKubernetes:
+		return "", fmt.Errorf("kubernetes ingress not supported")
+	default:
+		return "", errors.New("unable to detect platform type")
+	}
+}
+
+// tryConnectToRoute attempts to construct and test OpenShift route URLs to check the server's health
+func tryConnectToRoute(c *rest.Config) (string, error) {
+	clusterDomain, err := extractClusterDomain(c.Host)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to extract cluster domain")
 	}
 
-	routeV1Client, err := routev1.NewForConfig(c)
+	// OpenShift route patterns: tekton-results-api-service-{namespace}.apps.{cluster-domain}
+	namespace := "openshift-pipelines"
+
+	// Try HTTPS first (most common for OpenShift routes)
+	httpsURL := fmt.Sprintf("https://tekton-results-api-service-%s.apps.%s", namespace, clusterDomain)
+	if isURLReachable(httpsURL) {
+		return httpsURL, nil
+	}
+
+	// Try HTTP as fallback
+	httpURL := fmt.Sprintf("http://tekton-results-api-service-%s.apps.%s", namespace, clusterDomain)
+	if isURLReachable(httpURL) {
+		return httpURL, nil
+	}
+	return "", fmt.Errorf("no reachable route found")
+}
+
+// extractClusterDomain extracts the cluster domain from the Kubernetes API server URL
+// Example: https://api.mycluster.example.com:6443 -> mycluster.example.com
+func extractClusterDomain(apiServerURL string) (string, error) {
+	if apiServerURL == "" {
+		return "", errors.New("empty API server URL")
+	}
+
+	// Parse the URL
+	u, err := url.Parse(apiServerURL)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to parse URL")
 	}
 
-	ctx := context.Background()
-	serviceList, err := coreV1Client.
-		Services("").
-		List(ctx, metav1.ListOptions{
-			LabelSelector: ServiceLabel,
-		})
+	hostname := u.Hostname()
+	if hostname == "" {
+		return "", errors.New("failed to extract hostname")
+	}
+
+	// For OpenShift/K8s, API server is typically: api.{cluster-domain}
+	// Extract {cluster-domain} part
+	if strings.HasPrefix(hostname, "api.") {
+		return strings.TrimPrefix(hostname, "api."), nil
+	}
+
+	// If it doesn't start with "api.", try to extract domain differently
+	// Handle cases like: k8s-api-server.cluster.example.com -> cluster.example.com
+	parts := strings.Split(hostname, ".")
+	if len(parts) >= 2 {
+		// Take the last two parts as domain (example.com)
+		// or more if it looks like a full domain
+		if len(parts) >= 3 {
+			return strings.Join(parts[1:], "."), nil // Skip first part
+		}
+		return strings.Join(parts, "."), nil
+	}
+
+	return "", fmt.Errorf("unable to extract cluster domain")
+}
+
+// isURLReachable checks if a URL is reachable with a simple HTTP request
+func isURLReachable(testURL string) bool {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		// Allow insecure connections for testing
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	resp, err := client.Get(testURL)
 	if err != nil {
-		return nil, err
+		return false
 	}
-	if len(serviceList.Items) == 0 {
-		return nil, errors.New("services for tekton results not found, try manual configuration")
-	}
+	defer resp.Body.Close()
 
-	var routes []*v1.Route
-	for _, service := range serviceList.Items {
-		routeList, err := routeV1Client.Routes(service.Namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if len(routeList.Items) == 0 {
-			return nil, errors.New("routes for tekton results not found, try manual configuration")
-		}
-
-		for _, route := range routeList.Items {
-			if route.Spec.To.Name == service.Name {
-				port := route.Spec.Port.TargetPort
-				for _, p := range service.Spec.Ports {
-					if p.Port == port.IntVal || p.Name == port.StrVal {
-						routes = append(routes, &route)
-					}
-				}
-			}
-		}
-	}
-	return routes, nil
+	// Consider any HTTP response (even errors like 401, 403) as "reachable"
+	// because it means the service is there, just might need authentication
+	return resp.StatusCode < 500 // 2xx, 3xx, 4xx are all considered reachable
 }

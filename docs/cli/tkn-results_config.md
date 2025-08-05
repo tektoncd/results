@@ -60,6 +60,6 @@ Examples:
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
 * [tkn-results config reset](tkn-results_config_reset.md)	 - Reset CLI configuration to defaults
-* [tkn-results config set](tkn-results_config_set.md)	 - Configure Tekton Results CLI settings
+* [tkn-results config set](tkn-results_config_set.md)	 - Set Tekton Results CLI configuration values
 * [tkn-results config view](tkn-results_config_view.md)	 - Display current CLI configuration
 
