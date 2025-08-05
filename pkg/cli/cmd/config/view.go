@@ -1,8 +1,6 @@
 package config
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 	"github.com/tektoncd/results/pkg/cli/common"
 	"github.com/tektoncd/results/pkg/cli/config"
@@ -28,10 +26,8 @@ type ViewOptions struct {
 // Returns:
 //   - *cobra.Command: A configured cobra.Command ready to be added to the CLI.
 func viewCommand(p common.Params) *cobra.Command {
-	ios := &genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
 	opts := &ViewOptions{
 		PrintFlags: genericclioptions.NewPrintFlags("").WithTypeSetter(scheme.Scheme).WithDefaultOutput("yaml"),
-		IOStreams:  ios,
 	}
 	c := &cobra.Command{
 		Use:   "view",
@@ -49,7 +45,13 @@ The configuration is displayed in YAML format.
 Examples:
   # View current configuration
   tkn-results config view`,
-		PreRunE: func(_ *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			opts.IOStreams = &genericiooptions.IOStreams{
+				In:     cmd.InOrStdin(),
+				Out:    cmd.OutOrStdout(),
+				ErrOut: cmd.ErrOrStderr(),
+			}
+
 			printer, err := opts.PrintFlags.ToPrinter()
 			if err != nil {
 				return err
