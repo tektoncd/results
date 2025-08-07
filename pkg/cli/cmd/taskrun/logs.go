@@ -1,11 +1,13 @@
 package taskrun
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/cli/options"
 
 	"github.com/spf13/cobra"
@@ -41,7 +43,8 @@ Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
 		Long: `Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is optional.
 
 NOTE:
-Logs are not supported for the system namespace or for the default namespace used by LokiStack.`,
+Logs are not supported for the system namespace or for the default namespace used by LokiStack.
+Logs are only available for completed TaskRuns. Running TaskRuns do not have logs available yet.`,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -86,7 +89,7 @@ Logs are not supported for the system namespace or for the default namespace use
 				Parent:   parent,
 				Filter:   filter,
 				PageSize: 25,
-			}, common.NameAndUIDField)
+			}, common.NameUIDAndDataField)
 			if err != nil {
 				return fmt.Errorf("failed to find TaskRun: %v", err)
 			}
@@ -111,6 +114,17 @@ Logs are not supported for the system namespace or for the default namespace use
 
 			// Get the TaskRun record
 			record := resp.Records[0]
+
+			// Check if the TaskRun is completed before attempting to get logs
+			var taskRun v1.TaskRun
+			if err := json.Unmarshal(record.Data.Value, &taskRun); err != nil {
+				return fmt.Errorf("failed to parse TaskRun data: %v", err)
+			}
+
+			if taskRun.Status.CompletionTime == nil {
+				fmt.Println("Logs are not available for running TaskRuns. Please wait for the TaskRun to complete before retrieving logs.")
+				return nil
+			}
 
 			// Create a new logs client
 			lc := logs.NewClient(opts.Client)

@@ -9,6 +9,7 @@ Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
 Additionally, PipelineRun logs are not supported for S3 log storage.
+Logs are only available for completed PipelineRuns. Running PipelineRuns do not have logs available yet.
 
 ```
 tkn-results pipelinerun logs [pipelinerun-name]

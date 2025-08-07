@@ -8,6 +8,7 @@ Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is
 
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
+Logs are only available for completed TaskRuns. Running TaskRuns do not have logs available yet.
 
 ```
 tkn-results taskrun logs [taskrun-name]
