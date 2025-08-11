@@ -18,14 +18,16 @@ The Results Retention Policy Agent is configured via the `tekton-results-config-
 The following fields are supported:
 
 - `runAt`: Determines when to run the pruning job for the DB. It uses a cron schedule format. The default is `"7 7 * * 7"` (every Sunday at 7:07 AM).
-- `maxRetention`: The **fallback** retention period for how long to keep Results and Records when no specific policy matches. This value does **not** override the retention period of a matching policy; it only applies when no policies match a given Result. This can be a number (e.g., `30`), which is interpreted as days, or a duration string (e.g., `30d`, `24h`). The default is `30d`.
+- `defaultRetention`: The **fallback** retention period for how long to keep Results and Records when no specific policy matches. This value does **not** override the retention period of a matching policy; it only applies when no policies match a given Result. This can be a number (e.g., `30`), which is interpreted as days, or a duration string (e.g., `30d`, `24h`). The default is `30d`.
+> **Note:**
+> `maxRetention` is deprecated and will be removed in a future release. If `defaultRetention` is not set, `maxRetention` will be used as the default retention period for backward compatibility.
 - `policies`: A list of fine-grained retention policies that allow for more specific control over data retention.
 
 ### Fine-Grained Retention Policies
 
 You can define a list of policies to control retention based on various criteria. The `policies` field in the ConfigMap accepts a YAML string containing a list of policy objects. Each policy has a `name`, a `selector`, and a `retention` period.
 
-When the retention job runs, it evaluates a Result against the policies in the order they are defined. The **first policy that matches** the Result will be applied. If no policies match, the default `maxRetention` period is used.
+When the retention job runs, it evaluates a Result against the policies in the order they are defined. The **first policy that matches** the Result will be applied. If no policies match, the default `defaultRetention` period is used.
 
 #### Policy Fields:
 - `name`: A descriptive name for the policy.
@@ -48,7 +50,7 @@ metadata:
   namespace: tekton-pipelines
 data:
   runAt: "0 2 * * *" # Run every day at 2:00 AM
-  maxRetention: "30d"
+  defaultRetention: "30d"
   policies: |
     - name: "retain-critical-failures-long-term"
       selector:
@@ -83,4 +85,4 @@ In this example:
 2.  Any Result with the annotation `debug/retain: "true"` will be kept for **14 days**.
 3.  Any other Result in the `production` or `prod-east` namespace will be kept for **60 days**.
 4.  Any Result in the `ci` namespace will be kept for **7 days**.
-5.  All other Results that do not match any of these policies will be kept for the default `maxRetention` period of **30 days**.
+5.  All other Results that do not match any of these policies will be kept for the default `defaultRetention` period of **30 days**.

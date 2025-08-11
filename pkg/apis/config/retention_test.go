@@ -22,32 +22,44 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			name: "empty config",
 			args: args{config: &corev1.ConfigMap{}},
 			want: &RetentionPolicy{
-				RunAt:        DefaultRunAt,
-				MaxRetention: DefaultMaxRetention,
+				RunAt:            DefaultRunAt,
+				DefaultRetention: DefaultDefaultRetention,
 			},
 		},
 		{
-			name: "maxRetention with d suffix",
+			name: "defaultRetention with d suffix",
 			args: args{config: &corev1.ConfigMap{
 				Data: map[string]string{
-					"maxRetention": "10d",
+					"defaultRetention": "10d",
 				},
 			}},
 			want: &RetentionPolicy{
-				RunAt:        DefaultRunAt,
-				MaxRetention: 10 * 24 * time.Hour,
+				RunAt:            DefaultRunAt,
+				DefaultRetention: 10 * 24 * time.Hour,
 			},
 		},
 		{
-			name: "maxRetention without suffix",
+			name: "defaultRetention without suffix",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"defaultRetention": "10",
+				},
+			}},
+			want: &RetentionPolicy{
+				RunAt:            DefaultRunAt,
+				DefaultRetention: 10 * 24 * time.Hour,
+			},
+		},
+		{
+			name: "maxRetention(deprecated) without suffix",
 			args: args{config: &corev1.ConfigMap{
 				Data: map[string]string{
 					"maxRetention": "10",
 				},
 			}},
 			want: &RetentionPolicy{
-				RunAt:        DefaultRunAt,
-				MaxRetention: 10 * 24 * time.Hour,
+				RunAt:            DefaultRunAt,
+				DefaultRetention: 10 * 24 * time.Hour,
 			},
 		},
 		{
@@ -64,8 +76,8 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 				},
 			}},
 			want: &RetentionPolicy{
-				RunAt:        DefaultRunAt,
-				MaxRetention: DefaultMaxRetention,
+				RunAt:            DefaultRunAt,
+				DefaultRetention: DefaultDefaultRetention,
 				Policies: []Policy{
 					{
 						Name: "policy1",

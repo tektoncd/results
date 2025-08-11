@@ -25,8 +25,8 @@ import (
 
 func Test_buildCaseStatement(t *testing.T) {
 	type args struct {
-		policies     []config.Policy
-		maxRetention time.Duration
+		policies         []config.Policy
+		defaultRetention time.Duration
 	}
 	tests := []struct {
 		name    string
@@ -37,8 +37,8 @@ func Test_buildCaseStatement(t *testing.T) {
 		{
 			name: "no policies",
 			args: args{
-				policies:     nil,
-				maxRetention: 30 * 24 * time.Hour,
+				policies:         nil,
+				defaultRetention: 30 * 24 * time.Hour,
 			},
 			want: "NOW() - INTERVAL '2592000.000000 seconds'",
 		},
@@ -53,7 +53,7 @@ func Test_buildCaseStatement(t *testing.T) {
 						Retention: "10d",
 					},
 				},
-				maxRetention: 30 * 24 * time.Hour,
+				defaultRetention: 30 * 24 * time.Hour,
 			},
 			want: "CASE WHEN data->'metadata'->'labels'->>'app' IN ('foo') THEN NOW() - INTERVAL '864000.000000 seconds' ELSE NOW() - INTERVAL '2592000.000000 seconds' END",
 		},
@@ -68,14 +68,14 @@ func Test_buildCaseStatement(t *testing.T) {
 						Retention: "10",
 					},
 				},
-				maxRetention: 30 * 24 * time.Hour,
+				defaultRetention: 30 * 24 * time.Hour,
 			},
 			want: "CASE WHEN data->'metadata'->'labels'->>'app' IN ('foo') THEN NOW() - INTERVAL '864000.000000 seconds' ELSE NOW() - INTERVAL '2592000.000000 seconds' END",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildCaseStatement(tt.args.policies, tt.args.maxRetention)
+			got, err := buildCaseStatement(tt.args.policies, tt.args.defaultRetention)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildCaseStatement() error = %v, wantErr %v", err, tt.wantErr)
 				return

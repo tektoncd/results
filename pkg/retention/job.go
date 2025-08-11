@@ -46,7 +46,7 @@ func (a *Agent) stop() {
 func (a *Agent) job() {
 	a.Logger.Infof("retention job started at: %s, retention policy: %+v", time.Now().String(), a.RetentionPolicy)
 
-	caseStatement, err := buildCaseStatement(a.Policies, a.MaxRetention)
+	caseStatement, err := buildCaseStatement(a.Policies, a.DefaultRetention)
 	if err != nil {
 		a.Logger.Errorf("failed to build case statement: %v", err)
 		return
@@ -82,9 +82,9 @@ func (a *Agent) cleanupResults(caseStatement, recordType string) {
 	}
 }
 
-func buildCaseStatement(policies []config.Policy, maxRetention time.Duration) (string, error) {
+func buildCaseStatement(policies []config.Policy, defaultRetention time.Duration) (string, error) {
 	if len(policies) == 0 {
-		return fmt.Sprintf("NOW() - INTERVAL '%f seconds'", maxRetention.Seconds()), nil
+		return fmt.Sprintf("NOW() - INTERVAL '%f seconds'", defaultRetention.Seconds()), nil
 	}
 	var caseClauses []string
 	for _, policy := range policies {
@@ -99,8 +99,8 @@ func buildCaseStatement(policies []config.Policy, maxRetention time.Duration) (s
 		caseClauses = append(caseClauses, fmt.Sprintf("WHEN %s THEN NOW() - INTERVAL '%f seconds'", whereClause, retentionDuration.Seconds()))
 	}
 
-	maxRetentionSeconds := maxRetention.Seconds()
-	caseClauses = append(caseClauses, fmt.Sprintf("ELSE NOW() - INTERVAL '%f seconds'", maxRetentionSeconds))
+	defaultRetentionSeconds := defaultRetention.Seconds()
+	caseClauses = append(caseClauses, fmt.Sprintf("ELSE NOW() - INTERVAL '%f seconds'", defaultRetentionSeconds))
 
 	return fmt.Sprintf("CASE %s END", strings.Join(caseClauses, " ")), nil
 }
