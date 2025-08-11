@@ -21,5 +21,5 @@ metadata:
 data:
   # runAt determines when to run pruning job in DB.
   runAt: "5 5 * * 0"
-  # max-retention in days determines for how long to keep the data in DB.
-  maxRetention: "30"
+  # default-retention in days determines for how long to keep the data in DB.
+  defaultRetention: "30"
