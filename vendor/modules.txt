@@ -722,7 +722,7 @@ github.com/gorilla/websocket
 # github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 ## explicit
 github.com/gregjones/httpcache
-# github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
+# github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 ## explicit; go 1.14
 github.com/grpc-ecosystem/go-grpc-middleware
 github.com/grpc-ecosystem/go-grpc-middleware/auth
@@ -2184,7 +2184,6 @@ k8s.io/client-go/tools/portforward
 k8s.io/client-go/tools/record
 k8s.io/client-go/tools/record/util
 k8s.io/client-go/tools/reference
-k8s.io/client-go/tools/remotecommand
 k8s.io/client-go/transport
 k8s.io/client-go/transport/spdy
 k8s.io/client-go/transport/websocket
@@ -2192,7 +2191,6 @@ k8s.io/client-go/util/apply
 k8s.io/client-go/util/cert
 k8s.io/client-go/util/connrotation
 k8s.io/client-go/util/consistencydetector
-k8s.io/client-go/util/exec
 k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
