@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/jinzhu/inflection"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"gorm.io/gorm/clause"
 )
 
@@ -29,6 +33,8 @@ type Relationships struct {
 	Relations map[string]*Relationship
 
 	EmbeddedRelations map[string]*Relationships
+
+	Mux sync.RWMutex
 }
 
 type Relationship struct {
@@ -72,7 +78,7 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 	cacheStore := schema.cacheStore
 
 	if relation.FieldSchema, err = getOrParse(fieldValue, cacheStore, schema.namer); err != nil {
-		schema.err = err
+		schema.err = fmt.Errorf("failed to parse field: %s, error: %w", field.Name, err)
 		return nil
 	}
 
@@ -95,9 +101,10 @@ func (schema *Schema) parseRelation(field *Field) *Relationship {
 	}
 
 	if relation.Type == has {
-		// don't add relations to embedded schema, which might be shared
 		if relation.FieldSchema != relation.Schema && relation.Polymorphic == nil && field.OwnerSchema == nil {
+			relation.FieldSchema.Relationships.Mux.Lock()
 			relation.FieldSchema.Relationships.Relations["_"+relation.Schema.Name+"_"+relation.Name] = relation
+			relation.FieldSchema.Relationships.Mux.Unlock()
 		}
 
 		switch field.IndirectFieldType.Kind() {
@@ -150,12 +157,12 @@ func (schema *Schema) setRelation(relation *Relationship) {
 	}
 
 	// set embedded relation
-	if len(relation.Field.BindNames) <= 1 {
+	if len(relation.Field.EmbeddedBindNames) <= 1 {
 		return
 	}
 	relationships := &schema.Relationships
-	for i, name := range relation.Field.BindNames {
-		if i < len(relation.Field.BindNames)-1 {
+	for i, name := range relation.Field.EmbeddedBindNames {
+		if i < len(relation.Field.EmbeddedBindNames)-1 {
 			if relationships.EmbeddedRelations == nil {
 				relationships.EmbeddedRelations = map[string]*Relationships{}
 			}
@@ -301,9 +308,9 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 	}
 
 	for idx, ownField := range ownForeignFields {
-		joinFieldName := strings.Title(schema.Name) + ownField.Name
+		joinFieldName := cases.Title(language.Und, cases.NoLower).String(schema.Name) + ownField.Name
 		if len(joinForeignKeys) > idx {
-			joinFieldName = strings.Title(joinForeignKeys[idx])
+			joinFieldName = cases.Title(language.Und, cases.NoLower).String(joinForeignKeys[idx])
 		}
 
 		ownFieldsMap[joinFieldName] = ownField
@@ -318,7 +325,7 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 	}
 
 	for idx, relField := range refForeignFields {
-		joinFieldName := strings.Title(relation.FieldSchema.Name) + relField.Name
+		joinFieldName := cases.Title(language.Und, cases.NoLower).String(relation.FieldSchema.Name) + relField.Name
 
 		if _, ok := ownFieldsMap[joinFieldName]; ok {
 			if field.Name != relation.FieldSchema.Name {
@@ -329,7 +336,7 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 		}
 
 		if len(joinReferences) > idx {
-			joinFieldName = strings.Title(joinReferences[idx])
+			joinFieldName = cases.Title(language.Und, cases.NoLower).String(joinReferences[idx])
 		}
 
 		referFieldsMap[joinFieldName] = relField
@@ -347,7 +354,7 @@ func (schema *Schema) buildMany2ManyRelation(relation *Relationship, field *Fiel
 	}
 
 	joinTableFields = append(joinTableFields, reflect.StructField{
-		Name: strings.Title(schema.Name) + field.Name,
+		Name: cases.Title(language.Und, cases.NoLower).String(schema.Name) + field.Name,
 		Type: schema.ModelType,
 		Tag:  `gorm:"-"`,
 	})
@@ -656,6 +663,7 @@ func (rel *Relationship) ParseConstraint() *Constraint {
 					if !(rel.References[idx].PrimaryKey == ref.PrimaryKey && rel.References[idx].ForeignKey == ref.ForeignKey &&
 						rel.References[idx].PrimaryValue == ref.PrimaryValue) {
 						matched = false
+						break
 					}
 				}
 
@@ -668,7 +676,7 @@ func (rel *Relationship) ParseConstraint() *Constraint {
 
 	var (
 		name     string
-		idx      = strings.Index(str, ",")
+		idx      = strings.IndexByte(str, ',')
 		settings = ParseTagSetting(str, ",")
 	)
 
@@ -755,8 +763,9 @@ func (rel *Relationship) ToQueryConditions(ctx context.Context, reflectValue ref
 }
 
 func copyableDataType(str DataType) bool {
+	lowerStr := strings.ToLower(string(str))
 	for _, s := range []string{"auto_increment", "primary key"} {
-		if strings.Contains(strings.ToLower(string(str)), s) {
+		if strings.Contains(lowerStr, s) {
 			return false
 		}
 	}
