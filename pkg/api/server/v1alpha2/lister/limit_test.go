@@ -17,10 +17,10 @@ package lister
 import (
 	"testing"
 
-	"gorm.io/gorm/utils/tests"
-
+	"github.com/google/go-cmp/cmp"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/utils/tests"
 )
 
 func TestLimitBuild(t *testing.T) {
@@ -38,9 +38,14 @@ func TestLimitBuild(t *testing.T) {
 
 		testDB.Statement.Build("LIMIT")
 
-		want := "LIMIT 11"
-		if got := testDB.Statement.SQL.String(); want != got {
-			t.Errorf("Want %q, but got %q", want, got)
+		wantSQL := "LIMIT ?"
+		if got := testDB.Statement.SQL.String(); wantSQL != got {
+			t.Errorf("Want SQL %q, but got %q", wantSQL, got)
+		}
+
+		wantVars := []interface{}{11}
+		if diff := cmp.Diff(wantVars, testDB.Statement.Vars); diff != "" {
+			t.Errorf("Mismatch in the statement's vars: %s", diff)
 		}
 	})
 

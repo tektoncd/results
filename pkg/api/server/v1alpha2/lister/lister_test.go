@@ -89,12 +89,12 @@ func TestBuildQuery(t *testing.T) {
 
 		testDB.Statement.Build("WHERE", "ORDER BY", "LIMIT")
 
-		want := "WHERE (created_time, id) < (?, ?) AND parent = ? AND (recordsummary_status = 1) ORDER BY created_time DESC,id DESC LIMIT 16"
+		want := "WHERE (created_time, id) < (?, ?) AND parent = ? AND (recordsummary_status = 1) ORDER BY created_time DESC,id DESC LIMIT ?"
 		if got := testDB.Statement.SQL.String(); want != got {
 			t.Errorf("Want %q, but got %q", want, got)
 		}
 
-		wantVars := []any{now, "bar", "foo"}
+		wantVars := []any{now, "bar", "foo", 16}
 		if diff := cmp.Diff(wantVars, testDB.Statement.Vars); diff != "" {
 			t.Errorf("Mismatch in the statement's vars:\n%s", diff)
 		}
