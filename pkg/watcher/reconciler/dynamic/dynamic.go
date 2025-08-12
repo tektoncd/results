@@ -36,6 +36,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
@@ -43,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
@@ -61,7 +61,7 @@ type Reconciler struct {
 	KubeClientSet kubernetes.Interface
 
 	resultsClient          *results.Client
-	objectClient           ObjectClient
+	objectClient           client.ObjectClient
 	cfg                    *reconciler.Config
 	IsReadyForDeletionFunc IsReadyForDeletion
 	AfterDeletion          AfterDeletion
@@ -85,7 +85,7 @@ type IsReadyForDeletion func(ctx context.Context, object results.Object) (bool, 
 type AfterDeletion func(ctx context.Context, object results.Object) error
 
 // NewDynamicReconciler creates a new dynamic Reconciler.
-func NewDynamicReconciler(kubeClientSet kubernetes.Interface, rc pb.ResultsClient, lc pb.LogsClient, oc ObjectClient, cfg *reconciler.Config) *Reconciler {
+func NewDynamicReconciler(kubeClientSet kubernetes.Interface, rc pb.ResultsClient, lc pb.LogsClient, oc client.ObjectClient, cfg *reconciler.Config) *Reconciler {
 	return &Reconciler{
 		resultsClient: results.NewClient(rc, lc, cfg),
 		KubeClientSet: kubeClientSet,
@@ -225,7 +225,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 
 	recordAnnotation := annotation.Annotation{Name: annotation.Record, Value: rec.GetName()}
 	resultAnnotation := annotation.Annotation{Name: annotation.Result, Value: res.GetName()}
-	if err = r.addResultsAnnotations(logging.WithLogger(ctx, logger), o, recordAnnotation, resultAnnotation); err != nil {
+	if err = r.addResultsAnnotations(ctx, o, recordAnnotation, resultAnnotation); err != nil {
 		// no grpc calls from addResultsAnnotation
 		if ctxCancel != nil {
 			ctxCancel()
@@ -233,8 +233,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 		return err
 	}
 
-	if err = r.deleteUponCompletion(logging.WithLogger(ctx, logger), o); err != nil {
-		// no grpc calls from addResultsAnnotation
+	if err = r.addChildReadyForDeletionAnnotations(ctx, o); err != nil {
+		if ctxCancel != nil {
+			ctxCancel()
+		}
+		return err
+	}
+
+	if err = r.deleteUponCompletion(ctx, o); err != nil {
+		// no grpc calls from deleteUponCompletion
 		if ctxCancel != nil {
 			ctxCancel()
 		}
@@ -243,7 +250,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, o results.Object) error {
 	if ctxCancel != nil {
 		defer ctxCancel()
 	}
-	return r.addStoredAnnotations(logging.WithLogger(ctx, logger), o)
+	return r.addStoredAnnotations(ctx, o)
 }
 
 // addResultsAnnotations adds Results annotations to the object in question if
@@ -252,15 +259,9 @@ func (r *Reconciler) addResultsAnnotations(ctx context.Context, o results.Object
 	logger := logging.FromContext(ctx)
 	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
 		logger.Debug("Skipping CRD annotation patch: annotation update is disabled")
-	} else if annotation.IsPatched(o, annotations...) {
-		logger.Debug("Skipping CRD annotation patch: Result annotations are already set")
 	} else {
-		// Update object with Result Annotations.
-		patch, err := annotation.Patch(o, annotations...)
+		err := annotation.Patch(ctx, o, r.objectClient, annotations...)
 		if err != nil {
-			return fmt.Errorf("error adding Result annotations: %w", err)
-		}
-		if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 			return fmt.Errorf("error patching object: %w", err)
 		}
 	}
@@ -686,20 +687,43 @@ func (r *Reconciler) addStoredAnnotations(ctx context.Context, o results.Object)
 		return nil
 	}
 
-	if annotation.IsPatched(o, stored) {
-		logger.Debugf("Skipping CRD annotation patch: Result Stored annotations are already set ObjectName: %s", o.GetName())
-		return nil
-	}
-
-	// Update object with Result Stored annotations.
-	patch, err := annotation.Patch(o, stored)
+	err := annotation.Patch(ctx, o, r.objectClient, stored)
 	if err != nil {
-		logger.Errorf("error adding stored annotations: %w ObjectName: %s", err, o.GetName())
-		return fmt.Errorf("error adding stored annotations: %w ObjectName: %s", err, o.GetName())
-	}
-	if err := r.objectClient.Patch(ctx, o.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		logger.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
 		return fmt.Errorf("error patching object with stored annotation: %w ObjectName: %s", err, o.GetName())
 	}
+	return nil
+}
+
+// addChildReadyForDeletionAnnotations set the ChildReadyForDeletion annotation
+// on objects which have an owner and are done.
+func (r *Reconciler) addChildReadyForDeletionAnnotations(ctx context.Context, o results.Object) error {
+	logger := logging.FromContext(ctx)
+	if r.cfg.GetDisableAnnotationUpdate() { //nolint:gocritic
+		logger.Debug("Skipping CRD ChildReadyForDeletion annotation patch: annotation update is disabled")
+		return nil
+	}
+
+	if len(o.GetOwnerReferences()) == 0 {
+		return nil
+	}
+
+	doneObj, ok := o.(interface{ IsDone() bool })
+	if !ok {
+		logger.Errorf("Object %s does not have IsDone() method", o.GetName())
+		return fmt.Errorf("object does not have IsDone() method")
+	}
+	if !doneObj.IsDone() {
+		logger.Debug("Skipping ChildReadyForDeletion annotation patch: object is not done yet")
+		return nil
+	}
+
+	childReadyForDeletion := annotation.Annotation{Name: annotation.ChildReadyForDeletion, Value: "true"}
+	err := annotation.Patch(ctx, o, r.objectClient, childReadyForDeletion)
+	if err != nil {
+		logger.Errorf("error patching object with ChildReadyForDeletion annotation: %w ObjectName: %s", err, o.GetName())
+		return fmt.Errorf("error patching object with ChildReadyForDeletion annotation: %w ObjectName: %s", err, o.GetName())
+	}
+
 	return nil
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/tektoncd/results/pkg/internal/test"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -131,7 +132,7 @@ func TestReconcile_TaskRun(t *testing.T) {
 	fakeclock := clockwork.NewFakeClockAt(time.Now())
 	clock = fakeclock
 
-	trclient := &TaskRunClient{TaskRunInterface: pipelineclient.Get(ctx).TektonV1().TaskRuns(taskrun.GetNamespace())}
+	trclient := &client.TaskRunClient{TaskRunInterface: pipelineclient.Get(ctx).TektonV1().TaskRuns(taskrun.GetNamespace())}
 	if _, err := trclient.Create(ctx, taskrun, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +441,7 @@ func TestReconcile_PipelineRun(t *testing.T) {
 	fakeclock := clockwork.NewFakeClockAt(time.Now())
 	clock = fakeclock
 
-	prclient := &PipelineRunClient{PipelineRunInterface: pipelineclient.Get(ctx).TektonV1().PipelineRuns(pipelinerun.GetNamespace())}
+	prclient := &client.PipelineRunClient{PipelineRunInterface: pipelineclient.Get(ctx).TektonV1().PipelineRuns(pipelinerun.GetNamespace())}
 	if _, err := prclient.Create(ctx, pipelinerun, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
