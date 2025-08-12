@@ -34,7 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	github.com/tektoncd/cli v0.41.0
+	github.com/tektoncd/cli v0.41.1
 	github.com/tektoncd/pipeline v1.3.1
 	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
