@@ -29,9 +29,14 @@ func viewCommand(p common.Params) *cobra.Command {
 	opts := &ViewOptions{
 		PrintFlags: genericclioptions.NewPrintFlags("").WithTypeSetter(scheme.Scheme).WithDefaultOutput("yaml"),
 	}
+
+	eg := `View current configuration:
+  tkn-results config view`
+
 	c := &cobra.Command{
-		Use:   "view",
-		Short: "Display current CLI configuration",
+		Use:     "view",
+		Short:   "Display current CLI configuration",
+		Example: eg,
 		Long: `Display the current configuration settings for the Tekton Results CLI.
 
 This command shows all configured settings including:
@@ -40,11 +45,7 @@ This command shows all configured settings including:
 - Cluster context and namespace
 - TLS verification settings
 
-The configuration is displayed in YAML format.
-
-Examples:
-  # View current configuration
-  tkn-results config view`,
+The configuration is displayed in YAML format.`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			opts.IOStreams = &genericiooptions.IOStreams{
 				In:     cmd.InOrStdin(),

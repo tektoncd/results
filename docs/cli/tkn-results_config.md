@@ -18,18 +18,21 @@ Available subcommands:
   view   - Display current configuration
   reset  - Reset configuration to defaults
 
-Examples:
-  # View current configuration
+### Examples
+
+```
+View current configuration:
   tkn-results config view
 
-  # Configure with automatic detection
+Configure with automatic detection:
   tkn-results config set
 
-  # Configure with specific parameters
+Configure with specific parameters:
   tkn-results config set --host=http://localhost:8080 --token=my-token
 
-  # Reset configuration to defaults
+Reset configuration to defaults:
   tkn-results config reset
+```
 
 ### Options
 
