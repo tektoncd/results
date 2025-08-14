@@ -17,18 +17,21 @@ This command will:
 Warning: This will remove all custom configuration settings.
          You will need to reconfigure the CLI after resetting.
 
-Examples:
-  # Reset all configuration settings
-  tkn-results config reset
-
-  # Reset and verify the changes
-  tkn-results config reset && tkn-results config view
-
-  # Reset and immediately reconfigure
-  tkn-results config reset && tkn-results config set
-
 ```
 tkn-results config reset
+```
+
+### Examples
+
+```
+Reset all configuration settings:
+  tkn-results config reset
+
+Reset and verify the changes:
+  tkn-results config reset && tkn-results config view
+
+Reset and immediately reconfigure:
+  tkn-results config reset && tkn-results config set
 ```
 
 ### Options

@@ -20,9 +20,20 @@ type ResetOptions struct {
 //   - *cobra.Command: A pointer to the created cobra command for resetting the configuration.
 func resetCommand(p common.Params) *cobra.Command {
 	opts := &ResetOptions{}
+
+	eg := `Reset all configuration settings:
+  tkn-results config reset
+
+Reset and verify the changes:
+  tkn-results config reset && tkn-results config view
+
+Reset and immediately reconfigure:
+  tkn-results config reset && tkn-results config set`
+
 	c := &cobra.Command{
-		Use:   "reset",
-		Short: "Reset CLI configuration to defaults",
+		Use:     "reset",
+		Short:   "Reset CLI configuration to defaults",
+		Example: eg,
 		Long: `Reset all configuration settings to their default values.
 
 This command will:
@@ -34,17 +45,7 @@ This command will:
    - TLS verification settings
 
 Warning: This will remove all custom configuration settings.
-         You will need to reconfigure the CLI after resetting.
-
-Examples:
-  # Reset all configuration settings
-  tkn-results config reset
-
-  # Reset and verify the changes
-  tkn-results config reset && tkn-results config view
-
-  # Reset and immediately reconfigure
-  tkn-results config reset && tkn-results config set`,
+         You will need to reconfigure the CLI after resetting.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			var err error
 			opts.Config, err = config.NewConfig(p)

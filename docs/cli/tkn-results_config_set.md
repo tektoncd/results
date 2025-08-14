@@ -6,14 +6,12 @@ Set Tekton Results CLI configuration values
 
 Configure how the CLI connects to the Tekton Results API server.
 
-
-
 Usage Modes:
 1. Interactive: Prompts for values with defaults where available
-   tkn-results config set
+   `tkn-results config set`
 
 2. Manual: Specify values via flags
-   tkn-results config set --host=<url> --token=<token> --api-path=<path>
+   `tkn-results config set --host=<url> --token=<token>`
 
 Configuration Options:
 - Host: Tekton Results API server URL
@@ -30,25 +28,28 @@ Use manual configuration when:
 Route Requirements (OpenShift):
 - Route name: tekton-results-api-service
 - Namespace: openshift-pipelines
-- Expected URL format: https://<route-name>-<namespace>.apps.<cluster-domain>
+- Expected URL format: `https://<route-name>-<namespace>.apps.<cluster-domain>`
 
 If your route deviates from this standard format, use manual configuration.
 
-Examples:
-  # Configure with automatic detection and interactive prompts
-  tkn-results config set
-
-  # Configure with specific parameters (no prompts)
-  tkn-results config set --host=http://localhost:8080 --token=my-token
-
-  # Configure with custom API path (no prompts)
-  tkn-results config set --api-path=/api/v1
-
-  # Configure with custom kubeconfig and context
-  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
-
 ```
 tkn-results config set
+```
+
+### Examples
+
+```
+Configure with automatic detection and interactive prompts:
+  tkn-results config set
+
+Configure with specific parameters (no prompts):
+  tkn-results config set --host=http://localhost:8080 --token=my-token
+
+Configure with custom API path (no prompts):
+  tkn-results config set --api-path=/api/v1
+
+Configure with custom kubeconfig and context:
+  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
 ```
 
 ### Options
