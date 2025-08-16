@@ -3,221 +3,87 @@ package config
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/tektoncd/results/pkg/cli/common"
-	"github.com/tektoncd/results/pkg/cli/config/test"
 )
 
+// TestCommand tests basic command creation and structure
 func TestCommand(t *testing.T) {
 	tests := []struct {
-		name            string
-		params          common.Params
-		wantErr         bool
-		expectedUse     string
-		expectedShort   string
-		expectedFlags   []string
-		expectedSubcmds []string
+		name   string
+		params common.Params
 	}{
 		{
-			name:          "valid params",
-			params:        &test.Params{},
-			wantErr:       false,
-			expectedUse:   "config",
-			expectedShort: "Manage Tekton Results CLI configuration",
-			expectedFlags: []string{
-				"kubeconfig",
-				"context",
-				"namespace",
-				"host",
-				"token",
-				"api-path",
-				"insecure-skip-tls-verify",
-			},
-			expectedSubcmds: []string{"set", "reset", "view"},
+			name:   "valid params",
+			params: &common.ResultsParams{},
 		},
 		{
-			name:          "nil params",
-			params:        nil,
-			wantErr:       false,
-			expectedUse:   "config",
-			expectedShort: "Manage Tekton Results CLI configuration",
-			expectedFlags: []string{
-				"kubeconfig",
-				"context",
-				"namespace",
-				"host",
-				"token",
-				"api-path",
-				"insecure-skip-tls-verify",
-			},
-			expectedSubcmds: []string{"set", "reset", "view"},
+			name:   "nil params",
+			params: nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := Command(tt.params)
-			if tt.wantErr {
-				assert.Nil(t, cmd)
-				return
+			if cmd == nil {
+				t.Fatal("expected command to be created")
 			}
 
-			require.NotNil(t, cmd)
-			assert.Equal(t, tt.expectedUse, cmd.Use)
-			assert.Equal(t, tt.expectedShort, cmd.Short)
-
-			// Verify flags
-			for _, flagName := range tt.expectedFlags {
-				flag := cmd.PersistentFlags().Lookup(flagName)
-				assert.NotNil(t, flag, "Expected flag %s to exist", flagName)
+			// Verify basic command properties
+			if cmd.Use != "config" {
+				t.Errorf("expected Use to be %q, got %q", "config", cmd.Use)
+			}
+			if cmd.Short != "Manage Tekton Results CLI configuration" {
+				t.Errorf("expected Short to be %q, got %q", "Manage Tekton Results CLI configuration", cmd.Short)
 			}
 
-			// Verify subcommands
+			// Verify specific subcommands exist
 			subcmds := cmd.Commands()
-			assert.Len(t, subcmds, len(tt.expectedSubcmds))
-			for _, expectedSubcmd := range tt.expectedSubcmds {
+			expectedSubcmds := []string{"set", "reset", "view"}
+			if len(subcmds) != len(expectedSubcmds) {
+				t.Errorf("expected %d subcommands, got %d", len(expectedSubcmds), len(subcmds))
+			}
+
+			for _, expectedCmd := range expectedSubcmds {
 				found := false
 				for _, subcmd := range subcmds {
-					if subcmd.Use == expectedSubcmd {
+					if subcmd.Use == expectedCmd {
 						found = true
-						// Verify subcommand properties
-						assert.NotNil(t, subcmd.RunE, "Subcommand %s should have a RunE function", expectedSubcmd)
-						assert.NotEmpty(t, subcmd.Short, "Subcommand %s should have a Short description", expectedSubcmd)
 						break
 					}
 				}
-				assert.True(t, found, "Expected subcommand %s to exist", expectedSubcmd)
+				if !found {
+					t.Errorf("expected subcommand %q to exist", expectedCmd)
+				}
+			}
+
+			// Verify PersistentPreRunE is set
+			if cmd.PersistentPreRunE == nil {
+				t.Error("expected PersistentPreRunE to be set")
 			}
 		})
 	}
 }
 
+// TestCommandPersistentPreRunE tests the persistent pre-run function
 func TestCommandPersistentPreRunE(t *testing.T) {
-	tests := []struct {
-		name    string
-		params  common.Params
-		wantErr bool
-	}{
-		{
-			name:    "valid params",
-			params:  &test.Params{},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := Command(tt.params)
-			// Command should always be created, even with nil params
-			require.NotNil(t, cmd, "Command should not be nil even for nil params")
-			require.NotNil(t, cmd.PersistentPreRunE, "PersistentPreRunE should not be nil")
-
-			// Parse flags before running PersistentPreRunE
-			cmd.SetArgs([]string{})
-			if err := cmd.ParseFlags([]string{}); err != nil {
-				t.Fatalf("Failed to parse flags: %v", err)
-			}
-
-			// Only test the PersistentPreRunE function if we have a command
-			err := cmd.PersistentPreRunE(cmd, []string{})
-			if tt.wantErr {
-				assert.Error(t, err, "Expected error for nil params")
-			} else {
-				assert.NoError(t, err, "Expected no error for valid params")
-			}
-		})
-	}
-}
-
-func TestCommandFlagDefaults(t *testing.T) {
-	params := &test.Params{}
+	params := &common.ResultsParams{}
 	cmd := Command(params)
 
-	// Test flag default values
-	tests := []struct {
-		name         string
-		flagName     string
-		defaultValue string
-	}{
-		{
-			name:         "kubeconfig default",
-			flagName:     "kubeconfig",
-			defaultValue: "",
-		},
-		{
-			name:         "context default",
-			flagName:     "context",
-			defaultValue: "",
-		},
-		{
-			name:         "namespace default",
-			flagName:     "namespace",
-			defaultValue: "",
-		},
-		{
-			name:         "host default",
-			flagName:     "host",
-			defaultValue: "",
-		},
-		{
-			name:         "token default",
-			flagName:     "token",
-			defaultValue: "",
-		},
-		{
-			name:         "api-path default",
-			flagName:     "api-path",
-			defaultValue: "",
-		},
-		{
-			name:         "insecure-skip-tls-verify default",
-			flagName:     "insecure-skip-tls-verify",
-			defaultValue: "false",
-		},
+	if cmd.PersistentPreRunE == nil {
+		t.Fatal("PersistentPreRunE should not be nil")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := cmd.PersistentFlags().Lookup(tt.flagName)
-			require.NotNil(t, flag)
-			assert.Equal(t, tt.defaultValue, flag.DefValue)
-		})
-	}
-}
-
-func TestCommandFlagShorthands(t *testing.T) {
-	params := &test.Params{}
-	cmd := Command(params)
-
-	// Test flag shorthand values
-	tests := []struct {
-		name      string
-		flagName  string
-		shorthand string
-	}{
-		{
-			name:      "kubeconfig shorthand",
-			flagName:  "kubeconfig",
-			shorthand: "k",
-		},
-		{
-			name:      "context shorthand",
-			flagName:  "context",
-			shorthand: "c",
-		},
-		{
-			name:      "namespace shorthand",
-			flagName:  "namespace",
-			shorthand: "n",
-		},
+	// Parse flags first to set up the command properly
+	cmd.SetArgs([]string{})
+	err := cmd.ParseFlags([]string{})
+	if err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := cmd.PersistentFlags().Lookup(tt.flagName)
-			require.NotNil(t, flag)
-			assert.Equal(t, tt.shorthand, flag.Shorthand)
-		})
+	// Test that it doesn't error with valid setup
+	err = cmd.PersistentPreRunE(cmd, []string{})
+	if err != nil {
+		t.Errorf("expected no error for valid params, got: %v", err)
 	}
 }

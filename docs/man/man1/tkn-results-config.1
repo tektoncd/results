@@ -26,23 +26,6 @@ Available subcommands:
   view   - Display current configuration
   reset  - Reset configuration to defaults
 
-.PP
-Examples:
-  # View current configuration
-  tkn-results config view
-
-.PP
-# Configure with automatic detection
-  tkn-results config set
-
-.PP
-# Configure with specific parameters
-  tkn-results config set --host=http://localhost:8080 --token=my-token
-
-.PP
-# Reset configuration to defaults
-  tkn-results config reset
-
 
 .SH OPTIONS
 \fB--api-path\fP=""
@@ -104,6 +87,22 @@ Examples:
 .PP
 \fB--v1alpha2\fP[=false]
 	[To be deprecated] use v1alpha2 API for get log command
+
+
+.SH EXAMPLE
+.EX
+View current configuration:
+  tkn-results config view
+
+Configure with automatic detection:
+  tkn-results config set
+
+Configure with specific parameters:
+  tkn-results config set --host=http://localhost:8080 --token=my-token
+
+Reset configuration to defaults:
+  tkn-results config reset
+.EE
 
 
 .SH SEE ALSO

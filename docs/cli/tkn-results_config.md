@@ -18,18 +18,21 @@ Available subcommands:
   view   - Display current configuration
   reset  - Reset configuration to defaults
 
-Examples:
-  # View current configuration
+### Examples
+
+```
+View current configuration:
   tkn-results config view
 
-  # Configure with automatic detection
+Configure with automatic detection:
   tkn-results config set
 
-  # Configure with specific parameters
+Configure with specific parameters:
   tkn-results config set --host=http://localhost:8080 --token=my-token
 
-  # Reset configuration to defaults
+Reset configuration to defaults:
   tkn-results config reset
+```
 
 ### Options
 
@@ -60,6 +63,6 @@ Examples:
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
 * [tkn-results config reset](tkn-results_config_reset.md)	 - Reset CLI configuration to defaults
-* [tkn-results config set](tkn-results_config_set.md)	 - Configure Tekton Results CLI settings
+* [tkn-results config set](tkn-results_config_set.md)	 - Set Tekton Results CLI configuration values
 * [tkn-results config view](tkn-results_config_view.md)	 - Display current CLI configuration
 

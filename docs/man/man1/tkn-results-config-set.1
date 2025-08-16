@@ -2,7 +2,7 @@
 .TH "TKN-RESULTS" "1" "Aug 2025" "Tekton Results CLI" ""
 
 .SH NAME
-tkn-results-config-set - Configure Tekton Results CLI settings
+tkn-results-config-set - Set Tekton Results CLI configuration values
 
 
 .SH SYNOPSIS
@@ -10,89 +10,55 @@ tkn-results-config-set - Configure Tekton Results CLI settings
 
 
 .SH DESCRIPTION
-Configure settings for the Tekton Results CLI.
+Configure how the CLI connects to the Tekton Results API server.
 
 .PP
-This command allows you to configure how the CLI interacts with the Tekton Results API server.
-It can automatically detect the API server in your cluster or allow manual configuration.
-
-.PP
-The command will:
-1. Automatically detect the Tekton Results API server in your cluster
-2. Prompt for any missing configuration values
-3. Save the configuration for future use
-
-.PP
-Automatic Detection:
-- Cluster context and namespace
-- API server endpoint
-- Service account token (if available)
-
-.PP
-Manual Configuration (if automatic detection fails):
-- API server host (e.g., http://localhost:8080)
-- Authentication token
-- Additional cluster settings
+Usage Modes:
+1. Interactive: Prompts for values with defaults where available
+   \fBtkn-results config set\fR
+.IP "  1." 5
+Manual: Specify values via flags
+\fBtkn-results config set --host=<url> --token=<token>\fR
 
 .PP
 Configuration Options:
-  --host                    API server host URL
-  --token                   Authentication token
-  --api-path                API server path prefix
-  --insecure-skip-tls-verify Skip TLS certificate verification
-  --kubeconfig, -k          Path to kubeconfig file
-  --context, -c             Kubernetes context to use
-  --namespace, -n           Kubernetes namespace
+- Host: Tekton Results API server URL
+- Token: Bearer token (defaults to current kubeconfig token)
+- API Path: API endpoint path
+- TLS Settings: Certificate verification options
 
 .PP
-Note: Interactive prompts will be skipped if any configuration flag (host, token, api-path, insecure-skip-tls-verify) is used.
+Use manual configuration when:
+- Route is not in openshift-pipelines namespace
+- Route name differs from tekton-results-api-service
+- Using custom domain patterns
+- On Kubernetes clusters (ingress hostnames vary)
 
 .PP
-Examples:
-  # Configure with automatic detection and interactive prompts
-  tkn-results config set
+Route Requirements (OpenShift):
+- Route name: tekton-results-api-service
+- Namespace: openshift-pipelines
+- Expected URL format: \fBhttps://<route-name>-<namespace>.apps.<cluster-domain>\fR
 
 .PP
-# Configure with specific parameters (no prompts)
-  tkn-results config set --host=http://localhost:8080 --token=my-token
-
-.PP
-# Configure with custom API path and namespace (no prompts)
-  tkn-results config set --api-path=/api/v1 --namespace=my-namespace
-
-.PP
-# Configure with custom kubeconfig and context
-  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
+If your route deviates from this standard format, use manual configuration.
 
 
 .SH OPTIONS
-\fB-h\fP, \fB--help\fP[=false]
-	help for set
-
-
-.SH OPTIONS INHERITED FROM PARENT COMMANDS
-\fB-a\fP, \fB--addr\fP=""
-	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-
-.PP
 \fB--api-path\fP=""
 	api path to use (default: value provided in config set command)
-
-.PP
-\fB-t\fP, \fB--authtoken\fP=""
-	[To be deprecated] authorization bearer token to use for authenticated requests
 
 .PP
 \fB-c\fP, \fB--context\fP=""
 	name of the kubeconfig context to use (default: kubectl config current-context)
 
 .PP
-\fB--host\fP=""
-	host to use (default: value provided in config set command)
+\fB-h\fP, \fB--help\fP[=false]
+	help for set
 
 .PP
-\fB--insecure\fP[=false]
-	[To be deprecated] determines whether to run insecure GRPC tls request
+\fB--host\fP=""
+	host to use (default: value provided in config set command)
 
 .PP
 \fB--insecure-skip-tls-verify\fP[=false]
@@ -107,6 +73,23 @@ Examples:
 	namespace to use (default: from $KUBECONFIG)
 
 .PP
+\fB--token\fP=""
+	bearer token to use (default: value provided in config set command)
+
+
+.SH OPTIONS INHERITED FROM PARENT COMMANDS
+\fB-a\fP, \fB--addr\fP=""
+	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
+
+.PP
+\fB-t\fP, \fB--authtoken\fP=""
+	[To be deprecated] authorization bearer token to use for authenticated requests
+
+.PP
+\fB--insecure\fP[=false]
+	[To be deprecated] determines whether to run insecure GRPC tls request
+
+.PP
 \fB--portforward\fP[=true]
 	[To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
 
@@ -119,12 +102,24 @@ Examples:
 	[To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
 
 .PP
-\fB--token\fP=""
-	bearer token to use (default: value provided in config set command)
-
-.PP
 \fB--v1alpha2\fP[=false]
 	[To be deprecated] use v1alpha2 API for get log command
+
+
+.SH EXAMPLE
+.EX
+Configure with automatic detection and interactive prompts:
+  tkn-results config set
+
+Configure with specific parameters (no prompts):
+  tkn-results config set --host=http://localhost:8080 --token=my-token
+
+Configure with custom API path (no prompts):
+  tkn-results config set --api-path=/api/v1
+
+Configure with custom kubeconfig and context:
+  tkn-results config set --kubeconfig=/path/to/kubeconfig --context=my-cluster
+.EE
 
 
 .SH SEE ALSO

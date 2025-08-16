@@ -14,12 +14,15 @@ This command shows all configured settings including:
 
 The configuration is displayed in YAML format.
 
-Examples:
-  # View current configuration
-  tkn-results config view
-
 ```
 tkn-results config view
+```
+
+### Examples
+
+```
+View current configuration:
+  tkn-results config view
 ```
 
 ### Options

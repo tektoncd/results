@@ -25,19 +25,6 @@ This command will:
 Warning: This will remove all custom configuration settings.
          You will need to reconfigure the CLI after resetting.
 
-.PP
-Examples:
-  # Reset all configuration settings
-  tkn-results config reset
-
-.PP
-# Reset and verify the changes
-  tkn-results config reset && tkn-results config view
-
-.PP
-# Reset and immediately reconfigure
-  tkn-results config reset && tkn-results config set
-
 
 .SH OPTIONS
 \fB-h\fP, \fB--help\fP[=false]
@@ -99,6 +86,19 @@ Examples:
 .PP
 \fB--v1alpha2\fP[=false]
 	[To be deprecated] use v1alpha2 API for get log command
+
+
+.SH EXAMPLE
+.EX
+Reset all configuration settings:
+  tkn-results config reset
+
+Reset and verify the changes:
+  tkn-results config reset && tkn-results config view
+
+Reset and immediately reconfigure:
+  tkn-results config reset && tkn-results config set
+.EE
 
 
 .SH SEE ALSO
