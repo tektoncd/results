@@ -17,7 +17,7 @@ import (
 
 // TestNewConfig tests the NewConfig function with various scenarios
 func TestNewConfig(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	tests := []struct {
 		name        string
@@ -148,7 +148,7 @@ func TestNewConfig(t *testing.T) {
 
 // TestSet tests the Set function
 func TestSet(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	p := &common.ResultsParams{}
 	p.SetKubeConfigPath(kubeconfigPath)
@@ -206,7 +206,7 @@ func TestSet(t *testing.T) {
 
 // TestReset tests the Reset function
 func TestReset(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	p := &common.ResultsParams{}
 	p.SetKubeConfigPath(kubeconfigPath)
@@ -282,7 +282,7 @@ func TestReset(t *testing.T) {
 
 // TestLoadClientConfig tests the LoadClientConfig function
 func TestLoadClientConfig(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	p := &common.ResultsParams{}
 	p.SetKubeConfigPath(kubeconfigPath)
@@ -331,7 +331,7 @@ func TestLoadClientConfig(t *testing.T) {
 
 // TestSetWithPrompt tests the Set function with prompt enabled
 func TestSetWithPrompt(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	// Create a mock REST config that will fail when used
 	mockConfig := &rest.Config{
@@ -385,7 +385,7 @@ func TestSetWithPrompt(t *testing.T) {
 
 // TestPersist tests the Persist function
 func TestPersist(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	p := &common.ResultsParams{}
 	p.SetKubeConfigPath(kubeconfigPath)
@@ -451,7 +451,7 @@ func TestPersist(t *testing.T) {
 
 // TestSetVersion tests the SetVersion function
 func TestSetVersion(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	p := &common.ResultsParams{}
 	p.SetKubeConfigPath(kubeconfigPath)
@@ -504,7 +504,7 @@ func TestSetVersion(t *testing.T) {
 
 // TestHost tests the Host function
 func TestHost(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	tests := []struct {
 		name        string
@@ -558,7 +558,7 @@ func TestHost(t *testing.T) {
 
 // TestToken tests the Token function
 func TestToken(t *testing.T) {
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	tests := []struct {
 		name         string
