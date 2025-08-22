@@ -6,6 +6,12 @@ Set Tekton Results CLI configuration values
 
 Configure how the CLI connects to the Tekton Results API server.
 
+Configuration Storage:
+The configuration is stored in a namespace-independent way in your kubeconfig file.
+This means the configuration persists across namespace switches (e.g., 'kubectl config 
+set-context --current --namespace=production' or 'oc project production').
+You only need to configure once per cluster/user combination.
+
 Usage Modes:
 1. Interactive: Prompts for values with defaults where available
    `tkn-results config set`
