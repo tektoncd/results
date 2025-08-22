@@ -175,12 +175,67 @@ func (c *config) Get() *client.Config {
 }
 
 func (c *config) Persist(p common.Params) error {
+	// Get the config context info for storing configuration
+	configContextName, clusterName, userName, err := c.getConfigContextInfo(p)
+	if err != nil {
+		return err
+	}
+
+	// Look for existing config context or create it
+	configContext, exists := c.APIConfig.Contexts[configContextName]
+	if !exists {
+		configContext = &api.Context{
+			Cluster:    clusterName,
+			AuthInfo:   userName,
+			Namespace:  "default",
+			Extensions: make(map[string]runtime.Object), // Initialize extensions
+		}
+		c.APIConfig.Contexts[configContextName] = configContext
+	}
+
+	// Ensure Extensions map is initialized even for existing contexts
+	if configContext.Extensions == nil {
+		configContext.Extensions = make(map[string]runtime.Object)
+	}
+
+	// Store/update extension in the config context
+	extensionData, err := json.Marshal(c.Extension)
+	if err != nil {
+		return fmt.Errorf("failed to marshal extension: %w", err)
+	}
+
+	configContext.Extensions[ExtensionName] = &runtime.Unknown{
+		TypeMeta: c.Extension.TypeMeta,
+		Raw:      extensionData,
+	}
+
+	return clientcmd.ModifyConfig(c.ConfigAccess, *c.APIConfig, false)
+}
+
+// getConfigContextInfo extracts cluster and user information from the current context and constructs
+// the config context name for storing Tekton Results configuration.
+//
+// Parameters:
+//   - p: common.Params containing configuration parameters, including the KubeContext.
+//
+// Returns:
+//   - configContextName: The config context name in format "tekton-results-config/{cluster}/{user}".
+//   - clusterName: The cluster name from the current context.
+//   - userName: The username from the current context.
+//   - error: An error if the current context is not set or missing cluster/user information.
+func (c *config) getConfigContextInfo(p common.Params) (configContextName, clusterName, userName string, err error) {
 	ctx := c.APIConfig.CurrentContext
 	if p.KubeContext() != "" {
 		ctx = p.KubeContext()
 	}
-	c.APIConfig.Contexts[ctx].Extensions[ExtensionName] = c.Extension
-	return clientcmd.ModifyConfig(c.ConfigAccess, *c.APIConfig, false)
+
+	// Get the context to extract cluster and user info
+	context := c.APIConfig.Contexts[ctx]
+	if context == nil {
+		return "", "", "", errors.New("current context is not set in kubeconfig")
+	}
+
+	return common.BuildConfigContextInfo(context)
 }
 
 // Set configures the Extension settings for the config object.
@@ -270,7 +325,8 @@ func (c *config) Prompt(name string, value *string, data any) error {
 }
 
 // LoadExtension loads the Tekton Results extension configuration from the kubeconfig.
-// It sets the extension in the config object based on the current context or the provided context.
+// It loads from a dedicated "tekton-results-config" context to ensure configuration
+// persists regardless of current namespace context changes (e.g., 'oc project').
 //
 // Parameters:
 //   - p: common.Params containing configuration parameters, including the KubeContext.
@@ -278,21 +334,30 @@ func (c *config) Prompt(name string, value *string, data any) error {
 // Returns:
 //   - error: An error if the current context is not set or if there's an issue unmarshaling the extension data.
 func (c *config) LoadExtension(p common.Params) error {
-	ctx := c.APIConfig.CurrentContext
-	if p.KubeContext() != "" {
-		ctx = p.KubeContext()
+	// Get the config context info for loading configuration
+	configContextName, _, _, err := c.getConfigContextInfo(p)
+	if err != nil {
+		return err
 	}
-	cc := c.APIConfig.Contexts[ctx]
-	if cc == nil {
-		return errors.New("current context is not set in kubeconfig")
+
+	// Check if config context exists
+	if configContext, exists := c.APIConfig.Contexts[configContextName]; exists {
+		if configContext.Extensions != nil {
+			if ext := configContext.Extensions[ExtensionName]; ext != nil {
+				// Load existing extension
+				c.Extension = new(Extension)
+				if err := json.Unmarshal(ext.(*runtime.Unknown).Raw, c.Extension); err != nil {
+					return fmt.Errorf("failed to unmarshal extension: %w", err)
+				}
+				return nil
+			}
+		}
 	}
+
+	// No config context or no extension found - create empty extension
 	c.Extension = new(Extension)
-	e := cc.Extensions[ExtensionName]
-	if e == nil {
-		c.SetVersion()
-		return c.Persist(p)
-	}
-	return json.Unmarshal(e.(*runtime.Unknown).Raw, c.Extension)
+	c.SetVersion()
+	return nil
 }
 
 // Host retrieves the host URL for the Tekton Results API based on external access detection.
