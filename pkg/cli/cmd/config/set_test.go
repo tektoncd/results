@@ -8,6 +8,7 @@ import (
 	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/testutils"
 	testutil "github.com/tektoncd/results/pkg/test"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // TestSetCommandPromptBehavior tests prompting behavior using ExecuteCommand with stdin simulation
@@ -49,7 +50,7 @@ func TestSetCommandPromptBehavior(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary kubeconfig
-			kubeconfigPath := testutils.CreateTestKubeconfig(t)
+			kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 			// Create test params
 			params := &common.ResultsParams{}
@@ -137,7 +138,7 @@ func TestSetCommandExecution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary kubeconfig
-			kubeconfigPath := testutils.CreateTestKubeconfig(t)
+			kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 			// Create test params
 			params := &common.ResultsParams{}
@@ -188,7 +189,7 @@ func TestSetCommandExecution(t *testing.T) {
 
 func TestSetCommandConfigOverwrite(t *testing.T) {
 	// Create temporary kubeconfig
-	kubeconfigPath := testutils.CreateTestKubeconfig(t)
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 	// Create command
 	params := &common.ResultsParams{}
@@ -238,5 +239,177 @@ func TestSetCommandConfigOverwrite(t *testing.T) {
 	}
 	if extension2.APIPath != "/v2" {
 		t.Errorf("expected api-path %q, got %q", "/v2", extension2.APIPath)
+	}
+}
+
+// TestSetConfigDefaultNamespaceStorage tests that configuration is stored in the tekton-results-config context
+func TestSetConfigDefaultNamespaceStorage(t *testing.T) {
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "production")
+
+	params := &common.ResultsParams{}
+	cmd := Command(params)
+
+	// Set configuration in production namespace context
+	args := []string{
+		"--kubeconfig=" + kubeconfigPath,
+		"--context=test-context",
+		"set",
+		"--host=https://default-ns-test.com",
+		"--token=default-ns-token",
+		"--api-path=/api/default/test",
+	}
+	_, err := testutil.ExecuteCommand(cmd, args...)
+	if err != nil {
+		t.Fatalf("Failed to set config: %v", err)
+	}
+
+	// Verify configuration is stored in tekton-results-config context, not current context
+	configLoadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+	apiConfig, err := configLoadingRules.Load()
+	if err != nil {
+		t.Fatalf("Failed to load kubeconfig: %v", err)
+	}
+
+	// Check that current context (production namespace) does NOT have extensions
+	currentContext := apiConfig.Contexts["test-context"]
+	if currentContext.Extensions != nil && currentContext.Extensions["tekton-results"] != nil {
+		t.Error("Configuration should not be stored in current context extensions")
+	}
+
+	// Check that config context DOES have extensions
+	configContextName := "tekton-results-config/test-cluster/test-user"
+	configContext := apiConfig.Contexts[configContextName]
+	if configContext == nil {
+		t.Fatalf("Config context should exist: %s", configContextName)
+	}
+	if configContext.Extensions == nil || configContext.Extensions["tekton-results"] == nil {
+		t.Error("Configuration should be stored in config context extensions")
+	}
+
+	// Verify config context properties
+	if configContext.Cluster != "test-cluster" {
+		t.Errorf("Config context cluster should be 'test-cluster', got '%s'", configContext.Cluster)
+	}
+	if configContext.AuthInfo != "test-user" {
+		t.Errorf("Config context user should be 'test-user', got '%s'", configContext.AuthInfo)
+	}
+	if configContext.Namespace != "default" {
+		t.Errorf("Config context namespace should be 'default', got '%s'", configContext.Namespace)
+	}
+}
+
+// TestSetConfigNamespaceIndependence tests that configuration persists across namespace changes
+func TestSetConfigNamespaceIndependence(t *testing.T) {
+	// Create kubeconfig with default namespace
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "default")
+
+	params := &common.ResultsParams{}
+	cmd := Command(params)
+
+	// Set initial configuration with default namespace
+	args := []string{
+		"--kubeconfig=" + kubeconfigPath,
+		"--context=test-context",
+		"set",
+		"--host=https://namespace-test.com",
+		"--token=namespace-token",
+		"--api-path=/api/namespace/test",
+	}
+	_, err := testutil.ExecuteCommand(cmd, args...)
+	if err != nil {
+		t.Fatalf("Failed to set initial config: %v", err)
+	}
+
+	// Verify configuration was set
+	var initialExtension config.Extension
+	found, err := testutils.ReadKubeconfigExtension(t, kubeconfigPath, config.ExtensionName, &initialExtension)
+	if err != nil {
+		t.Fatalf("Failed to read initial extension: %v", err)
+	}
+	if !found {
+		t.Fatalf("Initial configuration not found")
+	}
+	if initialExtension.Host != "https://namespace-test.com" {
+		t.Fatalf("Initial configuration not set correctly, expected host 'https://namespace-test.com', got '%s'", initialExtension.Host)
+	}
+
+	// Now simulate switching to a different namespace by updating the kubeconfig
+	// This directly tests namespace independence in the same kubeconfig file
+	testutils.UpdateKubeconfigNamespace(t, kubeconfigPath, "production")
+
+	// Verify that we can still read the configuration after namespace switch
+	// This proves the configuration is namespace-independent
+	var extensionAfterNsSwitch config.Extension
+	foundAfterSwitch, err := testutils.ReadKubeconfigExtension(t, kubeconfigPath, config.ExtensionName, &extensionAfterNsSwitch)
+	if err != nil {
+		t.Fatalf("Failed to read extension after namespace switch: %v", err)
+	}
+	if !foundAfterSwitch {
+		t.Fatalf("Configuration not found after namespace switch - this indicates the config is tied to namespace")
+	}
+
+	// Verify the values are preserved exactly - proving namespace independence
+	if extensionAfterNsSwitch.Host != "https://namespace-test.com" {
+		t.Errorf("Configuration not preserved across namespace change: expected host 'https://namespace-test.com', got '%s'", extensionAfterNsSwitch.Host)
+	}
+	if extensionAfterNsSwitch.Token != "namespace-token" {
+		t.Errorf("Configuration not preserved across namespace change: expected token 'namespace-token', got '%s'", extensionAfterNsSwitch.Token)
+	}
+	if extensionAfterNsSwitch.APIPath != "/api/namespace/test" {
+		t.Errorf("Configuration not preserved across namespace change: expected api-path '/api/namespace/test', got '%s'", extensionAfterNsSwitch.APIPath)
+	}
+}
+
+// TestConfigContextCreation tests that config contexts are created correctly
+func TestConfigContextCreation(t *testing.T) {
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "staging")
+
+	params := &common.ResultsParams{}
+	cmd := Command(params)
+
+	// Set configuration which should create config context
+	args := []string{
+		"--kubeconfig=" + kubeconfigPath,
+		"--context=test-context",
+		"set",
+		"--host=https://context-creation-test.com",
+		"--token=context-creation-token",
+	}
+	_, err := testutil.ExecuteCommand(cmd, args...)
+	if err != nil {
+		t.Fatalf("Failed to set config: %v", err)
+	}
+
+	// Load kubeconfig and verify config context was created
+	configLoadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+	apiConfig, err := configLoadingRules.Load()
+	if err != nil {
+		t.Fatalf("Failed to load kubeconfig: %v", err)
+	}
+
+	// Verify config context exists with correct name format
+	configContextName := "tekton-results-config/test-cluster/test-user"
+	configContext, exists := apiConfig.Contexts[configContextName]
+	if !exists {
+		t.Fatalf("Config context should be created with name: %s", configContextName)
+	}
+
+	// Verify config context has correct properties
+	if configContext.Cluster != "test-cluster" {
+		t.Errorf("Expected cluster 'test-cluster', got '%s'", configContext.Cluster)
+	}
+	if configContext.AuthInfo != "test-user" {
+		t.Errorf("Expected user 'test-user', got '%s'", configContext.AuthInfo)
+	}
+	if configContext.Namespace != "default" {
+		t.Errorf("Expected namespace 'default', got '%s'", configContext.Namespace)
+	}
+
+	// Verify extensions are initialized
+	if configContext.Extensions == nil {
+		t.Error("Config context extensions should be initialized")
+	}
+	if configContext.Extensions["tekton-results"] == nil {
+		t.Error("Tekton Results extension should exist in config context")
 	}
 }
