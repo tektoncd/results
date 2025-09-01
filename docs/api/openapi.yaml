@@ -428,8 +428,8 @@ components:
         - record
         - type
         - status
-        - startTime
-        - endTime
+        - start_time
+        - end_time
       type: object
       properties:
         record:
@@ -443,10 +443,10 @@ components:
           example: pipelines.tekton.dev/PipelineRun
         status:
           $ref: "#/components/schemas/Status"
-        startTime:
+        start_time:
           format: date-time
           type: string
-        endTime:
+        end_time:
           format: date-time
           type: string
         annotations:
