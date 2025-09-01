@@ -340,7 +340,7 @@ Get list of records
   "id": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
   "uid": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
   "created_time": "2023-03-02T07:26:48.972907Z",
-  "created_time": "2023-03-02T07:26:48.972907Z",
+  "create_time": "2023-03-02T07:26:48.972907Z",
   "updated_time": "2023-03-02T07:26:54.191114Z",
   "update_time": "2023-03-02T07:26:54.191114Z",
   "annotations": {},
@@ -366,7 +366,7 @@ Get list of records
       "id": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
       "uid": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
       "created_time": "2023-03-02T07:26:48.972907Z",
-      "created_time": "2023-03-02T07:26:48.972907Z",
+      "create_time": "2023-03-02T07:26:48.972907Z",
       "updated_time": "2023-03-02T07:26:54.191114Z",
       "update_time": "2023-03-02T07:26:54.191114Z",
       "annotations": {},
@@ -385,7 +385,7 @@ Get list of records
       "id": "9514f318-9329-485b-871c-77a4a6904891",
       "uid": "9514f318-9329-485b-871c-77a4a6904891",
       "created_time": "2023-03-02T07:28:05.535047Z",
-      "created_time": "2023-03-02T07:28:05.535047Z",
+      "create_time": "2023-03-02T07:28:05.535047Z",
       "updated_time": "2023-03-02T07:28:10.308632Z",
       "update_time": "2023-03-02T07:28:10.308632Z",
       "annotations": {},
@@ -417,7 +417,7 @@ Get list of records
   },
   "etag": "df3904b8-a6b8-468a-9e3f-8b9386bf3673-1677742019012643389",
   "created_time": "2023-03-02T07:26:48.997424Z",
-  "created_time": "2023-03-02T07:26:48.997424Z",
+  "create_time": "2023-03-02T07:26:48.997424Z",
   "updated_time": "2023-03-02T07:26:59.012643Z",
   "update_time": "2023-03-02T07:26:59.012643Z"
 }
@@ -438,7 +438,7 @@ Get list of records
       },
       "etag": "df3904b8-a6b8-468a-9e3f-8b9386bf3673-1677742019012643389",
       "created_time": "2023-03-02T07:26:48.997424Z",
-      "created_time": "2023-03-02T07:26:48.997424Z",
+      "create_time": "2023-03-02T07:26:48.997424Z",
       "updated_time": "2023-03-02T07:26:59.012643Z",
       "update_time": "2023-03-02T07:26:59.012643Z"
     },
@@ -452,7 +452,7 @@ Get list of records
       },
       "etag": "62e52c4d-9a61-4cf0-8f88-e816fcb0f84a-1677742014245938484",
       "created_time": "2023-03-02T07:26:54.220068Z",
-      "created_time": "2023-03-02T07:26:54.220068Z",
+      "create_time": "2023-03-02T07:26:54.220068Z",
       "updated_time": "2023-03-02T07:26:54.245938Z",
       "update_time": "2023-03-02T07:26:54.245938Z"
     }
