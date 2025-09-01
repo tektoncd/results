@@ -3,41 +3,53 @@ package testutils
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/tektoncd/results/pkg/cli/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // CreateTestKubeconfig creates a temporary kubeconfig file for testing
-func CreateTestKubeconfig(t *testing.T) string {
+// If namespace is empty, no namespace is set in the context
+func CreateTestKubeconfig(t *testing.T, namespace string) string {
 	t.Helper()
 
 	dir := t.TempDir()
 	kubeconfigPath := filepath.Join(dir, "kubeconfig.yaml")
 
-	// Write test kubeconfig content
-	kubeconfigContent := `apiVersion: v1
+	// Build context section with optional namespace
+	contextSection := `    cluster: test-cluster
+    user: test-user`
+	if namespace != "" {
+		contextSection = fmt.Sprintf(`    cluster: test-cluster
+    namespace: %s
+    user: test-user`, namespace)
+	}
+
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 clusters:
 - cluster:
     server: http://test-host
   name: test-cluster
 contexts:
 - context:
-    cluster: test-cluster
-    user: test-user
+%s
   name: test-context
 current-context: test-context
 kind: Config
 preferences: {}
 users:
 - name: test-user
-`
+`, contextSection)
+
 	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0600); err != nil {
 		t.Fatalf("Failed to write kubeconfig: %v", err)
 	}
+
 	return kubeconfigPath
 }
 
@@ -57,7 +69,19 @@ func ReadKubeconfigExtensionRaw(t *testing.T, kubeconfigPath, extensionName stri
 		return nil, nil
 	}
 
-	extensionData, exists := context.Extensions[extensionName]
+	// Use the shared function from common package to build context info
+	configContextName, _, _, err := common.BuildConfigContextInfo(context)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for config context using direct lookup
+	configContext, exists := apiConfig.Contexts[configContextName]
+	if !exists || configContext.Extensions == nil {
+		return nil, nil
+	}
+
+	extensionData, exists := configContext.Extensions[extensionName]
 	if !exists {
 		return nil, nil
 	}
@@ -86,4 +110,29 @@ func ReadKubeconfigExtension(t *testing.T, kubeconfigPath, extensionName string,
 	}
 
 	return true, nil
+}
+
+// UpdateKubeconfigNamespace updates the namespace of the current context in a kubeconfig file
+func UpdateKubeconfigNamespace(t *testing.T, kubeconfigPath, newNamespace string) {
+	t.Helper()
+
+	// Load the kubeconfig
+	configLoadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+	apiConfig, err := configLoadingRules.Load()
+	if err != nil {
+		t.Fatalf("Failed to load kubeconfig: %v", err)
+	}
+
+	// Update the namespace of the current context
+	currentContext := apiConfig.Contexts[apiConfig.CurrentContext]
+	if currentContext == nil {
+		t.Fatalf("Current context not found in kubeconfig")
+	}
+
+	currentContext.Namespace = newNamespace
+
+	// Write the updated kubeconfig
+	if err := clientcmd.WriteToFile(*apiConfig, kubeconfigPath); err != nil {
+		t.Fatalf("Failed to write updated kubeconfig: %v", err)
+	}
 }

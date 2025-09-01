@@ -72,7 +72,7 @@ func TestViewCommandExecution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kubeconfigPath := testutils.CreateTestKubeconfig(t)
+			kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
 
 			// Create test params
 			params := &common.ResultsParams{}
