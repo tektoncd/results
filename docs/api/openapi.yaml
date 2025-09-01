@@ -428,8 +428,8 @@ components:
         - record
         - type
         - status
-        - startTime
-        - endTime
+        - start_time
+        - end_time
       type: object
       properties:
         record:
@@ -443,10 +443,10 @@ components:
           example: pipelines.tekton.dev/PipelineRun
         status:
           $ref: "#/components/schemas/Status"
-        startTime:
+        start_time:
           format: date-time
           type: string
-        endTime:
+        end_time:
           format: date-time
           type: string
         annotations:
@@ -469,7 +469,6 @@ components:
           example: VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg==
         type:
           $ref: "#/components/schemas/RecordType"
-          type: object
       x-last-modified: 1677769074438
     Record:
       description: >-
@@ -502,21 +501,21 @@ components:
           type: string
           example: >-
             default/results/2be47d31-4d7f-4762-9616-969f2d7d9cc3/records/293d2bf0-e673-30c6-b5ca-4f35f020effc
-        createdTime:
+        created_time:
           deprecated: true
           format: date-time
-          description: "DEPRECATED: use createTime instead."
+          description: "DEPRECATED: use create_time instead."
           type: string
-        createTime:
+        create_time:
           format: date-time
           description: Server assigned timestamp for when the record was created.
           type: string
-        updatedTime:
+        updated_time:
           deprecated: true
           format: date-time
-          description: "DEPRECATED: use updateTime instead."
+          description: "DEPRECATED: use update_time instead."
           type: string
-        updateTime:
+        update_time:
           format: date-time
           description: Server assigned timestamp for when the record was updated.
           type: string
@@ -549,21 +548,21 @@ components:
             High level overview of the root record for the Result. This is
             provided as a convinence for clients to query Record state without
             needing to make multiple calls to fetch the underlying Records.
-        createdTime:
+        created_time:
           deprecated: true
           format: date-time
-          description: "DEPRECATED: Use createTime instead"
+          description: "DEPRECATED: Use create_time instead"
           type: string
-        createTime:
+        create_time:
           format: date-time
           description: Server assigned timestamp for when the result was created.
           type: string
-        updatedTime:
+        updated_time:
           deprecated: true
           format: date-time
-          description: "DEPRECATED: Use updateTime instead"
+          description: "DEPRECATED: Use update_time instead"
           type: string
-        updateTime:
+        update_time:
           format: date-time
           description: Server assigned timestamp for when the result was updated.
           type: string
@@ -584,27 +583,27 @@ components:
       content:
         application/json:
           schema:
-            description: List of Results with nextPageToken
+            description: List of Results with next_page_token
             required:
               - results
-              - nextPageToken
+              - next_page_token
             type: object
             properties:
               results:
                 type: array
                 items:
                   $ref: "#/components/schemas/Result"
-              nextPageToken:
+              next_page_token:
                 type: string
-      description: List of Results with nextPageToken
+      description: List of Results with next_page_token
       x-last-modified: 1677674976067
     RecordsList:
       content:
         application/json:
           schema:
-            description: List of Records with nextPageToken.
+            description: List of Records with next_page_token.
             required:
-              - nextPageToken
+              - next_page_token
               - records
             type: object
             properties:
@@ -612,9 +611,9 @@ components:
                 type: array
                 items:
                   $ref: "#/components/schemas/Record"
-              nextPageToken:
+              next_page_token:
                 type: string
-      description: List of Records with nextPageToken.
+      description: List of Records with next_page_token.
       x-last-modified: 1677674985612
   parameters:
     page_token:
@@ -622,7 +621,7 @@ components:
       name: page_token
       description: >-
         It can be used to fetch the next set of responses when the response is
-        paginated. It corresponds to `NextPageToken` in the response.
+        paginated. It corresponds to `next_page_token` in the response.
       schema:
         type: string
       in: query

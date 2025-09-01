@@ -339,17 +339,17 @@ Get list of records
   "name": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403",
   "id": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
   "uid": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
-  "createdTime": "2023-03-02T07:26:48.972907Z",
-  "createTime": "2023-03-02T07:26:48.972907Z",
-  "updatedTime": "2023-03-02T07:26:54.191114Z",
-  "updateTime": "2023-03-02T07:26:54.191114Z",
+  "created_time": "2023-03-02T07:26:48.972907Z",
+  "create_time": "2023-03-02T07:26:48.972907Z",
+  "updated_time": "2023-03-02T07:26:54.191114Z",
+  "update_time": "2023-03-02T07:26:54.191114Z",
   "annotations": {},
   "etag": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c-1677742014191114634",
   "summary": {
     "record": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403/records/640d1af3-9c75-4167-8167-4d8e4f39d403",
     "type": "tekton.dev/v1beta1.TaskRun",
-    "startTime": null,
-    "endTime": "2023-03-02T07:26:54Z",
+    "start_time": null,
+    "end_time": "2023-03-02T07:26:54Z",
     "status": "SUCCESS",
     "annotations": {}
   }
@@ -365,17 +365,17 @@ Get list of records
       "name": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403",
       "id": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
       "uid": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c",
-      "createdTime": "2023-03-02T07:26:48.972907Z",
-      "createTime": "2023-03-02T07:26:48.972907Z",
-      "updatedTime": "2023-03-02T07:26:54.191114Z",
-      "updateTime": "2023-03-02T07:26:54.191114Z",
+      "created_time": "2023-03-02T07:26:48.972907Z",
+      "create_time": "2023-03-02T07:26:48.972907Z",
+      "updated_time": "2023-03-02T07:26:54.191114Z",
+      "update_time": "2023-03-02T07:26:54.191114Z",
       "annotations": {},
       "etag": "338481c9-3bc6-472f-9d1b-0f7705e6cb8c-1677742014191114634",
       "summary": {
         "record": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403/records/640d1af3-9c75-4167-8167-4d8e4f39d403",
         "type": "tekton.dev/v1beta1.TaskRun",
-        "startTime": null,
-        "endTime": "2023-03-02T07:26:54Z",
+        "start_time": null,
+        "end_time": "2023-03-02T07:26:54Z",
         "status": "SUCCESS",
         "annotations": {}
       }
@@ -384,23 +384,23 @@ Get list of records
       "name": "default/results/c360def0-d77e-4a3f-a1b0-5b0753e7d5af",
       "id": "9514f318-9329-485b-871c-77a4a6904891",
       "uid": "9514f318-9329-485b-871c-77a4a6904891",
-      "createdTime": "2023-03-02T07:28:05.535047Z",
-      "createTime": "2023-03-02T07:28:05.535047Z",
-      "updatedTime": "2023-03-02T07:28:10.308632Z",
-      "updateTime": "2023-03-02T07:28:10.308632Z",
+      "created_time": "2023-03-02T07:28:05.535047Z",
+      "create_time": "2023-03-02T07:28:05.535047Z",
+      "updated_time": "2023-03-02T07:28:10.308632Z",
+      "update_time": "2023-03-02T07:28:10.308632Z",
       "annotations": {},
       "etag": "9514f318-9329-485b-871c-77a4a6904891-1677742090308632274",
       "summary": {
         "record": "default/results/c360def0-d77e-4a3f-a1b0-5b0753e7d5af/records/c360def0-d77e-4a3f-a1b0-5b0753e7d5af",
         "type": "tekton.dev/v1beta1.TaskRun",
-        "startTime": null,
-        "endTime": "2023-03-02T07:28:10Z",
+        "start_time": null,
+        "end_time": "2023-03-02T07:28:10Z",
         "status": "SUCCESS",
         "annotations": {}
       }
     }
   ],
-  "nextPageToken": ""
+  "next_page_token": ""
 }
 ```
 
@@ -416,10 +416,10 @@ Get list of records
     "value": "VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg=="
   },
   "etag": "df3904b8-a6b8-468a-9e3f-8b9386bf3673-1677742019012643389",
-  "createdTime": "2023-03-02T07:26:48.997424Z",
-  "createTime": "2023-03-02T07:26:48.997424Z",
-  "updatedTime": "2023-03-02T07:26:59.012643Z",
-  "updateTime": "2023-03-02T07:26:59.012643Z"
+  "created_time": "2023-03-02T07:26:48.997424Z",
+  "create_time": "2023-03-02T07:26:48.997424Z",
+  "updated_time": "2023-03-02T07:26:59.012643Z",
+  "update_time": "2023-03-02T07:26:59.012643Z"
 }
 ```
 
@@ -437,10 +437,10 @@ Get list of records
         "value": "VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg==="
       },
       "etag": "df3904b8-a6b8-468a-9e3f-8b9386bf3673-1677742019012643389",
-      "createdTime": "2023-03-02T07:26:48.997424Z",
-      "createTime": "2023-03-02T07:26:48.997424Z",
-      "updatedTime": "2023-03-02T07:26:59.012643Z",
-      "updateTime": "2023-03-02T07:26:59.012643Z"
+      "created_time": "2023-03-02T07:26:48.997424Z",
+      "create_time": "2023-03-02T07:26:48.997424Z",
+      "updated_time": "2023-03-02T07:26:59.012643Z",
+      "update_time": "2023-03-02T07:26:59.012643Z"
     },
     {
       "name": "default/results/640d1af3-9c75-4167-8167-4d8e4f39d403/records/77add742-5361-3b14-a1d3-2dae7e4977b2",
@@ -451,13 +451,13 @@ Get list of records
         "value": "VGhpcyBpcyBhbiBleG1hcGxlIG9mIHJlY29yZCBkYXRhCg=="
       },
       "etag": "62e52c4d-9a61-4cf0-8f88-e816fcb0f84a-1677742014245938484",
-      "createdTime": "2023-03-02T07:26:54.220068Z",
-      "createTime": "2023-03-02T07:26:54.220068Z",
-      "updatedTime": "2023-03-02T07:26:54.245938Z",
-      "updateTime": "2023-03-02T07:26:54.245938Z"
+      "created_time": "2023-03-02T07:26:54.220068Z",
+      "create_time": "2023-03-02T07:26:54.220068Z",
+      "updated_time": "2023-03-02T07:26:54.245938Z",
+      "update_time": "2023-03-02T07:26:54.245938Z"
     }
   ],
-  "nextPageToken": ""
+  "next_page_token": ""
 }
 ```
 
