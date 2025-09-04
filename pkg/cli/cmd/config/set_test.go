@@ -7,8 +7,6 @@ import (
 	"github.com/tektoncd/results/pkg/cli/common"
 	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/testutils"
-	testutil "github.com/tektoncd/results/pkg/test"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 // TestSetCommandPromptBehavior tests prompting behavior using ExecuteCommand with stdin simulation
@@ -150,7 +148,7 @@ func TestSetCommandExecution(t *testing.T) {
 
 			// Add kubeconfig to args and execute
 			allArgs := append([]string{"--kubeconfig=" + kubeconfigPath, "set"}, tt.args...)
-			_, err := testutil.ExecuteCommand(cmd, allArgs...)
+			_, err := testutils.ExecuteCommand(cmd, allArgs...)
 
 			// Check error expectations
 			if tt.expectError {
@@ -199,7 +197,7 @@ func TestSetCommandConfigOverwrite(t *testing.T) {
 
 	// First, set initial configuration
 	args1 := []string{"--kubeconfig=" + kubeconfigPath, "set", "--host=https://first-host.com", "--token=first-token"}
-	_, err := testutil.ExecuteCommand(cmd, args1...)
+	_, err := testutils.ExecuteCommand(cmd, args1...)
 	if err != nil {
 		t.Fatalf("failed to set initial config: %v", err)
 	}
@@ -216,7 +214,7 @@ func TestSetCommandConfigOverwrite(t *testing.T) {
 
 	// Now overwrite with new configuration
 	args2 := []string{"--kubeconfig=" + kubeconfigPath, "set", "--host=https://second-host.com", "--token=second-token", "--api-path=/v2"}
-	_, err = testutil.ExecuteCommand(cmd, args2...)
+	_, err = testutils.ExecuteCommand(cmd, args2...)
 	if err != nil {
 		t.Fatalf("failed to overwrite config: %v", err)
 	}
