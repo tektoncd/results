@@ -1,8 +1,9 @@
 package pipelinerun
 
 import (
-	"github.com/tektoncd/results/pkg/cli/testutils"
 	"testing"
+
+	"github.com/tektoncd/results/pkg/cli/testutils"
 )
 
 func TestCommand(t *testing.T) {

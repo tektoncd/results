@@ -204,7 +204,9 @@ func MockRESTClientFromRecords(records []*pb.Record) *client.RESTClient {
 				http.Error(w, "Failed to marshal records response", http.StatusInternalServerError)
 				return
 			}
-			w.Write(jsonData)
+			if _, err := w.Write(jsonData); err != nil {
+				http.Error(w, "Failed to write response", http.StatusInternalServerError)
+			}
 			return
 
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/logs"):
@@ -216,7 +218,9 @@ func MockRESTClientFromRecords(records []*pb.Record) *client.RESTClient {
 				http.Error(w, "Failed to marshal logs response", http.StatusInternalServerError)
 				return
 			}
-			w.Write(jsonData)
+			if _, err := w.Write(jsonData); err != nil {
+				http.Error(w, "Failed to write response", http.StatusInternalServerError)
+			}
 			return
 		}
 

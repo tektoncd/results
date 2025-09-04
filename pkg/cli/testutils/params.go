@@ -31,11 +31,19 @@ func NewParams() *Params {
 	}
 }
 
-// Configuration methods
+// SetKubeConfigPath sets the kubeconfig file path
 func (p *Params) SetKubeConfigPath(path string) { p.kubeConfigPath = path }
-func (p *Params) KubeConfigPath() string        { return p.kubeConfigPath }
+
+// KubeConfigPath returns the kubeconfig file path
+func (p *Params) KubeConfigPath() string { return p.kubeConfigPath }
+
+// SetKubeContext sets the kubernetes context
 func (p *Params) SetKubeContext(context string) { p.kubeContext = context }
-func (p *Params) KubeContext() string           { return p.kubeContext }
+
+// KubeContext returns the kubernetes context
+func (p *Params) KubeContext() string { return p.kubeContext }
+
+// SetNamespace sets the kubernetes namespace, preserving default if empty
 func (p *Params) SetNamespace(ns string) {
 	// For testing, simulate the kubeconfig resolution behavior:
 	// If empty string is provided, keep the existing namespace (simulates kubeconfig default)
@@ -44,17 +52,35 @@ func (p *Params) SetNamespace(ns string) {
 	}
 	// If ns is empty, keep the existing namespace (set in NewParams() as "default")
 }
-func (p *Params) Namespace() string          { return p.namespace }
-func (p *Params) SetHost(host string)        { p.host = host }
-func (p *Params) Host() string               { return p.host }
-func (p *Params) SetToken(token string)      { p.token = token }
-func (p *Params) Token() string              { return p.token }
-func (p *Params) SetAPIPath(path string)     { p.apiPath = path }
-func (p *Params) APIPath() string            { return p.apiPath }
-func (p *Params) SetSkipTLSVerify(skip bool) { p.skipTLSVerify = skip }
-func (p *Params) SkipTLSVerify() bool        { return p.skipTLSVerify }
 
-// Client injection methods for testing
+// Namespace returns the kubernetes namespace
+func (p *Params) Namespace() string { return p.namespace }
+
+// SetHost sets the API host
+func (p *Params) SetHost(host string) { p.host = host }
+
+// Host returns the API host
+func (p *Params) Host() string { return p.host }
+
+// SetToken sets the authentication token
+func (p *Params) SetToken(token string) { p.token = token }
+
+// Token returns the authentication token
+func (p *Params) Token() string { return p.token }
+
+// SetAPIPath sets the API path
+func (p *Params) SetAPIPath(path string) { p.apiPath = path }
+
+// APIPath returns the API path
+func (p *Params) APIPath() string { return p.apiPath }
+
+// SetSkipTLSVerify sets whether to skip TLS verification
+func (p *Params) SetSkipTLSVerify(skip bool) { p.skipTLSVerify = skip }
+
+// SkipTLSVerify returns whether to skip TLS verification
+func (p *Params) SkipTLSVerify() bool { return p.skipTLSVerify }
+
+// SetRESTClient injects a REST client for testing purposes
 func (p *Params) SetRESTClient(client *client.RESTClient) {
 	p.restClient = client
 }

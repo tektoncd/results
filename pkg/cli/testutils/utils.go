@@ -15,7 +15,7 @@ const (
 	pipelineRunKind      = "tekton.dev/v1.PipelineRun"
 )
 
-// Helper function to convert time.Time to *time.Time
+// TimePtr converts time.Time to *time.Time
 func TimePtr(t time.Time) *time.Time {
 	return &t
 }

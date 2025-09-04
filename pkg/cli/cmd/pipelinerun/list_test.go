@@ -21,7 +21,7 @@ func TestListPipelineRunsCommand(t *testing.T) {
 
 	// Verify command is created properly
 	if cmd == nil {
-		t.Error("Command should not be nil")
+		t.Fatal("Command should not be nil")
 	}
 
 	if cmd.Use != "pipelinerun" {
@@ -44,7 +44,7 @@ func TestListPipelineRunsCommand(t *testing.T) {
 	}
 
 	if listCmd == nil {
-		t.Error("Expected 'list' subcommand to be present")
+		t.Fatal("Expected 'list' subcommand to be present")
 	}
 
 	// Verify list command has the right aliases
