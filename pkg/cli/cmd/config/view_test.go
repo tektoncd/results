@@ -7,7 +7,6 @@ import (
 	"github.com/tektoncd/results/pkg/cli/common"
 	configpkg "github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/testutils"
-	testutil "github.com/tektoncd/results/pkg/test"
 )
 
 // TestViewCommand tests basic view command creation
@@ -83,7 +82,7 @@ func TestViewCommandExecution(t *testing.T) {
 				// First, set up a configuration to view
 				cmd := Command(params)
 				setArgs := []string{"--kubeconfig=" + kubeconfigPath, "set", "--host=https://test-view.com", "--token=view-token", "--api-path=/api/v1"}
-				_, err := testutil.ExecuteCommand(cmd, setArgs...)
+				_, err := testutils.ExecuteCommand(cmd, setArgs...)
 				if err != nil {
 					t.Fatalf("failed to set initial config: %v", err)
 				}
@@ -102,7 +101,7 @@ func TestViewCommandExecution(t *testing.T) {
 			// Now test view command and capture output
 			cmd := Command(params)
 			viewArgs := []string{"--kubeconfig=" + kubeconfigPath, "view"}
-			output, err := testutil.ExecuteCommand(cmd, viewArgs...)
+			output, err := testutils.ExecuteCommand(cmd, viewArgs...)
 			if err != nil {
 				t.Errorf("%s: unexpected error: %v", tt.description, err)
 				return
