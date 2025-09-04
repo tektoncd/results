@@ -30,7 +30,20 @@ Examples:
 
   # List TaskRuns with limit
   tkn-results taskrun list --limit=20`,
-		PersistentPreRunE: prerun.PersistentPreRunE(p),
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Initialize params from flags first
+			if err := flags.InitParams(p, cmd); err != nil {
+				return err
+			}
+			if p.RESTClient() == nil {
+				restClient, err := prerun.InitClient(p, cmd)
+				if err != nil {
+					return err
+				}
+				p.SetRESTClient(restClient)
+			}
+			return nil
+		},
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

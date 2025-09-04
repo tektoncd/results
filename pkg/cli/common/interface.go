@@ -2,6 +2,8 @@ package common
 
 import (
 	"io"
+
+	"github.com/tektoncd/results/pkg/cli/client"
 )
 
 // Stream for input and output
@@ -47,4 +49,9 @@ type Params interface {
 	// by most commands
 	SetSkipTLSVerify(bool)
 	SkipTLSVerify() bool
+
+	// Client access method for dependency injection
+	// Returns REST client - from which log/record clients are created
+	SetRESTClient(client *client.RESTClient)
+	RESTClient() *client.RESTClient
 }

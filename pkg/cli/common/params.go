@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/tektoncd/results/pkg/cli/client"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -13,6 +14,9 @@ type ResultsParams struct {
 	token          string
 	apiPath        string
 	skipTLSVerify  bool
+
+	// Simple client storage
+	restClient *client.RESTClient
 }
 
 var _ Params = (*ResultsParams)(nil)
@@ -122,4 +126,14 @@ func (p *ResultsParams) SkipTLSVerify() bool {
 //   - skip: Whether to skip TLS verification.
 func (p *ResultsParams) SetSkipTLSVerify(skip bool) {
 	p.skipTLSVerify = skip
+}
+
+// SetRESTClient injects a REST client
+func (p *ResultsParams) SetRESTClient(client *client.RESTClient) {
+	p.restClient = client
+}
+
+// RESTClient returns the injected REST client
+func (p *ResultsParams) RESTClient() *client.RESTClient {
+	return p.restClient
 }
