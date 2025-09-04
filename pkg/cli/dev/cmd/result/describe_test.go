@@ -1,9 +1,10 @@
 package result
 
 import (
-	"github.com/tektoncd/results/pkg/cli/testutils"
 	"testing"
 	"time"
+
+	"github.com/tektoncd/results/pkg/cli/testutils"
 
 	"github.com/tektoncd/results/pkg/cli/dev/flags"
 

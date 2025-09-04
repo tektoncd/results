@@ -1,8 +1,9 @@
 package common
 
 import (
-	"github.com/tektoncd/results/pkg/cli/client"
 	"io"
+
+	"github.com/tektoncd/results/pkg/cli/client"
 )
 
 // Stream for input and output

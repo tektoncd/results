@@ -7,6 +7,7 @@ import (
 	"github.com/tektoncd/results/pkg/cli/common"
 	"github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/testutils"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // TestSetCommandPromptBehavior tests prompting behavior using ExecuteCommand with stdin simulation
@@ -256,7 +257,7 @@ func TestSetConfigDefaultNamespaceStorage(t *testing.T) {
 		"--token=default-ns-token",
 		"--api-path=/api/default/test",
 	}
-	_, err := testutil.ExecuteCommand(cmd, args...)
+	_, err := testutils.ExecuteCommand(cmd, args...)
 	if err != nil {
 		t.Fatalf("Failed to set config: %v", err)
 	}
@@ -313,7 +314,7 @@ func TestSetConfigNamespaceIndependence(t *testing.T) {
 		"--token=namespace-token",
 		"--api-path=/api/namespace/test",
 	}
-	_, err := testutil.ExecuteCommand(cmd, args...)
+	_, err := testutils.ExecuteCommand(cmd, args...)
 	if err != nil {
 		t.Fatalf("Failed to set initial config: %v", err)
 	}
@@ -373,7 +374,7 @@ func TestConfigContextCreation(t *testing.T) {
 		"--host=https://context-creation-test.com",
 		"--token=context-creation-token",
 	}
-	_, err := testutil.ExecuteCommand(cmd, args...)
+	_, err := testutils.ExecuteCommand(cmd, args...)
 	if err != nil {
 		t.Fatalf("Failed to set config: %v", err)
 	}

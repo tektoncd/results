@@ -128,11 +128,12 @@ func (p *ResultsParams) SetSkipTLSVerify(skip bool) {
 	p.skipTLSVerify = skip
 }
 
-// Client injection methods for testing
+// SetRESTClient injects a REST client
 func (p *ResultsParams) SetRESTClient(client *client.RESTClient) {
 	p.restClient = client
 }
 
+// RESTClient returns the injected REST client
 func (p *ResultsParams) RESTClient() *client.RESTClient {
 	return p.restClient
 }
