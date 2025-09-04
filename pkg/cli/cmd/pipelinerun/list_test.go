@@ -1,513 +1,326 @@
 package pipelinerun
 
 import (
-	"bytes"
-	"context"
-	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/tektoncd/results/pkg/cli/options"
-
-	"github.com/tektoncd/results/pkg/cli/flags"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/spf13/cobra"
-	"github.com/tektoncd/cli/pkg/cli"
-	"github.com/tektoncd/results/pkg/cli/client"
-	"github.com/tektoncd/results/pkg/cli/client/records"
-	"github.com/tektoncd/results/pkg/cli/common"
+	"github.com/tektoncd/results/pkg/cli/testutils"
+	"github.com/tektoncd/results/pkg/test"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
-// testParams implements common.Params interface for testing
-type testParams struct {
-	common.ResultsParams
-	Client       *client.RESTClient
-	RecordClient records.RecordClient
+func TestListPipelineRunsCommand(t *testing.T) {
+	// Simple test to verify command structure and basic functionality
+	params := testutils.NewParams()
+
+	// Create command
+	cmd := Command(params)
+
+	// Verify command is created properly
+	if cmd == nil {
+		t.Fatal("Command should not be nil")
+	}
+
+	if cmd.Use != "pipelinerun" {
+		t.Errorf("Expected command use to be 'pipelinerun', got %s", cmd.Use)
+	}
+
+	// Check that subcommands are added
+	subcommands := cmd.Commands()
+	if len(subcommands) == 0 {
+		t.Error("Expected subcommands to be added")
+	}
+
+	// Find the list subcommand
+	var listCmd *cobra.Command
+	for _, subcmd := range subcommands {
+		if subcmd.Use == "list [pipeline-name]" {
+			listCmd = subcmd
+			break
+		}
+	}
+
+	if listCmd == nil {
+		t.Fatal("Expected 'list' subcommand to be present")
+	}
+
+	// Verify list command has the right aliases
+	if len(listCmd.Aliases) == 0 || listCmd.Aliases[0] != "ls" {
+		t.Error("Expected 'list' command to have 'ls' alias")
+	}
 }
 
-// mockRecordClient implements the RecordClient interface for testing
-type mockRecordClient struct {
-	records.RecordClient
-	listRecordsFunc func(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
-}
+// TestListPipelineRunsScenarios covers various scenarios and use cases
+func TestListPipelineRunsScenarios(t *testing.T) {
+	clock := clockwork.NewFakeClock()
 
-func (m *mockRecordClient) ListRecords(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error) {
-	return m.listRecordsFunc(ctx, in, fields)
-}
-
-func TestListCommand(t *testing.T) {
-	tests := []struct {
+	type testCase struct {
 		name           string
+		records        []*pb.Record
 		args           []string
-		listRecords    func(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 		expectedOutput string
-		expectedError  bool
-	}{
+		expectError    bool
+		errorMessage   string
+	}
+
+	tests := []testCase{
 		{
-			name: "successful list with default options",
+			name: "multiple_pipelineruns_different_statuses",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "successful-run", "uid-1", "",
+					testutils.TimePtr(clock.Now().Add(-10*time.Minute)), testutils.TimePtr(clock.Now().Add(-8*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "failed-run", "uid-2", "",
+					testutils.TimePtr(clock.Now().Add(-6*time.Minute)), testutils.TimePtr(clock.Now().Add(-4*time.Minute)), "False", nil),
+				testutils.CreateTestRecord(clock, "running-run", "uid-3", "",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), nil, "Unknown", nil), // Running pipeline
+			},
 			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{
-						{
-							Name: "test-record",
-							Uid:  "test-uid",
-							Data: &pb.Any{
-								Value: []byte(`{"metadata":{"name":"pipelinerun-write-and-read-array-results-hjk57"},"status":{"conditions":[{"type":"Succeeded","status":"False"}]}}`),
-							},
-						},
-						{
-							Name: "test-record-2",
-							Uid:  "test-uid-2",
-							Data: &pb.Any{
-								Value: []byte(`{"metadata":{"name":"test-pipelinerun-5np8f"},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
-							},
-						},
-					},
-				}, nil
-			},
-			expectedOutput: "pipelinerun-write-and-read-array-results-hjk57",
-			expectedError:  false,
+			expectedOutput: `NAME             UID     STARTED   DURATION   STATUS
+successful-run   uid-1   10m ago   2m0s       Succeeded
+failed-run       uid-2   6m ago    2m0s       Failed
+running-run      uid-3   3m ago    ---        Running
+`,
 		},
 		{
-			name: "list with pipeline name filter",
-			args: []string{"list", "test-pipeline"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("test-pipeline")`
-				if in.Filter != expectedFilter {
-					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
-				}
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{
-						{
-							Name: "test-record",
-							Uid:  "test-uid",
-							Data: &pb.Any{
-								Value: []byte(`{"metadata":{"name":"test-pipeline-run-1"},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
-							},
-						},
-					},
-				}, nil
-			},
-			expectedOutput: "test-pipeline-run-1",
-			expectedError:  false,
+			name:    "empty_list_no_pipelineruns",
+			records: []*pb.Record{},
+			args:    []string{"list"},
+			expectedOutput: `No PipelineRuns found
+`,
 		},
 		{
-			name: "list with partial pipeline name match",
+			name: "list_with_alias_ls",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "test-run", "uid-4", "",
+					testutils.TimePtr(clock.Now().Add(-5*time.Minute)), testutils.TimePtr(clock.Now().Add(-3*time.Minute)), "True", nil),
+			},
+			args: []string{"ls"},
+			expectedOutput: `NAME       UID     STARTED   DURATION   STATUS
+test-run   uid-4   5m ago    2m0s       Succeeded
+`,
+		},
+		{
+			name: "pipeline_with_no_start_time",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "no-start-time-run", "uid-5", "", nil, nil, "True", nil),
+			},
+			args: []string{"list"},
+			expectedOutput: `NAME                UID     STARTED   DURATION   STATUS
+no-start-time-run   uid-5             ---        Succeeded
+`,
+		},
+		{
+			name: "pipeline_with_zero_duration",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "instant-run", "uid-6", "",
+					testutils.TimePtr(clock.Now().Add(-1*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil), // Same start and end time
+			},
+			args: []string{"list"},
+			expectedOutput: `NAME          UID     STARTED   DURATION   STATUS
+instant-run   uid-6   1m ago    0s         Succeeded
+`,
+		},
+		{
+			name: "filter_by_pipeline_name",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "build-pipeline-1", "uid-7", "",
+					testutils.TimePtr(clock.Now().Add(-5*time.Minute)), testutils.TimePtr(clock.Now().Add(-3*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "test-pipeline-1", "uid-8", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True", nil),
+			},
+			args: []string{"list", "build-pipeline"},
+			expectedOutput: `NAME               UID     STARTED   DURATION   STATUS
+build-pipeline-1   uid-7   5m ago    2m0s       Succeeded
+`,
+		},
+		{
+			name: "filter_by_pipeline_name_no_matches",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "build-pipeline-1", "uid-7a", "",
+					testutils.TimePtr(clock.Now().Add(-5*time.Minute)), testutils.TimePtr(clock.Now().Add(-3*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "test-pipeline-1", "uid-8a", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True", nil),
+			},
+			args: []string{"list", "deploy-pipeline"},
+			// No pipelines match "deploy-pipeline", so should show empty result
+			expectedOutput: `No PipelineRuns found
+`,
+		},
+		{
+			name: "filter_by_pipeline_name_partial_match",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "my-build-pipeline", "uid-9a", "",
+					testutils.TimePtr(clock.Now().Add(-6*time.Minute)), testutils.TimePtr(clock.Now().Add(-4*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "build-and-deploy", "uid-9b", "",
+					testutils.TimePtr(clock.Now().Add(-5*time.Minute)), testutils.TimePtr(clock.Now().Add(-3*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "test-suite", "uid-9c", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True", nil),
+			},
 			args: []string{"list", "build"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("build")`
-				if in.Filter != expectedFilter {
-					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
-				}
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{
-						{
-							Name: "test-record-1",
-							Uid:  "test-uid-1",
-							Data: &pb.Any{
-								Value: []byte(`{"metadata":{"name":"build-frontend-run-1"},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
-							},
-						},
-						{
-							Name: "test-record-2",
-							Uid:  "test-uid-2",
-							Data: &pb.Any{
-								Value: []byte(`{"metadata":{"name":"build-backend-run-1"},"status":{"conditions":[{"type":"Succeeded","status":"True"}]}}`),
-							},
-						},
-					},
-				}, nil
-			},
-			expectedOutput: "build-frontend-run-1",
-			expectedError:  false,
+			// Should match both "my-build-pipeline" and "build-and-deploy" (contains "build")
+			expectedOutput: `NAME                UID      STARTED   DURATION   STATUS
+my-build-pipeline   uid-9a   6m ago    2m0s       Succeeded
+build-and-deploy    uid-9b   5m ago    2m0s       Succeeded
+`,
 		},
 		{
-			name: "list with namespace filter",
-			args: []string{"list", "--namespace", "test-ns"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				expectedFilter := "data_type==PIPELINE_RUN"
-				if in.Filter != expectedFilter {
-					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
-				}
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{
-						{
-							Name: "test-record",
-							Uid:  "test-uid",
-							Data: &pb.Any{
-								Value: []byte(`{
-									"apiVersion": "tekton.dev/v1",
-									"kind": "PipelineRun",
-									"metadata": {
-										"name": "test-pipeline-run",
-										"namespace": "test-ns"
-									},
-									"status": {
-										"conditions": [
-											{
-												"type": "Succeeded",
-												"status": "True"
-											}
-										]
-									}
-								}`),
-							},
-						},
-					},
-				}, nil
-			},
-			expectedOutput: "test-pipeline-run",
-			expectedError:  false,
+			name:         "invalid_limit_too_low",
+			records:      []*pb.Record{},
+			args:         []string{"list", "--limit=3"},
+			expectError:  true,
+			errorMessage: "limit should be between 5 and 1000",
 		},
 		{
-			name: "list with error",
-			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				return nil, fmt.Errorf("test error")
-			},
-			expectedOutput: "",
-			expectedError:  true,
+			name:         "invalid_limit_too_high",
+			records:      []*pb.Record{},
+			args:         []string{"list", "--limit=1001"},
+			expectError:  true,
+			errorMessage: "limit should be between 5 and 1000",
 		},
 		{
-			name: "empty list",
-			args: []string{"list"},
-			listRecords: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{},
-				}, nil
+			name: "namespace_filtering",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "prod-run", "uid-9", "production",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "dev-run", "uid-10", "development",
+					testutils.TimePtr(clock.Now().Add(-2*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil),
 			},
-			expectedOutput: "No PipelineRuns found",
-			expectedError:  false,
+			args: []string{"list", "-n", "production"},
+			expectedOutput: `NAME       UID     STARTED   DURATION   STATUS
+prod-run   uid-9   3m ago    2m0s       Succeeded
+`,
 		},
 		{
-			name: "list with pipeline name and namespace",
-			args: []string{"list", "test-pipeline", "-n", "test-ns"},
-			listRecords: func(_ context.Context, in *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				expectedFilter := `data_type==PIPELINE_RUN && data.metadata.name.contains("test-pipeline")`
-				if in.Filter != expectedFilter {
-					t.Errorf("unexpected filter: got %v, want %v", in.Filter, expectedFilter)
-				}
-				expectedParent := "test-ns/results/-"
-				if in.Parent != expectedParent {
-					t.Errorf("unexpected parent: got %v, want %v", in.Parent, expectedParent)
-				}
-				return &pb.ListRecordsResponse{
-					Records: []*pb.Record{
-						{
-							Name: "test-record",
-							Uid:  "test-uid",
-							Data: &pb.Any{
-								Value: []byte(`{
-									"metadata": {
-										"name": "test-pipeline-run-1",
-										"namespace": "test-ns"
-									},
-									"status": {
-										"conditions": [
-											{
-												"type": "Succeeded",
-												"status": "True"
-											}
-										]
-									}
-								}`),
-							},
-						},
-					},
-				}, nil
+			name: "all_namespaces_shows_both",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "prod-run", "uid-11", "production",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil),
+				testutils.CreateTestRecord(clock, "dev-run", "uid-12", "development",
+					testutils.TimePtr(clock.Now().Add(-2*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil),
 			},
-			expectedOutput: "test-pipeline-run-1",
-			expectedError:  false,
+			args: []string{"list", "-A"},
+			expectedOutput: `NAMESPACE     NAME       UID      STARTED   DURATION   STATUS
+production    prod-run   uid-11   3m ago    2m0s       Succeeded
+development   dev-run    uid-12   2m ago    1m0s       Succeeded
+`,
+		},
+		{
+			name: "namespace_filtering_empty_result",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "prod-run", "uid-13", "production",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True", nil),
+			},
+			args: []string{"list", "-n", "nonexistent-namespace"},
+			expectedOutput: `No PipelineRuns found
+`,
+		},
+		{
+			name:         "conflicting_namespace_flags",
+			records:      []*pb.Record{},
+			args:         []string{"list", "-A", "-n", "test-namespace"},
+			expectError:  true,
+			errorMessage: "cannot use --all-namespaces/-A and --namespace/-n together",
+		},
+		{
+			name: "label_filtering",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "labeled-run", "uid-14", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True",
+					map[string]string{"app": "myapp", "env": "prod"}),
+				testutils.CreateTestRecord(clock, "other-run", "uid-15", "",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True",
+					map[string]string{"app": "other", "env": "dev"}),
+			},
+			args: []string{"list", "-L", "app=myapp"},
+			expectedOutput: `NAME          UID      STARTED   DURATION   STATUS
+labeled-run   uid-14   4m ago    2m0s       Succeeded
+`,
+		},
+		{
+			name: "label_filtering_multiple_labels",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "prod-app", "uid-16", "",
+					testutils.TimePtr(clock.Now().Add(-5*time.Minute)), testutils.TimePtr(clock.Now().Add(-3*time.Minute)), "True",
+					map[string]string{"app": "myapp", "env": "prod"}),
+				testutils.CreateTestRecord(clock, "dev-app", "uid-17", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True",
+					map[string]string{"app": "myapp", "env": "dev"}),
+				testutils.CreateTestRecord(clock, "other-prod", "uid-18", "",
+					testutils.TimePtr(clock.Now().Add(-3*time.Minute)), testutils.TimePtr(clock.Now().Add(-1*time.Minute)), "True",
+					map[string]string{"app": "other", "env": "prod"}),
+			},
+			args: []string{"list", "-L", "app=myapp,env=prod"},
+			// Should match only the record with both app=myapp AND env=prod
+			expectedOutput: `NAME       UID      STARTED   DURATION   STATUS
+prod-app   uid-16   5m ago    2m0s       Succeeded
+`,
+		},
+		{
+			name: "label_filtering_no_matches",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "labeled-run", "uid-19", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True",
+					map[string]string{"app": "myapp", "env": "prod"}),
+			},
+			args: []string{"list", "-L", "app=nonexistent"},
+			// No records match the label filter
+			expectedOutput: `No PipelineRuns found
+`,
+		},
+		{
+			name: "label_filtering_no_labels_on_record",
+			records: []*pb.Record{
+				testutils.CreateTestRecord(clock, "unlabeled-run", "uid-20", "",
+					testutils.TimePtr(clock.Now().Add(-4*time.Minute)), testutils.TimePtr(clock.Now().Add(-2*time.Minute)), "True", nil),
+			},
+			args: []string{"list", "-L", "app=myapp"},
+			// Record has no labels, so should not match
+			expectedOutput: `No PipelineRuns found
+`,
+		},
+		{
+			name:         "invalid_label_format",
+			records:      []*pb.Record{},
+			args:         []string{"list", "-L", "invalid-label-format"},
+			expectError:  true,
+			errorMessage: "invalid label format",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock client
-			mockClient := &mockRecordClient{
-				listRecordsFunc: tt.listRecords,
+			// Create test params with mock REST client
+			params := testutils.NewParams()
+
+			mockRESTClient, err := testutils.MockRESTClientFromRecords(tt.records)
+			if err != nil {
+				t.Fatalf("Failed to create mock REST client: %v", err)
 			}
+			params.SetRESTClient(mockRESTClient)
 
-			// Create test params with mock client
-			params := &testParams{
-				ResultsParams: common.ResultsParams{},
-				RecordClient:  mockClient,
-			}
-			params.SetHost("http://localhost:8080")
+			// Execute the list command
+			cmd := Command(params)
 
-			// Create output and error buffers
-			var outBuf, errBuf bytes.Buffer
+			output, err := testutils.ExecuteCommand(cmd, tt.args...)
 
-			// Get the command
-			cmd := listCommand(params)
-			cmd.SetOut(&outBuf)
-			cmd.SetErr(&errBuf)
-			cmd.SetArgs(tt.args)
-
-			// Override PreRunE to bypass kubeconfig check
-			cmd.PreRunE = func(_ *cobra.Command, args []string) error {
-				if len(args) > 0 {
-					opts := &options.ListOptions{}
-					opts.ResourceName = args[0]
-				}
-				return nil
-			}
-
-			flags.AddResultsOptions(cmd)
-
-			// Override RunE to use mock client
-			cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-				opts := &options.ListOptions{
-					Limit:         10,
-					AllNamespaces: false,
-					SinglePage:    true,
-				}
-
-				if ns, nsErr := cmd.Flags().GetString("namespace"); nsErr == nil {
-					params.SetNamespace(ns)
-				}
-				if limit, limitErr := cmd.Flags().GetInt32("limit"); limitErr == nil {
-					opts.Limit = limit
-				}
-				if allNamespaces, allNsErr := cmd.Flags().GetBool("all-namespaces"); allNsErr == nil {
-					opts.AllNamespaces = allNamespaces
-				}
-				if singlePage, spErr := cmd.Flags().GetBool("single-page"); spErr == nil {
-					opts.SinglePage = singlePage
-				}
-				if label, labelErr := cmd.Flags().GetString("label"); labelErr == nil {
-					opts.Label = label
-				}
-				if len(tt.args) > 1 && tt.args[1] != "-n" && tt.args[1] != "--namespace" {
-					opts.ResourceName = tt.args[1]
-				}
-
-				// Build filter string
-				filter := []string{`data_type==PIPELINE_RUN`}
-				if opts.Label != "" {
-					filter = append(filter, fmt.Sprintf(`labels.%s`, opts.Label))
-				}
-				if opts.ResourceName != "" {
-					filter = append(filter, fmt.Sprintf(`data.metadata.name.contains("%s")`, opts.ResourceName))
-				}
-
-				// Handle all namespaces
-				parent := fmt.Sprintf("%s/results/-", params.Namespace())
-				if opts.AllNamespaces {
-					parent = common.AllNamespacesResultsParent
-				}
-
-				// Create initial request
-				req := &pb.ListRecordsRequest{
-					Parent:   parent,
-					Filter:   strings.Join(filter, " && "),
-					OrderBy:  "create_time desc",
-					PageSize: opts.Limit,
-				}
-
-				// Use the mock client directly
-				resp, listErr := mockClient.ListRecords(cmd.Context(), req, "")
-				if listErr != nil {
-					return listErr
-				}
-
-				stream := &cli.Stream{
-					Out: cmd.OutOrStdout(),
-					Err: cmd.OutOrStderr(),
-				}
-
-				// Parse records to PipelineRuns before printing
-				prs, err := parseRecordsToPr(resp.Records)
-				if err != nil {
-					return err
-				}
-				return printFormattedPr(stream, prs, clockwork.NewRealClock(), opts.AllNamespaces, false)
-			}
-
-			// Execute the command
-			err := cmd.Execute()
-
-			// Check for expected error
-			if tt.expectedError {
+			if tt.expectError {
 				if err == nil {
-					t.Error("expected error but got none")
+					t.Errorf("Expected error but got none")
+				} else if tt.errorMessage != "" && !strings.Contains(err.Error(), tt.errorMessage) {
+					t.Errorf("Expected error message to contain %q, got %q", tt.errorMessage, err.Error())
 				}
 				return
 			}
 
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf("Unexpected error: %v", err)
 				return
 			}
 
-			// Check output
-			output := outBuf.String()
-			if !strings.Contains(output, tt.expectedOutput) {
-				t.Errorf("expected output to contain %q, got %q", tt.expectedOutput, output)
-			}
-		})
-	}
-}
-
-func TestBuildFilterString(t *testing.T) {
-	tests := []struct {
-		name          string
-		opts          *options.ListOptions
-		expected      string
-		expectedError string
-	}{
-		{
-			name: "single label",
-			opts: &options.ListOptions{
-				Label:        "app.kubernetes.io/name=test-app",
-				ResourceType: common.ResourceTypePipelineRun,
-			},
-			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app"`,
-		},
-		{
-			name: "multiple labels",
-			opts: &options.ListOptions{
-				Label:        "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
-				ResourceType: common.ResourceTypePipelineRun,
-			},
-			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.labels["app.kubernetes.io/component"]=="database"`,
-		},
-		{
-			name: "with pipeline name",
-			opts: &options.ListOptions{
-				Label:        "app.kubernetes.io/name=test-app",
-				ResourceName: "my-pipeline",
-				ResourceType: common.ResourceTypePipelineRun,
-			},
-			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun") && data.metadata.labels["app.kubernetes.io/name"]=="test-app" && data.metadata.name.contains("my-pipeline")`,
-		},
-		{
-			name: "empty label",
-			opts: &options.ListOptions{
-				Label:        "",
-				ResourceType: common.ResourceTypePipelineRun,
-			},
-			expected: `(data_type=="tekton.dev/v1.PipelineRun" || data_type=="tekton.dev/v1beta1.PipelineRun")`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := common.BuildFilterString(tt.opts)
-			if got != tt.expected {
-				t.Errorf("buildFilterString() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestValidateLabels(t *testing.T) {
-	tests := []struct {
-		name          string
-		label         string
-		expectedError string
-	}{
-		{
-			name:  "valid single label",
-			label: "app.kubernetes.io/name=test-app",
-		},
-		{
-			name:  "valid multiple labels",
-			label: "app.kubernetes.io/name=test-app,app.kubernetes.io/component=database",
-		},
-		{
-			name:          "missing equals sign",
-			label:         "app.kubernetes.io/name test-app",
-			expectedError: "invalid label format: app.kubernetes.io/name test-app. Expected format: key=value",
-		},
-		{
-			name:          "missing value",
-			label:         "app.kubernetes.io/name=",
-			expectedError: "label value cannot be empty in pair: app.kubernetes.io/name=",
-		},
-		{
-			name:          "missing key",
-			label:         "=test-app",
-			expectedError: "label key cannot be empty in pair: =test-app",
-		},
-		{
-			name:          "empty pair",
-			label:         "app.kubernetes.io/name=test-app,,",
-			expectedError: "invalid label format: . Expected format: key=value",
-		},
-		{
-			name:          "malformed pair",
-			label:         "app.kubernetes.io/name=test-app,key2",
-			expectedError: "invalid label format: key2. Expected format: key=value",
-		},
-		{
-			name:          "whitespace in key",
-			label:         "app.kubernetes.io/name =test-app",
-			expectedError: "label key cannot contain whitespace: app.kubernetes.io/name ",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a minimal command with just the label option
-			cmd := &cobra.Command{
-				PreRunE: func(_ *cobra.Command, _ []string) error {
-					opts := &options.ListOptions{
-						Label: tt.label,
-					}
-					// Validate label format if provided
-					if opts.Label != "" {
-						labelPairs := strings.Split(opts.Label, ",")
-						for _, pair := range labelPairs {
-							pair = strings.TrimSpace(pair)
-							if pair == "" {
-								return fmt.Errorf("invalid label format: . Expected format: key=value")
-							}
-
-							// Split on the first equals sign only
-							parts := strings.SplitN(pair, "=", 2)
-							if len(parts) != 2 {
-								return fmt.Errorf("invalid label format: %s. Expected format: key=value", pair)
-							}
-
-							// Check for whitespace in key before trimming
-							if strings.ContainsAny(parts[0], " \t") {
-								return fmt.Errorf("label key cannot contain whitespace: %s", parts[0])
-							}
-
-							key := strings.TrimSpace(parts[0])
-							value := strings.TrimSpace(parts[1])
-
-							if key == "" {
-								return fmt.Errorf("label key cannot be empty in pair: %s", pair)
-							}
-							if value == "" {
-								return fmt.Errorf("label value cannot be empty in pair: %s", pair)
-							}
-						}
-					}
-					return nil
-				},
-			}
-
-			err := cmd.PreRunE(cmd, []string{})
-
-			if tt.expectedError != "" {
-				if err == nil {
-					t.Errorf("expected error: %v, got nil", tt.expectedError)
-				} else if err.Error() != tt.expectedError {
-					t.Errorf("expected error: %q (bytes: %v), got: %q (bytes: %v)",
-						tt.expectedError, []byte(tt.expectedError),
-						err.Error(), []byte(err.Error()))
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-			}
+			test.AssertOutput(t, tt.expectedOutput, output)
 		})
 	}
 }
