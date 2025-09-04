@@ -6,7 +6,6 @@ import (
 	"github.com/tektoncd/results/pkg/cli/common"
 	configpkg "github.com/tektoncd/results/pkg/cli/config"
 	"github.com/tektoncd/results/pkg/cli/testutils"
-	testutil "github.com/tektoncd/results/pkg/test"
 )
 
 // TestResetCommand tests basic reset command creation
@@ -76,7 +75,7 @@ func TestResetCommandExecution(t *testing.T) {
 				// First, set up a configuration to reset
 				cmd := Command(params)
 				setArgs := []string{"--kubeconfig=" + kubeconfigPath, "set", "--host=https://test-reset.com", "--token=reset-token"}
-				_, err := testutil.ExecuteCommand(cmd, setArgs...)
+				_, err := testutils.ExecuteCommand(cmd, setArgs...)
 				if err != nil {
 					t.Fatalf("failed to set up test config: %v", err)
 				}
@@ -95,7 +94,7 @@ func TestResetCommandExecution(t *testing.T) {
 			// Now test the reset command
 			cmd := Command(params)
 			resetArgs := []string{"--kubeconfig=" + kubeconfigPath, "reset"}
-			_, err := testutil.ExecuteCommand(cmd, resetArgs...)
+			_, err := testutils.ExecuteCommand(cmd, resetArgs...)
 			if err != nil {
 				t.Errorf("%s: unexpected error during reset: %v", tt.description, err)
 				return

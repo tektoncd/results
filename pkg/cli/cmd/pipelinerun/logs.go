@@ -14,7 +14,6 @@ import (
 	"github.com/tektoncd/results/pkg/cli/client/logs"
 	"github.com/tektoncd/results/pkg/cli/client/records"
 	"github.com/tektoncd/results/pkg/cli/common"
-	"github.com/tektoncd/results/pkg/cli/common/prerun"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
@@ -60,11 +59,7 @@ Logs are only available for completed PipelineRuns. Running PipelineRuns do not 
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Initialize the client using the shared prerun function
-			var err error
-			opts.Client, err = prerun.InitClient(p, cmd)
-			if err != nil {
-				return err
-			}
+			opts.Client = p.RESTClient()
 			if len(args) > 0 {
 				opts.ResourceName = args[0]
 			}

@@ -10,8 +10,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/tektoncd/results/pkg/cli/common"
-
 	"k8s.io/client-go/transport"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -76,7 +74,7 @@ func NewRESTClient(c *Config) (*RESTClient, error) {
 }
 
 // DoRequest performs an HTTP request and handles the response
-func (c *RESTClient) DoRequest(ctx context.Context, method, url string, in proto.Message) (*common.Response, error) {
+func (c *RESTClient) DoRequest(ctx context.Context, method, url string, in proto.Message) (*Response, error) {
 	var body io.Reader
 	if in != nil {
 		data, err := protojson.Marshal(in)
@@ -110,7 +108,7 @@ func (c *RESTClient) DoRequest(ctx context.Context, method, url string, in proto
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	return common.NewResponse(data), nil
+	return NewResponse(data), nil
 }
 
 // BuildURL constructs a URL with the given path and query parameters
