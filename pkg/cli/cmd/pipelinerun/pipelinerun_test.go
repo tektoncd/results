@@ -1,16 +1,13 @@
 package pipelinerun
 
 import (
+	"github.com/tektoncd/results/pkg/cli/testutils"
 	"testing"
-
-	"github.com/tektoncd/results/pkg/cli/common"
 )
 
 func TestCommand(t *testing.T) {
 	// Create test params
-	params := &testParams{
-		ResultsParams: common.ResultsParams{},
-	}
+	params := testutils.NewParams()
 	params.SetHost("http://localhost:8080")
 
 	// Get the command
@@ -41,13 +38,17 @@ func TestCommand(t *testing.T) {
 	})
 
 	t.Run("subcommands", func(t *testing.T) {
-		// Check if list subcommand is registered
-		listCmd, _, err := cmd.Find([]string{"list"})
-		if err != nil {
-			t.Errorf("list subcommand not found: %v", err)
-		}
-		if listCmd.Name() != "list" {
-			t.Errorf("unexpected subcommand name: got %v, want 'list'", listCmd.Name())
+		// Check if all expected subcommands are registered
+		expectedSubcommands := []string{"list", "describe", "logs"}
+
+		for _, subcmdName := range expectedSubcommands {
+			subcmd, _, err := cmd.Find([]string{subcmdName})
+			if err != nil {
+				t.Errorf("%s subcommand not found: %v", subcmdName, err)
+			}
+			if subcmd.Name() != subcmdName {
+				t.Errorf("unexpected subcommand name: got %v, want '%s'", subcmd.Name(), subcmdName)
+			}
 		}
 	})
 }
