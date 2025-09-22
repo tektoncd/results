@@ -2,21 +2,23 @@ package taskrun
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/tektoncd/results/pkg/apis/config"
+	"github.com/tektoncd/results/pkg/metrics"
 	"github.com/tektoncd/results/pkg/taskrunmetrics"
-	"github.com/tektoncd/results/pkg/watcher/results"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	taskrunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/taskrun"
 	v1 "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
+
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/dynamic"
+	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -33,10 +35,11 @@ type Reconciler struct {
 
 	resultsClient  pb.ResultsClient
 	logsClient     pb.LogsClient
-	lister         v1.TaskRunLister
+	taskRunLister  v1.TaskRunLister
 	pipelineClient versioned.Interface
 	cfg            *reconciler.Config
-	metrics        *taskrunmetrics.Recorder
+	metrics        *metrics.Recorder
+	taskRunMetrics *taskrunmetrics.Recorder
 	configStore    *config.Store
 }
 
@@ -67,9 +70,19 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 	}
 
 	dyn := dynamic.NewDynamicReconciler(r.kubeClientSet, r.resultsClient, r.logsClient, taskRunClient, r.cfg)
-	dyn.AfterDeletion = func(ctx context.Context, o results.Object) error {
-		tr := o.(*pipelinev1.TaskRun)
-		return r.metrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
+	dyn.AfterDeletion = func(ctx context.Context, object results.Object) error {
+		tr, ok := object.(*pipelinev1.TaskRun)
+		if !ok {
+			return fmt.Errorf("expected TaskRun, got %T", object)
+		}
+		return r.taskRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
+	}
+	dyn.AfterStorage = func(ctx context.Context, o results.Object, _ bool) error {
+		tr, ok := o.(*pipelinev1.TaskRun)
+		if !ok {
+			return fmt.Errorf("expected TaskRun, got %T", o)
+		}
+		return r.metrics.RecordStorageLatency(ctx, tr)
 	}
 	return dyn.Reconcile(logging.WithLogger(ctx, logger), tr)
 }
@@ -137,6 +150,9 @@ func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr 
 			if !ok {
 				logging.FromContext(ctx).Errorf("taskrun not stored: %s/%s, uid: %s,",
 					tr.Namespace, tr.Name, tr.UID)
+				if err := metrics.CountRunNotStored(ctx, tr.Namespace, "TaskRun"); err != nil {
+					logging.FromContext(ctx).Errorf("error counting TaskRun as not stored: %w", err)
+				}
 			}
 			return nil // Proceed with deletion
 		}
