@@ -22,7 +22,7 @@ import (
 var (
 	trDeleteCount        = stats.Int64("taskrun_delete_count", "total number of deleted taskruns", stats.UnitDimensionless)
 	trDeleteCountView    *view.View
-	trDeleteDuration     = stats.Float64("taskrun_delete_duration_seconds", "the pipelinerun deletion time in seconds", stats.UnitSeconds)
+	trDeleteDuration     = stats.Float64("taskrun_delete_duration_seconds", "the duration between taskrun completion and deletion, in seconds", stats.UnitSeconds)
 	trDeleteDurationView *view.View
 	pipelineTag          = tag.MustNewKey("pipeline")
 	taskTag              = tag.MustNewKey("task")
@@ -36,7 +36,7 @@ type Recorder struct {
 }
 
 // NewRecorder creates a new metrics recorder instance
-// to log the PipelineRun related metrics
+// to log the TaskRun related metrics
 func NewRecorder() *Recorder {
 	return &Recorder{clock: clockwork.NewRealClock()}
 }
