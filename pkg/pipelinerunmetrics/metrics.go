@@ -21,7 +21,7 @@ import (
 var (
 	prDeleteCount        = stats.Int64("pipelinerun_delete_count", "total number of deleted pipelineruns", stats.UnitDimensionless)
 	prDeleteCountView    *view.View
-	prDeleteDuration     = stats.Float64("pipelinerun_delete_duration_seconds", "the pipelinerun deletion time in seconds", stats.UnitSeconds)
+	prDeleteDuration     = stats.Float64("pipelinerun_delete_duration_seconds", "the duration between pipelinerun completion and deletion, in seconds", stats.UnitSeconds)
 	prDeleteDurationView *view.View
 	pipelineTag          = tag.MustNewKey("pipeline")
 	namespaceTag         = tag.MustNewKey("namespace")
@@ -65,7 +65,7 @@ func viewRegister(logger *zap.SugaredLogger, cfg *config.Metrics) error {
 	}
 
 	prDeleteDurationView = &view.View{
-		Description: prDeleteCount.Description(),
+		Description: prDeleteDuration.Description(),
 		TagKeys:     append([]tag.Key{statusTag, namespaceTag}, tags...),
 		Measure:     prDeleteDuration,
 		Aggregation: distribution,
