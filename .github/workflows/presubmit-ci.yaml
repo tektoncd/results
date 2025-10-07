@@ -67,12 +67,12 @@ jobs:
     if: needs.prepare-pr-check.outputs.run_tests == 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           path: ${{ github.workspace }}/src/github.com/tektoncd/results
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           cache-dependency-path: src/github.com/tektoncd/results/go.sum
           go-version-file: src/github.com/tektoncd/results/go.mod
@@ -99,7 +99,7 @@ jobs:
           path: ${{ github.workspace }}/src/github.com/tektoncd/results
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           cache-dependency-path: src/github.com/tektoncd/results/go.sum
           go-version-file: src/github.com/tektoncd/results/go.mod
@@ -144,7 +144,7 @@ jobs:
           path: ${{ github.workspace }}/src/github.com/tektoncd/results
 
       - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           cache-dependency-path: src/github.com/tektoncd/results/go.sum
           go-version-file: src/github.com/tektoncd/results/go.mod
