@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/tektoncd/results/pkg/api/server/config"
+	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"github.com/tektoncd/results/pkg/retention"
 

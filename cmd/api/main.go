@@ -48,6 +48,7 @@ import (
 	_ "net/http/pprof"
 
 	serverdb "github.com/tektoncd/results/pkg/api/server/db"
+	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
 
 	"github.com/golang-jwt/jwt/v4"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
