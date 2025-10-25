@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgconn"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db"
+	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
