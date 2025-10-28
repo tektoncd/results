@@ -118,18 +118,37 @@ func main() {
 
 	dbURI := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s sslrootcert=%s", serverConfig.DB_HOST, serverConfig.DB_USER, serverConfig.DB_PASSWORD, serverConfig.DB_NAME, serverConfig.DB_PORT, serverConfig.DB_SSLMODE, serverConfig.DB_SSLROOTCERT)
 
-	gormConfig := &gorm.Config{}
+	gormConfig := &gorm.Config{
+		DisableAutomaticPing: true, // manual polling handles readiness with context-aware ping
+	}
 	if err = serverdb.SetLogLevel(serverConfig.SQL_LOG_LEVEL); err != nil {
 		log.Warnf("Failed to configure sql log level: %v", err)
 	}
 
 	// Retry database connection, sometimes the database is not ready to accept connection
-	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) { //nolint:staticcheck
-		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
+	ctx := context.Background()
+	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, true, func(pollCtx context.Context) (bool, error) {
+		connection, err := gorm.Open(postgres.Open(dbURI), gormConfig)
 		if err != nil {
 			log.Warnf("Error connecting to database (retrying in 10s): %v", err)
 			return false, nil
 		}
+		sqlConn, err := connection.DB()
+		if err != nil {
+			log.Warnf("Error retrieving database handle (retrying in 10s): %v", err)
+			return false, nil
+		}
+		if err := sqlConn.PingContext(pollCtx); err != nil {
+			if closeErr := sqlConn.Close(); closeErr != nil {
+				log.Debugf("Failed to close db handle after ping failure: %v", closeErr)
+			}
+			if pollCtx.Err() != nil {
+				return false, pollCtx.Err()
+			}
+			log.Warnf("Database ping failed (retrying in 10s): %v", err)
+			return false, nil
+		}
+		db = connection
 		return true, nil
 	})
 	if err != nil {
@@ -319,7 +338,6 @@ func main() {
 	)
 
 	// Create server for gRPC gateway
-	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var httpMux http.Handler
