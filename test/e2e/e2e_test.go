@@ -143,7 +143,7 @@ func TestTaskRun(t *testing.T) {
 
 	// Wait for Result ID to show up.
 	t.Run("check annotations", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 			tr, err := tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting TaskRun: %v", err)
@@ -162,7 +162,7 @@ func TestTaskRun(t *testing.T) {
 	})
 
 	t.Run("check deletion", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 			_, err = tc.TaskRuns(defaultNamespace).Get(ctx, tr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
@@ -234,7 +234,7 @@ func TestPipelineRun(t *testing.T) {
 
 	t.Run("check annotations", func(t *testing.T) {
 		// Wait for Result ID to show up.
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 			pr, err := tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting PipelineRun: %v", err)
@@ -253,7 +253,7 @@ func TestPipelineRun(t *testing.T) {
 	})
 
 	t.Run("check deletion", func(t *testing.T) {
-		if err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (done bool, err error) { //nolint:staticcheck
+		if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (done bool, err error) {
 			_, err = tc.PipelineRuns(defaultNamespace).Get(ctx, pr.GetName(), metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
