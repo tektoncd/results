@@ -124,7 +124,8 @@ func main() {
 	}
 
 	// Retry database connection, sometimes the database is not ready to accept connection
-	err = wait.PollImmediate(10*time.Second, 2*time.Minute, func() (bool, error) { //nolint:staticcheck
+	ctx := context.Background()
+	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, true, func(_ context.Context) (bool, error) {
 		db, err = gorm.Open(postgres.Open(dbURI), gormConfig)
 		if err != nil {
 			log.Warnf("Error connecting to database (retrying in 10s): %v", err)
@@ -319,7 +320,6 @@ func main() {
 	)
 
 	// Create server for gRPC gateway
-	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var httpMux http.Handler
