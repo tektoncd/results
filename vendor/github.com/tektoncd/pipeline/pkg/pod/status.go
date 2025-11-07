@@ -127,6 +127,13 @@ func MakeTaskRunStatus(ctx context.Context, logger *zap.SugaredLogger, tr v1.Tas
 
 	complete := areContainersCompleted(ctx, pod) || isPodCompleted(pod)
 
+	// When EnableKubernetesSidecar is true, we need to ensure all init containers
+	// are completed before considering the taskRun complete, in addition to the regular containers.
+	// This is because sidecars in Kubernetes can keep running after the main containers complete.
+	if config.FromContextOrDefaults(ctx).FeatureFlags.EnableKubernetesSidecar {
+		complete = complete && areInitContainersCompleted(ctx, pod)
+	}
+
 	if complete {
 		onError, ok := tr.Annotations[v1.PipelineTaskOnErrorAnnotation]
 		if ok {
@@ -157,6 +164,7 @@ func MakeTaskRunStatus(ctx context.Context, logger *zap.SugaredLogger, tr v1.Tas
 	}
 
 	err := setTaskRunStatusBasedOnStepStatus(ctx, logger, stepStatuses, &tr, pod.Status.Phase, kubeclient, ts)
+
 	setTaskRunStatusBasedOnSidecarStatus(sidecarStatuses, trs)
 
 	trs.Results = removeDuplicateResults(trs.Results)
@@ -260,8 +268,15 @@ func setTaskRunStatusBasedOnStepStatus(ctx context.Context, logger *zap.SugaredL
 		}
 	}
 
+	// Build a lookup map for step state provenances.
+	stepStateProvenances := make(map[string]*v1.Provenance)
+	for _, ss := range trs.Steps {
+		stepStateProvenances[ss.Name] = ss.Provenance
+	}
+
 	// Continue with extraction of termination messages
-	for _, s := range stepStatuses {
+	orderedStepStates := make([]v1.StepState, len(stepStatuses))
+	for i, s := range stepStatuses {
 		// Avoid changing the original value by modifying the pointer value.
 		state := s.State.DeepCopy()
 		taskRunStepResults := []v1.TaskRunStepResult{}
@@ -370,18 +385,13 @@ func setTaskRunStatusBasedOnStepStatus(ctx context.Context, logger *zap.SugaredL
 			Inputs:            sas.Inputs,
 			Outputs:           sas.Outputs,
 		}
-		foundStep := false
-		for i, ss := range trs.Steps {
-			if ss.Name == stepState.Name {
-				stepState.Provenance = ss.Provenance
-				trs.Steps[i] = stepState
-				foundStep = true
-				break
-			}
+		if stepStateProvenance, exist := stepStateProvenances[stepState.Name]; exist {
+			stepState.Provenance = stepStateProvenance
 		}
-		if !foundStep {
-			trs.Steps = append(trs.Steps, stepState)
-		}
+		orderedStepStates[i] = stepState
+	}
+	if len(orderedStepStates) > 0 {
+		trs.Steps = orderedStepStates
 	}
 
 	return errors.Join(errs...)
@@ -697,6 +707,21 @@ func isMatchingAnyFilter(name string, filters []containerNameFilter) bool {
 		}
 	}
 	return false
+}
+
+// areInitContainersCompleted returns true if all init containers in the pod are completed.
+func areInitContainersCompleted(ctx context.Context, pod *corev1.Pod) bool {
+	if len(pod.Status.InitContainerStatuses) == 0 ||
+		!(pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded) {
+		return false
+	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if containerStatus.State.Terminated == nil {
+			// if any init container is not completed, return false
+			return false
+		}
+	}
+	return true
 }
 
 // areContainersCompleted returns true if all related containers in the pod are completed.
