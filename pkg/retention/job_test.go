@@ -20,7 +20,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/tektoncd/results/pkg/apis/config"
+	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func Test_buildCaseStatement(t *testing.T) {
@@ -161,6 +165,66 @@ func Test_buildWhereClause(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("buildWhereClause() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_cleanupResults(t *testing.T) {
+	// Create a new mock database
+	mockDb, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("unexpected error when opening a stub database connection: %v", err)
+	}
+	defer mockDb.Close()
+
+	// Create a new gorm DB using the sqlmock connection
+	gormDb, err := gorm.Open(postgres.New(postgres.Config{
+		Conn: mockDb,
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("unexpected error when opening a gorm database: %v", err)
+	}
+
+	// Use a no-op logger for tests
+	logger := zap.NewNop()
+
+	agent := &Agent{
+		db:     gormDb,
+		Logger: logger.Sugar(),
+	}
+
+	tests := []struct {
+		name       string
+		recordType string
+		// regex that must match the Exec'd SQL
+		wantQuery string
+	}{
+		{
+			name:       "cleanup pipelineruns",
+			recordType: "tekton.dev/v1.PipelineRun",
+			// match core structure; dot matches newline; allow flexible whitespace
+			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.PipelineRun'.*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
+		},
+		{
+			name:       "cleanup taskruns",
+			recordType: "tekton.dev/v1.TaskRun",
+			// allow an optional AND NOT EXISTS (...) inside the inner WHERE
+			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.TaskRun'\s*(?:AND\s+NOT\s+EXISTS\s*\(.*\)\s*)?.*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Expect the Exec of the SQL that matches the regex. Return success.
+			mock.ExpectExec(tt.wantQuery).WillReturnResult(sqlmock.NewResult(0, 1))
+
+			// Call function. It logs error internally; it doesn't return error.
+			agent.cleanupResults("NOW()", tt.recordType)
+
+			// Verify expectations.
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unfulfilled expectations: %v", err)
 			}
 		})
 	}
