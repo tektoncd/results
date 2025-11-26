@@ -19,199 +19,224 @@ metadata:
   name: results-release
 spec:
   params:
-    - name: repo
-      description: Repo URL to clone.
-      default: https://github.com/tektoncd/results
-    - name: revision
-      description: The Git revision to checkout.
-      default: main
-    - name: docker_repo
-      default: "gcr.io/tekton-releases"
-    - name: bucket
-      description: "GCS bucket/folder to upload configs"
-    - name: version
-      description: "Version label to use for published images / configs"
-      default: "dev"
-    - name: runTests
-      description: If set to something other than "true", skip the build and test tasks
-      default: "true"
-  workspaces:
-    - name: ws
-    - name: release-secret
-      optional: true
+  - default: https://github.com/tektoncd/results
+    description: Repo URL to clone.
+    name: repo
+    type: string
+  - default: main
+    description: The Git revision to checkout.
+    name: revision
+    type: string
+  - default: gcr.io/tekton-releases
+    name: docker_repo
+    type: string
+  - description: GCS bucket/folder to upload configs
+    name: bucket
+    type: string
+  - default: dev
+    description: Version label to use for published images / configs
+    name: version
+    type: string
+  - default: "true"
+    description: If set to something other than "true", skip the build and test tasks
+    name: runTests
+    type: string
   tasks:
-    - name: checkout
-      taskRef:
-        resolver: bundles
-        params:
-          - name: bundle
-            value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.7
-          - name: name
-            value: git-clone
-          - name: kind
-            value: task
-      workspaces:
-        - name: output
-          workspace: ws
+  - name: checkout
+    params:
+    - name: url
+      value: $(params.repo)
+    - name: revision
+      value: $(params.revision)
+    taskRef:
       params:
-        - name: url
+      - name: bundle
+        value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.7
+      - name: name
+        value: git-clone
+      - name: kind
+        value: task
+      resolver: bundles
+    workspaces:
+    - name: output
+      workspace: ws
+  - name: unit-tests
+    params:
+    - name: package
+      value: $(workspaces.source.path)/...
+    runAfter:
+    - checkout
+    taskRef:
+      params:
+      - name: bundle
+        value: ghcr.io/tektoncd/catalog/upstream/tasks/golang-test:0.2
+      - name: name
+        value: golang-test
+      - name: kind
+        value: task
+      resolver: bundles
+    when:
+    - cel: '''$(params.runTests)'' == ''true'''
+    workspaces:
+    - name: source
+      workspace: ws
+  - name: publish-image-gcr
+    params:
+    - name: repo
+      value: $(params.docker_repo)
+    - name: tag
+      value: $(params.version)
+    runAfter:
+    - unit-tests
+    taskSpec:
+      params:
+      - description: Docker repository to publish to.
+        name: repo
+        type: string
+      - default: latest
+        name: tag
+        type: string
+      spec: null
+      steps:
+      - env:
+        - name: KO_DOCKER_REPO
           value: $(params.repo)
-        - name: revision
-          value: $(params.revision)
-    - name: unit-tests
-      runAfter: [checkout]
-      when:
-        - cel: "'$(params.runTests)' == 'true'"
-      taskRef:
-        resolver: bundles
-        params:
-          - name: bundle
-            value: ghcr.io/tektoncd/catalog/upstream/tasks/golang-test:0.2
-          - name: name
-            value: golang-test
-          - name: kind
-            value: task
-      params:
-        - name: package
-          value: $(workspaces.source.path)/...
+        - name: KO_EXTRA_ARGS
+          value: -P
+        - name: RELEASE_VERSION
+          value: $(params.tag)
+        image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
+        name: publish
+        script: |
+          gcloud auth list
+          gcloud auth configure-docker gcr.io,us-docker.pkg.dev
+
+          $(workspaces.source.path)/release/release.sh
+        workingDir: $(workspaces.source.path)
       workspaces:
-        - name: source
-          workspace: ws
-    - name: publish-image-gcr
-      runAfter:
-        - unit-tests
-      when:
-        - cel: "'$(params.docker_repo)'.matches('gcr.io/.*')"
-      taskSpec:
-        params:
-          - name: repo
-            description: Docker repository to publish to.
-          - name: tag
-            default: latest
-        workspaces:
-          - name: source
-        steps:
-          - name: publish
-            image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
-            workingDir: $(workspaces.source.path)
-            script: |
-              gcloud auth list
-              gcloud auth configure-docker gcr.io,us-docker.pkg.dev
-
-              $(workspaces.source.path)/release/release.sh
-            env:
-              - name: KO_DOCKER_REPO
-                value: "$(params.repo)"
-              - name: KO_EXTRA_ARGS
-                value: "-P"
-              - name: RELEASE_VERSION
-                value: "$(params.tag)"
+      - name: source
+    when:
+    - cel: '''$(params.docker_repo)''.matches(''gcr.io/.*'')'
+    workspaces:
+    - name: source
+      workspace: ws
+  - name: publish-image
+    params:
+    - name: repo
+      value: $(params.docker_repo)
+    - name: githubRepo
+      value: $(params.repo)
+    - name: tag
+      value: $(params.version)
+    runAfter:
+    - unit-tests
+    taskSpec:
       params:
-        - name: repo
-          value: $(params.docker_repo)
-        - name: tag
-          value: $(params.version)
-      workspaces:
-        - name: source
-          workspace: ws
-    - name: publish-image
-      runAfter:
-        - unit-tests
-      when:
-        - cel: "!'$(params.docker_repo)'.matches('gcr.io/.*')"
-      taskSpec:
-        params:
-          - name: repo
-            description: Docker repository to publish to.
-          - name: githubRepo
-            description: The source GitHub repo
-          - name: tag
-            default: latest
-          - name: imageRegistry
-            default: ghcr.io
-          - name: imageRegistryUser
-            default: tekton-robot
-          - name: serviceAccountPath
-            default: credentials
-        workspaces:
-          - name: source
-          - name: release-secret
-            optional: true
-        stepTemplate:
-          env:
-            - name: CONTAINER_REGISTRY_CREDENTIALS
-              value: "$(workspaces.release-secret.path)/$(params.serviceAccountPath)"
-            - name: IMAGE_REGISTRY
-              value: "$(params.imageRegistry)"
-            - name: CONTAINER_REGISTRY_USER
-              value: "$(params.imageRegistryUser)"
-            - name: RELEASE_VERSION
-              value: $(params.tag)
-            - name: GITHUB_REPO
-              value: $(params.githubRepo)
-            - name: DOCKER_CONFIG
-              value: /workspace/.docker
-            - name: KO_EXTRA_ARGS
-              value: ""
-        steps:
-          - name: container-registry-auth
-            image: cgr.dev/chainguard/crane:latest-dev@sha256:6fc6fcdeb173c7951f038e6a7b230f586c1be05a011d9e6f9db6c614ec412c2f
-            script: |
-              #!/bin/sh
-              set -ex
+      - description: Docker repository to publish to.
+        name: repo
+        type: string
+      - description: The source GitHub repo
+        name: githubRepo
+        type: string
+      - default: latest
+        name: tag
+        type: string
+      - default: ghcr.io
+        name: imageRegistry
+        type: string
+      - default: tekton-robot
+        name: imageRegistryUser
+        type: string
+      - default: credentials
+        name: serviceAccountPath
+        type: string
+      spec: null
+      stepTemplate:
+        env:
+        - name: CONTAINER_REGISTRY_CREDENTIALS
+          value: $(workspaces.release-secret.path)/$(params.serviceAccountPath)
+        - name: IMAGE_REGISTRY
+          value: $(params.imageRegistry)
+        - name: CONTAINER_REGISTRY_USER
+          value: $(params.imageRegistryUser)
+        - name: RELEASE_VERSION
+          value: $(params.tag)
+        - name: GITHUB_REPO
+          value: $(params.githubRepo)
+        - name: DOCKER_CONFIG
+          value: /workspace/.docker
+        - name: KO_EXTRA_ARGS
+      steps:
+      - image: cgr.dev/chainguard/crane:latest-dev@sha256:6fc6fcdeb173c7951f038e6a7b230f586c1be05a011d9e6f9db6c614ec412c2f
+        name: container-registry-auth
+        script: |
+          #!/bin/sh
+          set -ex
 
-              if [ ! -f ${CONTAINER_REGISTRY_CREDENTIALS} ]; then
-                echo "The release-secret workspace is required with ghcr.io"
-                exit 1
-              fi
+          if [ ! -f ${CONTAINER_REGISTRY_CREDENTIALS} ]; then
+            echo "The release-secret workspace is required with ghcr.io"
+            exit 1
+          fi
 
-              # Login to IMAGE_REGISTRY. Crane will honour DOCKER_CONFIG.
-              cat ${CONTAINER_REGISTRY_CREDENTIALS} | \
-                crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin ${IMAGE_REGISTRY}
-          - name: publish
-            image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
-            workingDir: $(workspaces.source.path)
-            script: |
-              $(workspaces.source.path)/release/release.sh
-            env:
-              - name: KO_DOCKER_REPO
-                value: "$(params.repo)"
-      params:
-        - name: repo
-          value: $(params.docker_repo)
-        - name: githubRepo
+          # Login to IMAGE_REGISTRY. Crane will honour DOCKER_CONFIG.
+          cat ${CONTAINER_REGISTRY_CREDENTIALS} | \
+            crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin ${IMAGE_REGISTRY}
+      - env:
+        - name: KO_DOCKER_REPO
           value: $(params.repo)
-        - name: tag
-          value: $(params.version)
+        image: ghcr.io/tektoncd/plumbing/ko-gcloud@sha256:e3746b99c3269ae6db6ee615e42f51789f03cd0225276eede500cb5319a5dfb6
+        name: publish
+        script: |
+          $(workspaces.source.path)/release/release.sh
+        workingDir: $(workspaces.source.path)
       workspaces:
-        - name: source
-          workspace: ws
-        - name: release-secret
-          workspace: release-secret
-    - name: publish-config
-      runAfter: [publish-image]
-      # Inline spec since we're relying on Workload Identity and can't use the
-      # catalog GCS tasks, this allows us to provide our own behavior without
-      # creating a new on-cluster task.
-      taskSpec:
-        params:
-          - name: version
-          - name: bucket
-        workspaces:
-          - name: source
-        steps:
-          - name: upload
-            image: gcr.io/google.com/cloudsdktool/cloud-sdk:310.0.0@sha256:cb03669fcdb9191d55a6200f2911fff3baec0b8c39b156d95b68aabe975ac506 #tag: 310.0.0
-            script: |
-              gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/previous/$(params.version)/release.yaml
-              gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/latest/release.yaml
-              gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/previous/$(params.version)/release_base.yaml
-              gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/latest/release_base.yaml
+      - name: source
+      - name: release-secret
+        optional: true
+    when:
+    - cel: '!''$(params.docker_repo)''.matches(''gcr.io/.*'')'
+    workspaces:
+    - name: source
+      workspace: ws
+    - name: release-secret
+      workspace: release-secret
+  - name: publish-config
+    params:
+    - name: version
+      value: $(params.version)
+    - name: bucket
+      value: $(params.bucket)
+    runAfter:
+    - publish-image
+    taskSpec:
       params:
-        - name: version
-          value: $(params.version)
-        - name: bucket
-          value: $(params.bucket)
+      - name: version
+        type: string
+      - name: bucket
+        type: string
+      spec: null
+      steps:
+      - env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: $(workspaces.gcp-secret.path)/release.json
+        image: gcr.io/google.com/cloudsdktool/cloud-sdk:310.0.0@sha256:cb03669fcdb9191d55a6200f2911fff3baec0b8c39b156d95b68aabe975ac506
+        name: upload
+        script: |
+          gcloud auth activate-service-account --key-file=$(workspaces.gcp-secret.path)/release.json
+          gcloud auth list
+          gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/previous/$(params.version)/release.yaml
+          gsutil cp $(workspaces.source.path)/release/release.yaml $(params.bucket)/latest/release.yaml
+          gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/previous/$(params.version)/release_base.yaml
+          gsutil cp $(workspaces.source.path)/release/release_base.yaml $(params.bucket)/latest/release_base.yaml
       workspaces:
-        - name: source
-          workspace: ws
+      - name: source
+      - name: gcp-secret
+    workspaces:
+    - name: source
+      workspace: ws
+    - name: gcp-secret
+      workspace: gcp-secret
+  workspaces:
+  - name: ws
+  - name: release-secret
+  - name: gcp-secret
