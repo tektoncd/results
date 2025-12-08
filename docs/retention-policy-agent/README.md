@@ -19,8 +19,18 @@ The following fields are supported:
 
 - `runAt`: Determines when to run the pruning job for the DB. It uses a cron schedule format. The default is `"7 7 * * 7"` (every Sunday at 7:07 AM).
 - `defaultRetention`: The **fallback** retention period for how long to keep Results and Records when no specific policy matches. This value does **not** override the retention period of a matching policy; it only applies when no policies match a given Result. This can be a number (e.g., `30`), which is interpreted as days, or a duration string (e.g., `30d`, `24h`). The default is `30d`.
-> **Note:**
-> `maxRetention` is deprecated and will be removed in a future release. If `defaultRetention` is not set, `maxRetention` will be used as the default retention period for backward compatibility.
+
+> **⚠️ IMPORTANT - Migration from `maxRetention` to `defaultRetention`. DATA LOSS RISK**
+> 
+> `maxRetention` is **deprecated** and will be removed in a future release. Please migrate to `defaultRetention` as soon as possible. If a user has `maxRetention` set higher than 30 days and does not migrate to `defaultRetention`, when `maxRetention` is removed the `defaultRetention` records older than the default `defaultRetention` may be deleted.
+> 
+> To migrate: modify the `tekton-results-config-results-retention-policy` ConfigMap to rename `data.maxRetention` to `data.defaultRetention`.
+> 
+> **Backward Compatibility Behavior:**
+> - If both `maxRetention` and `defaultRetention` are present, `maxRetention` takes priority to maintain backward compatibility.
+> - If only `maxRetention` is set, it will be used (with a deprecation warning in logs).
+> - If only `defaultRetention` is set, it will be used (recommended).
+
 - `policies`: A list of fine-grained retention policies that allow for more specific control over data retention.
 
 ### Fine-Grained Retention Policies
@@ -86,3 +96,7 @@ In this example:
 3.  Any other Result in the `production` or `prod-east` namespace will be kept for **60 days**.
 4.  Any Result in the `ci` namespace will be kept for **7 days**.
 5.  All other Results that do not match any of these policies will be kept for the default `defaultRetention` period of **30 days**.
+
+## Migrating from `maxRetention` to `defaultRetention`
+
+In the `tekton-results-config-results-retention-policy` ConfigMap, rename `data.maxRetention` to `data.defaultRetention`.
