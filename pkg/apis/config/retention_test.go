@@ -63,6 +63,19 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			},
 		},
 		{
+			name: "maxRetention overrides defaultRetention for backward compatibility",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"defaultRetention": "30",
+					"maxRetention":     "15",
+				},
+			}},
+			want: &RetentionPolicy{
+				RunAt:            DefaultRunAt,
+				DefaultRetention: 15 * 24 * time.Hour,
+			},
+		},
+		{
 			name: "with policies",
 			args: args{config: &corev1.ConfigMap{
 				Data: map[string]string{
