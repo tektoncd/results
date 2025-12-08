@@ -11,114 +11,98 @@ import (
 	s3cust "github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go/middleware"
-	"github.com/aws/smithy-go/ptr"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This operation is not supported for directory buckets.
+// Sets the attribute-based access control (ABAC) property of the general purpose
+// bucket. You must have s3:PutBucketABAC permission to perform this action. When
+// you enable ABAC, you can use tags for access control on your buckets.
+// Additionally, when ABAC is enabled, you must use the [TagResource]and [UntagResource] actions to manage
+// tags on your buckets. You can nolonger use the [PutBucketTagging]and [DeleteBucketTagging] actions to tag your bucket.
+// For more information, see [Enabling ABAC in general purpose buckets].
 //
-// Sets the request payment configuration for a bucket. By default, the bucket
-// owner pays for downloads from the bucket. This configuration parameter enables
-// the bucket owner (only) to specify that the person requesting the download will
-// be charged for the download. For more information, see [Requester Pays Buckets].
-//
-// The following operations are related to PutBucketRequestPayment :
-//
-// [CreateBucket]
-//
-// [GetBucketRequestPayment]
-//
-// You must URL encode any signed header values that contain spaces. For example,
-// if your header value is my file.txt , containing two spaces after my , you must
-// URL encode this value to my%20%20file.txt .
-//
-// [GetBucketRequestPayment]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketRequestPayment.html
-// [Requester Pays Buckets]: https://docs.aws.amazon.com/AmazonS3/latest/dev/RequesterPaysBuckets.html
-// [CreateBucket]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucket.html
-func (c *Client) PutBucketRequestPayment(ctx context.Context, params *PutBucketRequestPaymentInput, optFns ...func(*Options)) (*PutBucketRequestPaymentOutput, error) {
+// [PutBucketTagging]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketTagging.html
+// [DeleteBucketTagging]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketTagging.html
+// [TagResource]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_control_TagResource.html
+// [UntagResource]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_control_UntagResource.html
+// [Enabling ABAC in general purpose buckets]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/buckets-tagging-enable-abac.html
+func (c *Client) PutBucketAbac(ctx context.Context, params *PutBucketAbacInput, optFns ...func(*Options)) (*PutBucketAbacOutput, error) {
 	if params == nil {
-		params = &PutBucketRequestPaymentInput{}
+		params = &PutBucketAbacInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "PutBucketRequestPayment", params, optFns, c.addOperationPutBucketRequestPaymentMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "PutBucketAbac", params, optFns, c.addOperationPutBucketAbacMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*PutBucketRequestPaymentOutput)
+	out := result.(*PutBucketAbacOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type PutBucketRequestPaymentInput struct {
+type PutBucketAbacInput struct {
 
-	// The bucket name.
+	// The ABAC status of the general purpose bucket. When ABAC is enabled for the
+	// general purpose bucket, you can use tags to manage access to the general purpose
+	// buckets as well as for cost tracking purposes. When ABAC is disabled for the
+	// general purpose buckets, you can only use tags for cost tracking purposes. For
+	// more information, see [Using tags with S3 general purpose buckets].
+	//
+	// [Using tags with S3 general purpose buckets]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/buckets-tagging.html
+	//
+	// This member is required.
+	AbacStatus *types.AbacStatus
+
+	// The name of the general purpose bucket.
 	//
 	// This member is required.
 	Bucket *string
 
-	// Container for Payer.
-	//
-	// This member is required.
-	RequestPaymentConfiguration *types.RequestPaymentConfiguration
-
-	// Indicates the algorithm used to create the checksum for the request when you
-	// use the SDK. This header will not provide any additional functionality if you
-	// don't use the SDK. When you send this header, there must be a corresponding
-	// x-amz-checksum or x-amz-trailer header sent. Otherwise, Amazon S3 fails the
-	// request with the HTTP status code 400 Bad Request . For more information, see [Checking object integrity]
-	// in the Amazon S3 User Guide.
-	//
-	// If you provide an individual checksum, Amazon S3 ignores any provided
-	// ChecksumAlgorithm parameter.
+	// Indicates the algorithm that you want Amazon S3 to use to create the checksum.
+	// For more information, see [Checking object integrity]in the Amazon S3 User Guide.
 	//
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
 	ChecksumAlgorithm types.ChecksumAlgorithm
 
-	// The Base64 encoded 128-bit MD5 digest of the data. You must use this header as
-	// a message integrity check to verify that the request body was not corrupted in
-	// transit. For more information, see [RFC 1864].
+	// The MD5 hash of the PutBucketAbac request body.
 	//
 	// For requests made using the Amazon Web Services Command Line Interface (CLI) or
 	// Amazon Web Services SDKs, this field is calculated automatically.
-	//
-	// [RFC 1864]: http://www.ietf.org/rfc/rfc1864.txt
 	ContentMD5 *string
 
-	// The account ID of the expected bucket owner. If the account ID that you provide
-	// does not match the actual owner of the bucket, the request fails with the HTTP
-	// status code 403 Forbidden (access denied).
+	// The Amazon Web Services account ID of the general purpose bucket's owner.
 	ExpectedBucketOwner *string
 
 	noSmithyDocumentSerde
 }
 
-func (in *PutBucketRequestPaymentInput) bindEndpointParams(p *EndpointParameters) {
+func (in *PutBucketAbacInput) bindEndpointParams(p *EndpointParameters) {
 
 	p.Bucket = in.Bucket
-	p.UseS3ExpressControlEndpoint = ptr.Bool(true)
+
 }
 
-type PutBucketRequestPaymentOutput struct {
+type PutBucketAbacOutput struct {
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationPutBucketRequestPaymentMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationPutBucketAbacMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketRequestPayment{}, middleware.After)
+	err = stack.Serialize.Add(&awsRestxml_serializeOpPutBucketAbac{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsRestxml_deserializeOpPutBucketRequestPayment{}, middleware.After)
+	err = stack.Deserialize.Add(&awsRestxml_deserializeOpPutBucketAbac{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "PutBucketRequestPayment"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "PutBucketAbac"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -182,10 +166,10 @@ func (c *Client) addOperationPutBucketRequestPaymentMiddlewares(stack *middlewar
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpPutBucketRequestPaymentValidationMiddleware(stack); err != nil {
+	if err = addOpPutBucketAbacValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutBucketRequestPayment(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutBucketAbac(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addMetadataRetrieverMiddleware(stack); err != nil {
@@ -194,10 +178,10 @@ func (c *Client) addOperationPutBucketRequestPaymentMiddlewares(stack *middlewar
 	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
-	if err = addPutBucketRequestPaymentInputChecksumMiddlewares(stack, options); err != nil {
+	if err = addPutBucketAbacInputChecksumMiddlewares(stack, options); err != nil {
 		return err
 	}
-	if err = addPutBucketRequestPaymentUpdateEndpoint(stack, options); err != nil {
+	if err = addPutBucketAbacUpdateEndpoint(stack, options); err != nil {
 		return err
 	}
 	if err = addResponseErrorMiddleware(stack); err != nil {
@@ -218,9 +202,6 @@ func (c *Client) addOperationPutBucketRequestPaymentMiddlewares(stack *middlewar
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = s3cust.AddExpressDefaultChecksumMiddleware(stack); err != nil {
-		return err
-	}
 	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
@@ -233,35 +214,35 @@ func (c *Client) addOperationPutBucketRequestPaymentMiddlewares(stack *middlewar
 	return nil
 }
 
-func (v *PutBucketRequestPaymentInput) bucket() (string, bool) {
+func (v *PutBucketAbacInput) bucket() (string, bool) {
 	if v.Bucket == nil {
 		return "", false
 	}
 	return *v.Bucket, true
 }
 
-func newServiceMetadataMiddleware_opPutBucketRequestPayment(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opPutBucketAbac(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "PutBucketRequestPayment",
+		OperationName: "PutBucketAbac",
 	}
 }
 
-// getPutBucketRequestPaymentRequestAlgorithmMember gets the request checksum
-// algorithm value provided as input.
-func getPutBucketRequestPaymentRequestAlgorithmMember(input interface{}) (string, bool) {
-	in := input.(*PutBucketRequestPaymentInput)
+// getPutBucketAbacRequestAlgorithmMember gets the request checksum algorithm
+// value provided as input.
+func getPutBucketAbacRequestAlgorithmMember(input interface{}) (string, bool) {
+	in := input.(*PutBucketAbacInput)
 	if len(in.ChecksumAlgorithm) == 0 {
 		return "", false
 	}
 	return string(in.ChecksumAlgorithm), true
 }
 
-func addPutBucketRequestPaymentInputChecksumMiddlewares(stack *middleware.Stack, options Options) error {
+func addPutBucketAbacInputChecksumMiddlewares(stack *middleware.Stack, options Options) error {
 	return addInputChecksumMiddleware(stack, internalChecksum.InputMiddlewareOptions{
-		GetAlgorithm:                     getPutBucketRequestPaymentRequestAlgorithmMember,
-		RequireChecksum:                  true,
+		GetAlgorithm:                     getPutBucketAbacRequestAlgorithmMember,
+		RequireChecksum:                  false,
 		RequestChecksumCalculation:       options.RequestChecksumCalculation,
 		EnableTrailingChecksum:           false,
 		EnableComputeSHA256PayloadHash:   true,
@@ -269,20 +250,20 @@ func addPutBucketRequestPaymentInputChecksumMiddlewares(stack *middleware.Stack,
 	})
 }
 
-// getPutBucketRequestPaymentBucketMember returns a pointer to string denoting a
-// provided bucket member valueand a boolean indicating if the input has a modeled
-// bucket name,
-func getPutBucketRequestPaymentBucketMember(input interface{}) (*string, bool) {
-	in := input.(*PutBucketRequestPaymentInput)
+// getPutBucketAbacBucketMember returns a pointer to string denoting a provided
+// bucket member valueand a boolean indicating if the input has a modeled bucket
+// name,
+func getPutBucketAbacBucketMember(input interface{}) (*string, bool) {
+	in := input.(*PutBucketAbacInput)
 	if in.Bucket == nil {
 		return nil, false
 	}
 	return in.Bucket, true
 }
-func addPutBucketRequestPaymentUpdateEndpoint(stack *middleware.Stack, options Options) error {
+func addPutBucketAbacUpdateEndpoint(stack *middleware.Stack, options Options) error {
 	return s3cust.UpdateEndpoint(stack, s3cust.UpdateEndpointOptions{
 		Accessor: s3cust.UpdateEndpointParameterAccessor{
-			GetBucketFromInput: getPutBucketRequestPaymentBucketMember,
+			GetBucketFromInput: getPutBucketAbacBucketMember,
 		},
 		UsePathStyle:                   options.UsePathStyle,
 		UseAccelerate:                  options.UseAccelerate,
