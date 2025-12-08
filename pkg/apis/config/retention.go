@@ -145,17 +145,17 @@ func newRetentionPolicyFromMap(cfgMap map[string]string) (*RetentionPolicy, erro
 		rp.RunAt = schedule
 	}
 
-	if duration, ok := cfgMap[defaultRetention]; ok {
-		v, err := ParseDuration(duration)
-		if err != nil {
-			return nil, fmt.Errorf("incorrect configuration for defaultRetention: %w", err)
-		}
-		rp.DefaultRetention = v
-	} else if duration, ok := cfgMap[maxRetention]; ok {
-		log.Println("WARNING: configuration key 'maxRetention' is deprecated; please use 'defaultRetention' instead.")
+	if duration, ok := cfgMap[maxRetention]; ok {
+		log.Println("WARNING: configuration key 'maxRetention' is deprecated and will be removed in a future release. See migration guide: https://github.com/tektoncd/results/blob/main/docs/retention-policy-agent/README.md#migrating-from-maxretention-to-defaultretention")
 		v, err := ParseDuration(duration)
 		if err != nil {
 			return nil, fmt.Errorf("incorrect configuration for maxRetention: %w", err)
+		}
+		rp.DefaultRetention = v
+	} else if duration, ok := cfgMap[defaultRetention]; ok {
+		v, err := ParseDuration(duration)
+		if err != nil {
+			return nil, fmt.Errorf("incorrect configuration for defaultRetention: %w", err)
 		}
 		rp.DefaultRetention = v
 	}
