@@ -53,13 +53,13 @@ the results repo, a terminal window and a text editor.
 
     ```bash
         tkn --context dogfooding pipeline start results-release \
-        --serviceaccount=results-release \
         --param=revision="${RELEASE_GIT_SHA}"  \
         --param=version="${VERSION_TAG}" \
         --param=docker_repo=ghcr.io/tektoncd/results \
         --param=bucket=gs://tekton-releases/results \
         --workspace name=release-secret,secret=ghcr-creds \
-        --workspace  name=ws,volumeClaimTemplateFile=workspace-template.yaml
+        --workspace  name=ws,volumeClaimTemplateFile=workspace-template.yaml \
+        --workspace name=gcp-secret,secret=release-secret
     ```
 
 1. Watch logs of result-release.
@@ -127,14 +127,14 @@ Congratulations, you're done!
    [the dogfooding cluster](https://github.com/tektoncd/plumbing/blob/main/docs/dogfooding.md):
 
     ```bash
-    gcloud container clusters get-credentials dogfooding --zone us-central1-a --project tekton-releases
+        oci ce cluster create-kubeconfig --cluster-id <CLUSTER-OCID> --file $HOME/.kube/config --region <CLUSTER-REGION> --token-version 2.0.0  --kube-endpoint PUBLIC_ENDPOINT
     ```
 
 1. Give [the context](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/)
    a short memorable name such as `dogfooding`:
 
    ```bash
-   kubectl config rename-context gke_tekton-releases_us-central1-a_dogfooding dogfooding
+   kubectl config rename-context $(kubectl config current-context) dogfooding
    ```
 
 ## Important: Switch `kubectl` back to your own cluster by default.
