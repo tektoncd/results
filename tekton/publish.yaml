@@ -1,0 +1,276 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: publish-release-results
+  annotations:
+    chains.tekton.dev/transparency-upload: "true"
+spec:
+  params:
+    - name: package
+      description: package to release (e.g. github.com/<org>/<project>)
+      default: github.com/tektoncd/results
+    - name: images
+      description: List of cmd/* paths to be published as images
+      default: "api retention-policy-agent watcher"
+    - name: koExtraArgs
+      description: Extra args to be passed to ko
+      default: "--preserve-import-paths"
+    - name: versionTag
+      description: The version, vX.Y.Z for stable, vYYYYMMDD-abc1234 for nightly that the artifacts should be tagged with (including `v`).
+    - name: imageRegistry
+      description: The target image registry
+      default: ghcr.io
+    - name: imageRegistryPath
+      description: The path (project) in the image registry
+    - name: imageRegistryRegions
+      description: The target image registry regions
+      default: ""
+    - name: imageRegistryUser
+      description: Username to be used to login to the container registry
+      default: "_json_key"
+    - name: releaseAsLatest
+      description: Whether to tag and publish this release as Pipelines latest
+      default: "true"
+    - name: platforms
+      description: Platforms to publish for the images (e.g. linux/amd64,linux/arm64)
+      default: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le,windows/amd64
+    - name: serviceAccountPath
+      description: The name of the service account path within the release-secret workspace
+  workspaces:
+    - name: source
+      description: >-
+        The workspace where the repo has been cloned. This should ideally
+        be /go/src/$(params.package) however that is not possible today,
+        see https://github.com/tektoncd/pipeline/issues/3786. To use this
+        task on a fork of pipeline change the mountPath below
+      mountPath: /go/src/github.com/tektoncd/results
+    - name: release-secret
+      description: The secret that contains a service account authorized to push to the imageRegistry and to the output bucket
+    - name: output
+      description: The release YAML will be written to this workspace
+  stepTemplate:
+    env:
+      - name: "PROJECT_ROOT"
+        value: "$(workspaces.source.path)"
+      - name: CONTAINER_REGISTRY_CREDENTIALS
+        value: "$(workspaces.release-secret.path)/$(params.serviceAccountPath)"
+      - name: CONTAINER_REGISTRY
+        value: "$(params.imageRegistry)/$(params.imageRegistryPath)"
+      - name: IMAGE_REGISTRY_PATH
+        value: "$(params.imageRegistryPath)"
+      - name: CONTAINER_REGISTRY_USER
+        value: "$(params.imageRegistryUser)"
+      - name: REGIONS
+        value: "$(params.imageRegistryRegions)"
+      - name: OUTPUT_RELEASE_DIR
+        value: "$(workspaces.output.path)/$(params.versionTag)"
+      - name: KO_EXTRA_ARGS
+        value: "$(params.koExtraArgs)"
+  results:
+  # IMAGES result is picked up by Tekton Chains to sign the release.
+  # See https://github.com/tektoncd/plumbing/blob/main/docs/signing.md for more info.
+  - name: IMAGES
+  steps:
+
+  - name: container-registry-auth
+    image: cgr.dev/chainguard/crane:latest-dev@sha256:501999c3e3c8fe7060d6f66519ad0168cfca75c0897262033a14a901245f62e4
+    script: |
+      #!/bin/sh
+      set -ex
+
+      # Login to the container registry
+      DOCKER_CONFIG=$(cat ${CONTAINER_REGISTRY_CREDENTIALS} | \
+        crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin $(params.imageRegistry) 2>&1 | \
+        sed -n 's,^.*logged in via \(.*\)$,\1,p')
+
+      # Auth with account credentials for all regions.
+      for region in ${REGIONS}
+      do
+        HOSTNAME=${region}.$(params.imageRegistry)
+        cat ${CONTAINER_REGISTRY_CREDENTIALS} | crane auth login -u ${CONTAINER_REGISTRY_USER} --password-stdin ${HOSTNAME}
+      done
+      cp ${DOCKER_CONFIG} /workspace/docker-config.json
+
+  - name: create-ko-yaml
+    image: cgr.dev/chainguard/go:latest-dev@sha256:2f71c4d2c68eb401c9311611663d2d12a0632fb29895bbccf3c840d79a4d0f9f
+    script: |
+      #!/bin/sh
+      set -ex
+
+      # Setup docker-auth
+      DOCKER_CONFIG=~/.docker
+      mkdir -p ${DOCKER_CONFIG}
+      cp /workspace/docker-config.json ${DOCKER_CONFIG}/config.json
+
+      # Change to directory with vendor/
+      cd ${PROJECT_ROOT}
+
+      # Copy the repository's .ko.yaml as the base configuration, or create a default if missing
+      if [ -f ${PROJECT_ROOT}/.ko.yaml ]; then
+        cp ${PROJECT_ROOT}/.ko.yaml /workspace/.ko.yaml
+      else
+        echo "---" > /workspace/.ko.yaml
+        echo "defaultBaseImage: cgr.dev/chainguard/static@sha256:67a1b00e0134e2b3a614c7198a26f7deed9d11b7acad4d52c79c0cfd47a2eae7" >> /workspace/.ko.yaml
+      fi
+
+      cat /workspace/.ko.yaml
+  
+  - name: run-ko
+    image: ghcr.io/tektoncd/plumbing/ko@sha256:d95b8e80ddea355c33a1598df3272214eb71f5f523df4955daf168d71fc0fcb5
+    env:
+    - name: KO_DOCKER_REPO
+      value: $(params.imageRegistry)/$(params.imageRegistryPath)
+    - name: GOFLAGS
+      value: "-mod=vendor"
+    script: |
+      #!/usr/bin/env sh
+      set -ex
+
+      # Fix Git ownership issue for the repository directory
+      git config --global --add safe.directory ${PROJECT_ROOT}
+
+      # Use the generated `.ko.yaml`
+      export KO_CONFIG_PATH=/workspace
+      cat ${KO_CONFIG_PATH}/.ko.yaml
+
+      # Setup docker-auth
+      DOCKER_CONFIG=~/.docker
+      mkdir -p ${DOCKER_CONFIG}
+      cp /workspace/docker-config.json ${DOCKER_CONFIG}/config.json
+
+      # Change to directory with our .ko.yaml
+      cd ${PROJECT_ROOT}
+
+      # For each cmd/* directory, include a full gzipped tar of all source in
+      # vendor/. This is overkill. Some deps' licenses require the source to be
+      # included in the container image when they're used as a dependency.
+      # Rather than trying to determine which deps have this requirement (and
+      # probably get it wrong), we'll just targz up the whole vendor tree and
+      # include it. As of 9/20/2019, this amounts to about 11MB of additional
+      # data in each image.
+      TMPDIR=$(mktemp -d)
+      tar cfz ${TMPDIR}/source.tar.gz vendor/
+      for d in cmd/*; do
+        if [ -d ${d}/kodata/ ]; then
+          ln -s ${TMPDIR}/source.tar.gz ${d}/kodata/
+        fi
+      done
+
+      # Publish images and create release.yaml
+      # Results requires kustomize so that namespace is applied to all resources (including
+      # ClusterRoleBinding subjects). Without it, release YAML is invalid (subjects[].namespace required).
+      mkdir -p $OUTPUT_RELEASE_DIR
+
+      # Make a local git tag to make git status happy :)
+      git tag $(params.versionTag)
+
+      # Template version into kustomization files (same as release/release.sh)
+      sed -i "s/devel$/$(params.versionTag)/g" ${PROJECT_ROOT}/release/kustomization.yaml
+      sed -i "s/devel$/$(params.versionTag)/g" ${PROJECT_ROOT}/config/base/config-info.yaml
+
+      # Build with kustomize (adds namespace tekton-pipelines) then resolve images with ko.
+      # Use kustomize build (same as kubectl kustomize); the ko image has kustomize but not kubectl.
+      # Publish images and create release_base.yaml (with tags)
+      kustomize build ${PROJECT_ROOT}/release | ko resolve \
+        --image-label=org.opencontainers.image.source=https://$(params.package) \
+        --platform=$(params.platforms) \
+        -t $(params.versionTag) \
+        -R ${KO_EXTRA_ARGS} \
+        -f - > $OUTPUT_RELEASE_DIR/release_base.yaml
+        
+      # Publish images and create release_base.notags.yaml (without tags)
+      # This is useful if your container runtime doesn't support the `image-reference:tag@digest` notation
+      # This is currently the case for `cri-o` (and most likely others)
+      kustomize build ${PROJECT_ROOT}/release | ko resolve \
+        --image-label=org.opencontainers.image.source=https://$(params.package) \
+        --platform=$(params.platforms) \
+        -R ${KO_EXTRA_ARGS} \
+        -f - > $OUTPUT_RELEASE_DIR/release_base.notags.yaml
+
+      # Assemble full release.yaml / release.notags.yaml by combining base + localdb
+      cp $OUTPUT_RELEASE_DIR/release_base.yaml $OUTPUT_RELEASE_DIR/release.yaml
+      kustomize build ${PROJECT_ROOT}/release/localdb >> $OUTPUT_RELEASE_DIR/release.yaml
+
+      cp $OUTPUT_RELEASE_DIR/release_base.notags.yaml $OUTPUT_RELEASE_DIR/release.notags.yaml
+      kustomize build ${PROJECT_ROOT}/release/localdb >> $OUTPUT_RELEASE_DIR/release.notags.yaml
+
+      # Rewrite "devel" to params.versionTag
+      sed -i -e 's/\(pipeline.tekton.dev\/release\): "devel"/\1: "$(params.versionTag)"/g' -e 's/\(app.kubernetes.io\/version\): "devel"/\1: "$(params.versionTag)"/g' -e 's/\(version\): "devel"/\1: "$(params.versionTag)"/g' ${OUTPUT_RELEASE_DIR}/release.yaml
+      sed -i -e 's/\(pipeline.tekton.dev\/release\): "devel"/\1: "$(params.versionTag)"/g' -e 's/\(app.kubernetes.io\/version\): "devel"/\1: "$(params.versionTag)"/g' -e 's/\(version\): "devel"/\1: "$(params.versionTag)"/g' ${OUTPUT_RELEASE_DIR}/release.notags.yaml
+
+  - name: koparse
+    image: ghcr.io/tektoncd/plumbing/koparse@sha256:71f041a28d278f6f4a37cdab5a3534e935a512e104e7f2fb280eda3971342b3c
+    script: |
+      set -ex
+
+      # Find "--preserve-import-paths" in a list of args
+      function find_preserve_import_path() {
+        for arg in $@; do
+          if [[ "$arg" == "--preserve-import-paths" ]]; then
+            return 0
+          fi
+        done
+        return 1
+      }
+
+      # If "--preserve-import-paths" is used, include "package" in the expected path
+      find_preserve_import_path \
+        $(echo $KO_EXTRA_ARGS) && \
+        PRESERVE_IMPORT_PATH="--preserve-path" || \
+        PRESERVE_IMPORT_PATH="--no-preserve-path"
+
+      for cmd in $(params.images)
+      do
+        IMAGES="${IMAGES} $(params.package)/cmd/${cmd}:$(params.versionTag)"
+      done
+
+      # Parse the built images from the release.yaml generated by ko
+      koparse \
+        --path $OUTPUT_RELEASE_DIR/release.yaml \
+        --base $(params.package) \
+        --container-registry ${CONTAINER_REGISTRY} \
+        --images ${IMAGES} \
+        ${PRESERVE_IMPORT_PATH} > /workspace/built_images
+
+  - name: tag-images
+    image: cgr.dev/chainguard/crane:latest-dev@sha256:501999c3e3c8fe7060d6f66519ad0168cfca75c0897262033a14a901245f62e4
+    script: |
+      #!/bin/sh
+      set -ex
+
+      # Setup docker-auth
+      DOCKER_CONFIG=~/.docker
+      mkdir -p ${DOCKER_CONFIG}
+      cp /workspace/docker-config.json ${DOCKER_CONFIG}/config.json
+
+      # Tag the images and put them in all the regions
+      for IMAGE in $(cat /workspace/built_images)
+      do
+        IMAGE_WITHOUT_SHA=${IMAGE%%@*}
+        IMAGE_WITHOUT_SHA_AND_TAG=${IMAGE_WITHOUT_SHA%%:*}
+        IMAGE_WITH_SHA=${IMAGE_WITHOUT_SHA_AND_TAG}@${IMAGE##*@}
+
+        echo $IMAGE_WITH_SHA, >> $(results.IMAGES.path)
+
+        if [[ "$(params.releaseAsLatest)" == "true" ]]
+        then
+          crane cp ${IMAGE_WITH_SHA} ${IMAGE_WITHOUT_SHA_AND_TAG}:latest
+        fi
+
+        for REGION in ${REGIONS}
+        do
+          if [[ "$(params.releaseAsLatest)" == "true" ]]
+          then
+            for TAG in "latest" $(params.versionTag)
+            do
+              crane cp ${IMAGE_WITH_SHA} ${REGION}.${IMAGE_WITHOUT_SHA_AND_TAG}:$TAG
+            done
+          else
+            TAG="$(params.versionTag)"
+            crane cp ${IMAGE_WITH_SHA} ${REGION}.${IMAGE_WITHOUT_SHA_AND_TAG}:$TAG
+          fi
+          # Until we are able to store larger results, we cannot include the
+          # regional copies of the images in the result - see https://github.com/tektoncd/pipeline/issues/4282
+          # echo ${REGION}.$IMAGE_WITH_SHA, >> $(results.IMAGES.path)
+        done
+      done
