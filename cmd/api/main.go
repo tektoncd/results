@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -62,6 +63,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
+	"github.com/tektoncd/results/pkg/api/server/tlsconfig"
 	v1alpha2 "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -91,14 +93,51 @@ func main() {
 		log.Errorf("Failed to load feature gates: %v", err)
 	}
 
-	// Load server TLS
+	// Load server TLS configuration
 	certFile := path.Join(serverConfig.TLS_PATH, "tls.crt")
 	keyFile := path.Join(serverConfig.TLS_PATH, "tls.key")
-	creds, tlsError := credentials.NewServerTLSFromFile(certFile, keyFile)
-	if tlsError != nil {
-		log.Errorf("Error loading server TLS: %v", tlsError)
+
+	var creds credentials.TransportCredentials
+	var tlsError error
+	var serverTLSConfig *tls.Config
+
+	// Load TLS configuration
+	// If any TLS env var is directly set (operator injection), use ONLY env vars for complete override
+	// This avoids mixing ConfigMap and operator settings which could result in incompatible combinations
+	var tlsConf *tlsconfig.Config
+	if tlsconfig.HasEnvOverrides() {
+		tlsConf = tlsconfig.LoadFromEnv(os.Getenv)
+		log.Debug("TLS configuration loaded from environment variables")
+	} else {
+		tlsConf = tlsconfig.New(serverConfig.TLS_MIN_VERSION, serverConfig.TLS_CIPHER_SUITES, serverConfig.TLS_CURVE_PREFERENCES)
+		log.Debug("TLS configuration loaded from config file")
+	}
+	serverTLSConfig, tlsConfErr := tlsConf.ToTLSConfig()
+	if tlsConfErr != nil {
+		log.Errorf("Error parsing TLS configuration: %v", tlsConfErr)
+		log.Warn("Using default TLS configuration")
+		// Use Go's defaults - only set NextProtos for HTTP/2 support
+		serverTLSConfig = &tls.Config{
+			NextProtos: []string{"h2", "http/1.1"},
+		}
+	} else {
+		log.Infof("TLS Configuration: MinVersion=%s, CipherSuites=[%s], CurvePreferences=[%s]",
+			tlsconfig.GetTLSVersionName(serverTLSConfig.MinVersion),
+			tlsconfig.FormatCipherSuites(serverTLSConfig.CipherSuites),
+			tlsconfig.FormatCurvePreferences(serverTLSConfig.CurvePreferences))
+	}
+
+	// Load certificate and key
+	cert, certErr := tls.LoadX509KeyPair(certFile, keyFile)
+	if certErr != nil {
+		log.Errorf("Error loading TLS certificate: %v", certErr)
 		log.Warn("TLS will be disabled")
 		creds = insecure.NewCredentials()
+		tlsError = certErr
+	} else {
+		// Apply certificate to TLS config
+		serverTLSConfig.Certificates = []tls.Certificate{cert}
+		creds = credentials.NewTLS(serverTLSConfig)
 	}
 
 	if serverConfig.DB_USER == "" || serverConfig.DB_PASSWORD == "" {
@@ -324,8 +363,10 @@ func main() {
 	// Load client TLS to dial gRPC
 	if tlsError == nil {
 		// This is an internal client to proxy request from the REST listener to gRPC listener.
-		// So we don't need certificate verification here.
-		creds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+		// So we don't need certificate verification here, but we still use the same TLS profile
+		clientTLSConfig := serverTLSConfig.Clone()
+		clientTLSConfig.InsecureSkipVerify = true
+		creds = credentials.NewTLS(clientTLSConfig)
 	}
 
 	// Setup gRPC gateway to proxy request to gRPC health checks
@@ -370,7 +411,14 @@ func main() {
 	if tlsError != nil {
 		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandler(gs, httpMux)))
 	}
-	log.Fatal(http.ListenAndServeTLS(":"+serverConfig.SERVER_PORT, certFile, keyFile, grpcHandler(gs, httpMux)))
+
+	// Create HTTP server with TLS config
+	httpServer := &http.Server{
+		Addr:      ":" + serverConfig.SERVER_PORT,
+		Handler:   grpcHandler(gs, httpMux),
+		TLSConfig: serverTLSConfig,
+	}
+	log.Fatal(httpServer.ListenAndServeTLS(certFile, keyFile))
 }
 
 // grpcHandler forwards the request to gRPC server based on the Content-Type header.
