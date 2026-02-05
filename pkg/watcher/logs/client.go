@@ -1,3 +1,4 @@
+// Package logs provides log streaming utilities for the watcher.
 package logs
 
 import (

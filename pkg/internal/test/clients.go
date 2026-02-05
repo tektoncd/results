@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package test provides test utilities and mock clients.
 package test
 
 import (
@@ -63,8 +64,12 @@ func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option
 	}
 	t.Cleanup(func() {
 		s.Stop()
-		lis.Close()
-		conn.Close()
+		if err := lis.Close(); err != nil {
+			t.Logf("error closing listener: %v", err)
+		}
+		if err := conn.Close(); err != nil {
+			t.Logf("error closing connection: %v", err)
+		}
 	})
 	return pb.NewResultsClient(conn), pb.NewLogsClient(conn)
 }

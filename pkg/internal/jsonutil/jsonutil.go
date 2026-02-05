@@ -1,3 +1,4 @@
+// Package jsonutil provides JSON utility functions for testing.
 package jsonutil
 
 import (

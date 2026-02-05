@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package test provides test utilities for the API server.
 package test
 
 import (
@@ -37,8 +38,12 @@ func NewDB(t *testing.T) *gorm.DB {
 	}
 	t.Log("test database: ", tmpfile.Name())
 	t.Cleanup(func() {
-		tmpfile.Close()
-		os.Remove(tmpfile.Name())
+		if err := tmpfile.Close(); err != nil {
+			t.Logf("error closing temp file: %v", err)
+		}
+		if err := os.Remove(tmpfile.Name()); err != nil {
+			t.Logf("error removing temp file: %v", err)
+		}
 	})
 
 	// Open DB using gorm to use all the nice gorm tools.

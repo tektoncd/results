@@ -139,7 +139,7 @@ func TestToStorage(t *testing.T) {
 	}
 
 	got, err := ToStorage(rec, &config.Config{})
-	if bytes.Compare(got, want) != 0 { //nolint:gosimple
+	if !bytes.Equal(got, want) {
 		t.Error(err)
 	}
 }

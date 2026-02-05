@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package auth provides authentication and authorization utilities for the API server.
 package auth
 
 import "context"

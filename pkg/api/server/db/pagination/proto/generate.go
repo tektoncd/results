@@ -16,4 +16,5 @@
 //go:generate mkdir internal_go_proto
 //go:generate protoc --go_out=internal_go_proto --go_opt=paths=source_relative -I. pagination.proto
 
+// Package internal contains go:generate directives for pagination proto definitions.
 package internal

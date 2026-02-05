@@ -62,7 +62,7 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 	}
 
 	// Handle v1alpha2 and earlier differently from v1alpha3 until v1alpha2 and earlier are deprecated
-	if "results.tekton.dev/v1alpha3" == object.APIVersion {
+	if object.APIVersion == "results.tekton.dev/v1alpha3" {
 		if !object.Status.IsStored || object.Status.Size == 0 {
 			s.logger.Errorf("no logs exist for %s", req.GetName())
 			return status.Error(codes.NotFound, "Log doesn't exist")

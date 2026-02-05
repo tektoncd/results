@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main provides the entry point for the Results watcher.
 package main
 
 import (
@@ -101,7 +102,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("error closing connection: %v", err)
+		}
+	}()
 	results := v1alpha2pb.NewResultsClient(conn)
 
 	// Inject Logs client to context if Logs API is enabled here and in API server
@@ -212,7 +217,11 @@ func loadCerts() (*x509.CertPool, error) {
 		log.Println("no local cluster cert found, defaulting to system pool...")
 		return x509.SystemCertPool()
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("error closing cert file: %v", err)
+		}
+	}()
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read TLS cert file: %v", err)

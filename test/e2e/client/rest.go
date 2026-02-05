@@ -144,7 +144,9 @@ func (c *restClient) send(ctx context.Context, method, path string, in, out prot
 		return errors.New(http.StatusText(res.StatusCode))
 	}
 
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 	b, err = io.ReadAll(res.Body)
 	if err != nil {
 		return err

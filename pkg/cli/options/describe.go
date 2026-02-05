@@ -1,3 +1,4 @@
+// Package options provides shared option structs for CLI commands.
 package options
 
 import "github.com/tektoncd/results/pkg/cli/client"

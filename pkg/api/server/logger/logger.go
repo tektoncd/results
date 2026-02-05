@@ -1,3 +1,4 @@
+// Package logger provides logging utilities for the API server.
 package logger
 
 import (

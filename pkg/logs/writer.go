@@ -1,3 +1,4 @@
+// Package logs provides log writing utilities.
 package logs
 
 import (

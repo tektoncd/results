@@ -1,3 +1,4 @@
+// Package portforward provides Kubernetes port-forwarding utilities for the CLI.
 package portforward
 
 import (
@@ -91,6 +92,8 @@ func PickFreePort() (port int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
+	defer func() {
+		_ = l.Close()
+	}()
 	return l.Addr().(*net.TCPAddr).Port, nil
 }

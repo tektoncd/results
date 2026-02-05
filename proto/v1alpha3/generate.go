@@ -16,4 +16,5 @@
 //go:generate mkdir results_go_proto
 //go:generate protoc --go_out=results_go_proto --go-grpc_out=results_go_proto --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative --grpc-gateway_out=results_go_proto --grpc-gateway_opt paths=source_relative -I$GOPATH/src/github.com/googleapis/googleapis -I../pipeline/v1 -I. log.proto
 
+// Package v1alpha3 contains go:generate directives for Results API v1alpha3 proto definitions.
 package v1alpha3

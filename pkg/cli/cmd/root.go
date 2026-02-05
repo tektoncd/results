@@ -1,3 +1,4 @@
+// Package cmd provides the root command and subcommands for the Results CLI.
 package cmd
 
 import (

@@ -20,8 +20,8 @@ import (
 
 var (
 	nowTime        = metav1.Now()
-	completionTime = metav1.NewTime(nowTime.Time.Add(-time.Minute))
-	startTime      = metav1.NewTime(nowTime.Time.Add(-time.Minute * 2))
+	completionTime = metav1.NewTime(nowTime.Add(-time.Minute))
+	startTime      = metav1.NewTime(nowTime.Add(-time.Minute * 2))
 )
 
 func TestRecorder_DurationAndCountDeleted(t *testing.T) {

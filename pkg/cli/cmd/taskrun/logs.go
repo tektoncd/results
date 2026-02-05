@@ -59,7 +59,7 @@ Logs are only available for completed TaskRuns. Running TaskRuns do not have log
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(_ *cobra.Command, args []string) error {
 			// Initialize the client using the shared prerun function
 			opts.Client = p.RESTClient()
 			if len(args) > 0 {
@@ -137,7 +137,9 @@ Logs are only available for completed TaskRuns. Running TaskRuns do not have log
 
 			// Close the reader if it implements io.Closer
 			if closer, ok := reader.(io.Closer); ok {
-				defer closer.Close()
+				defer func() {
+					_ = closer.Close()
+				}()
 			}
 
 			// Copy the logs to stdout

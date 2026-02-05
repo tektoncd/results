@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package reconciler provides the core reconciliation logic for the watcher.
 package reconciler
 
 import (

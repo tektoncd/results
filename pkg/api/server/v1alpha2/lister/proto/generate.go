@@ -16,4 +16,5 @@
 //go:generate mkdir pagetoken_go_proto
 //go:generate protoc --go_out=pagetoken_go_proto --go_opt=paths=source_relative -I. page_token.proto
 
+// Package proto provides protocol buffer definitions for the lister pagination.
 package proto

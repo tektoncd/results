@@ -1,3 +1,4 @@
+// Package v1alpha3 provides v1alpha3 API types for Tekton Results.
 package v1alpha3
 
 import (
@@ -74,6 +75,6 @@ type LogStatus struct {
 
 // Default sets up default values for Log TypeMeta, such as API version and kind.
 func (t *Log) Default() {
-	t.TypeMeta.Kind = "Log"
-	t.TypeMeta.APIVersion = "results.tekton.dev/v1alpha3"
+	t.Kind = "Log"
+	t.APIVersion = "results.tekton.dev/v1alpha3"
 }

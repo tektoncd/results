@@ -1,3 +1,4 @@
+// Package pipelinerunmetrics provides metrics collection for PipelineRun resources.
 package pipelinerunmetrics
 
 import (
