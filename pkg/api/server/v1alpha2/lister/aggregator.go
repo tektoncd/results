@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package lister provides list and aggregation operations for Results resources.
 package lister
 
 import (

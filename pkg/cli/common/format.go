@@ -1,4 +1,4 @@
-package common
+package common //nolint:revive // Package provides shared CLI utilities
 
 import (
 	"fmt"

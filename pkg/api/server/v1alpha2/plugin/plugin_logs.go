@@ -419,7 +419,9 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		baseName := re.ReplaceAllString(parts[0], "")
 		s.logger.Debugf("mergedLogParts key: %s value: %v", baseName, parts)
 		_, file := filepath.Split(baseName)
-		fmt.Fprint(writer, strings.TrimRight(file, ".log")+" :-\n")
+		if _, err := fmt.Fprint(writer, strings.TrimRight(file, ".log")+" :-\n"); err != nil {
+			s.logger.Errorf("error writing log header: %s", err)
+		}
 		for _, part := range parts {
 			err := func() error {
 				rc, err := bucket.NewReader(ctx, part, nil)
@@ -427,7 +429,11 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 					s.logger.Errorf("error creating bucket reader: %s for log part: %s", err, part)
 					return err
 				}
-				defer rc.Close()
+				defer func() {
+					if err := rc.Close(); err != nil {
+						s.logger.Errorf("error closing bucket reader: %s", err)
+					}
+				}()
 
 				_, err = rc.WriteTo(writer)
 				if err != nil {
@@ -439,7 +445,9 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 				s.logger.Error(err)
 				return err
 			}
-			fmt.Fprint(writer, "\n")
+			if _, err := fmt.Fprint(writer, "\n"); err != nil {
+				s.logger.Errorf("error writing newline: %s", err)
+			}
 		}
 	}
 
@@ -529,7 +537,11 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 		s.logger.Debugf("splunk request url:%s", URL.String())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Errorf("error closing response body: %s", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusCreated {
 		s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
@@ -575,7 +587,11 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 		s.logger.Debugf("splunk request url:%s", URL.String())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
-	defer lresp.Body.Close()
+	defer func() {
+		if err := lresp.Body.Close(); err != nil {
+			s.logger.Errorf("error closing response body: %s", err)
+		}
+	}()
 
 	if lresp.StatusCode != http.StatusOK {
 		s.logger.Errorf("Splunk Fetch Log API request failed with HTTP status code: %d", resp.StatusCode)
@@ -654,7 +670,11 @@ func pollSplunkJobStatus(s *LogServer, url, token string) error {
 					s.logger.Errorf("request to splunk failed, received nil response,: %s", url)
 					return fmt.Errorf("request to splunk failed, received nil response,: %s", url)
 				}
-				defer resp.Body.Close()
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						s.logger.Errorf("error closing response body: %s", err)
+					}
+				}()
 				if resp.StatusCode != http.StatusOK {
 					s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
 					return fmt.Errorf("splunk job creation API request failed with HTTP status code: %d", resp.StatusCode)

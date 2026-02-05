@@ -1,3 +1,4 @@
+// Package records provides a client for interacting with Results records.
 package records
 
 import (

@@ -1,3 +1,4 @@
+// Package client provides test clients for e2e testing.
 package client
 
 import (

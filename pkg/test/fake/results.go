@@ -1,3 +1,4 @@
+// Package fake provides fake implementations for testing.
 package fake
 
 import (

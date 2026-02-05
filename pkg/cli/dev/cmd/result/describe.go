@@ -1,3 +1,4 @@
+// Package result provides commands for interacting with Results.
 package result
 
 import (

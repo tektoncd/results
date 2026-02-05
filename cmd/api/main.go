@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main provides the entry point for the Results API server.
 package main
 
 import (
@@ -253,7 +254,7 @@ func main() {
 
 	svrOpts := []grpc.ServerOption{
 		grpc.Creds(creds),
-		grpc_middleware.WithUnaryServerChain(
+		grpc_middleware.WithUnaryServerChain( //nolint:staticcheck // TODO: migrate to grpc.ChainUnaryInterceptor
 			// The grpc_ctxtags context updater should be before everything else
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.UnaryServerInterceptor(grpcLogger, zapOpts...),
@@ -262,7 +263,7 @@ func main() {
 			fieldmask.UnaryServerInterceptor(f.Get(features.PartialResponse)),
 			recovery.UnaryServerInterceptor(recovery.WithRecoveryHandler(recoveryHandler)),
 		),
-		grpc_middleware.WithStreamServerChain(
+		grpc_middleware.WithStreamServerChain( //nolint:staticcheck // TODO: migrate to grpc.ChainStreamInterceptor
 			// The grpc_ctxtags context updater should be before everything else
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.StreamServerInterceptor(grpcLogger, zapOpts...),

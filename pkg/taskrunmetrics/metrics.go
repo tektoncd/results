@@ -1,3 +1,4 @@
+// Package taskrunmetrics provides metrics collection for TaskRun resources.
 package taskrunmetrics
 
 import (
@@ -157,7 +158,7 @@ func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metr
 		return err
 	}
 
-	if tr.Status.CompletionTime != nil && !tr.Status.CompletionTime.Time.After(now) {
+	if tr.Status.CompletionTime != nil && !tr.Status.CompletionTime.After(now) {
 		deleteDuration = now.Sub(tr.Status.CompletionTime.Time)
 	}
 	metrics.Record(ctx, trDeleteCount.M(1))

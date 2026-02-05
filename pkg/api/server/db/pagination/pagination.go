@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package pagination provides utilities for paginating database query results.
 package pagination
 
 import (

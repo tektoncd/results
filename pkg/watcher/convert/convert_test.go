@@ -27,7 +27,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/pkg/pod"
 	rpb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -174,7 +173,7 @@ var (
 			},
 		},
 		Spec: pipelinev1.PipelineRunSpec{
-			Timeouts: &v1.TimeoutFields{Pipeline: &metav1.Duration{Duration: time.Hour}},
+			Timeouts: &pipelinev1.TimeoutFields{Pipeline: &metav1.Duration{Duration: time.Hour}},
 			PipelineSpec: &pipelinev1.PipelineSpec{
 				Tasks: []pipelinev1.PipelineTask{{
 					Name: "ptask",
@@ -245,7 +244,7 @@ var (
 				},
 			},
 			PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
-				ChildReferences: []v1.ChildStatusReference{{
+				ChildReferences: []pipelinev1.ChildStatusReference{{
 					Name: "pipelineTaskName",
 				}},
 				PipelineSpec: &pipelinev1.PipelineSpec{},

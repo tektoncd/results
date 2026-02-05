@@ -163,7 +163,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 			res.Summary.Annotations = annotations
 		}
 		// Set the Result.Summary.Labels fields if the object in question contains the required labels.
-		summaryLabels := strings.Split(c.Config.SummaryLabels, ",")
+		summaryLabels := strings.Split(c.SummaryLabels, ",")
 		if len(summaryLabels) > 0 && summaryLabels[0] != "" {
 			for _, v := range summaryLabels {
 				if value, found := o.GetLabels()[v]; found {
@@ -171,7 +171,7 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 				}
 			}
 		}
-		summaryAnnotations := strings.Split(c.Config.SummaryAnnotations, ",")
+		summaryAnnotations := strings.Split(c.SummaryAnnotations, ",")
 		if len(summaryAnnotations) > 0 && summaryAnnotations[0] != "" {
 			for _, v := range summaryAnnotations {
 				if value, found := o.GetLabels()[v]; found {

@@ -1,3 +1,4 @@
+// Package taskrun provides CLI commands for TaskRun resources.
 package taskrun
 
 import (
@@ -107,7 +108,7 @@ Describe a TaskRun as json
 			}
 			return nil
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(_ *cobra.Command, args []string) error {
 			opts.Client = p.RESTClient()
 			if len(args) > 0 {
 				opts.ResourceName = args[0]

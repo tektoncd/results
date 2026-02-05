@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package records provides commands for interacting with Results records.
 package records
 
 import (

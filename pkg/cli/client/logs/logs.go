@@ -1,3 +1,4 @@
+// Package logs provides a client for interacting with Results logs.
 package logs
 
 import (
@@ -28,7 +29,10 @@ func (c *Client) GetLog(ctx context.Context, req *pb.GetLogRequest) (io.Reader, 
 
 	// Start a goroutine to handle the streaming response
 	go func() {
-		defer pw.Close()
+		// Workaround for golangci-lint returned value not checked complaint
+		defer func() {
+			_ = pw.Close()
+		}()
 
 		// Build the URL for the log request, replacing "records" with "logs" in the path
 		url := c.BuildURL(fmt.Sprintf("parents/%s", strings.Replace(req.Name, "records", "logs", 1)), nil)
