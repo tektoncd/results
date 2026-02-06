@@ -77,6 +77,14 @@ type Downloader struct {
 	// operation requests made by the downloader.
 	ClientOptions []func(*s3.Options)
 
+	// By default, the downloader verifies that individual part ranges align
+	// based on the configured part size.
+	//
+	// You can disable that with this flag, however, Amazon S3 recommends
+	// against doing so because it damages the durability posture of object
+	// downloads.
+	DisableValidateParts bool
+
 	// Defines the buffer strategy used when downloading a part.
 	//
 	// If a WriterReadFromProvider is given the Download manager
@@ -158,7 +166,7 @@ func NewDownloader(c DownloadAPIClient, options ...func(*Downloader)) *Downloade
 //	// pre-allocate in memory buffer, where headObject type is *s3.HeadObjectOutput
 //	buf := make([]byte, int(headObject.ContentLength))
 //	// wrap with aws.WriteAtBuffer
-//	w := s3manager.NewWriteAtBuffer(buf)
+//	w := manager.NewWriteAtBuffer(buf)
 //	// download file into the memory
 //	numBytesDownloaded, err := downloader.Download(ctx, w, &s3.GetObjectInput{
 //		Bucket: aws.String(bucket),
@@ -220,14 +228,15 @@ type downloader struct {
 	in *s3.GetObjectInput
 	w  io.WriterAt
 
-	wg sync.WaitGroup
-	m  sync.Mutex
+	wg   sync.WaitGroup
+	m    sync.Mutex
+	once sync.Once
 
-	pos        int64
-	totalBytes int64
-	written    int64
-	err        error
-
+	pos                int64
+	totalBytes         int64
+	written            int64
+	err                error
+	etag               string
 	partBodyMaxRetries int
 }
 
@@ -358,6 +367,9 @@ func (d *downloader) downloadChunk(chunk dlchunk) error {
 
 	// Get the next byte range of data
 	params.Range = aws.String(chunk.ByteRange())
+	if params.VersionId == nil && d.etag != "" {
+		params.IfMatch = aws.String(d.etag)
+	}
 
 	var n int64
 	var err error
@@ -400,7 +412,19 @@ func (d *downloader) tryDownloadChunk(params *s3.GetObjectInput, w io.Writer) (i
 	if err != nil {
 		return 0, err
 	}
+
+	if !d.cfg.DisableValidateParts && params.Range != nil && resp.ContentRange != nil {
+		expectStart, expectEnd := parseContentRange(*params.Range)
+		actualStart, actualEnd := parseContentRange(*resp.ContentRange)
+		if isRangeMismatch(expectStart, expectEnd, actualStart, actualEnd) {
+			return 0, fmt.Errorf("invalid content range: expect %d-%d, got %d-%d", expectStart, expectEnd, actualStart, actualEnd)
+		}
+	}
+
 	d.setTotalBytes(resp) // Set total if not yet set.
+	d.once.Do(func() {
+		d.etag = aws.ToString(resp.ETag)
+	})
 
 	var src io.Reader = resp.Body
 	if d.cfg.BufferProvider != nil {
@@ -413,6 +437,46 @@ func (d *downloader) tryDownloadChunk(params *s3.GetObjectInput, w io.Writer) (i
 	}
 
 	return n, nil
+}
+
+func parseContentRange(v string) (int, int) {
+	parts := strings.Split(v, "/") // chop the total off, if it's there
+
+	// we send "bytes=" but S3 appears to return "bytes ", handle both
+	trimmed := strings.TrimPrefix(parts[0], "bytes ")
+	trimmed = strings.TrimPrefix(trimmed, "bytes=")
+
+	parts = strings.Split(trimmed, "-")
+	if len(parts) != 2 {
+		return -1, -1
+	}
+
+	start, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return -1, -1
+	}
+
+	end, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return -1, -1
+	}
+
+	return start, end
+}
+
+func isRangeMismatch(expectStart, expectEnd, actualStart, actualEnd int) bool {
+	if expectStart == -1 || expectEnd == -1 || actualStart == -1 || actualEnd == -1 {
+		return false // we don't know, one of the ranges was missing or unparseable
+	}
+
+	// for the final chunk (or the first chunk if it's smaller) we still
+	// request a full chunk but we get back the actual final part of the
+	// object, which will be smaller
+	if expectStart == actualStart && actualEnd < expectEnd {
+		return false
+	}
+
+	return expectStart != actualStart || expectEnd != actualEnd
 }
 
 // getTotalBytes is a thread-safe getter for retrieving the total byte status.
