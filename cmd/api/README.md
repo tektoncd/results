@@ -21,7 +21,10 @@
 | SERVER_PORT              | gRPC and REST Server Port                                                                                                         | 8080  (default)                                                                              |
 | PROMETHEUS_PORT          | Prometheus Port                                                                                                                   | 9090  (default)                                                                              |
 | PROMETHEUS_HISTOGRAM     | Enable Prometheus histogram metrics to measure latency distributions of RPCs                                                      | false  (default)                                                                             |
-| TLS_PATH                 | Path to TLS files                                                                                                                 | /etc/tls                                                                                     |
+| TLS_PATH                 | Path to TLS certificate files (tls.crt and tls.key)                                                                               | /etc/tls                                                                                     |
+| TLS_MIN_VERSION          | Minimum TLS protocol version (e.g., "1.2", "1.3")                                                                                 | (Go's default)                                                                               |
+| TLS_CIPHER_SUITES        | Comma-separated list of allowed cipher suites (IANA names or numeric IDs)                                                         | TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384                                                |
+| TLS_CURVE_PREFERENCES    | Comma-separated list of elliptic curves for key exchange (e.g., X25519, P256)                                                     | X25519,P256                                                                                  |
 | AUTH_DISABLE             | Disable RBAC check for resources                                                                                                  | false (default)                                                                              |
 | AUTH_IMPERSONATE         | Enable RBAC impersonation                                                                                                         | true (default)                                                                               |
 | LOG_LEVEL                | Log level for api server                                                                                                          | info (default)                                                                               |
@@ -49,3 +52,72 @@ These values can also be set in the config file located in the `config/env/confi
 Values derived from Postgres DSN
 
 If you use the default postgres database we provide, the `DB_HOST` can be set as `tekton-results-postgres-service.tekton-pipelines`.
+
+## TLS Configuration
+
+The API server supports flexible TLS configuration through environment variables. This allows TLS settings to be managed externally (e.g., via Kubernetes ConfigMaps or the Tekton Operator) without requiring code changes.
+
+### Configuration Options
+
+- **TLS_MIN_VERSION**: Minimum TLS version (`1.0`, `1.1`, `1.2`, `1.3`). If not specified, Go's default is used.
+- **TLS_CIPHER_SUITES**: Comma-separated cipher suites (IANA names or numeric IDs). If not specified, Go's default secure ciphers are used.
+- **TLS_CURVE_PREFERENCES**: Comma-separated elliptic curves for key exchange. If not specified, Go's default curves are used.
+
+### Supported Values
+
+**TLS Versions:**
+- `1.2` or `TLS1.2` - TLS 1.2
+- `1.3` or `TLS1.3` - TLS 1.3 (recommended for PQC readiness)
+
+**Cipher Suites (IANA names):**
+- `TLS_AES_128_GCM_SHA256` (TLS 1.3)
+- `TLS_AES_256_GCM_SHA384` (TLS 1.3)
+- `TLS_CHACHA20_POLY1305_SHA256` (TLS 1.3)
+- `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` (TLS 1.2)
+- `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384` (TLS 1.2)
+- And other ciphers supported by Go's crypto/tls package
+
+**Curve Preferences:**
+- `X25519` - Modern curve (recommended)
+- `P256` - NIST P-256
+- `P384` - NIST P-384
+- `P521` - NIST P-521
+- `X25519Kyber768Draft00` - Post-Quantum Cryptography hybrid curve
+
+### Example Configuration
+
+```yaml
+env:
+  - name: TLS_MIN_VERSION
+    value: "1.3"
+  - name: TLS_CIPHER_SUITES
+    value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256"
+  - name: TLS_CURVE_PREFERENCES
+    value: "X25519,P256"
+```
+
+### Configuration Sources
+
+TLS configuration can be provided through two sources:
+
+1. **ConfigMap** (`tekton-results-api-config`): Values set in the configuration file mounted at `/etc/tekton/results/config`
+2. **Environment Variables**: Values injected directly as container environment variables (e.g., by the Tekton Operator)
+
+If neither is set, Go's default values are used.
+
+#### All-or-Nothing Override Behavior
+
+To prevent mixing settings from different sources that could result in incompatible TLS configurations (e.g., TLS 1.2 minimum version with TLS 1.3-only cipher suites), the API server uses an **all-or-nothing** approach:
+
+- **If ANY TLS environment variable is set** (`TLS_MIN_VERSION`, `TLS_CIPHER_SUITES`, or `TLS_CURVE_PREFERENCES`), the API server uses **only environment variables** for all TLS settings. Unset variables will use Go's defaults.
+- **If NO TLS environment variables are set**, the API server uses **only ConfigMap values** for all TLS settings.
+
+This ensures that TLS configuration comes entirely from one source, avoiding partial overrides that could create invalid combinations.
+
+The API server logs (debug level) which source is being used at startup:
+- `"TLS configuration loaded from environment variables"` - using env vars
+- `"TLS configuration loaded from config file"` - using ConfigMap
+
+### OpenShift Integration
+
+On OpenShift, the OpenShift Pipelines Operator can automatically configure these TLS settings based on the cluster's APIServer TLS Profile, enabling centralized TLS policy management. When the operator injects any TLS environment variable, it takes complete control of TLS configuration due to the all-or-nothing behavior described above.

@@ -23,6 +23,9 @@ type Config struct {
 	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
 	SQL_LOG_LEVEL            string `mapstructure:"SQL_LOG_LEVEL"`
 	TLS_PATH                 string `mapstructure:"TLS_PATH"`
+	TLS_MIN_VERSION          string `mapstructure:"TLS_MIN_VERSION"`
+	TLS_CIPHER_SUITES        string `mapstructure:"TLS_CIPHER_SUITES"`
+	TLS_CURVE_PREFERENCES    string `mapstructure:"TLS_CURVE_PREFERENCES"`
 	FEATURE_GATES            string `mapstructure:"FEATURE_GATES"`
 
 	GRPC_WORKER_POOL int `mapstructure:"GRPC_WORKER_POOL"`
