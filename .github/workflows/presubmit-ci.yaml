@@ -31,35 +31,6 @@ jobs:
         run: |
           python3 -m pip install --user yq
 
-      - name: Check PR author against org.yaml or /ok-to-test label
-        id: check
-        run: |
-          echo "Fetching Tekton org.yaml..."
-          ORG_YAML_URL="https://raw.githubusercontent.com/tektoncd/community/refs/heads/main/org/org.yaml"
-          ORG_YAML=$(curl -sSL "$ORG_YAML_URL")
-
-          # Use Python yq (wraps jq) to extract members and admins
-          IS_MEMBER=$(echo "$ORG_YAML" | ~/.local/bin/yq -r '.orgs.tektoncd.members[]' | grep -Fx "$GITHUB_ACTOR" || true)
-          IS_ADMIN=$(echo "$ORG_YAML" | ~/.local/bin/yq -r '.orgs.tektoncd.admins[]' | grep -Fx "$GITHUB_ACTOR" || true)
-
-          if [[ -n "$IS_MEMBER" || -n "$IS_ADMIN" ]]; then
-            echo " $GITHUB_ACTOR is a Tekton org member or admin."
-            echo "run_tests=true" >> "$GITHUB_OUTPUT"
-          else
-            echo " $GITHUB_ACTOR is NOT a Tekton org member/admin. Checking for /ok-to-test label..."
-
-            LABELS=$(jq -r '.pull_request.labels[].name' < "$GITHUB_EVENT_PATH")
-            if echo "$LABELS" | grep -q '^ok-to-test$'; then
-              echo " /ok-to-test label found."
-              echo "run_tests=true" >> "$GITHUB_OUTPUT"
-            else
-              echo " Not a member and no /ok-to-test label. Skipping tests."
-              echo "run_tests=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-
   unit-tests:
     name: Unit Tests
     needs: prepare-pr-check
