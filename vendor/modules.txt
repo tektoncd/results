@@ -1031,7 +1031,7 @@ github.com/tektoncd/cli/pkg/pods/stream
 github.com/tektoncd/cli/pkg/task
 github.com/tektoncd/cli/pkg/taskrun
 github.com/tektoncd/cli/pkg/taskrun/sort
-# github.com/tektoncd/pipeline v1.9.0
+# github.com/tektoncd/pipeline v1.9.1
 ## explicit; go 1.24.0
 github.com/tektoncd/pipeline/internal/artifactref
 github.com/tektoncd/pipeline/internal/sidecarlogresults

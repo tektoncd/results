@@ -34,7 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/tektoncd/cli v0.43.0
-	github.com/tektoncd/pipeline v1.9.0
+	github.com/tektoncd/pipeline v1.9.1
 	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
