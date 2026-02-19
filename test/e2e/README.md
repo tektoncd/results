@@ -23,7 +23,7 @@ The e2e tests use environment variables to modify default values, such as the se
 path, etc.The scripts set some of the variables, and you can set other variables to run e2e tests manually.
 
 | Environment variable | Description                                                 | Default                                                       |
-|----------------------|-------------------------------------------------------------|---------------------------------------------------------------| 
+|----------------------|-------------------------------------------------------------|---------------------------------------------------------------|
 | API_SERVER_ADDR      | The address on which results API server is listening        | https://localhost:8080                                        |
 | API_SERVER_NAME      | Common Name of the server as defined in the SSL certificate | tekton-results-api-service.tekton-pipelines.svc.cluster.local |
 | CERT_FILE_NAME       | Name of the certificate file                                | tekton-results-cert.pem                                       |
