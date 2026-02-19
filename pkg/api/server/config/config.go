@@ -70,6 +70,8 @@ type Config struct {
 	LOGGING_PLUGIN_FORWARDER_DELAY_DURATION int64  `mapstructure:"LOGGING_PLUGIN_FORWARDER_DELAY_DURATION"`
 	LOGGING_PLUGIN_QUERY_PARAMS             string `mapstructure:"LOGGING_PLUGIN_QUERY_PARAMS"`
 	LOGGING_PLUGIN_MULTIPART_REGEX          string `mapstructure:"LOGGING_PLUGIN_MULTIPART_REGEX"`
+	LOGGING_PLUGIN_JSON_MAP                 string `mapstructure:"LOGGING_PLUGIN_JSON_MAP"`
+	LOGGING_PLUGIN_LINE_FORMAT              string `mapstructure:"LOGGING_PLUGIN_LINE_FORMAT"`
 }
 
 func Get() *Config {
