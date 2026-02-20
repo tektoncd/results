@@ -1,0 +1,308 @@
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: tekton-results-release
+spec:
+  params:
+    - name: package
+      description: package to release
+      default: github.com/tektoncd/results
+    - name: repoName
+      description: repository name (e.g., pipeline, triggers, etc.)
+      default: results
+    - name: gitRevision
+      description: the git revision to release
+    - name: imageRegistry
+      description: The target image registry
+      default: ghcr.io
+    - name: imageRegistryPath
+      description: The path (project) in the image registry
+      default: "tekton-releases-nightly"  # Will be overridden based on releaseMode
+    - name: imageRegistryRegions
+      description: The target image registry regions
+      default: ""  # Empty for GHCR, "us eu asia" for GCR
+    - name: imageRegistryUser
+      description: The user for the image registry credentials
+      default: _json_key
+    - name: versionTag
+      description: Version tag (vX.Y.Z for stable, vYYYYMMDD-abc1234 for nightly)
+    - name: releaseBucket
+      description: bucket where the release is stored. The bucket must be project specific.
+      default: "tekton-nightly"  # Will be overridden based on releaseMode
+    - name: releaseAsLatest
+      description: Whether to tag and publish this release as latest
+      default: "false"  # Will be overridden based on releaseMode
+    - name: buildPlatforms
+      description: Platforms to build images for (e.g. linux/amd64,linux/arm64)
+      default: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+    - name: publishPlatforms
+      description: |
+        Platforms to publish images for (e.g. linux/amd64,linux/arm64,windows/amd64). This
+        can differ from buildPlatforms due to the fact that a windows-compatible base image
+        is constructed for the publishing phase.)
+      default: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le,windows/amd64
+    - name: koExtraArgs
+      description: Extra args to be passed to ko
+      default: "--preserve-import-paths"
+    - name: serviceAccountImagesPath
+      description: The path to the service account file or credentials within the release-images-secret workspace
+    - name: runTests
+      description: If set to something other than "true", skip the build and test tasks
+      default: "true"
+  workspaces:
+    - name: workarea
+      description: The workspace where the repo will be cloned.
+    - name: release-secret
+      description: The secret that contains auth credentials to push to the output bucket
+    - name: release-images-secret
+      description: The secret that contains a service account authorized to push to the imageRegistry
+  results:
+    - name: commit-sha
+      description: the sha of the commit that was released
+      value: $(tasks.git-clone.results.commit)
+    - name: release-file
+      description: the URL of the release file
+      value: $(tasks.report-bucket.results.release)
+    - name: release-file-no-tag
+      description: the URL of the release file
+      value: $(tasks.report-bucket.results.release-no-tag)
+  tasks:
+    - name: git-clone
+      taskRef:
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/git-clone:0.7
+          - name: name
+            value: git-clone
+          - name: kind
+            value: task
+      workspaces:
+        - name: output
+          workspace: workarea
+          subPath: git
+      params:
+        - name: url
+          value: https://$(params.package)
+        - name: revision
+          value: $(params.gitRevision)
+
+    - name: precheck
+      runAfter: [git-clone]
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/tektoncd/plumbing
+          - name: revision
+            value: 8d3152d3d39982ce1768325b373d321efaa83031
+          - name: pathInRepo
+            value: tekton/resources/release/base/prerelease_checks_oci.yaml
+      params:
+        - name: package
+          value: $(params.package)
+        - name: versionTag
+          value: $(params.versionTag)
+        - name: releaseBucket
+          value: $(params.releaseBucket)/$(params.repoName)
+      workspaces:
+        - name: source-to-release
+          workspace: workarea
+          subPath: git
+        - name: oci-credentials
+          workspace: release-secret
+
+    - name: unit-tests
+      runAfter: [precheck]
+      when:
+        - cel: "'$(params.runTests)' == 'true'"
+      taskRef:
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/golang-test:0.2
+          - name: name
+            value: golang-test
+          - name: kind
+            value: task
+      params:
+        - name: package
+          value: $(params.package)
+        - name: packages
+          value: "./..."
+        - name: flags
+          value: -v -mod=vendor
+      workspaces:
+        - name: source
+          workspace: workarea
+          subPath: git
+
+    - name: build
+      runAfter: [precheck]
+      when:
+        - cel: "'$(params.runTests)' == 'true'"
+      taskRef:
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/golang-build:0.3
+          - name: name
+            value: golang-build
+          - name: kind
+            value: task
+      params:
+        - name: package
+          value: $(params.package)
+        - name: packages
+          value: ./cmd/...
+      workspaces:
+        - name: source
+          workspace: workarea
+          subPath: git
+
+    - name: publish-images
+      runAfter: [unit-tests, build]
+      taskRef:
+        resolver: git
+        params:
+          - name: repo
+            value: results
+          - name: org
+            value: tektoncd
+          - name: revision
+            value: $(params.gitRevision)
+          - name: pathInRepo
+            value: tekton/publish.yaml
+      params:
+        - name: package
+          value: $(params.package)
+        - name: versionTag
+          value: $(params.versionTag)
+        - name: imageRegistry
+          value: $(params.imageRegistry)
+        - name: imageRegistryPath
+          value: $(params.imageRegistryPath)
+        - name: imageRegistryUser
+          value: $(params.imageRegistryUser)
+        - name: imageRegistryRegions
+          value: $(params.imageRegistryRegions)
+        - name: releaseAsLatest
+          value: $(params.releaseAsLatest)
+        - name: serviceAccountPath
+          value: $(params.serviceAccountImagesPath)
+        - name: platforms
+          value: $(params.publishPlatforms)
+        - name: koExtraArgs
+          value: $(params.koExtraArgs)
+      workspaces:
+        - name: source
+          workspace: workarea
+          subPath: git
+        - name: output
+          workspace: workarea
+          subPath: bucket
+        - name: release-secret
+          workspace: release-images-secret
+      timeout: 3h
+
+    - name: publish-to-bucket
+      runAfter: [publish-images]
+      taskRef:
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/oracle-cloud-storage-upload:0.2
+          - name: name
+            value: oracle-cloud-storage-upload
+          - name: kind
+            value: task
+      workspaces:
+        - name: credentials
+          workspace: release-secret
+        - name: source
+          workspace: workarea
+          subPath: bucket
+      params:
+        - name: path
+          value: $(params.versionTag)
+        - name: bucketName
+          value: $(params.releaseBucket)
+        - name: objectPrefix
+          value: $(params.repoName)/previous/$(params.versionTag)/
+        - name: replaceExistingFiles
+          value: "true"
+        - name: recursive
+          value: "true"
+
+    - name: publish-to-bucket-latest
+      runAfter: [publish-images]
+      when:
+        - input: "$(params.releaseAsLatest)"
+          operator: in
+          values: ["true"]
+      taskRef:
+        resolver: bundles
+        params:
+          - name: bundle
+            value: ghcr.io/tektoncd/catalog/upstream/tasks/oracle-cloud-storage-upload:0.2
+          - name: name
+            value: oracle-cloud-storage-upload
+          - name: kind
+            value: task
+      workspaces:
+        - name: credentials
+          workspace: release-secret
+        - name: source
+          workspace: workarea
+          subPath: bucket
+      params:
+        - name: path
+          value: $(params.versionTag)
+        - name: bucketName
+          value: $(params.releaseBucket)
+        - name: objectPrefix
+          value: $(params.repoName)/latest/
+        - name: replaceExistingFiles
+          value: "true"
+        - name: recursive
+          value: "true"
+        - name: deleteExtraFiles
+          value: "true"  # Uses sync to copy content into latest
+
+    - name: report-bucket
+      runAfter: [publish-to-bucket]
+      params:
+        - name: releaseBucket
+          value: $(params.releaseBucket)
+        - name: versionTag
+          value: $(params.versionTag)
+        - name: repoName
+          value: $(params.repoName)
+      taskSpec:
+        params:
+          - name: releaseBucket
+          - name: versionTag
+          - name: repoName
+        results:
+          - name: release
+            description: The full URL of the release file in the bucket
+          - name: release-no-tag
+            description: The full URL of the release file (no tag) in the bucket
+        steps:
+          - name: create-results
+            image: docker.io/library/alpine:3.20.3@sha256:beefdbd8a1da6d2915566fde36db9db0b524eb737fc57cd1367effd16dc0d06d
+            env:
+              - name: RELEASE_BUCKET
+                value: $(params.releaseBucket)
+              - name: VERSION_TAG
+                value: $(params.versionTag)
+              - name: REPO_NAME
+                value: $(params.repoName)
+            script: |
+              # Oracle Cloud Storage: Construct public URL
+              # Format: https://infra.tekton.dev/<releaseBucket>/<repoName>/previous/<versionTag>
+              BASE_URL="https://infra.tekton.dev/${RELEASE_BUCKET}/${REPO_NAME}/previous/${VERSION_TAG}"
+
+              echo "${BASE_URL}/release.yaml" > $(results.release.path)
+              echo "${BASE_URL}/release.notags.yaml" > $(results.release-no-tag.path)
