@@ -166,4 +166,24 @@ jobs:
         working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
         run: ./test/presubmit-tests.sh --build-tests
 
+  ci-summary:
+    name: CI summary
+    if: always()
+    needs:
+      - unit-tests
+      - integration-tests
+      - build-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        run: |
+          results=(${{ join(needs.*.result, ' ') }})
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "One or more jobs failed or were cancelled"
+              exit 1
+            fi
+          done
+          echo "All jobs passed or were skipped"
+
 
