@@ -51,11 +51,11 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
-	k8s.io/api v0.34.4
-	k8s.io/apimachinery v0.34.4
+	k8s.io/api v0.34.5
+	k8s.io/apimachinery v0.34.5
 	k8s.io/apiserver v0.32.12
 	k8s.io/cli-runtime v0.29.15
-	k8s.io/client-go v0.34.4
+	k8s.io/client-go v0.34.5
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
 	sigs.k8s.io/yaml v1.6.0
