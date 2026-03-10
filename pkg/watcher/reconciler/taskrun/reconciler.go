@@ -94,6 +94,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
 	// Reconcile the taskrun to ensure that it is stored in the database
 	rerr := r.ReconcileKind(ctx, tr)
+	if rerr != nil {
+		// Keep requeue semantics in finalize() while ensuring this reconcile error is always visible.
+		logging.FromContext(ctx).Warnw("reconcile during taskrun finalization returned error",
+			zap.Error(rerr))
+	}
 
 	return r.finalize(ctx, tr, rerr)
 }
@@ -170,7 +175,10 @@ func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr 
 			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
 		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
-	if rerr != nil || stored != "true" {
+	if rerr != nil {
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
+	}
+	if stored != "true" {
 		logging.FromContext(ctx).Debugf("stored annotation is not true on taskrun %s/%s, now: %s, storeDeadline: %s",
 			tr.Namespace, tr.Name, now.String(), storeDeadline.String())
 		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
