@@ -45,10 +45,15 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 	pipelineRunInformer := pipelineruninformer.Get(ctx)
 	pipelineRunLister := pipelineRunInformer.Lister()
 	logger := logging.FromContext(ctx)
-	configStore := config.NewStore(logger.Named("config-store"),
-		metrics.OnStore(logger),
-		pipelinerunmetrics.MetricsOnStore(logger))
+	configStore := config.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
+
+	// Initialize metrics once at startup
+	metrics.EnsureMetricsInitialized(logger)
+	pipelineRunMetrics, err := pipelinerunmetrics.NewRecorder(ctx)
+	if err != nil {
+		logger.Errorf("Failed to create pipelinerun metrics recorder: %v. Metrics will not be recorded.", err)
+	}
 
 	c := &Reconciler{
 		kubeClientSet:      kubeclient.Get(ctx),
@@ -60,7 +65,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		cfg:                cfg,
 		configStore:        configStore,
 		metrics:            metrics.NewRecorder(),
-		pipelineRunMetrics: pipelinerunmetrics.NewRecorder(),
+		pipelineRunMetrics: pipelineRunMetrics,
 	}
 
 	impl := pipelinerunreconciler.NewImpl(ctx, c, func(_ *controller.Impl) controller.Options {
@@ -72,7 +77,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		}
 	})
 
-	_, err := pipelineRunInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	_, err = pipelineRunInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 	if err != nil {
 		logger.Panicf("Couldn't register PipelineRun informer event handler: %w", err)
 	}

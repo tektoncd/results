@@ -1,3 +1,19 @@
+/*
+   Copyright 2014-2021 Docker Inc.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 // Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -7,7 +23,6 @@ package spdy
 import (
 	"encoding/binary"
 	"io"
-	"math"
 	"net/http"
 	"strings"
 )
@@ -48,21 +63,13 @@ func (frame *RstStreamFrame) write(f *Framer) (err error) {
 func (frame *SettingsFrame) write(f *Framer) (err error) {
 	frame.CFHeader.version = Version
 	frame.CFHeader.frameType = TypeSettings
-	payloadLen := len(frame.FlagIdValues)*8 + 4
-	if payloadLen > MaxDataLength {
-		return &Error{InvalidControlFrame, 0}
-	}
-	frame.CFHeader.length = uint32(payloadLen)
+	frame.CFHeader.length = uint32(len(frame.FlagIdValues)*8 + 4)
 
 	// Serialize frame to Writer.
 	if err = writeControlFrameHeader(f.w, frame.CFHeader); err != nil {
 		return
 	}
-	n := len(frame.FlagIdValues)
-	if uint64(n) > math.MaxUint32 {
-		return &Error{InvalidControlFrame, 0}
-	}
-	if err = binary.Write(f.w, binary.BigEndian, uint32(n)); err != nil {
+	if err = binary.Write(f.w, binary.BigEndian, uint32(len(frame.FlagIdValues))); err != nil {
 		return
 	}
 	for _, flagIdValue := range frame.FlagIdValues {
@@ -163,41 +170,29 @@ func writeControlFrameHeader(w io.Writer, h ControlFrameHeader) error {
 
 func writeHeaderValueBlock(w io.Writer, h http.Header) (n int, err error) {
 	n = 0
-	numHeaders := len(h)
-	if numHeaders > math.MaxInt32 {
-		return n, &Error{InvalidControlFrame, 0}
-	}
-	if err = binary.Write(w, binary.BigEndian, uint32(numHeaders)); err != nil {
+	if err = binary.Write(w, binary.BigEndian, uint32(len(h))); err != nil {
 		return
 	}
-	n += 4
+	n += 2
 	for name, values := range h {
-		nameLen := len(name)
-		if nameLen > math.MaxInt32 {
-			return n, &Error{InvalidControlFrame, 0}
-		}
-		if err = binary.Write(w, binary.BigEndian, uint32(nameLen)); err != nil {
+		if err = binary.Write(w, binary.BigEndian, uint32(len(name))); err != nil {
 			return
 		}
-		n += 4
+		n += 2
 		name = strings.ToLower(name)
 		if _, err = io.WriteString(w, name); err != nil {
 			return
 		}
-		n += nameLen
+		n += len(name)
 		v := strings.Join(values, headerValueSeparator)
-		vLen := len(v)
-		if vLen > math.MaxInt32 {
-			return n, &Error{InvalidControlFrame, 0}
-		}
-		if err = binary.Write(w, binary.BigEndian, uint32(vLen)); err != nil {
+		if err = binary.Write(w, binary.BigEndian, uint32(len(v))); err != nil {
 			return
 		}
-		n += 4
+		n += 2
 		if _, err = io.WriteString(w, v); err != nil {
 			return
 		}
-		n += vLen
+		n += len(v)
 	}
 	return
 }
@@ -221,11 +216,7 @@ func (f *Framer) writeSynStreamFrame(frame *SynStreamFrame) (err error) {
 	// Set ControlFrameHeader.
 	frame.CFHeader.version = Version
 	frame.CFHeader.frameType = TypeSynStream
-	hLen := len(f.headerBuf.Bytes()) + 10
-	if hLen > MaxDataLength {
-		return &Error{InvalidControlFrame, 0}
-	}
-	frame.CFHeader.length = uint32(hLen)
+	frame.CFHeader.length = uint32(len(f.headerBuf.Bytes()) + 10)
 
 	// Serialize frame to Writer.
 	if err = writeControlFrameHeader(f.w, frame.CFHeader); err != nil {
@@ -269,11 +260,7 @@ func (f *Framer) writeSynReplyFrame(frame *SynReplyFrame) (err error) {
 	// Set ControlFrameHeader.
 	frame.CFHeader.version = Version
 	frame.CFHeader.frameType = TypeSynReply
-	hLen := len(f.headerBuf.Bytes()) + 4
-	if hLen > MaxDataLength {
-		return &Error{InvalidControlFrame, 0}
-	}
-	frame.CFHeader.length = uint32(hLen)
+	frame.CFHeader.length = uint32(len(f.headerBuf.Bytes()) + 4)
 
 	// Serialize frame to Writer.
 	if err = writeControlFrameHeader(f.w, frame.CFHeader); err != nil {
@@ -308,11 +295,7 @@ func (f *Framer) writeHeadersFrame(frame *HeadersFrame) (err error) {
 	// Set ControlFrameHeader.
 	frame.CFHeader.version = Version
 	frame.CFHeader.frameType = TypeHeaders
-	hLen := len(f.headerBuf.Bytes()) + 4
-	if hLen > MaxDataLength {
-		return &Error{InvalidControlFrame, 0}
-	}
-	frame.CFHeader.length = uint32(hLen)
+	frame.CFHeader.length = uint32(len(f.headerBuf.Bytes()) + 4)
 
 	// Serialize frame to Writer.
 	if err = writeControlFrameHeader(f.w, frame.CFHeader); err != nil {
@@ -340,11 +323,7 @@ func (f *Framer) writeDataFrame(frame *DataFrame) (err error) {
 	if err = binary.Write(f.w, binary.BigEndian, frame.StreamId); err != nil {
 		return
 	}
-	dLen := len(frame.Data)
-	if dLen > MaxDataLength {
-		return &Error{InvalidDataFrame, frame.StreamId}
-	}
-	flagsAndLength := uint32(frame.Flags)<<24 | uint32(dLen)
+	flagsAndLength := uint32(frame.Flags)<<24 | uint32(len(frame.Data))
 	if err = binary.Write(f.w, binary.BigEndian, flagsAndLength); err != nil {
 		return
 	}

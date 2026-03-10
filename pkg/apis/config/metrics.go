@@ -3,7 +3,7 @@ package config
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/metrics"
+	"knative.dev/pkg/observability/configmap"
 )
 
 const (
@@ -83,7 +83,7 @@ func (cfg *Metrics) DeepCopy() *Metrics {
 // GetMetricsConfigName returns the name of the configmap containing all
 // customizations for the storage bucket.
 func GetMetricsConfigName() string {
-	return metrics.ConfigMapName()
+	return configmap.Name()
 }
 
 // Equals returns true if two Configs are identical

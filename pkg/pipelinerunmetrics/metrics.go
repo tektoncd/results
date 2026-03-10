@@ -3,33 +3,33 @@ package pipelinerunmetrics
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
-	sharedMetrics "github.com/tektoncd/results/pkg/metrics"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/metrics"
 )
 
 var (
-	prDeleteCount     = stats.Int64("pipelinerun_delete_count", "total number of deleted pipelineruns", stats.UnitDimensionless)
-	prDeleteCountView *view.View
+	once sync.Once
 
-	prDeleteDuration     = stats.Float64("pipelinerun_delete_duration_seconds", "the pipelinerun deletion time in seconds", stats.UnitSeconds)
-	prDeleteDurationView *view.View
+	// OpenTelemetry instruments
+	prDeleteCount    metric.Int64Counter
+	prDeleteDuration metric.Float64Histogram
 
-	pipelineTag  = tag.MustNewKey("pipeline")
-	namespaceTag = tag.MustNewKey("namespace")
-	statusTag    = tag.MustNewKey("status")
+	// Attribute keys
+	pipelineKey  = attribute.Key("pipeline")
+	namespaceKey = attribute.Key("namespace")
+	statusKey    = attribute.Key("status")
 )
 
 // Recorder is used to actually record PipelineRun metrics
@@ -39,79 +39,60 @@ type Recorder struct {
 
 // NewRecorder creates a new metrics recorder instance
 // to log the PipelineRun related metrics
-func NewRecorder() *Recorder {
-	return &Recorder{clock: clockwork.NewRealClock()}
+func NewRecorder(_ context.Context) (*Recorder, error) {
+	logger := zap.S()
+	if ctxLogger, err := zap.NewProduction(); err == nil {
+		logger = ctxLogger.Sugar()
+	}
+
+	var errRegistering error
+	once.Do(func() {
+		errRegistering = initializeMetrics(logger)
+		if errRegistering != nil {
+			logger.Errorf("Failed to initialize pipelinerun metrics: %v", errRegistering)
+		}
+	})
+
+	return &Recorder{clock: clockwork.NewRealClock()}, errRegistering
 }
 
-func registerView(logger *zap.SugaredLogger, cfg *config.Metrics) error {
-	var tags []tag.Key
-	switch cfg.PipelinerunLevel {
-	case config.PipelinerunLevelAtPipeline:
-		tags = []tag.Key{pipelineTag}
-	case config.PipelinerunLevelAtNS:
-		tags = []tag.Key{}
-	default:
-		return errors.New("invalid config for PipelinerunLevel: " + cfg.PipelinerunLevel)
-	}
-	prDeleteCountView = &view.View{
-		Description: prDeleteCount.Description(),
-		TagKeys:     []tag.Key{statusTag, namespaceTag},
-		Measure:     prDeleteCount,
-		Aggregation: view.Count(),
+func initializeMetrics(logger *zap.SugaredLogger) error {
+	meter := otel.Meter("tekton.dev/results/pipelinerun")
+
+	var err error
+
+	// Create delete count counter
+	// Note: OpenTelemetry Prometheus exporter will append "_total" suffix to counter metrics
+	// So this will be exported as "watcher_pipelinerun_delete_count_total"
+	prDeleteCount, err = meter.Int64Counter(
+		"watcher_pipelinerun_delete_count",
+		metric.WithDescription("total number of deleted pipelineruns"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create watcher_pipelinerun_delete_count counter: %w", err)
 	}
 
-	var distribution *view.Aggregation
-	switch cfg.DurationPipelinerunType {
-	case config.DurationPipelinerunTypeLastValue:
-		distribution = view.LastValue()
-	case config.DurationPipelinerunTypeHistogram:
-		distribution = view.Distribution(10, 30, 60, 300, 900, 1800, 3600, 5400, 10800, 21600, 43200, 86400)
+	// Create delete duration histogram
+	// Use histogram for duration tracking (histogram is more appropriate than last value for duration metrics in OTel)
+	prDeleteDuration, err = meter.Float64Histogram(
+		"watcher_pipelinerun_delete_duration_seconds",
+		metric.WithDescription("the pipelinerun deletion time in seconds"),
+		metric.WithExplicitBucketBoundaries(10, 30, 60, 300, 900, 1800, 3600, 5400, 10800, 21600, 43200, 86400),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create watcher_pipelinerun_delete_duration_seconds histogram: %w", err)
 	}
 
-	prDeleteDurationView = &view.View{
-		Description: prDeleteDuration.Description(),
-		TagKeys:     append([]tag.Key{statusTag, namespaceTag}, tags...),
-		Measure:     prDeleteDuration,
-		Aggregation: distribution,
-	}
-
-	logger.Debug("registering pipelinerun metrics view")
-	return view.Register(prDeleteDurationView, prDeleteCountView)
-}
-
-func unregisterView(logger *zap.SugaredLogger) {
-	logger.Debug("unregistering pipelinerun metrics view")
-	for _, v := range []*view.View{prDeleteDurationView, prDeleteCountView} {
-		if v != nil {
-			view.Unregister(v)
-		}
-	}
-}
-
-// MetricsOnStore returns a function that checks if metrics are configured for a config.Store, and registers it if so
-func MetricsOnStore(logger *zap.SugaredLogger) func(name string,
-	value any) {
-	return func(name string, value any) {
-		if name != config.GetMetricsConfigName() {
-			return
-		}
-		cfg, ok := value.(*config.Metrics)
-		if !ok {
-			logger.Error("Failed to do type insertion for extracting metrics config")
-			return
-		}
-		unregisterView(logger)
-		err := registerView(logger, cfg)
-		if err != nil {
-			logger.Errorf("Failed to register View %v ", err)
-			return
-		}
-		sharedMetrics.IdempotentRegisterViews(logger)
-	}
+	logger.Debug("initialized pipelinerun metrics instruments")
+	return nil
 }
 
 // DurationAndCountDeleted counts for deleted number and records duration PipelineRuns
 func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, pr *pipelinev1.PipelineRun) error {
+	if prDeleteCount == nil || prDeleteDuration == nil {
+		return fmt.Errorf("pipelinerun metrics are not initialized")
+	}
+
 	pipelineName := "anonymous"
 	now := r.clock.Now()
 
@@ -136,20 +117,22 @@ func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metr
 		}
 	}
 
-	var tags []tag.Mutator
-	if cfg.PipelinerunLevel == config.PipelinerunLevelAtPipeline {
-		tags = []tag.Mutator{tag.Insert(pipelineTag, pipelineName)}
-	}
-	ctx, err := tag.New(ctx, append([]tag.Mutator{tag.Insert(namespaceTag, pr.Namespace), tag.Insert(statusTag, status)}, tags...)...)
-	if err != nil {
-		return err
-	}
-
 	if pr.Status.CompletionTime != nil && !pr.Status.CompletionTime.After(now) {
 		deleteDuration = now.Sub(pr.Status.CompletionTime.Time)
 	}
 
-	metrics.Record(ctx, prDeleteCount.M(1))
-	metrics.Record(ctx, prDeleteDuration.M(float64(deleteDuration/time.Second)))
+	// Build attributes
+	attrs := []attribute.KeyValue{
+		namespaceKey.String(pr.Namespace),
+		statusKey.String(status),
+	}
+	if cfg.PipelinerunLevel == config.PipelinerunLevelAtPipeline {
+		attrs = append(attrs, pipelineKey.String(pipelineName))
+	}
+
+	// Record metrics
+	prDeleteCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+	prDeleteDuration.Record(ctx, deleteDuration.Seconds(), metric.WithAttributes(attrs...))
+
 	return nil
 }

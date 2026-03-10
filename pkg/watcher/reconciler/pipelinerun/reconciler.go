@@ -97,7 +97,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pr *pipelinev1.PipelineR
 		if !ok {
 			return fmt.Errorf("expected PipelineRun, got %T", object)
 		}
-		return r.pipelineRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr)
+		if err := r.pipelineRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, pr); err != nil {
+			// Log but don't fail reconciliation for metrics issues
+			logging.FromContext(ctx).Warnf("Failed to record pipelinerun deletion metrics: %v", err)
+		}
+		return nil
 	}
 	dyn.AfterStorage = func(ctx context.Context, object results.Object, _ bool) error {
 		pr, ok := object.(*pipelinev1.PipelineRun)
