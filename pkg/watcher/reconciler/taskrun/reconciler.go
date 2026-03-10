@@ -75,7 +75,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 		if !ok {
 			return fmt.Errorf("expected TaskRun, got %T", object)
 		}
-		return r.taskRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr)
+		if err := r.taskRunMetrics.DurationAndCountDeleted(ctx, r.configStore.Load().Metrics, tr); err != nil {
+			// Log but don't fail reconciliation for metrics issues
+			logging.FromContext(ctx).Warnf("Failed to record taskrun deletion metrics: %v", err)
+		}
+		return nil
 	}
 	dyn.AfterStorage = func(ctx context.Context, o results.Object, _ bool) error {
 		tr, ok := o.(*pipelinev1.TaskRun)

@@ -609,8 +609,7 @@ type LocationsWorkforcePoolsGetAllowedLocationsCall struct {
 // GetAllowedLocations: Returns the trust boundary info for a given workforce
 // pool.
 //
-//   - name: Resource name of workforce pool. Format:
-//     `locations/global/workforcePools/{pool_id}`.
+// - name: Resource name of workforce pool.
 func (r *LocationsWorkforcePoolsService) GetAllowedLocations(name string) *LocationsWorkforcePoolsGetAllowedLocationsCall {
 	c := &LocationsWorkforcePoolsGetAllowedLocationsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -721,9 +720,7 @@ type ProjectsLocationsWorkloadIdentityPoolsGetAllowedLocationsCall struct {
 // GetAllowedLocations: Returns the trust boundary info for a given workload
 // identity pool.
 //
-//   - name: Resource name of workload identity pool. Format:
-//     `projects/{project_number}/locations/global/workloadIdentityPools/{pool_id}
-//     `.
+// - name: Resource name of workload identity pool.
 func (r *ProjectsLocationsWorkloadIdentityPoolsService) GetAllowedLocations(name string) *ProjectsLocationsWorkloadIdentityPoolsGetAllowedLocationsCall {
 	c := &ProjectsLocationsWorkloadIdentityPoolsGetAllowedLocationsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
@@ -1049,8 +1046,7 @@ type ProjectsServiceAccountsGetAllowedLocationsCall struct {
 // GetAllowedLocations: Returns the trust boundary info for a given service
 // account.
 //
-//   - name: Resource name of service account. Format:
-//     `projects/-/serviceAccounts/{service_account_email}`.
+// - name: Resource name of service account.
 func (r *ProjectsServiceAccountsService) GetAllowedLocations(name string) *ProjectsServiceAccountsGetAllowedLocationsCall {
 	c := &ProjectsServiceAccountsGetAllowedLocationsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name

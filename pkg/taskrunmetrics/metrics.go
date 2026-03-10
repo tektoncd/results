@@ -3,7 +3,8 @@ package taskrunmetrics
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -11,26 +12,26 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/apis/config"
-	sharedMetrics "github.com/tektoncd/results/pkg/metrics"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
-	"knative.dev/pkg/metrics"
 )
 
 var (
-	trDeleteCount        = stats.Int64("taskrun_delete_count", "total number of deleted taskruns", stats.UnitDimensionless)
-	trDeleteCountView    *view.View
-	trDeleteDuration     = stats.Float64("taskrun_delete_duration_seconds", "the taskrun deletion time in seconds", stats.UnitSeconds)
-	trDeleteDurationView *view.View
+	once sync.Once
 
-	pipelineTag  = tag.MustNewKey("pipeline")
-	taskTag      = tag.MustNewKey("task")
-	namespaceTag = tag.MustNewKey("namespace")
-	statusTag    = tag.MustNewKey("status")
+	// OpenTelemetry instruments
+	trDeleteCount    metric.Int64Counter
+	trDeleteDuration metric.Float64Histogram
+
+	// Attribute keys
+	pipelineKey  = attribute.Key("pipeline")
+	taskKey      = attribute.Key("task")
+	namespaceKey = attribute.Key("namespace")
+	statusKey    = attribute.Key("status")
 )
 
 // Recorder is used to actually record TaskRun metrics
@@ -40,87 +41,60 @@ type Recorder struct {
 
 // NewRecorder creates a new metrics recorder instance
 // to log the TaskRun related metrics
-func NewRecorder() *Recorder {
-	return &Recorder{clock: clockwork.NewRealClock()}
+func NewRecorder(_ context.Context) (*Recorder, error) {
+	logger := zap.S()
+	if ctxLogger, err := zap.NewProduction(); err == nil {
+		logger = ctxLogger.Sugar()
+	}
+
+	var errRegistering error
+	once.Do(func() {
+		errRegistering = initializeMetrics(logger)
+		if errRegistering != nil {
+			logger.Errorf("Failed to initialize taskrun metrics: %v", errRegistering)
+		}
+	})
+
+	return &Recorder{clock: clockwork.NewRealClock()}, errRegistering
 }
 
-func registerViews(logger *zap.SugaredLogger, cfg *config.Metrics) error {
-	var tags []tag.Key
-	switch cfg.TaskrunLevel {
-	case config.TaskrunLevelAtTask:
-		tags = []tag.Key{taskTag}
-	case config.TaskrunLevelAtNS:
-		tags = []tag.Key{}
-	default:
-		return errors.New("invalid config for TaskrunLevel: " + cfg.TaskrunLevel)
+func initializeMetrics(logger *zap.SugaredLogger) error {
+	meter := otel.Meter("tekton.dev/results/taskrun")
+
+	var err error
+
+	// Create delete count counter
+	// Note: OpenTelemetry Prometheus exporter will append "_total" suffix to counter metrics
+	// So this will be exported as "watcher_taskrun_delete_count_total"
+	trDeleteCount, err = meter.Int64Counter(
+		"watcher_taskrun_delete_count",
+		metric.WithDescription("total number of deleted taskruns"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create watcher_taskrun_delete_count counter: %w", err)
 	}
 
-	switch cfg.PipelinerunLevel {
-	case config.PipelinerunLevelAtPipeline:
-		tags = append(tags, pipelineTag)
-	case config.PipelinerunLevelAtNS:
-	default:
-		return errors.New("invalid config for PipelinerunLevel: " + cfg.PipelinerunLevel)
+	// Create delete duration histogram
+	// Use histogram for duration tracking (histogram is more appropriate than last value for duration metrics in OTel)
+	trDeleteDuration, err = meter.Float64Histogram(
+		"watcher_taskrun_delete_duration_seconds",
+		metric.WithDescription("the taskrun deletion time in seconds"),
+		metric.WithExplicitBucketBoundaries(10, 30, 60, 300, 900, 1800, 3600, 5400, 10800, 21600, 43200, 86400),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create watcher_taskrun_delete_duration_seconds histogram: %w", err)
 	}
 
-	trDeleteCountView = &view.View{
-		Description: trDeleteCount.Description(),
-		TagKeys:     []tag.Key{statusTag, namespaceTag},
-		Measure:     trDeleteCount,
-		Aggregation: view.Count(),
-	}
-
-	var distribution *view.Aggregation
-	switch cfg.DurationPipelinerunType {
-	case config.DurationTaskrunTypeLastValue:
-		distribution = view.LastValue()
-	case config.DurationTaskrunTypeHistogram:
-		distribution = view.Distribution(10, 30, 60, 300, 900, 1800, 3600, 5400, 10800, 21600, 43200, 86400)
-	}
-
-	trDeleteDurationView = &view.View{
-		Description: trDeleteDuration.Description(),
-		TagKeys:     append([]tag.Key{statusTag, namespaceTag}, tags...),
-		Measure:     trDeleteDuration,
-		Aggregation: distribution,
-	}
-
-	logger.Debug("registering taskrun metrics view")
-	return view.Register(trDeleteDurationView, trDeleteCountView)
-}
-
-func unregisterViews(logger *zap.SugaredLogger) {
-	logger.Debug("unregistering taskrun metrics view")
-	for _, v := range []*view.View{trDeleteDurationView, trDeleteCountView} {
-		if v != nil {
-			view.Unregister(v)
-		}
-	}
-}
-
-// MetricsOnStore returns a function that checks if metrics are configured for a config.Store, and registers it if so
-func MetricsOnStore(logger *zap.SugaredLogger) func(name string, value any) {
-	return func(name string, value any) {
-		if name != config.GetMetricsConfigName() {
-			return
-		}
-		cfg, ok := value.(*config.Metrics)
-		if !ok {
-			logger.Error("Failed to do type insertion for extracting metrics config")
-			return
-		}
-		unregisterViews(logger)
-		err := registerViews(logger, cfg)
-		if err != nil {
-			logger.Errorf("Failed to register View %v ", err)
-			return
-		}
-		sharedMetrics.IdempotentRegisterViews(logger)
-	}
+	logger.Debug("initialized taskrun metrics instruments")
+	return nil
 }
 
 // DurationAndCountDeleted counts deleted number and record duration for TaskRuns
 func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metrics, tr *pipelinev1.TaskRun) error {
+	if trDeleteCount == nil || trDeleteDuration == nil {
+		return fmt.Errorf("taskrun metrics are not initialized")
+	}
+
 	taskName := "anonymous"
 	pipelineName := "anonymous"
 	now := r.clock.Now()
@@ -144,46 +118,47 @@ func (r *Recorder) DurationAndCountDeleted(ctx context.Context, cfg *config.Metr
 		}
 	}
 
-	tags := []tag.Mutator{tag.Insert(namespaceTag, tr.Namespace), tag.Insert(statusTag, status)}
-
 	if ok, pipeline, _ := isPartOfPipeline(tr); ok {
 		pipelineName = pipeline
-	}
-
-	tags = append(tags, r.insertPipelineTag(cfg, pipelineName)...)
-	tags = append(tags, r.insertTaskTag(cfg, taskName)...)
-
-	ctx, err := tag.New(ctx, tags...)
-	if err != nil {
-		return err
 	}
 
 	if tr.Status.CompletionTime != nil && !tr.Status.CompletionTime.After(now) {
 		deleteDuration = now.Sub(tr.Status.CompletionTime.Time)
 	}
-	metrics.Record(ctx, trDeleteCount.M(1))
-	metrics.Record(ctx, trDeleteDuration.M(float64(deleteDuration/time.Second)))
+
+	// Build attributes
+	attrs := []attribute.KeyValue{
+		namespaceKey.String(tr.Namespace),
+		statusKey.String(status),
+	}
+	attrs = append(attrs, r.insertPipelineAttr(cfg, pipelineName)...)
+	attrs = append(attrs, r.insertTaskAttr(cfg, taskName)...)
+
+	// Record metrics
+	trDeleteCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+	trDeleteDuration.Record(ctx, deleteDuration.Seconds(), metric.WithAttributes(attrs...))
+
 	return nil
 }
 
-func (r *Recorder) insertPipelineTag(cfg *config.Metrics, pipeline string) []tag.Mutator {
-	var tags []tag.Mutator
+func (r *Recorder) insertPipelineAttr(cfg *config.Metrics, pipeline string) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
 	switch cfg.PipelinerunLevel {
 	case config.PipelinerunLevelAtPipeline:
-		tags = []tag.Mutator{tag.Insert(pipelineTag, pipeline)}
+		attrs = []attribute.KeyValue{pipelineKey.String(pipeline)}
 	case config.PipelinerunLevelAtNS:
 	}
-	return tags
+	return attrs
 }
 
-func (r *Recorder) insertTaskTag(cfg *config.Metrics, task string) []tag.Mutator {
-	var tags []tag.Mutator
+func (r *Recorder) insertTaskAttr(cfg *config.Metrics, task string) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
 	switch cfg.TaskrunLevel {
 	case config.TaskrunLevelAtTask:
-		tags = []tag.Mutator{tag.Insert(taskTag, task)}
+		attrs = []attribute.KeyValue{taskKey.String(task)}
 	case config.TaskrunLevelAtNS:
 	}
-	return tags
+	return attrs
 }
 
 // IsPartOfPipeline return true if TaskRun is a part of a Pipeline.
