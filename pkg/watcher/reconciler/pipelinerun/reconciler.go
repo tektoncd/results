@@ -158,6 +158,11 @@ func isMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
 func (r *Reconciler) FinalizeKind(ctx context.Context, pr *pipelinev1.PipelineRun) knativereconciler.Event {
 	// Reconcile the pipelinerun to ensure that it is stored in the database
 	rerr := r.ReconcileKind(ctx, pr)
+	if rerr != nil {
+		// Keep requeue semantics in finalize() while ensuring this reconcile error is always visible.
+		logging.FromContext(ctx).Warnw("reconcile during pipelinerun finalization returned error",
+			zap.Error(rerr))
+	}
 
 	return r.finalize(ctx, pr, rerr)
 }
@@ -219,7 +224,10 @@ func (r *Reconciler) finalize(ctx context.Context, pr *pipelinev1.PipelineRun, r
 			pr.Namespace, pr.Name, now.String(), storeDeadline.String())
 		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
-	if rerr != nil || stored != "true" {
+	if rerr != nil {
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
+	}
+	if stored != "true" {
 		logging.FromContext(ctx).Debugf("stored annotation is not true on pipelinerun %s/%s, now: %s, storeDeadline: %s",
 			pr.Namespace, pr.Name, now.String(), storeDeadline.String())
 		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
