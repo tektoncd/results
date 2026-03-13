@@ -39,7 +39,7 @@
       "ID": "4cd3d6c167de9d89",
       "Request": {
         "Method": "DELETE",
-        "URL": "https://storage.googleapis.com/storage/v1/b/tekton-releases-test-results/o/foo%2Fbar%2Flog?alt=json\u0026prettyPrint=false",
+        "URL": "https://infra.tekton.com/storage/v1/b/tekton-releases-test-results/o/foo%2Fbar%2Flog?alt=json\u0026prettyPrint=false",
         "Header": {
           "Accept-Encoding": [
             "gzip"
