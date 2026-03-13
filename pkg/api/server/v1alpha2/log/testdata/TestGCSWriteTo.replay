@@ -39,7 +39,7 @@
       "ID": "f43619a071198f3e",
       "Request": {
         "Method": "GET",
-        "URL": "https://infra.tekton.com/tekton-releases-test-results/foo%2Fbar%2Flog",
+        "URL": "https://storage.googleapis.com/tekton-releases-test-results/foo%2Fbar%2Flog",
         "Header": {
           "Accept-Encoding": [
             "gzip"
