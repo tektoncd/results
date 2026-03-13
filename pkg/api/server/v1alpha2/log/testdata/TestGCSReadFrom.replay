@@ -39,7 +39,7 @@
       "ID": "28c834aa60344c6f",
       "Request": {
         "Method": "POST",
-        "URL": "https://storage.googleapis.com/upload/storage/v1/b/tekton-releases-test-results/o?alt=json\u0026name=foo%2Fbar%2Flog\u0026prettyPrint=false\u0026projection=full\u0026uploadType=multipart",
+        "URL": "https://infra.tekton.com/upload/storage/v1/b/tekton-releases-test-results/o?alt=json\u0026name=foo%2Fbar%2Flog\u0026prettyPrint=false\u0026projection=full\u0026uploadType=multipart",
         "Header": {
           "Accept-Encoding": [
             "gzip"

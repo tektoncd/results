@@ -57,14 +57,14 @@ want to use an external database, please refer [this page](./external-database.m
 ## Installing latest release
 
 ```sh
-kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+kubectl apply -f https://infra.tekton.dev/tekton-releases/results/latest/release.yaml
 ```
 
 ## Installing specific release
 
 ```sh
 export RELEASE_VERSION="<desired release version here>"
-kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${RELEASE_VERSION}/release.yaml
+kubectl apply -f https://infra.tekton.dev/tekton-releases/results/previous/${RELEASE_VERSION}/release.yaml
 ```
 
 ## Installing from source

@@ -116,7 +116,7 @@ can choose a different version of Tekton Results as well.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+  - https://infra.tekton.dev/tekton-releases/results/latest/release.yaml
 
 configMapGenerator:
   - behavior: replace
