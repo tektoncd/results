@@ -1,28 +1,27 @@
 approvers:
 - divyansh42
-- ImJasonH
-- dibyom
 - vdemeester
-- wlynch
-- xinruzhang
-- alan-ghelardi
 - khrm
-- sayan-biswas
 - enarha
-- avinal
 # alumni:
 # sbwsg
 # adambkaplan
+# ImJasonH
+# xinruzhang
+# sayan-biswas
+# avinal
+# alan-ghelardi
+# dibyom
 
 # Reviewers is the set of people that will be automatically assigned when a PR is opened.
 # This is purposely a subset of approvers so that certain users can approve PRs to be
 # submitted without being expected to respond to incoming PRs.
 reviewers:
 - divyansh42
-- dibyom
-- alan-ghelardi
 - khrm
 - enarha
-- avinal
 # alumni:
 # sbwsg
+# dibyom
+# alan-ghelardi
+# avinal
