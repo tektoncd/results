@@ -44,6 +44,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	kubearchive "github.com/tektoncd/results/pkg/kubearchive"
+	"github.com/tektoncd/results/pkg/kubearchive/adapter"
+	kaRouters "github.com/kubearchive/kubearchive/cmd/api/routers"
+	"github.com/kubearchive/kubearchive/pkg/cache"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -233,6 +238,7 @@ func main() {
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
+	var k8s kubernetes.Interface // Declare k8s client for use in Kubearchive integration
 	serverMuxOptions := []runtime.ServeMuxOption{runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 		MarshalOptions: protojson.MarshalOptions{
 			UseProtoNames: true,
@@ -244,6 +250,16 @@ func main() {
 	if serverConfig.AUTH_DISABLE {
 		log.Warn("Kubernetes RBAC authorization check disabled - all requests will be allowed by the API server")
 		authCheck = &auth.AllowAll{}
+		// Still need k8s client for Kubearchive kubectl-compatible API
+		k8sConfig, err := rest.InClusterConfig()
+		if err != nil {
+			log.Warn("Warning: Could not get kubernetes client config (kubectl API will not work):", err)
+		} else {
+			k8s, err = kubernetes.NewForConfig(k8sConfig)
+			if err != nil {
+				log.Warn("Warning: Could not create kubernetes client (kubectl API will not work):", err)
+			}
+		}
 	} else {
 		log.Info("Kubernetes RBAC authorization check enabled")
 		// Create k8s client
@@ -260,7 +276,7 @@ func main() {
 		if burst > 0 {
 			k8sConfig.Burst = burst
 		}
-		k8s, err := kubernetes.NewForConfig(k8sConfig)
+		k8s, err = kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
 		}
@@ -407,8 +423,57 @@ func main() {
 
 	httpMux = v1alpha2.Handler(httpMux, v1a2.LogPluginServer)
 
+	// Create Kubearchive adapter for kubectl-compatible API (if k8s client is available)
+	if k8s != nil {
+		dbAdapter := adapter.NewTektonResultsAdapter(db)
+		kubearchiveCache := cache.New()
+		kubearchiveCacheConfig := &kaRouters.CacheExpirations{
+			Authorized:   10 * time.Minute,
+			Unauthorized: 1 * time.Minute,
+		}
+
+		// Create Kubearchive router (returns http.Handler)
+		// For proof of concept, accepts any API group
+		kubearchiveHandler := kubearchive.NewRouter(
+			k8s, // Existing K8s client
+			dbAdapter,
+			kubearchiveCache,
+			kubearchiveCacheConfig,
+		)
+
+		// Save the original httpMux before reassigning to avoid circular reference
+		originalHttpMux := httpMux
+
+		// Create a custom handler that routes between Kubearchive and Tekton Results
+		// Route to Kubearchive for any /apis/<group>/ EXCEPT results.tekton.dev
+		combinedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if request is for Tekton Results API (results.tekton.dev)
+			if strings.HasPrefix(r.URL.Path, "/apis/results.tekton.dev/") {
+				originalHttpMux.ServeHTTP(w, r)
+				return
+			}
+
+			// Check if request is for any other API group (starts with /apis/<something>/)
+			if strings.HasPrefix(r.URL.Path, "/apis/") && len(r.URL.Path) > 6 {
+				// Route to Kubearchive kubectl-compatible API
+				kubearchiveHandler.ServeHTTP(w, r)
+				return
+			}
+
+			// Otherwise, use existing Tekton Results handler
+			originalHttpMux.ServeHTTP(w, r)
+		})
+
+		// Use combined handler for server initialization
+		httpMux = combinedHandler
+		log.Info("Kubearchive kubectl-compatible API enabled for /apis/<group>/ (except results.tekton.dev)")
+	} else {
+		log.Warn("Kubearchive kubectl-compatible API disabled (Kubernetes client not available)")
+	}
+
 	// Start server with gRPC and REST handler
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)
+
 	if tlsError != nil {
 		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandler(gs, httpMux)))
 	}
