@@ -1669,7 +1669,7 @@ gorm.io/gorm/migrator
 gorm.io/gorm/schema
 gorm.io/gorm/utils
 gorm.io/gorm/utils/tests
-# k8s.io/api v0.34.5
+# k8s.io/api v0.34.6
 ## explicit; go 1.24.0
 k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
@@ -1820,7 +1820,7 @@ k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/genericiooptions
 k8s.io/cli-runtime/pkg/printers
 k8s.io/cli-runtime/pkg/resource
-# k8s.io/client-go v0.34.5
+# k8s.io/client-go v0.34.6
 ## explicit; go 1.24.0
 k8s.io/client-go/applyconfigurations
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
