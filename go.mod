@@ -51,7 +51,7 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
-	k8s.io/api v0.34.5
+	k8s.io/api v0.34.6
 	k8s.io/apimachinery v0.34.6
 	k8s.io/apiserver v0.32.13
 	k8s.io/cli-runtime v0.29.15
