@@ -124,7 +124,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/antlr4-go/antlr/v4 v4.13.1
 ## explicit; go 1.22
 github.com/antlr4-go/antlr/v4
-# github.com/aws/aws-sdk-go-v2 v1.41.4
+# github.com/aws/aws-sdk-go-v2 v1.41.5
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
