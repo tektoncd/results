@@ -21,6 +21,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 
+	_ "knative.dev/pkg/reconciler/testing"
 	_ "knative.dev/pkg/system/testing"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
