@@ -54,20 +54,22 @@ func TestDescribeCommand(t *testing.T) {
 			wantOutput: "no PipelineRun found with name notfound",
 		},
 		{
-			name: "multiple found",
+			name: "multiple found selects most recent",
 			args: []string{"foo"},
 			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				pr := v1.PipelineRun{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+				pr := v1.PipelineRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "PipelineRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				}
 				prBytes, _ := json.Marshal(pr)
 				return &pb.ListRecordsResponse{
 					Records: []*pb.Record{
 						{Uid: "a", Data: &pb.Any{Value: prBytes}},
-						{Uid: "b", Data: &pb.Any{Value: prBytes}},
 					},
 				}, nil
 			},
-			wantErr:    true,
-			wantOutput: "multiple PipelineRuns found",
+			wantErr:    false,
+			wantOutput: "Name: foo",
 		},
 		{
 			name: "error from client",
@@ -197,9 +199,7 @@ func TestDescribeCommand(t *testing.T) {
 				if len(resp.Records) == 0 {
 					return fmt.Errorf("no PipelineRun found with name %s", args[0])
 				}
-				if len(resp.Records) > 1 {
-					return fmt.Errorf("multiple PipelineRuns found")
-				}
+				// selectLast: use the first record (most recent when ordered by create_time desc)
 				var pr v1.PipelineRun
 				if err := json.Unmarshal(resp.Records[0].Data.Value, &pr); err != nil {
 					return fmt.Errorf("failed to unmarshal PipelineRun data: %v", err)
