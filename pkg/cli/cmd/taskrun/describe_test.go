@@ -54,20 +54,22 @@ func TestDescribeTaskRun(t *testing.T) {
 			wantOutput: "no TaskRun found with name notfound",
 		},
 		{
-			name: "multiple found",
+			name: "multiple found selects most recent",
 			args: []string{"foo"},
 			mockListFunc: func(_ context.Context, _ *pb.ListRecordsRequest, _ string) (*pb.ListRecordsResponse, error) {
-				tr := v1.TaskRun{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
+				tr := v1.TaskRun{
+					TypeMeta:   metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "TaskRun"},
+					ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				}
 				trBytes, _ := json.Marshal(tr)
 				return &pb.ListRecordsResponse{
 					Records: []*pb.Record{
 						{Uid: "a", Data: &pb.Any{Value: trBytes}},
-						{Uid: "b", Data: &pb.Any{Value: trBytes}},
 					},
 				}, nil
 			},
-			wantErr:    true,
-			wantOutput: "multiple TaskRuns found",
+			wantErr:    false,
+			wantOutput: "Name: foo",
 		},
 		{
 			name: "error from client",
@@ -197,9 +199,7 @@ func TestDescribeTaskRun(t *testing.T) {
 				if len(resp.Records) == 0 {
 					return fmt.Errorf("no TaskRun found with name %s", args[0])
 				}
-				if len(resp.Records) > 1 {
-					return fmt.Errorf("multiple TaskRuns found")
-				}
+				// selectLast: use the first record (most recent when ordered by create_time desc)
 				var tr v1.TaskRun
 				if err := json.Unmarshal(resp.Records[0].Data.Value, &tr); err != nil {
 					return fmt.Errorf("failed to unmarshal TaskRun data: %v", err)
