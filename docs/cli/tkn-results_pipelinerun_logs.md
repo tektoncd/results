@@ -6,6 +6,9 @@ Get logs for a PipelineRun
 
 Get logs for a PipelineRun by name or UID. If --uid is provided, the PipelineRun name is optional.
 
+If multiple PipelineRuns match the given name, the logs for the most recent one are returned.
+Use --uid to target a specific PipelineRun when needed.
+
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
 Additionally, PipelineRun logs are not supported for S3 log storage.
