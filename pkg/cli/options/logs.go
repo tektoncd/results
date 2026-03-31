@@ -1,6 +1,11 @@
 package options
 
-import "github.com/tektoncd/results/pkg/cli/client"
+import (
+	"github.com/tektoncd/results/pkg/cli/client"
+	"github.com/tektoncd/results/pkg/cli/common"
+)
+
+var _ common.FilterOptions = (*LogsOptions)(nil)
 
 // LogsOptions contains options for fetching logs for a resource.
 type LogsOptions struct {
@@ -33,4 +38,10 @@ func (o *LogsOptions) GetResourceType() string {
 // GetUID implements FilterOptions interface
 func (o *LogsOptions) GetUID() string {
 	return o.UID
+}
+
+// SelectsExactMatch implements FilterOptions interface.
+// Logs uses exact match for faster server-side filtering.
+func (o *LogsOptions) SelectsExactMatch() bool {
+	return true
 }
