@@ -6,6 +6,9 @@ Describe a PipelineRun
 
 Describe a PipelineRun by name or UID. If --uid is provided, then PipelineRun name is optional.
 
+If multiple PipelineRuns match the given name, the most recent one is returned.
+Use --uid to target a specific PipelineRun when needed.
+
 ```
 tkn-results pipelinerun describe [pipelinerun-name]
 ```

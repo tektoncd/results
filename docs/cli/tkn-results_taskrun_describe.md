@@ -6,6 +6,9 @@ Describe a TaskRun
 
 Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is optional.
 
+If multiple TaskRuns match the given name, the most recent one is returned.
+Use --uid to target a specific TaskRun when needed.
+
 ```
 tkn-results taskrun describe [taskrun-name]
 ```
