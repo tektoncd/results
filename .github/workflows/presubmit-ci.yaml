@@ -134,7 +134,7 @@ jobs:
     steps:
       - name: Check job results
         run: |
-          results=(${{ join(needs.*.result, ' ') }})
+          results=(${JOB_RESULTS})
           for result in "${results[@]}"; do
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then
               echo "One or more jobs failed or were cancelled"
@@ -142,5 +142,7 @@ jobs:
             fi
           done
           echo "All jobs passed or were skipped"
+        env:
+          JOB_RESULTS: ${{ join(needs.*.result, ' ') }}
 
 
