@@ -1012,7 +1012,7 @@ github.com/spiffe/spire-api-sdk/proto/spire/api/types
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/tektoncd/cli v0.44.0
+# github.com/tektoncd/cli v0.44.1
 ## explicit; go 1.25.6
 github.com/tektoncd/cli/pkg/actions
 github.com/tektoncd/cli/pkg/cli
