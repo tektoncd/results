@@ -780,8 +780,8 @@ github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD
 github.com/stvp/go-udp-testing v0.0.0-20201019212854-469649b16807/go.mod h1:7jxmlfBCDBXRzr0eAQJ48XC1hBu1np4CS5+cHEYfwpc=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/tektoncd/cli v0.44.0 h1:2aZ+VsgYYYFwygQXsZgl3V/5p6zECDlmDDtdI412UiI=
-github.com/tektoncd/cli v0.44.0/go.mod h1:6sfaavQ6Gete9/MhzOWkvOAPQyW1hqGQ6eZQjlPLW5s=
+github.com/tektoncd/cli v0.44.1 h1:UMI2xFt7MLTJdLuopzjAUTon8b1Ni4qbyboi2b4KWmQ=
+github.com/tektoncd/cli v0.44.1/go.mod h1:q8IZV/HuGh/D4kbID0YVTfqkbV7dMX+T687I/hPIBL8=
 github.com/tektoncd/pipeline v1.9.2 h1:uKEt6CGLmkeKLdKIZnel0gn8lfQ1P7+398yystdBuHU=
 github.com/tektoncd/pipeline v1.9.2/go.mod h1:PTlIZ4Mhr8HZDx404O7spJtafiynetTMedCsXStjtHk=
 github.com/tektoncd/triggers v0.35.0 h1:9Z5Cqn7RZTgyspWgWYFHz6AtWUUhd/awJeaisjZdF98=
