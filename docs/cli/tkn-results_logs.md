@@ -1,6 +1,9 @@
 ## tkn-results logs
 
-[To be deprecated] Commands for finding and retrieving logs
+**[DEPRECATED]** Commands for finding and retrieving logs
+
+> **Deprecation Notice**: This command is deprecated and will be removed in a future release.
+> Use `tkn-results pipelinerun logs` or `tkn-results taskrun logs` commands instead.
 
 ### Options
 
@@ -11,18 +14,18 @@
 ### Options inherited from parent commands
 
 ```
-  -a, --addr string        [To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-  -t, --authtoken string   [To be deprecated] authorization bearer token to use for authenticated requests
-      --insecure           [To be deprecated] determines whether to run insecure GRPC tls request
-      --portforward        [To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically (default true)
-      --sa string          [To be deprecated] ServiceAccount to use instead of token for authorization and authentication
-      --sa-ns string       [To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
-      --v1alpha2           [To be deprecated] use v1alpha2 API for get log command
+  -a, --addr string        [DEPRECATED] Result API server address. Use 'config set --host=<host>' instead
+  -t, --authtoken string   [DEPRECATED] authorization bearer token. Use 'config set --token=<token>' instead
+      --insecure           [DEPRECATED] determines whether to run insecure GRPC tls request. Use 'config set --insecure' instead
+      --portforward        [DEPRECATED] enable auto portforwarding. Use 'config set' instead (default true)
+      --sa string          [DEPRECATED] ServiceAccount for authorization. Use 'config set' instead
+      --sa-ns string       [DEPRECATED] ServiceAccount Namespace. Use 'config set' instead
+      --v1alpha2           [DEPRECATED] use v1alpha2 API. This flag is no longer needed
 ```
 
 ### SEE ALSO
 
 * [tkn-results](tkn-results.md)	 - Tekton Results CLI
-* [tkn-results logs get](tkn-results_logs_get.md)	 - [To be deprecated] Get Log by <log-name>
-* [tkn-results logs list](tkn-results_logs_list.md)	 - [To be deprecated] List Logs for a given Result
+* [tkn-results logs get](tkn-results_logs_get.md)	 - **[DEPRECATED]** Get Log by <log-name> - use `pipelinerun logs` or `taskrun logs` instead
+* [tkn-results logs list](tkn-results_logs_list.md)	 - **[DEPRECATED]** List Logs for a given Result - use `pipelinerun logs` or `taskrun logs` instead
 

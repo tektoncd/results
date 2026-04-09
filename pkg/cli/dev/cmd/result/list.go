@@ -19,7 +19,8 @@ func ListCommand(params *flags.Params) *cobra.Command {
 		Use: `list [flags] <parent>
 
   <parent>: Parent name to query. This is typically corresponds to a namespace, but may vary depending on the API Server. "-" may be used to query all parents. This will list results for namespaces the token has access to`,
-		Short: "[To be deprecated] List Results",
+		Short:      "[DEPRECATED] List Results",
+		Deprecated: "use 'pipelinerun list' or 'taskrun list' to list PipelineRuns and TaskRuns",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parent := args[0]
 			resp, err := params.ResultsClient.ListResults(cmd.Context(), &pb.ListResultsRequest{

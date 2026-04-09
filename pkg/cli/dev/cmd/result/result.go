@@ -8,9 +8,10 @@ import (
 // Command initializes a cobra command for `pipelinerun` sub commands
 func Command(params *flags.Params) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "result",
-		Aliases: []string{"r", "results"},
-		Short:   "[To be deprecated] Query Results",
+		Use:        "result [command]",
+		Aliases:    []string{"r", "results"},
+		Short:      "[DEPRECATED] Query Results",
+		Deprecated: "use 'pipelinerun' or 'taskrun' commands to query PipelineRuns and TaskRuns",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},

@@ -40,10 +40,10 @@ func GetLogCommand(params *flags.Params) *cobra.Command {
 	opts := &flags.GetOptions{}
 
 	cmd := &cobra.Command{
-		Use: "get [flags] <log-name>",
-
-		Short: "[To be deprecated] Get Log by <log-name>",
-		Long:  "Get Log by <log-name>. <log-name> is typically of format <namespace>/results/<parent-run-uuid>/logs/<child-run-uuid>",
+		Use:        "get [flags] <log-name>",
+		Short:      "[DEPRECATED] Get Log by <log-name>",
+		Deprecated: "use 'pipelinerun logs' or 'taskrun logs' to retrieve logs",
+		Long:       "Get Log by <log-name>. <log-name> is typically of format <namespace>/results/<parent-run-uuid>/logs/<child-run-uuid>",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var resp grpc.ServerStreamingClient[httpbody.HttpBody]
 			var err error
