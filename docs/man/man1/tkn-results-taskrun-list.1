@@ -1,5 +1,5 @@
 .nh
-.TH "TKN-RESULTS" "1" "Aug 2025" "Tekton Results CLI" ""
+.TH "TKN-RESULTS" "1" "Apr 2026" "Tekton Results CLI" ""
 
 .SH NAME
 tkn-results-taskrun-list - List TaskRuns in a namespace
@@ -39,16 +39,8 @@ List TaskRuns in a namespace
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
-\fB-a\fP, \fB--addr\fP=""
-	[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically
-
-.PP
 \fB--api-path\fP=""
 	api path to use (default: value provided in config set command)
-
-.PP
-\fB-t\fP, \fB--authtoken\fP=""
-	[To be deprecated] authorization bearer token to use for authenticated requests
 
 .PP
 \fB-c\fP, \fB--context\fP=""
@@ -57,10 +49,6 @@ List TaskRuns in a namespace
 .PP
 \fB--host\fP=""
 	host to use (default: value provided in config set command)
-
-.PP
-\fB--insecure\fP[=false]
-	[To be deprecated] determines whether to run insecure GRPC tls request
 
 .PP
 \fB--insecure-skip-tls-verify\fP[=false]
@@ -75,24 +63,8 @@ List TaskRuns in a namespace
 	namespace to use (default: from $KUBECONFIG)
 
 .PP
-\fB--portforward\fP[=true]
-	[To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically
-
-.PP
-\fB--sa\fP=""
-	[To be deprecated] ServiceAccount to use instead of token for authorization and authentication
-
-.PP
-\fB--sa-ns\fP=""
-	[To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context
-
-.PP
 \fB--token\fP=""
 	bearer token to use (default: value provided in config set command)
-
-.PP
-\fB--v1alpha2\fP[=false]
-	[To be deprecated] use v1alpha2 API for get log command
 
 
 .SH EXAMPLE

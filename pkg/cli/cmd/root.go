@@ -59,13 +59,20 @@ func Root(p common.Params) *cobra.Command {
 		},
 	}
 
-	c.PersistentFlags().StringP("addr", "a", "", "[To be deprecated] Result API server address. If not specified, tkn-result would port-forward to service/tekton-results-api-service automatically")
-	c.PersistentFlags().StringP("authtoken", "t", "", "[To be deprecated] authorization bearer token to use for authenticated requests")
-	c.PersistentFlags().String("sa", "", "[To be deprecated] ServiceAccount to use instead of token for authorization and authentication")
-	c.PersistentFlags().String("sa-ns", "", "[To be deprecated] ServiceAccount Namespace, if not given, it will be taken from current context")
-	c.PersistentFlags().Bool("portforward", true, "[To be deprecated] enable auto portforwarding to tekton-results-api-service, when addr is set and portforward is true, tkn-results will portforward tekton-results-api-service automatically")
-	c.PersistentFlags().Bool("insecure", false, "[To be deprecated] determines whether to run insecure GRPC tls request")
-	c.PersistentFlags().Bool("v1alpha2", false, "[To be deprecated] use v1alpha2 API for get log command")
+	c.PersistentFlags().StringP("addr", "a", "", "[DEPRECATED] Result API server address. Use 'config set --host=<host>' instead")
+	_ = c.PersistentFlags().MarkDeprecated("addr", "use 'config set --host=<host>' to configure the API server address")
+	c.PersistentFlags().StringP("authtoken", "t", "", "[DEPRECATED] authorization bearer token. Use 'config set --token=<token>' instead")
+	_ = c.PersistentFlags().MarkDeprecated("authtoken", "use 'config set --token=<token>' to configure authentication")
+	c.PersistentFlags().String("sa", "", "[DEPRECATED] ServiceAccount for authorization. Use 'config set' instead")
+	_ = c.PersistentFlags().MarkDeprecated("sa", "use 'config set' for service account-based authentication")
+	c.PersistentFlags().String("sa-ns", "", "[DEPRECATED] ServiceAccount Namespace. Use 'config set' instead")
+	_ = c.PersistentFlags().MarkDeprecated("sa-ns", "use 'config set' for service account configuration")
+	c.PersistentFlags().Bool("portforward", true, "[DEPRECATED] enable auto portforwarding. Use 'config set' instead")
+	_ = c.PersistentFlags().MarkDeprecated("portforward", "use 'config set' to configure portforwarding behavior")
+	c.PersistentFlags().Bool("insecure", false, "[DEPRECATED] determines whether to run insecure GRPC tls request. Use 'config set' instead")
+	_ = c.PersistentFlags().MarkDeprecated("insecure", "use 'config set --insecure' to configure TLS settings")
+	c.PersistentFlags().Bool("v1alpha2", false, "[DEPRECATED] use v1alpha2 API. This flag is no longer needed")
+	_ = c.PersistentFlags().MarkDeprecated("v1alpha2", "v1alpha2 API support has been deprecated and this flag has no effect")
 
 	c.AddCommand(
 		// Commands to be deprecated

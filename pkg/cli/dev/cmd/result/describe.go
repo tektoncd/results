@@ -54,9 +54,10 @@ Query by parent and uid:
 tkn-results result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035f10
 `
 	cmd := &cobra.Command{
-		Use:     "describe [-p parent -u uid] [name]",
-		Aliases: []string{"desc"},
-		Short:   "[To be deprecated] Describes a Result",
+		Use:        "describe [-p parent -u uid] [name]",
+		Aliases:    []string{"desc"},
+		Short:      "[DEPRECATED] Describes a Result",
+		Deprecated: "use 'pipelinerun describe' or 'taskrun describe' to get detailed information about PipelineRuns and TaskRuns",
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -90,8 +91,10 @@ tkn-results result desc --parent default --uid 949eebd9-1cf7-478f-a547-9ee313035
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.Parent, "parent", "p", "", "[To be deprecated] parent of the result")
-	cmd.Flags().StringVarP(&opts.UID, "uid", "u", "", "[To be deprecated] uid of the result")
+	cmd.Flags().StringVarP(&opts.Parent, "parent", "p", "", "[DEPRECATED] parent of the result")
+	_ = cmd.Flags().MarkDeprecated("parent", "use 'pipelinerun describe' or 'taskrun describe' instead")
+	cmd.Flags().StringVarP(&opts.UID, "uid", "u", "", "[DEPRECATED] uid of the result")
+	_ = cmd.Flags().MarkDeprecated("uid", "use 'pipelinerun describe' or 'taskrun describe' instead")
 	return cmd
 }
 
