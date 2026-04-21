@@ -706,8 +706,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/tektoncd/cli v0.3.1-0.20260420063304-515d460aa4e5 h1:Rmvprc9pSMup5NZViSTQd7wK38aetWnGHZN1nNjY7kA=
 github.com/tektoncd/cli v0.3.1-0.20260420063304-515d460aa4e5/go.mod h1:AdVKg2q4nbiHbQCoHmApA4mHAs8tc1DnrtD67mFlSuE=
-github.com/tektoncd/pipeline v1.11.0 h1:uJ6Bl6ydxiRi1SP7MBLdDnUwh6SzFzQcRF6MnIr5Xsc=
-github.com/tektoncd/pipeline v1.11.0/go.mod h1:uglkGnsv6WLitNpBdyP+K3J4HnjA5kHgoNV75FqjoD4=
+github.com/tektoncd/pipeline v1.11.1 h1:GjSqggV4EOfCqaWWplEYKqzghqFcpxMWsqLw5mmIAo0=
+github.com/tektoncd/pipeline v1.11.1/go.mod h1:pw9WrX+rauagZMQGzKs9Do8K6BvGDz0/FnoFjZnuCZk=
 github.com/tektoncd/triggers v0.35.1-0.20260401091813-1aad8a1898ec h1:Aipi80gVmfbCW6AaxQLNcLY38586wxASO0EKbWqQhPA=
 github.com/tektoncd/triggers v0.35.1-0.20260401091813-1aad8a1898ec/go.mod h1:ivDXe8xmMbVB4F0+MiUW0avU2o/me1mRsGh4shPKaUU=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
