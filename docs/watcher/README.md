@@ -18,6 +18,7 @@ The Watcher currently supports the following types:
 
 - `tekton.dev/v1beta1 TaskRun`
 - `tekton.dev/v1beta1 PipelineRun`
+- `tekton.dev/v1beta1 CustomRun`
 - `tekton.dev/v1 TaskRun`
 - `tekton.dev/v1 PipelineRun`
 
@@ -40,7 +41,7 @@ Result name for the Object.
 
 ## Passing arbitrary key/values to Results
 
-Users and/or integrators can pass arbitrary keys/values to Results by adding special annotations to PipelineRuns and TaskRuns:
+Users and/or integrators can pass arbitrary keys/values to Results by adding special annotations to PipelineRuns, TaskRuns, and CustomRuns:
 
 - `results.tekton.dev/resultAnnotations`: a JSON object (string->string) to be stored into thee `Result.Annotations` field.
 - `results.tekton.dev/recordSummaryAnnotations`: a JSON object (string->string) to be stored into thee `Result.Summary.Annotations` field.
@@ -65,21 +66,21 @@ When the command line flag is `completed_run_grace_period` is set to any value o
 
 The flag `check_owner` allows additional check before deleting a resource. If set `true`, resources with any owner references set will not be deleted. When the flag is `false`, owner references will be not be checked before deletion.
 
-## Supported version of TaskRun and PipelineRun CR
+## Supported version of TaskRun, PipelineRun, and CustomRun CRs
 
-Results stores PipelineRun and TaskRun as v1. If there are older records, it's possible that they are stored as v1beta1. API server can be configured to start a converter during initialisation.
+Results stores PipelineRun and TaskRun as v1. CustomRun is stored as v1beta1 (the only version currently available in Tekton Pipelines). If there are older records, it's possible that they are stored as v1beta1. API server can be configured to start a converter during initialisation.
 
 ## Finalizer for blocking deletion
 
-Watcher implements a finalizer to block deletion by an external pruner when objects are stored via the Watcher.
+Watcher implements a finalizer to block deletion by an external pruner when objects are stored via the Watcher. Each resource type has its own finalizer (`results.tekton.dev/pipelinerun`, `results.tekton.dev/taskrun`, `results.tekton.dev/customrun`).
 
 When deletion request comes, it will block until completion time + `completed_run_grace_period` period is passed. A hard limit could be set as `store_deadline` (default 10m), after which the object will be removed from the cluster even without confirmation it's been stored in the DB.
 
 
 ## Disabling Incomplete Runs storage
 
-The `disable_storing_incomplete_runs` flag controls whether the Watcher should store PipelineRuns and TaskRuns that are still in progress (i.e., not yet completed, cancelled or failed).
+The `disable_storing_incomplete_runs` flag controls whether the Watcher should store PipelineRuns, TaskRuns, and CustomRuns that are still in progress (i.e., not yet completed, cancelled or failed).
 
 When set to `true`, the Watcher will only store Runs once they are completed. This is useful for reducing the load for API server and reconciliation queue. 
 
-When set to `false` (default), the Watcher will attempt to continuously store all Runs on every modification regardless of their completion status, allowing you to track the full lifecycle of your PipelineRuns and TaskRuns.
+When set to `false` (default), the Watcher will attempt to continuously store all Runs on every modification regardless of their completion status, allowing you to track the full lifecycle of your PipelineRuns, TaskRuns, and CustomRuns.

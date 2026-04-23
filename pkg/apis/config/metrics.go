@@ -8,7 +8,8 @@ import (
 
 const (
 	// metricsTaskrunLevel determines to what level to aggregate metrics
-	// for taskrun
+	// for taskrun and customrun (both are task-level resources and share
+	// this configuration knob for brevity)
 	metricsTaskrunLevelKey = "metrics.taskrun.level"
 
 	// metricsPipelinerunLevel determines to what level to aggregate metrics
