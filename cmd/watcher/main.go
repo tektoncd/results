@@ -31,6 +31,7 @@ import (
 
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
+	"github.com/tektoncd/results/pkg/watcher/reconciler/customrun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/pipelinerun"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -153,6 +154,8 @@ func main() {
 			return pipelinerun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
 			return taskrun.NewControllerWithConfig(ctx, results, cfg, cmw)
+		}, func(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
+			return customrun.NewControllerWithConfig(ctx, results, cfg, cmw)
 		},
 	}
 

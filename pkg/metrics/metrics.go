@@ -1,5 +1,5 @@
 // Package metrics provides unified metrics recording for Tekton Results.
-// It includes metrics for tracking runs not stored and storage latency for both PipelineRuns and TaskRuns.
+// It includes metrics for tracking runs not stored and storage latency for both PipelineRuns, TaskRuns, and CustomRuns.
 package metrics
 
 import (
@@ -11,6 +11,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -123,6 +124,14 @@ func (r *Recorder) RecordStorageLatency(ctx context.Context, object interface{})
 		completionTime = &o.Status.CompletionTime.Time
 		namespace = o.Namespace
 		kind = "taskrun"
+
+	case *pipelinev1beta1.CustomRun:
+		if o.Status.CompletionTime == nil {
+			return nil
+		}
+		completionTime = &o.Status.CompletionTime.Time
+		namespace = o.Namespace
+		kind = "customrun"
 
 	default:
 		return fmt.Errorf("unsupported object type: %T", object)

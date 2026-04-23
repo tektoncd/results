@@ -24,9 +24,11 @@ import (
 	"github.com/tektoncd/results/pkg/pipelinerunmetrics"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	pipelinerunreconciler "github.com/tektoncd/pipeline/pkg/client/injection/reconciler/pipeline/v1/pipelinerun"
 	pipelinev1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
+	pipelinev1beta1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
 	resultsannotation "github.com/tektoncd/results/pkg/watcher/reconciler/annotation"
 	"github.com/tektoncd/results/pkg/watcher/reconciler/client"
@@ -49,6 +51,7 @@ type Reconciler struct {
 
 	resultsClient      pb.ResultsClient
 	logsClient         pb.LogsClient
+	customRunLister    pipelinev1beta1listers.CustomRunLister
 	pipelineRunLister  pipelinev1listers.PipelineRunLister
 	taskRunLister      pipelinev1listers.TaskRunLister
 	pipelineClient     versioned.Interface
@@ -124,20 +127,41 @@ func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Contex
 
 	if len(pipelineRun.Status.ChildReferences) > 0 {
 		for _, reference := range pipelineRun.Status.ChildReferences {
-			taskRun, err := r.taskRunLister.TaskRuns(pipelineRun.Namespace).Get(reference.Name)
-			if err != nil {
-				if apierrors.IsNotFound(err) {
-					// Let's assume that the TaskRun in
-					// question is gone and therefore, we
-					// can safely ignore it.
-					logger.Debugf("TaskRun %s/%s associated with PipelineRun %s is no longer available. Skipping.", pipelineRun.Namespace, reference.Name, pipelineRun.Name)
-					continue
+			switch reference.Kind {
+			case "TaskRun":
+				taskRun, err := r.taskRunLister.TaskRuns(pipelineRun.Namespace).Get(reference.Name)
+				if err != nil {
+					if apierrors.IsNotFound(err) {
+						// Let's assume that the TaskRun in
+						// question is gone and therefore, we
+						// can safely ignore it.
+						logger.Debugf("TaskRun %s/%s associated with PipelineRun %s is no longer available. Skipping.", pipelineRun.Namespace, reference.Name, pipelineRun.Name)
+						continue
+					}
+					return false, fmt.Errorf("error reading TaskRun from the indexer: %w", err)
 				}
-				return false, fmt.Errorf("error reading TaskRun from the indexer: %w", err)
-			}
-			if !isMarkedAsReadyForDeletion(taskRun) {
-				logger.Debugf("TaskRun %s/%s associated with PipelineRun %s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, pipelineRun.Name, resultsannotation.ChildReadyForDeletion)
-				return false, nil
+				if !isTaskRunMarkedAsReadyForDeletion(taskRun) {
+					logger.Debugf("TaskRun %s/%s associated with PipelineRun %s isn't yet ready to be deleted - the annotation %s is missing", taskRun.Namespace, taskRun.Name, pipelineRun.Name, resultsannotation.ChildReadyForDeletion)
+					return false, nil
+				}
+			case "CustomRun":
+				customRun, err := r.customRunLister.CustomRuns(pipelineRun.Namespace).Get(reference.Name)
+				if err != nil {
+					if apierrors.IsNotFound(err) {
+						// Let's assume that the CustomRun in
+						// question is gone and therefore, we
+						// can safely ignore it.
+						logger.Debugf("CustomRun %s/%s associated with PipelineRun %s is no longer available. Skipping.", pipelineRun.Namespace, reference.Name, pipelineRun.Name)
+						continue
+					}
+					return false, fmt.Errorf("error reading CustomRun from the indexer: %w", err)
+				}
+				if !isCustomRunMarkedAsReadyForDeletion(customRun) {
+					logger.Debugf("CustomRun %s/%s associated with PipelineRun %s isn't yet ready to be deleted - the annotation %s is missing", customRun.Namespace, customRun.Name, pipelineRun.Name, resultsannotation.ChildReadyForDeletion)
+					return false, nil
+				}
+			default:
+				logger.Warnf("Unknown child reference kind: %s for %s/%s", reference.Kind, pipelineRun.Namespace, reference.Name)
 			}
 		}
 	}
@@ -145,11 +169,21 @@ func (r *Reconciler) areAllUnderlyingTaskRunsReadyForDeletion(ctx context.Contex
 	return true, nil
 }
 
-func isMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
+func isTaskRunMarkedAsReadyForDeletion(taskRun *pipelinev1.TaskRun) bool {
 	if taskRun.Annotations == nil {
 		return false
 	}
 	if _, found := taskRun.Annotations[resultsannotation.ChildReadyForDeletion]; found {
+		return true
+	}
+	return false
+}
+
+func isCustomRunMarkedAsReadyForDeletion(customRun *pipelinev1beta1.CustomRun) bool {
+	if customRun.Annotations == nil {
+		return false
+	}
+	if _, found := customRun.Annotations[resultsannotation.ChildReadyForDeletion]; found {
 		return true
 	}
 	return false
