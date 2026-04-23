@@ -58,3 +58,7 @@ These are the common configuration options for all third party logging APIs.
 - `LOGGING_PLUGIN_QUERY_LIMIT`: Sets the query limit for Third Party Logging API if logging backend has a limit on number of log lines returned.
 - `LOGGING_PLUGIN_QUERY_PARAMS`: Sets the query params for Third Party Logging API, these can be direction/sort order.Specify them in this format: "foo=bar&direction=backward"
 - `LOGGING_PLUGIN_MULTIPART_REGEX`: Sets a Regex for matching parts of the same log. Some log backends (e.g S3) store objects immutably, once stored, you can't append. For long running TaskRun steps, it's not effective to keep such log in memory until the step completes. Instead one can store the log in multiple parts with a name suffix (e.g `-1743932245` seconds since the Epoch) and set a regex to match the parts of the same log (e.g `-\d{10}$`). (optional)
+
+## Loki-specific Configuration
+- `LOGGING_PLUGIN_JSON_MAP`: Define a map for the fields in Loki logs to be extracted like `{"timestamp": "@timestamp"}` to extract the timestamp as example.
+- `LOGGING_PLUGIN_LINE_FORMAT`: Define the format of the log line returned when using Loki. To use the Timestamp fron the `LOGGING_PLUGIN_JSON_MAP` and the actual message, define `"{{.timestamp}}: {{.message}}"`. Only fields extracted by `LOGGING_PLUGIN_JSON_MAP` can be used here.
