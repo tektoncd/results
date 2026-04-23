@@ -36,11 +36,11 @@ Additional background and design motivations can be found in
 
 Tekton Results is composed of 3 main components:
 
-- A [queryable gRPC API server](docs/api/) backed by persistent storage (see
-  [proto/v1alpha2](proto/v1alpha2) for the latest API spec).
-- A [controller to watch and report](docs/watcher/) TaskRun and PipelineRun updates
-  to the API server.
-- A [retention policy agent](docs/retention-policy-agent/), an agent which deletes older data from DB.
+- A [queryable gRPC API server](api/) backed by persistent storage (see
+  [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
+- A [controller to watch and report](watcher/) TaskRun, PipelineRun, and
+  CustomRun updates to the API server.
+- A [retention policy agent](retention-policy-agent/), an agent which deletes older data from DB.
 
 ### Life of a Result
 
@@ -50,21 +50,21 @@ sequenceDiagram
   participant PC as Pipeline Controller
   participant RW as Result Watcher
   participant RA as Result API
-  U->>PC: Create PipelineRun/TaskRun
-  RW-->>PC: Watch PipelineRun/TaskRun
-  Note over PC,RW: Wait for PipelineRun/TaskRun Completion
+  U->>PC: Create PipelineRun/TaskRun/CustomRun
+  RW-->>PC: Watch PipelineRun/TaskRun/CustomRun
+  Note over PC,RW: Wait for Run Completion
   RW->>RA: Update results database
   U--)RA: Get Results
 ```
 
-1. User creates a TaskRun or PipelineRun via the Kubernetes API as usual.
-2. Result Watcher listens for all TaskRun/PipelineRun changes.
-3. If a TaskRun/PipelineRun has changed, Watcher updates (or creates) a
+1. User creates a TaskRun, PipelineRun, or CustomRun via the Kubernetes API as usual.
+2. Result Watcher listens for all TaskRun/PipelineRun/CustomRun changes.
+3. If a Run has changed, Watcher updates (or creates) a
    corresponding `Record` (and `Result` if necessary) using the Results API.
-    - Watcher will also annotate the original TaskRun/PipelineRun with
+    - Watcher will also annotate the original Run with
     identifiers as well.
 4. Users can get/query Result/Record data directly from the API. Once the
-   TaskRun/PipelineRun is complete and has been successfully stored in the
+   Run is complete and has been successfully stored in the
    Result API, the original CRD object can be safely removed from the cluster.
 
 ## Getting Started
@@ -86,6 +86,7 @@ graph BT
   B(TaskRun) --> |Record| A[Result]
   C(Log) --> |Record| A
   D(PipelineRun) --> |Record| A
+  E(CustomRun) --> |Record| A
 ```
 
 - Records are individual instances of data. These will commonly be execution
