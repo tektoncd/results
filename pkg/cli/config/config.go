@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tektoncd/results/pkg/cli/client"
@@ -255,6 +256,7 @@ func (c *config) Set(prompt bool, p common.Params) error {
 		if err := c.Prompt("Host", &c.Extension.Host, host); err != nil {
 			return err
 		}
+		c.Extension.Host = strings.TrimSpace(c.Extension.Host)
 
 		token := c.Token()
 		if err, ok := token.(error); ok {
@@ -263,22 +265,26 @@ func (c *config) Set(prompt bool, p common.Params) error {
 		if err := c.Prompt("Token", &c.Extension.Token, token); err != nil {
 			return err
 		}
+		c.Extension.Token = strings.TrimSpace(c.Extension.Token)
 
 		if err := c.Prompt("API Path", &c.Extension.APIPath, ""); err != nil {
 			return err
 		}
+		c.Extension.APIPath = strings.TrimSpace(c.Extension.APIPath)
+
 		if err := c.Prompt("Insecure Skip TLS Verify", &c.Extension.InsecureSkipTLSVerify, []string{"false", "true"}); err != nil {
 			return err
 		}
+		c.Extension.InsecureSkipTLSVerify = strings.TrimSpace(c.Extension.InsecureSkipTLSVerify)
 	} else {
 		if p.Host() != "" {
-			c.Extension.Host = p.Host()
+			c.Extension.Host = strings.TrimSpace(p.Host())
 		}
 		if p.Token() != "" {
-			c.Extension.Token = p.Token()
+			c.Extension.Token = strings.TrimSpace(p.Token())
 		}
 		if p.APIPath() != "" {
-			c.Extension.APIPath = p.APIPath()
+			c.Extension.APIPath = strings.TrimSpace(p.APIPath())
 		}
 		if p.SkipTLSVerify() {
 			c.Extension.InsecureSkipTLSVerify = strconv.FormatBool(p.SkipTLSVerify())
