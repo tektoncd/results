@@ -19,7 +19,7 @@ nodes:
 - &node
   role: control-plane
   # Set a fixed Kubernetes version.
-  image: kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72
+  image: kindest/node:v1.31.14@sha256:6f86cf509dbb42767b6e79debc3f2c32e4ee01386f0489b3b2be24b0a55aac2b
 
 # Merge the same definition as the control-plane to reuse the same Kindest image
 # in the data-plane. We'll set specific values of the data-plane afterwards.
