@@ -66,9 +66,11 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 	impl := customrunreconciler.NewImpl(ctx, c, func(_ *controller.Impl) controller.Options {
 		return controller.Options{
 			// This results customrun reconciler shouldn't mutate the customrun's status.
-			SkipStatusUpdates: true,
-			ConfigStore:       configStore,
-			FinalizerName:     "results.tekton.dev/customrun",
+			SkipStatusUpdates:               true,
+			ConfigStore:                     configStore,
+			FinalizerName:                   "results.tekton.dev/customrun",
+			UseServerSideApplyForFinalizers: true,
+			FinalizerFieldManager:           "tekton-results-watcher/finalizers",
 		}
 	})
 
