@@ -69,9 +69,11 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 	impl := taskrunreconciler.NewImpl(ctx, c, func(_ *controller.Impl) controller.Options {
 		return controller.Options{
 			// This results taskrun reconciler shouldn't mutate the taskrun's status.
-			SkipStatusUpdates: true,
-			ConfigStore:       configStore,
-			FinalizerName:     "results.tekton.dev/taskrun",
+			SkipStatusUpdates:               true,
+			ConfigStore:                     configStore,
+			FinalizerName:                   "results.tekton.dev/taskrun",
+			UseServerSideApplyForFinalizers: true,
+			FinalizerFieldManager:           "tekton-results-watcher/finalizers",
 		}
 	})
 
