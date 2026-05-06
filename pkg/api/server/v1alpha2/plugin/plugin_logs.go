@@ -55,9 +55,11 @@ const (
 	// TODO: make this key configurable in a future release
 	defaultBlobPathParams = "/%s/%s/%s/" // parent/result/record
 
-	// TODO make these key configurable in a future release
+	// startTime retrieved from Results and endTime calculated, might need adjustments
 	pipelineRunUIDKey         = "kubernetes.labels.tekton_dev_pipelineRunUID"
 	taskRunUIDKey             = "kubernetes.labels.tekton_dev_taskRunUID"
+	pipelineRunUIDKeyEnv      = "PIPELINERUN_UID_KEY"
+	taskRunUIDKeyEnv          = "TASKRUN_UID_KEY"
 	splunkPollInterval        = 5 * time.Second
 	splunkPollTimeoutDuration = 1 * time.Minute
 	splunkTokenEnv            = "SPLUNK_SEARCH_TOKEN"
@@ -119,6 +121,56 @@ func (s *LogServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServer) er
 	return nil
 }
 
+func (s *LogServer) getLogRequestParams(rec *db.Record) (startTime, endTime, uidKey string, err error) {
+	switch rec.Type {
+	case typePipelineRun:
+		uidKey = os.Getenv(pipelineRunUIDKeyEnv)
+		if uidKey == "" {
+			uidKey = pipelineRunUIDKey
+		}
+		data := &pipelinev1.PipelineRun{}
+		err := json.Unmarshal(rec.Data, data)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to marshal pipelinerun data for fetching log, err: %w", err)
+		}
+
+		if data.Status.StartTime == nil {
+			return "", "", "", errors.New("there's no startime in pipelinerun")
+		}
+		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
+
+		if data.Status.CompletionTime == nil {
+			return "", "", "", errors.New("there's no completion in pipelinerun")
+		}
+		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
+
+	case typeTaskRun:
+		uidKey = os.Getenv(taskRunUIDKeyEnv)
+		if uidKey == "" {
+			uidKey = taskRunUIDKey
+		}
+		data := &pipelinev1.TaskRun{}
+		err := json.Unmarshal(rec.Data, data)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to marshal taskrun data for fetching log, err: %w", err)
+		}
+		if data.Status.StartTime == nil {
+			return "", "", "", errors.New("there's no startime in taskrun")
+		}
+		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
+
+		if data.Status.CompletionTime == nil {
+			return "", "", "", errors.New("there's no completion in taskrun")
+		}
+		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
+
+	default:
+		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
+		return "", "", "", errors.New("record type is invalid")
+	}
+	return startTime, endTime, uidKey, nil
+}
+
 func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) error {
 	URL, err := url.Parse(s.config.LOGGING_PLUGIN_API_URL)
 	if err != nil {
@@ -127,58 +179,10 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 	}
 	URL.Path = path.Join(URL.Path, s.config.LOGGING_PLUGIN_PROXY_PATH, lokiQueryPath)
 
-	var startTime, endTime, uidKey string
-	switch rec.Type {
-	case typePipelineRun:
-		uidKey = pipelineRunUIDKey
-		data := &pipelinev1.PipelineRun{}
-		err := json.Unmarshal(rec.Data, data)
-		if err != nil {
-			err = fmt.Errorf("failed to marshal pipelinerun data for fetching log, err: %s", err.Error())
-			s.logger.Error(err)
-			return err
-		}
-
-		if data.Status.StartTime == nil {
-			err = errors.New("there's no startime in pipelinerun")
-			s.logger.Error(err)
-			return err
-		}
-		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
-
-		if data.Status.CompletionTime == nil {
-			err = errors.New("there's no completion in pipelinerun")
-			s.logger.Error(err)
-			return err
-		}
-		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
-
-	case typeTaskRun:
-		uidKey = taskRunUIDKey
-		data := &pipelinev1.TaskRun{}
-		err := json.Unmarshal(rec.Data, data)
-		if err != nil {
-			err = fmt.Errorf("failed to marshal taskrun data for fetching log, err: %s", err.Error())
-			s.logger.Error(err)
-			return err
-		}
-		if data.Status.StartTime == nil {
-			err = errors.New("there's no startime in taskrun")
-			s.logger.Error(err)
-			return err
-		}
-		startTime = strconv.FormatInt(data.Status.StartTime.UTC().Unix(), 10)
-
-		if data.Status.CompletionTime == nil {
-			err = errors.New("there's no completion in taskrun")
-			s.logger.Error(err)
-			return err
-		}
-		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
-
-	default:
-		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
-		return errors.New("record type is invalid")
+	startTime, endTime, uidKey, err := s.getLogRequestParams(rec)
+	if err != nil {
+		s.logger.Error(err)
+		return err
 	}
 
 	parameters := url.Values{}
@@ -493,16 +497,12 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 
 	}
 
-	var uidKey string
-	switch rec.Type {
-	case typePipelineRun:
-		uidKey = pipelineRunUIDKey
-	case typeTaskRun:
-		uidKey = taskRunUIDKey
-	default:
-		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v, rec Type: %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID, rec.Type)
-		return errors.New("record type is invalid")
+	startTime, endTime, uidKey, err := s.getLogRequestParams(rec)
+	if err != nil {
+		s.logger.Error(err)
+		return err
 	}
+
 	index, ok := s.queryParams["index"]
 	if !ok {
 		s.logger.Errorf("index not specified in queryParams: %v\n", s.queryParams)
@@ -517,6 +517,8 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 
 	queryData := url.Values{}
 	queryData.Set("search", query)
+	queryData.Set("earliest_time", startTime)
+	queryData.Set("latest_time", endTime)
 
 	req, err := http.NewRequest("POST", URL.String()+splunkOutputFormat, bytes.NewReader([]byte(queryData.Encode())))
 	if err != nil {
