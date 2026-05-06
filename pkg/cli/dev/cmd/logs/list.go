@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/cli/dev/flags"
 	"github.com/tektoncd/results/pkg/cli/dev/format"
 
@@ -35,12 +38,17 @@ func ListLogsCommand(params *flags.Params) *cobra.Command {
 		Deprecated: "use 'pipelinerun logs' or 'taskrun logs' to retrieve logs",
 		Long:       "List Logs for a given Result. <result-name> is typically of format <namespace>/results/<parent-run-uuid>. '-' may be used in place of <parent-run-uuid> to query all Logs for a given parent.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := params.LogsClient.ListLogs(cmd.Context(), &pb.ListRecordsRequest{
+			// Use Results.ListRecords (not Logs.ListLogs): many deployments omit tekton.results.v1alpha2.Logs.
+			req := &pb.ListRecordsRequest{
 				Parent:    args[0],
-				Filter:    opts.Filter,
+				Filter:    buildLogListFilter(opts.Filter),
 				PageSize:  opts.Limit,
 				PageToken: opts.PageToken,
-			})
+			}
+			resp, err := params.ResultsClient.ListRecords(cmd.Context(), req)
+			if err == nil {
+				err = rewriteLogRecordNames(resp.Records)
+			}
 			if err != nil {
 				fmt.Printf("List Logs: %v\n", err)
 				return err
@@ -62,4 +70,33 @@ func ListLogsCommand(params *flags.Params) *cobra.Command {
 	flags.AddListFlags(opts, cmd)
 
 	return cmd
+}
+
+// buildLogListFilter restricts ListRecords to Log record types; optional user CEL is AND-combined.
+func buildLogListFilter(user string) string {
+	const logTypes = `(data_type == "results.tekton.dev/v1alpha3.Log" || data_type == "results.tekton.dev/v1alpha2.Log")`
+	if user == "" {
+		return logTypes
+	}
+	return fmt.Sprintf("(%s) && %s", user, logTypes)
+}
+
+func rewriteLogRecordNames(records []*pb.Record) error {
+	var skippedCount int
+	for _, api := range records {
+		if api == nil {
+			continue
+		}
+		parent, resultName, recordName, err := record.ParseName(api.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: skipping record with invalid name %q: %v\n", api.Name, err)
+			skippedCount++
+			continue
+		}
+		api.Name = log.FormatName(result.FormatName(parent, resultName), recordName)
+	}
+	if skippedCount > 0 {
+		fmt.Fprintf(os.Stderr, "Warning: skipped %d record(s) due to parse errors\n", skippedCount)
+	}
+	return nil
 }
