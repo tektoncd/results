@@ -1,6 +1,6 @@
 module github.com/tektoncd/results
 
-go 1.24.0
+go 1.24.13
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
@@ -34,7 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/tektoncd/cli v0.41.1
-	github.com/tektoncd/pipeline v1.6.0
+	github.com/tektoncd/pipeline v1.6.2
 	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
@@ -134,7 +134,7 @@ require (
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.6.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
