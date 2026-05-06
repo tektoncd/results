@@ -19,6 +19,7 @@ import (
 	"context"
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -50,5 +51,16 @@ type PipelineRunClient struct {
 // Patch patches pipelineRun Kubernetes resource.
 func (c *PipelineRunClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) error {
 	_, err := c.PipelineRunInterface.Patch(ctx, name, pt, data, opts, subresources...)
+	return err
+}
+
+// CustomRunClient implements the dynamic ObjectClient for CustomRuns.
+type CustomRunClient struct {
+	pipelinev1beta1.CustomRunInterface
+}
+
+// Patch patches CustomRun Kubernetes resource.
+func (c *CustomRunClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) error {
+	_, err := c.CustomRunInterface.Patch(ctx, name, pt, data, opts, subresources...)
 	return err
 }

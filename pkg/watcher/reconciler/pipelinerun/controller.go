@@ -32,6 +32,7 @@ import (
 	pipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/taskrun"
+	customruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/customrun"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -60,6 +61,7 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		resultsClient:      resultsClient,
 		logsClient:         logs.Get(ctx),
 		pipelineRunLister:  pipelineRunLister,
+		customRunLister:    customruninformer.Get(ctx).Lister(),
 		taskRunLister:      taskruninformer.Get(ctx).Lister(),
 		pipelineClient:     pipelineclient.Get(ctx),
 		cfg:                cfg,

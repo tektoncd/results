@@ -28,6 +28,7 @@ import (
 	fakepipelineclient "github.com/tektoncd/pipeline/pkg/client/injection/client/fake"
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipelinerun/fake"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/taskrun/fake"
+	customruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/customrun/fake"
 
 	rtesting "github.com/tektoncd/pipeline/pkg/reconciler/testing"
 	"github.com/tektoncd/results/pkg/internal/test"
@@ -63,6 +64,7 @@ func TestController(t *testing.T) {
 	// Start informers - this notifies the controller of new events.
 	go taskruninformer.Get(ctx).Informer().Run(ctx.Done())
 	go pipelineruninformer.Get(ctx).Informer().Run(ctx.Done())
+	go customruninformer.Get(ctx).Informer().Run(ctx.Done())
 
 	pipeline := fakepipelineclient.Get(ctx)
 	t.Run("taskrun", func(t *testing.T) {
