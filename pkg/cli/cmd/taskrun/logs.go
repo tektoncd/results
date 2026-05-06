@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/cli/options"
@@ -41,6 +40,9 @@ Get logs for a TaskRun by UID if there are multiple TaskRun with the same name:
 		Short: "Get logs for a TaskRun",
 		Long: `Get logs for a TaskRun by name or UID. If --uid is provided, the TaskRun name is optional.
 
+If multiple TaskRuns match the given name, the logs for the most recent one are returned.
+Use --uid to target a specific TaskRun when needed.
+
 NOTE:
 Logs are not supported for the system namespace or for the default namespace used by LokiStack.
 Logs are only available for completed TaskRuns. Running TaskRuns do not have logs available yet.`,
@@ -69,46 +71,55 @@ Logs are only available for completed TaskRuns. Running TaskRuns do not have log
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-
-			// Build filter string to find the TaskRun
-			filter := common.BuildFilterString(opts)
-
-			// Handle namespace
-			parent := fmt.Sprintf("%s/results/-", p.Namespace())
-
-			// Create record client
 			recordClient := records.NewClient(opts.Client)
 
-			// Find the TaskRun record
-			resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
-				Parent:   parent,
-				Filter:   filter,
-				PageSize: 25,
-			}, common.NameUIDAndDataField)
-			if err != nil {
-				return fmt.Errorf("failed to find TaskRun: %v", err)
-			}
-			if len(resp.Records) == 0 {
-				if opts.UID != "" && opts.ResourceName != "" {
-					return fmt.Errorf("no TaskRun found with name %s and UID %s", opts.ResourceName, opts.UID)
-				} else if opts.UID != "" {
-					return fmt.Errorf("no TaskRun found with UID %s", opts.UID)
-				}
-				return fmt.Errorf("no TaskRun found with name %s", opts.ResourceName)
-			}
+			var record *pb.Record
 
-			// If multiple TaskRuns are found, return an error
-			if len(resp.Records) > 1 {
-				var uids []string
-				for _, record := range resp.Records {
-					uids = append(uids, record.Uid)
+			if opts.UID != "" {
+				// Try direct primary key lookup first (works for standalone TaskRuns)
+				r, err := recordClient.GetRecord(ctx, p.Namespace(), opts.UID)
+				if err == nil {
+					record = r
+				} else {
+					// Fallback: filter by record name column (text, indexed) instead
+					// of data.metadata.uid (JSONB, unindexed). Needed for child
+					// TaskRuns where the result UID is the parent PipelineRun UID.
+					filter := fmt.Sprintf(`name=="%s"`, opts.UID)
+					parent := fmt.Sprintf("%s/results/-", p.Namespace())
+					resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
+						Parent:   parent,
+						Filter:   filter,
+						OrderBy:  "create_time desc",
+						PageSize: 5,
+					}, common.NameUIDAndDataField)
+					if err != nil {
+						return fmt.Errorf("failed to find TaskRun: %v", err)
+					}
+					if len(resp.Records) == 0 {
+						if opts.ResourceName != "" {
+							return fmt.Errorf("no TaskRun found with name %s and UID %s", opts.ResourceName, opts.UID)
+						}
+						return fmt.Errorf("no TaskRun found with UID %s", opts.UID)
+					}
+					record = resp.Records[0]
 				}
-				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs are: %s",
-					strings.Join(uids, ", "))
+			} else {
+				filter := common.BuildFilterString(opts)
+				parent := fmt.Sprintf("%s/results/-", p.Namespace())
+				resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
+					Parent:   parent,
+					Filter:   filter,
+					OrderBy:  "create_time desc",
+					PageSize: 5,
+				}, common.NameUIDAndDataField)
+				if err != nil {
+					return fmt.Errorf("failed to find TaskRun: %v", err)
+				}
+				if len(resp.Records) == 0 {
+					return fmt.Errorf("no TaskRun found with name %s", opts.ResourceName)
+				}
+				record = resp.Records[0]
 			}
-
-			// Get the TaskRun record
-			record := resp.Records[0]
 
 			// Check if the TaskRun is completed before attempting to get logs
 			var taskRun v1.TaskRun

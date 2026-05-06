@@ -13,6 +13,7 @@ import (
 
 // RecordClient defines the interface for record-related operations
 type RecordClient interface {
+	GetRecord(ctx context.Context, namespace, uid string) (*pb.Record, error)
 	ListRecords(ctx context.Context, in *pb.ListRecordsRequest, fields string) (*pb.ListRecordsResponse, error)
 }
 
@@ -24,6 +25,22 @@ type recordClient struct {
 // NewClient creates a new record client
 func NewClient(rc *client.RESTClient) RecordClient {
 	return &recordClient{RESTClient: rc}
+}
+
+// GetRecord fetches a single record by namespace and UID using direct primary key lookup.
+// The record path follows the format: {namespace}/results/{uid}/records/{uid}
+func (c *recordClient) GetRecord(ctx context.Context, namespace, uid string) (*pb.Record, error) {
+	out := &pb.Record{}
+	recordName := fmt.Sprintf("%s/results/%s/records/%s", namespace, uid, uid)
+	buildURL := c.BuildURL(fmt.Sprintf("parents/%s", recordName), nil)
+	resp, err := c.DoRequest(ctx, http.MethodGet, buildURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := resp.ProtoUnmarshal(out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ListRecords makes request to get record list
