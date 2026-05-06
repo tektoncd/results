@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/google/go-cmp/cmp"
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -124,8 +125,8 @@ func (c *Client) ensureResult(ctx context.Context, o Object, opts ...grpc.CallOp
 			Record:    recName,
 			Type:      convert.TypeName(o),
 			Status:    convert.Status(o.GetStatusCondition()),
-			StartTime: getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionReady)),
-			EndTime:   getTimestamp(o.GetStatusCondition().GetCondition(apis.ConditionSucceeded)),
+			StartTime: getStartTime(o),
+			EndTime:   getEndTime(o),
 		}
 	}
 
@@ -246,11 +247,44 @@ func copyKeys(in, out map[string]string) {
 	}
 }
 
-func getTimestamp(c *apis.Condition) *timestamppb.Timestamp {
-	if c == nil || c.IsFalse() {
-		return nil
+// getStartTime returns the start time of the object (PipelineRun or
+// TaskRun) in question.
+func getStartTime(o Object) *timestamppb.Timestamp {
+	var startTime *timestamppb.Timestamp
+
+	switch obj := o.(type) {
+
+	case *pipelinev1.PipelineRun:
+		if obj.Status.StartTime != nil {
+			startTime = timestamppb.New(obj.Status.StartTime.Time)
+		}
+
+	case *pipelinev1.TaskRun:
+		if obj.Status.StartTime != nil {
+			startTime = timestamppb.New(obj.Status.StartTime.Time)
+		}
 	}
-	return timestamppb.New(c.LastTransitionTime.Inner.Time)
+	return startTime
+}
+
+// getEndTime returns the completion time of the object (PipelineRun or
+// TaskRun) in question.
+func getEndTime(o Object) *timestamppb.Timestamp {
+	var endTime *timestamppb.Timestamp
+
+	switch obj := o.(type) {
+
+	case *pipelinev1.PipelineRun:
+		if obj.Status.CompletionTime != nil {
+			endTime = timestamppb.New(obj.Status.CompletionTime.Time)
+		}
+
+	case *pipelinev1.TaskRun:
+		if obj.Status.CompletionTime != nil {
+			endTime = timestamppb.New(obj.Status.CompletionTime.Time)
+		}
+	}
+	return endTime
 }
 
 // resultName gets the result name to use for the given object.
