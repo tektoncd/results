@@ -710,8 +710,8 @@ github.com/tektoncd/pipeline v1.11.1 h1:GjSqggV4EOfCqaWWplEYKqzghqFcpxMWsqLw5mmI
 github.com/tektoncd/pipeline v1.11.1/go.mod h1:pw9WrX+rauagZMQGzKs9Do8K6BvGDz0/FnoFjZnuCZk=
 github.com/tektoncd/triggers v0.35.1-0.20260401091813-1aad8a1898ec h1:Aipi80gVmfbCW6AaxQLNcLY38586wxASO0EKbWqQhPA=
 github.com/tektoncd/triggers v0.35.1-0.20260401091813-1aad8a1898ec/go.mod h1:ivDXe8xmMbVB4F0+MiUW0avU2o/me1mRsGh4shPKaUU=
-github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
-github.com/tidwall/gjson v1.18.0/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
+github.com/tidwall/gjson v1.19.0 h1:xwxm7n691Uf3u5OFjzngavjGTh55KX5q/9w9xHW88JU=
+github.com/tidwall/gjson v1.19.0/go.mod h1:V37/opeE/JbLUOfH0QTXiNez2l0RUjYUhpT4szFQAfc=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
 github.com/tidwall/match v1.1.1/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=
 github.com/tidwall/pretty v1.2.0 h1:RWIZEg2iJ8/g6fDDYzMpobmaoGh5OLl4AXtGUGPcqCs=
