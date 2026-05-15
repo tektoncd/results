@@ -2,7 +2,10 @@ package options
 
 import (
 	"github.com/tektoncd/results/pkg/cli/client"
+	"github.com/tektoncd/results/pkg/cli/common"
 )
+
+var _ common.FilterOptions = (*ListOptions)(nil)
 
 // ListOptions holds the options for listing resources
 type ListOptions struct {
@@ -39,4 +42,10 @@ func (o *ListOptions) GetResourceType() string {
 // GetUID implements FilterOptions interface
 func (o *ListOptions) GetUID() string {
 	return ""
+}
+
+// SelectsExactMatch implements FilterOptions interface.
+// List uses substring matching to support partial name searches.
+func (o *ListOptions) SelectsExactMatch() bool {
+	return false
 }
