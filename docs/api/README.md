@@ -474,9 +474,9 @@ JSON/protobuf object using the dot notation. See the examples in the tables belo
 
 | Purpose                                                       | Filter Expression                    | Description                                                          |
 | ------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
-| Status of a Result                                            | `summary.status`                     | The `status` of a Result is a child of the `summary`` object.        |
+| Status of a Result                                            | `summary.status`                     | The `status` of a Result is a child of the `summary` object.         |
 | Data type of Record                                           | `data_type`                          | `data_type` is a defined alias for `data.type` for a Record.         |
-| Data type of Result                                           | `summary.type`                       | The `type` of a Result is a child of `summary``.                     |
+| Data type of Result                                           | `summary.type`                       | The `type` of a Result is a child of `summary`.                      |
 | Name of the first step of the tasks of a run from its status. | `data.status.taskSpec.steps[0].name` | The JSON path is `data -> status -> taskSpec -> steps -> 0 -> name`. |
 
 #### Using Operators
