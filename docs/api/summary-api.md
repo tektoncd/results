@@ -139,5 +139,5 @@ descending order. There is no default, you must pass two values for `order_by`. 
 
 | Type       | Value to be passed                         |
 |------------|--------------------------------------------|
-| Ascending  | `ASC running` or `asc running              |
+| Ascending  | `ASC running` or `asc running`             |
 | Descending | `DESC avg_duration` or `desc avg_duration` |
