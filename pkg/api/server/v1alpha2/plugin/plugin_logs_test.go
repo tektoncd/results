@@ -9,18 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
+	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/config"
+	"github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"github.com/tektoncd/results/pkg/api/server/test"
 	server "github.com/tektoncd/results/pkg/api/server/v1alpha2"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/log"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/plugin"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
-
-	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/internal/jsonutil"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
@@ -388,4 +389,223 @@ func TestSplunkLogs(t *testing.T) {
 		t.Errorf("expected to have received %q, got %q", expectedData, actualData)
 	}
 
+}
+
+func TestGetLokiLogs_BuildsQueryWithConfiguredJSONMappingAndLineFormat(t *testing.T) {
+	var gotQuery string
+	mockLoki := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log the received request for debugging
+		t.Logf("Received request: %s %s", r.Method, r.URL.String())
+		t.Logf("Received headers: %v", r.Header)
+
+		gotQuery = r.URL.Query().Get("query")
+		response := map[string]interface{}{
+			"status": "success",
+			"data": map[string]interface{}{
+				"result": []map[string]interface{}{
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{
+								"1625081600000000001",
+								"2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] Second log line",
+							},
+						},
+					},
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{
+								"1625081600000000003",
+								"2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] Third log line",
+							},
+						},
+					},
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{
+								"1625081600000000000",
+								"2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] First log line",
+							},
+						},
+					},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer mockLoki.Close()
+
+	tokenDir := t.TempDir()
+	tokenPath := filepath.Join(tokenDir, "token")
+	err := os.WriteFile(tokenPath, []byte("dummytoken"), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create token file: %v", err)
+	}
+
+	srv, err := server.New(&config.Config{
+		LOGS_API:                                true,
+		LOGS_TYPE:                               "Loki",
+		DB_ENABLE_AUTO_MIGRATION:                true,
+		LOGGING_PLUGIN_TOKEN_PATH:               tokenPath,
+		LOGGING_PLUGIN_PROXY_PATH:               "",
+		LOGGING_PLUGIN_API_URL:                  mockLoki.URL,
+		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
+		LOGGING_PLUGIN_NAMESPACE_KEY:            "kubernetes.namespace_name",
+		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
+		LOGGING_PLUGIN_JSON_MAP:                 `{"timestamp":"@timestamp","runuid":"kubernetes.labels.tekton_dev_pipelineRunUID"}`,
+		LOGGING_PLUGIN_LINE_FORMAT:              `{{.timestamp}} runuid-{{.runuid}} container-{{.container}}: {{.message}}`,
+		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
+		LOGGING_PLUGIN_QUERY_PARAMS:             "",
+		LOGGING_PLUGIN_MULTIPART_REGEX:          "",
+	}, logger.Get("info"), test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+	mockServer := &mockGetLogServer{ctx: ctx}
+
+	res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "tekton-loki-predev",
+		Result: &pb.Result{Name: "tekton-loki-predev/results/test-result"},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+
+	_, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: res.GetName(),
+		Record: &pb.Record{
+			Name: record.FormatName(res.GetName(), "8a0ee8cc-ad65-4b0d-afb3-12149028cab5"),
+			Data: &pb.Any{
+				Type: "tekton.dev/v1.PipelineRun",
+				Value: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
+					Status: pipelinev1.PipelineRunStatus{
+						PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+							StartTime:      &metav1.Time{Time: time.Now().Add(-1 * time.Minute)},
+							CompletionTime: &metav1.Time{Time: time.Now()},
+						},
+					},
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord: %v", err)
+	}
+
+	req := &pb3.GetLogRequest{
+		Name: log.FormatName(res.GetName(), "8a0ee8cc-ad65-4b0d-afb3-12149028cab5"),
+	}
+
+	err = srv.LogPluginServer.GetLog(req, mockServer)
+	if err != nil {
+		t.Fatalf("GetLog returned unexpected error: %v", err)
+	}
+
+	for _, want := range []string{
+		`| json`,
+		`timestamp="@timestamp"`,
+		`runuid="kubernetes.labels.tekton_dev_pipelineRunUID"`,
+		`container="kubernetes.container_name"`,
+		`message="message"`,
+		`| line_format "{{.timestamp}} runuid-{{.runuid}} container-{{.container}}: {{.message}}"`,
+	} {
+		if !strings.Contains(gotQuery, want) {
+			t.Errorf("query missing expected fragment %q\nfull query: %s", want, gotQuery)
+		}
+	}
+
+	if mockServer.receivedData == nil {
+		t.Fatalf("no data received from GetLog")
+	}
+
+	wantOutput := "2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] First log line\n" +
+		"2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] Second log line\n" +
+		"2026-02-10T17:47:49.058916721Z runuid-8a0ee8cc-ad65-4b0d-afb3-12149028cab5 container-step-mvn-sonarscan: [INFO] Third log line"
+	if got := mockServer.receivedData.String(); got != wantOutput {
+		t.Fatalf("unexpected output\nwant: %q\ngot:  %q", wantOutput, got)
+	}
+}
+
+func TestGetLokiLogs_FailsWhenLineFormatUsesUndefinedField(t *testing.T) {
+	var gotQuery string
+	mockLoki := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query().Get("query")
+
+		if strings.Contains(gotQuery, `{{.undefined}}`) {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"status": "error",
+				"error":  "template: line_format:1:2: executing \"line_format\" at <.undefined>: nil pointer evaluating",
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "success",
+			"data": map[string]interface{}{
+				"result": []map[string]interface{}{},
+				"stats":  map[string]interface{}{},
+			},
+		})
+	}))
+	defer mockLoki.Close()
+
+	tokenDir := t.TempDir()
+	tokenPath := filepath.Join(tokenDir, "token")
+	err := os.WriteFile(tokenPath, []byte("dummytoken"), 0600)
+	if err != nil {
+		t.Fatalf("Failed to create token file: %v", err)
+	}
+
+	srv, err := server.New(&config.Config{
+		LOGS_API:                                true,
+		LOGS_TYPE:                               "Loki",
+		DB_ENABLE_AUTO_MIGRATION:                true,
+		LOGGING_PLUGIN_TOKEN_PATH:               tokenPath,
+		LOGGING_PLUGIN_PROXY_PATH:               "",
+		LOGGING_PLUGIN_API_URL:                  mockLoki.URL,
+		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
+		LOGGING_PLUGIN_NAMESPACE_KEY:            "kubernetes.namespace_name",
+		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
+		LOGGING_PLUGIN_JSON_MAP:                 `{"timestamp":"@timestamp","runuid":"kubernetes.labels.tekton_dev_pipelineRunUID"}`,
+		LOGGING_PLUGIN_LINE_FORMAT:              `{{.timestamp}} runuid-{{.runuid}} container-{{.container}} missing-{{.undefined}}: {{.message}}`,
+		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
+		LOGGING_PLUGIN_QUERY_PARAMS:             "",
+		LOGGING_PLUGIN_MULTIPART_REGEX:          "",
+	}, logger.Get("info"), test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	rec := &db.Record{
+		Name: "8a0ee8cc-ad65-4b0d-afb3-12149028cab5",
+		Type: "tekton.dev/v1.PipelineRun",
+		Data: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
+			Status: pipelinev1.PipelineRunStatus{
+				PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+					StartTime:      &metav1.Time{Time: time.Now().Add(-1 * time.Minute)},
+					CompletionTime: &metav1.Time{Time: time.Now()},
+				},
+			},
+		}),
+	}
+
+	var out bytes.Buffer
+	err = plugin.GetLokiLogs(srv.LogPluginServer, &out, "tekton-loki-predev", rec)
+	if err == nil {
+		t.Fatalf("expected getLokiLogs to fail when line_format references an undefined field")
+	}
+
+	if !strings.Contains(gotQuery, `{{.undefined}}`) {
+		t.Fatalf("expected query to contain undefined field reference, got: %s", gotQuery)
+	}
+
+	if strings.Contains(gotQuery, `undefined="`) {
+		t.Fatalf("did not expect undefined field to be present in json parsing map, got: %s", gotQuery)
+	}
 }
