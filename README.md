@@ -36,11 +36,11 @@ Additional background and design motivations can be found in
 
 Tekton Results is composed of 3 main components:
 
-- A [queryable gRPC API server](api/) backed by persistent storage (see
-  [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
-- A [controller to watch and report](watcher/) TaskRun and PipelineRun updates
+- A [queryable gRPC API server](docs/api/) backed by persistent storage (see
+  [proto/v1alpha2](proto/v1alpha2) for the latest API spec).
+- A [controller to watch and report](docs/watcher/) TaskRun and PipelineRun updates
   to the API server.
-- A [retention policy agent](retention-policy-agent/), an agent which deletes older data from DB.
+- A [retention policy agent](docs/retention-policy-agent/), an agent which deletes older data from DB.
 
 ### Life of a Result
 
@@ -69,11 +69,15 @@ sequenceDiagram
 
 ## Getting Started
 
-1. [Installation](install.md)
-2. [Results API](api/README.md): Learn how to connect to the API and make
+1. [Installation](docs/install.md)
+2. [Results API](docs/api/README.md): Learn how to connect to the API and make
    queries.
-3. [Watcher](watcher/README.md): Learn what types the Watcher supports and how
+3. [Watcher](docs/watcher/README.md): Learn what types the Watcher supports and how
    it determines Result groupings.
+
+## Usage
+
+See the [Results API documentation](docs/api/README.md) for querying Results and working with the API.
 
 ## Data Model
 
@@ -100,10 +104,14 @@ graph BT
 (Note: not all of these types of data are supported by the Watcher yet, but are
 examples of the data we intend to support).
 
+## Development
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for build, test, and contribution instructions.
+
 ## Helpful links
 
-- [Roadmap](roadmap.md)
-- [Results API Query Cookbook](api/README.md#cookbook)
+- [Roadmap](docs/roadmap.md)
+- [Results API Query Cookbook](docs/api/README.md#cookbook)
 
 ## Contact
 
