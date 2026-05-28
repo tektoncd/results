@@ -22,6 +22,8 @@ These tools are recommended, but not required:
 - [grpcurl](https://github.com/fullstorydev/grpcurl)
 - [curl](https://curl.se/download.html)
 
+> **Note:** When cloning on Windows, use `git clone -c core.symlinks=true https://github.com/tektoncd/results.git` to properly handle symlinks.
+
 ## Quickstart
 
 The easiest way to get started is to use the e2e testing scripts to bootstrap
