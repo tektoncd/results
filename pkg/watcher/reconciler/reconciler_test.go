@@ -36,6 +36,7 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/reconciler/taskrun"
 	"github.com/tektoncd/results/pkg/watcher/results"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
 	cminformer "knative.dev/pkg/configmap/informer"
 	"knative.dev/pkg/controller"
@@ -61,8 +62,15 @@ func TestController(t *testing.T) {
 	go controller.StartAll(ctx, trctrl, prctrl)
 
 	// Start informers - this notifies the controller of new events.
-	go taskruninformer.Get(ctx).Informer().Run(ctx.Done())
-	go pipelineruninformer.Get(ctx).Informer().Run(ctx.Done())
+	trinf := taskruninformer.Get(ctx).Informer()
+	prinf := pipelineruninformer.Get(ctx).Informer()
+	go trinf.Run(ctx.Done())
+	go prinf.Run(ctx.Done())
+
+	// Wait for informer caches to sync before creating objects.
+	if !cache.WaitForCacheSync(ctx.Done(), trinf.HasSynced, prinf.HasSynced) {
+		t.Fatal("failed to wait for caches to sync")
+	}
 
 	pipeline := fakepipelineclient.Get(ctx)
 	t.Run("taskrun", func(t *testing.T) {
