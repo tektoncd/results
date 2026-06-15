@@ -116,7 +116,7 @@ spec:
       cat /workspace/.ko.yaml
   
   - name: run-ko
-    image: ghcr.io/tektoncd/plumbing/ko@sha256:d95b8e80ddea355c33a1598df3272214eb71f5f523df4955daf168d71fc0fcb5
+    image: ghcr.io/tektoncd/plumbing/ko@sha256:680de7b00903176ab12813b3ec492bce62ab3debe690e9964bd834d3861939da
     env:
     - name: KO_DOCKER_REPO
       value: $(params.imageRegistry)/$(params.imageRegistryPath)
