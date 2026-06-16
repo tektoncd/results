@@ -1,0 +1,60 @@
+# Dependabot configuration
+# This file defines the base configuration and branches for dependabot updates.
+# The actual .github/dependabot.yml is generated from this file.
+#
+# Automated regeneration:
+# - A GitHub Actions workflow runs weekly to regenerate dependabot.yml
+# - If changes are detected, it automatically creates a PR
+# - See: .github/workflows/dependabot-regen.yml
+#
+# Manual regeneration:
+# 1. Edit the 'ecosystems' section to change what packages to monitor
+# 2. Edit the 'release-branches' section to add/remove branches
+# 3. Run: ./hack/generate-dependabot.sh
+
+# List of release branches to monitor (in addition to main branch)
+# These should be active release branches
+release-branches:
+  - release-v0.19.x
+  - release-v0.18.x
+  - release-v0.17.x
+  - release-v0.16.x
+  - release-v0.10.x
+# Package ecosystems to monitor
+# Each ecosystem will be configured for:
+# - main branch: all updates (major, minor, patch)
+# - release branches: patch updates only
+ecosystems:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+    labels:
+      - ok-to-test
+      - dependencies
+      - release-note-none
+      - kind/misc
+    ignore:
+      - dependency-name: "k8s.io/*"
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - ok-to-test
+      - dependencies
+      - release-note-none
+      - kind/misc
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
