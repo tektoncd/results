@@ -9,7 +9,7 @@ weight: 2
 
 # Result Retention Policy Agent
 
-The Results Retention Policy Agent removes older Results and their associated Records from the DB. The policies apply to both `PipelineRun` and top-level `TaskRun` results. Support for `CustomRun` results is not yet available but is currently in the works.
+The Results Retention Policy Agent removes older Results and their associated Records from the DB. The policies apply to `PipelineRun`, top-level `TaskRun`, and top-level `CustomRun` results.
 Retention policies can be used to manage database size and performance, and the retention duration applies to the database records irrespective of their underlying Runs' age.
 
 It is recommended that the Retention Policy Agent be used in conjunction with a cluster-resource pruning mechanism such as [Tekton Results Wacher's resource deletion](../watcher#resource-deletion) or [Tekton Pruner](https://github.com/tektoncd/pruner), with a Results Retention Policy longer than the in-cluster retention period.
