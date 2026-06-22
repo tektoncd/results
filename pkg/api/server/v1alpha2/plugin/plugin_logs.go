@@ -157,8 +157,7 @@ func (s *LogServer) getLogRequestParams(rec *db.Record) (startTime, endTime, uid
 		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
 
 	default:
-		s.logger.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID:  %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
-		return "", "", "", errors.New("record type is invalid")
+		return "", "", "", fmt.Errorf("record type is invalid, record ID: %v, Name: %v, result Name: %v, result ID: %v", rec.ID, rec.Name, rec.ResultName, rec.ResultID)
 	}
 	return startTime, endTime, uidKey, nil
 }
