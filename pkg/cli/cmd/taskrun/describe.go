@@ -4,7 +4,6 @@ package taskrun
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"text/tabwriter"
 	"text/template"
 
@@ -94,7 +93,10 @@ Describe a TaskRun as json
 		Use:     "describe [taskrun-name]",
 		Aliases: []string{"desc"},
 		Short:   "Describe a TaskRun",
-		Long:    "Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is optional.",
+		Long: `Describe a TaskRun by name or UID. If --uid is provided, then TaskRun name is optional.
+
+If multiple TaskRuns match the given name, the most recent one is returned.
+Use --uid to target a specific TaskRun when needed.`,
 		Annotations: map[string]string{
 			"commandType": "main",
 		},
@@ -117,39 +119,58 @@ Describe a TaskRun as json
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-
-			filter := common.BuildFilterString(opts)
-			parent := fmt.Sprintf("%s/results/-", p.Namespace())
-
 			recordClient := records.NewClient(opts.Client)
-			resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
-				Parent:   parent,
-				Filter:   filter,
-				PageSize: 10,
-			}, "")
 
-			if err != nil {
-				return fmt.Errorf("failed to find TaskRun: %v", err)
-			}
-			if len(resp.Records) == 0 {
-				if opts.UID != "" && opts.ResourceName != "" {
-					return fmt.Errorf("no TaskRun found with name %s and UID %s", opts.ResourceName, opts.UID)
-				} else if opts.UID != "" {
-					return fmt.Errorf("no TaskRun found with UID %s", opts.UID)
+			var record *pb.Record
+
+			if opts.UID != "" {
+				// Try direct primary key lookup first (works for standalone TaskRuns)
+				r, err := recordClient.GetRecord(ctx, p.Namespace(), opts.UID)
+				if err == nil {
+					record = r
+				} else {
+					// Fallback: filter by record name column (text, indexed) instead
+					// of data.metadata.uid (JSONB, unindexed). Needed for child
+					// TaskRuns where the result UID is the parent PipelineRun UID.
+					filter := fmt.Sprintf(`name=="%s"`, opts.UID)
+					parent := fmt.Sprintf("%s/results/-", p.Namespace())
+					resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
+						Parent:   parent,
+						Filter:   filter,
+						OrderBy:  "create_time desc",
+						PageSize: 5,
+					}, "")
+					if err != nil {
+						return fmt.Errorf("failed to find TaskRun: %v", err)
+					}
+					if len(resp.Records) == 0 {
+						if opts.ResourceName != "" {
+							return fmt.Errorf("no TaskRun found with name %s and UID %s", opts.ResourceName, opts.UID)
+						}
+						return fmt.Errorf("no TaskRun found with UID %s", opts.UID)
+					}
+					record = resp.Records[0]
 				}
-				return fmt.Errorf("no TaskRun found with name %s", opts.ResourceName)
-			}
-			if len(resp.Records) > 1 {
-				var uids []string
-				for _, record := range resp.Records {
-					uids = append(uids, record.Uid)
+			} else {
+				filter := common.BuildFilterString(opts)
+				parent := fmt.Sprintf("%s/results/-", p.Namespace())
+				resp, err := recordClient.ListRecords(ctx, &pb.ListRecordsRequest{
+					Parent:   parent,
+					Filter:   filter,
+					OrderBy:  "create_time desc",
+					PageSize: 5,
+				}, "")
+				if err != nil {
+					return fmt.Errorf("failed to find TaskRun: %v", err)
 				}
-				return fmt.Errorf("multiple TaskRuns found. Use a more specific name or UID. Available UIDs are: %s",
-					strings.Join(uids, ", "))
+				if len(resp.Records) == 0 {
+					return fmt.Errorf("no TaskRun found with name %s", opts.ResourceName)
+				}
+				record = resp.Records[0]
 			}
 
 			var tr v1.TaskRun
-			if err := json.Unmarshal(resp.Records[0].Data.Value, &tr); err != nil {
+			if err := json.Unmarshal(record.Data.Value, &tr); err != nil {
 				return fmt.Errorf("failed to unmarshal TaskRun data: %v", err)
 			}
 
