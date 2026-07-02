@@ -1,7 +1,9 @@
 package taskrun
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,6 +23,8 @@ import (
 	"github.com/tektoncd/results/pkg/watcher/results"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
@@ -107,7 +111,27 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) k
 	return r.finalize(ctx, tr, rerr)
 }
 
-func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr error) knativereconciler.Event {
+func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr error) (result knativereconciler.Event) {
+	// MIGRATION: When finalize decides to allow deletion (returns nil), check if the
+	// finalizer was added via merge patch by the old controller version. SSA cannot
+	// remove finalizers it doesn't own, so we remove it via merge patch ourselves.
+	// This can be removed once all pre-SSA resources are deleted.
+	defer func() {
+		if result != nil {
+			return
+		}
+		if !r.isFinalizerOwnedByMergePatch(tr) {
+			return
+		}
+		logging.FromContext(ctx).Infof("Removing merge-patch finalizer on %s/%s for SSA migration",
+			tr.Namespace, tr.Name)
+		if err := r.removeFinalizerViaMergePatch(ctx, tr); err != nil {
+			logging.FromContext(ctx).Warnw("Failed to remove finalizer via merge patch",
+				zap.Error(err))
+			result = controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
+		}
+	}()
+
 	// If logsClient isn't nil, it means we have logging storage enabled
 	// and we can't use finalizers to coordinate deletion.
 	if r.logsClient != nil {
@@ -189,4 +213,60 @@ func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr 
 	}
 
 	return nil
+}
+
+// isFinalizerOwnedByMergePatch checks if the finalizer was added via merge patch (Update operation).
+// MIGRATION: This is a temporary migration feature to handle the upgrade scenario where
+// in-flight TaskRuns have finalizers set via merge patch by the old controller version.
+// Kubernetes SSA treats (manager, Update) and (manager, Apply) as different owners, so we need
+// to detect and handle the old ownership pattern.
+// This function can be removed once all resources from the pre-SSA version are deleted.
+func (r *Reconciler) isFinalizerOwnedByMergePatch(tr *pipelinev1.TaskRun) bool {
+	for _, mf := range tr.ManagedFields {
+		// Check if this is from the old merge patch operation
+		if mf.Operation == metav1.ManagedFieldsOperationUpdate {
+			// Parse FieldsV1 to check if it owns the finalizers field
+			// FieldsV1 is a JSON structure, we need to check if it contains f:metadata.f:finalizers
+			if mf.FieldsV1 != nil && mf.FieldsV1.Raw != nil {
+				// Check if this managed field entry owns finalizers AND specifically our finalizer
+				if bytes.Contains(mf.FieldsV1.Raw, []byte(`"f:finalizers"`)) &&
+					bytes.Contains(mf.FieldsV1.Raw, []byte(`v:\"results.tekton.dev/taskrun\"`)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// removeFinalizerViaMergePatch removes the finalizer using merge patch.
+// MIGRATION: This is a temporary migration feature to handle the upgrade scenario where
+// in-flight TaskRuns have finalizers set via merge patch by the old controller version.
+// This uses merge patch to remove finalizers that cannot be removed via SSA due to different
+// ownership (manager, Update) vs (manager, Apply).
+// This function can be removed once all resources from the pre-SSA version are deleted.
+func (r *Reconciler) removeFinalizerViaMergePatch(ctx context.Context, tr *pipelinev1.TaskRun) error {
+	// Remove our finalizer from the list
+	var newFinalizers []string
+	for _, f := range tr.Finalizers {
+		if f != "results.tekton.dev/taskrun" {
+			newFinalizers = append(newFinalizers, f)
+		}
+	}
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      newFinalizers,
+			"resourceVersion": tr.ResourceVersion,
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.pipelineClient.TektonV1().TaskRuns(tr.Namespace).Patch(
+		ctx, tr.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+	return err
 }

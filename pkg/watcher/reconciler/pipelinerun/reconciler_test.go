@@ -23,6 +23,7 @@ import (
 
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	fakeversioned "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 	pipelinev1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1"
 	pipelinev1beta1listers "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/watcher/reconciler"
@@ -31,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	apis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -231,6 +233,14 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	}
 }
 
+func mergePatchFinalizerManagedFields(finalizerName string) []metav1.ManagedFieldsEntry {
+	raw := fmt.Sprintf(`{"f:metadata":{"f:finalizers":{".":{},"v:\"%s\"":{}}}}`, finalizerName)
+	return []metav1.ManagedFieldsEntry{{
+		Operation: metav1.ManagedFieldsOperationUpdate,
+		FieldsV1:  &metav1.FieldsV1{Raw: []byte(raw)},
+	}}
+}
+
 func TestFinalize(t *testing.T) {
 	storeDeadline := time.Hour
 	finalizerRequeueInterval := time.Second
@@ -245,6 +255,7 @@ func TestFinalize(t *testing.T) {
 		pr             *pipelinev1.PipelineRun
 		cfg            *reconciler.Config
 		reconcileError knativereconciler.Event
+		patchErr       error
 		want           knativereconciler.Event
 	}{
 		{
@@ -451,6 +462,97 @@ func TestFinalize(t *testing.T) {
 			},
 			want: controller.NewRequeueAfter(finalizerRequeueInterval),
 		},
+		{
+			name: "migration: merge-patch finalizer removed successfully",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-pr",
+					Namespace:  "test-ns",
+					Finalizers: []string{"results.tekton.dev/pipelinerun"},
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+					ManagedFields: mergePatchFinalizerManagedFields("results.tekton.dev/pipelinerun"),
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg:  cfg,
+			want: nil,
+		},
+		{
+			name: "migration: merge-patch removal fails - requeue",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-pr",
+					Namespace:  "test-ns",
+					Finalizers: []string{"results.tekton.dev/pipelinerun"},
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+					ManagedFields: mergePatchFinalizerManagedFields("results.tekton.dev/pipelinerun"),
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg:      cfg,
+			patchErr: fmt.Errorf("connection refused"),
+			want:     controller.NewRequeueAfter(finalizerRequeueInterval),
+		},
+		{
+			name: "no migration: finalizer owned by SSA - no patch needed",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-pr",
+					Namespace:  "test-ns",
+					Finalizers: []string{"results.tekton.dev/pipelinerun"},
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+					ManagedFields: []metav1.ManagedFieldsEntry{{
+						Operation: metav1.ManagedFieldsOperationApply,
+						FieldsV1:  &metav1.FieldsV1{Raw: []byte(`{"f:metadata":{"f:finalizers":{".":{},"v:\"results.tekton.dev/pipelinerun\"":{}}}}`)},
+					}},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg:  cfg,
+			want: nil,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -458,6 +560,16 @@ func TestFinalize(t *testing.T) {
 
 			r := &Reconciler{
 				cfg: tc.cfg,
+			}
+
+			if tc.pr.ManagedFields != nil {
+				fakeClient := fakeversioned.NewSimpleClientset(tc.pr)
+				if tc.patchErr != nil {
+					fakeClient.PrependReactor("patch", "pipelineruns", func(_ k8stesting.Action) (bool, runtime.Object, error) {
+						return true, nil, tc.patchErr
+					})
+				}
+				r.pipelineClient = fakeClient
 			}
 
 			got := r.finalize(ctx, tc.pr, tc.reconcileError)
