@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,7 +34,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	logtest "knative.dev/pkg/logging/testing"
 )
 
@@ -628,5 +633,297 @@ func client(t *testing.T) *Client {
 	return &Client{
 		ResultsClient: resultsClient,
 		LogsClient:    logsClient,
+	}
+}
+
+func TestGetStartTime(t *testing.T) {
+	ts := time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		object Object
+		want   *timestamppb.Timestamp
+	}{
+		{
+			name: "PipelineRun with StartTime",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						StartTime: &metav1.Time{Time: ts},
+					},
+				},
+			},
+			want: timestamppb.New(ts),
+		},
+		{
+			name: "PipelineRun without StartTime",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "TaskRun with StartTime",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+				Status: pipelinev1.TaskRunStatus{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
+						StartTime: &metav1.Time{Time: ts},
+					},
+				},
+			},
+			want: timestamppb.New(ts),
+		},
+		{
+			name: "TaskRun without StartTime",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getStartTime(tt.object)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("getStartTime() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestGetEndTime(t *testing.T) {
+	ts := time.Date(2024, 1, 1, 10, 5, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		object Object
+		want   *timestamppb.Timestamp
+	}{
+		{
+			name: "PipelineRun with CompletionTime",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: ts},
+					},
+				},
+			},
+			want: timestamppb.New(ts),
+		},
+		{
+			name: "PipelineRun without CompletionTime",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+			},
+			want: nil,
+		},
+		{
+			name: "TaskRun with CompletionTime",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+				Status: pipelinev1.TaskRunStatus{
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
+						CompletionTime: &metav1.Time{Time: ts},
+					},
+				},
+			},
+			want: timestamppb.New(ts),
+		},
+		{
+			name: "TaskRun without CompletionTime",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getEndTime(tt.object)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("getEndTime() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestEnsureResult_Timestamps(t *testing.T) {
+	ctx := logtest.TestContextWithLogger(t)
+	client := client(t)
+
+	start := time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC)
+	end := time.Date(2024, 1, 1, 10, 5, 0, 0, time.UTC)
+
+	tests := []struct {
+		name       string
+		object     Object
+		wantStatus pb.RecordSummary_Status
+	}{
+		{
+			name: "PipelineRun succeeded",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pr-ok",
+					Namespace: "test",
+					UID:       "pr-ok-id",
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+								Reason: pipelinev1.PipelineRunReasonSuccessful.String(),
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						StartTime:      &metav1.Time{Time: start},
+						CompletionTime: &metav1.Time{Time: end},
+					},
+				},
+			},
+			wantStatus: pb.RecordSummary_SUCCESS,
+		},
+		{
+			name: "PipelineRun failed",
+			object: &pipelinev1.PipelineRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "PipelineRun",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pr-fail",
+					Namespace: "test",
+					UID:       "pr-fail-id",
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionFalse,
+								Reason: pipelinev1.PipelineRunReasonFailed.String(),
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						StartTime:      &metav1.Time{Time: start},
+						CompletionTime: &metav1.Time{Time: end},
+					},
+				},
+			},
+			wantStatus: pb.RecordSummary_FAILURE,
+		},
+		{
+			name: "TaskRun succeeded",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tr-ok",
+					Namespace: "test",
+					UID:       "tr-ok-id",
+				},
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+								Reason: pipelinev1.TaskRunReasonSuccessful.String(),
+							},
+						},
+					},
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
+						StartTime:      &metav1.Time{Time: start},
+						CompletionTime: &metav1.Time{Time: end},
+					},
+				},
+			},
+			wantStatus: pb.RecordSummary_SUCCESS,
+		},
+		{
+			name: "TaskRun failed",
+			object: &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "tekton.dev/v1",
+					Kind:       "TaskRun",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tr-fail",
+					Namespace: "test",
+					UID:       "tr-fail-id",
+				},
+				Status: pipelinev1.TaskRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionFalse,
+								Reason: pipelinev1.TaskRunReasonFailed.String(),
+							},
+						},
+					},
+					TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
+						StartTime:      &metav1.Time{Time: start},
+						CompletionTime: &metav1.Time{Time: end},
+					},
+				},
+			},
+			wantStatus: pb.RecordSummary_FAILURE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := client.ensureResult(ctx, tt.object)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			name := fmt.Sprintf("test/results/%s", tt.object.GetUID())
+			want := &pb.RecordSummary{
+				Record:    recordName(name, tt.object),
+				Type:      convert.TypeName(tt.object),
+				Status:    tt.wantStatus,
+				StartTime: timestamppb.New(start),
+				EndTime:   timestamppb.New(end),
+			}
+			if diff := cmp.Diff(want, res.GetSummary(), protocmp.Transform()); diff != "" {
+				t.Errorf("RecordSummary mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
