@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -323,6 +324,7 @@ func TestMergeLogParts(t *testing.T) {
 }
 
 func TestSplunkLogs(t *testing.T) {
+	var gotEarliestTime, gotLatestTime string
 
 	mockSplunk := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Log the received request for debugging
@@ -332,6 +334,9 @@ func TestSplunkLogs(t *testing.T) {
 		// Verify the request path and query parameters
 		switch r.URL.Path {
 		case "/services/search/v2/jobs":
+			r.ParseForm()
+			gotEarliestTime = r.FormValue("earliest_time")
+			gotLatestTime = r.FormValue("latest_time")
 			w.WriteHeader(http.StatusCreated)
 			w.Write(json.RawMessage(`{"sid":"1234567"}`))
 			return
@@ -407,6 +412,9 @@ func TestSplunkLogs(t *testing.T) {
 		t.Fatalf("CreateResult: %v", err)
 	}
 
+	startTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	completionTime := time.Date(2024, 1, 1, 13, 0, 0, 0, time.UTC)
+
 	_, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 		Parent: res.GetName(),
 		Record: &pb.Record{
@@ -420,10 +428,10 @@ func TestSplunkLogs(t *testing.T) {
 					Status: pipelinev1.TaskRunStatus{
 						TaskRunStatusFields: pipelinev1.TaskRunStatusFields{
 							StartTime: &metav1.Time{
-								Time: time.Now().Add(-time.Hour),
+								Time: startTime,
 							},
 							CompletionTime: &metav1.Time{
-								Time: time.Now(),
+								Time: completionTime,
 							},
 						},
 					},
@@ -458,6 +466,14 @@ func TestSplunkLogs(t *testing.T) {
 		t.Errorf("expected to have received %q, got %q", expectedData, actualData)
 	}
 
+	wantEarliestTime := strconv.FormatInt(startTime.Unix(), 10)
+	wantLatestTime := strconv.FormatInt(completionTime.Unix(), 10)
+	if gotEarliestTime != wantEarliestTime {
+		t.Errorf("earliest_time = %q, want %q", gotEarliestTime, wantEarliestTime)
+	}
+	if gotLatestTime != wantLatestTime {
+		t.Errorf("latest_time = %q, want %q", gotLatestTime, wantLatestTime)
+	}
 }
 
 func TestGetLokiLogs_BuildsQueryWithConfiguredJSONMappingAndLineFormat(t *testing.T) {

@@ -203,14 +203,19 @@ func TestAgent_cleanupResults(t *testing.T) {
 		{
 			name:       "cleanup pipelineruns",
 			recordType: "tekton.dev/v1.PipelineRun",
-			// match core structure; dot matches newline; allow flexible whitespace
-			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.PipelineRun'.*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
+			// NOT EXISTS must be absent: PipelineRun results are deleted unconditionally
+			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.PipelineRun'\s*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
 		},
 		{
 			name:       "cleanup taskruns",
 			recordType: "tekton.dev/v1.TaskRun",
-			// allow an optional AND NOT EXISTS (...) inside the inner WHERE
-			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.TaskRun'\s*(?:AND\s+NOT\s+EXISTS\s*\(.*\)\s*)?.*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
+			// NOT EXISTS is required: excludes child TaskRuns owned by a PipelineRun
+			wantQuery: `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1\.TaskRun'\s+AND\s+NOT\s+EXISTS\s*\(.*\)\s*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
+		},
+		{
+			name:       "cleanup customruns",
+			recordType: "tekton.dev/v1beta1.CustomRun",
+			wantQuery:  `(?s)DELETE\s+FROM\s+results\s+WHERE\s+id\s+IN\s*\(\s*SELECT\s+result_id\s+FROM\s*\(\s*SELECT\s+r\.result_id,.*r\.updated_time,.*AS\s+expiration_time.*FROM\s+records\s+r.*WHERE\s+r\.type\s*=\s*'tekton\.dev/v1beta1\.CustomRun'\s+AND\s+NOT\s+EXISTS\s*\(.*\)\s*\)\s+AS\s+subquery\s+WHERE\s+updated_time\s*<\s*expiration_time\s*\)`,
 		},
 	}
 

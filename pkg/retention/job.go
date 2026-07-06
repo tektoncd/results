@@ -58,12 +58,15 @@ func (a *Agent) job() {
 	// Second, clean up top-level TaskRun results.
 	a.cleanupResults(caseStatement, "tekton.dev/v1.TaskRun")
 
+	// Third, clean up top-level CustomRun results.
+	a.cleanupResults(caseStatement, "tekton.dev/v1beta1.CustomRun")
+
 	a.Logger.Infof("retention job finished at: %s", time.Now().String())
 }
 
 func (a *Agent) cleanupResults(caseStatement, recordType string) {
 	var additionalFilter string
-	if recordType == "tekton.dev/v1.TaskRun" {
+	if recordType == "tekton.dev/v1.TaskRun" || recordType == "tekton.dev/v1beta1.CustomRun" {
 		additionalFilter = `AND NOT EXISTS (
 			SELECT 1 FROM records pr
 			WHERE pr.type = 'tekton.dev/v1.PipelineRun'
