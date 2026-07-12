@@ -1,0 +1,32 @@
+coverage:
+  # Commit status https://docs.codecov.io/docs/commit-status are used
+  # to block PR based on coverage threshold.
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+    patch:
+      # Disable the coverage threshold of the patch, so that PRs are
+      # only failing because of overall project coverage threshold.
+      # See https://docs.codecov.io/docs/commit-status#disabling-a-status.
+      default: false
+
+ignore:
+  # Auto-generated protobuf code.
+  - "proto/v1alpha2/results_go_proto/**"
+  - "proto/v1alpha3/results_go_proto/**"
+  - "proto/pipeline/v1/pipeline_go_proto/**"
+  - "pkg/api/server/db/pagination/proto/internal_go_proto/**"
+  - "pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto/**"
+  - "internal/fieldmask/test/**"
+  - "pkg/test/**"
+  - "cmd/**"
+  - "test/**"
+  - "config/**"
+  - "hack/**"
+  - "tools/**"
+  - "release/**"
+  - "tekton/**"
+  - "docs/**"
+  - "vendor/**"
