@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	pipelinev1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelinev1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/record"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
 	"github.com/tektoncd/results/pkg/watcher/convert"
@@ -247,8 +248,8 @@ func copyKeys(in, out map[string]string) {
 	}
 }
 
-// getStartTime returns the start time of the object (PipelineRun or
-// TaskRun) in question.
+// getStartTime returns the Status.StartTime of a PipelineRun, TaskRun or
+// CustomRun, or nil for any other type.
 func getStartTime(o Object) *timestamppb.Timestamp {
 	var startTime *timestamppb.Timestamp
 
@@ -263,12 +264,20 @@ func getStartTime(o Object) *timestamppb.Timestamp {
 		if obj.Status.StartTime != nil {
 			startTime = timestamppb.New(obj.Status.StartTime.Time)
 		}
+
+	case *pipelinev1beta1.CustomRun:
+		if obj.Status.StartTime != nil {
+			startTime = timestamppb.New(obj.Status.StartTime.Time)
+		}
+
+	default:
+		return nil
 	}
 	return startTime
 }
 
-// getEndTime returns the completion time of the object (PipelineRun or
-// TaskRun) in question.
+// getEndTime returns the Status.CompletionTime of a PipelineRun, TaskRun or
+// CustomRun, or nil for any other type.
 func getEndTime(o Object) *timestamppb.Timestamp {
 	var endTime *timestamppb.Timestamp
 
@@ -283,6 +292,14 @@ func getEndTime(o Object) *timestamppb.Timestamp {
 		if obj.Status.CompletionTime != nil {
 			endTime = timestamppb.New(obj.Status.CompletionTime.Time)
 		}
+
+	case *pipelinev1beta1.CustomRun:
+		if obj.Status.CompletionTime != nil {
+			endTime = timestamppb.New(obj.Status.CompletionTime.Time)
+		}
+
+	default:
+		return nil
 	}
 	return endTime
 }
