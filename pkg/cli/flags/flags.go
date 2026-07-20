@@ -33,7 +33,7 @@ type ResultsOptions struct {
 func AddResultsOptions(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP(
 		kubeConfig, "k", "",
-		"kubectl config file (default: $HOME/.kube/config)")
+		"kubectl config file (default: $KUBECONFIG, then $HOME/.kube/config)")
 
 	cmd.PersistentFlags().StringP(
 		context, "c", "",
@@ -41,7 +41,7 @@ func AddResultsOptions(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().StringP(
 		namespace, "n", "",
-		"namespace to use (default: from $KUBECONFIG)")
+		"namespace to use (default: the current kubeconfig context's namespace)")
 	_ = cmd.RegisterFlagCompletionFunc(namespace,
 		func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
 			return formatted.BaseCompletion("namespace", args)
