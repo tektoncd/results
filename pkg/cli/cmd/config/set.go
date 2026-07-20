@@ -55,7 +55,9 @@ Usage Modes:
 
 Configuration Options:
 - Host: Tekton Results API server URL
-- Token: Bearer token (defaults to current kubeconfig token)
+- Token: Bearer token. Leave blank to resolve automatically from your kubeconfig
+  (recommended for exec/OIDC credentials, so it refreshes each request), or enter
+  a static token explicitly to persist it.
 - API Path: API endpoint path
 - TLS Settings: Certificate verification options
 
