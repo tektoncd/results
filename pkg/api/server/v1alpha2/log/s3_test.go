@@ -178,8 +178,10 @@ func TestS3Stream_ReadFrom(t *testing.T) {
 func TestInitConfig(t *testing.T) {
 	t.Run("with custom endpoint", func(t *testing.T) {
 		c := &server.Config{
-			S3_REGION:   "us-east-1",
-			S3_ENDPOINT: "https://minio.example.com",
+			S3_REGION:            "us-east-1",
+			S3_ENDPOINT:          "https://minio.example.com",
+			S3_ACCESS_KEY_ID:     "dummy-access-key-id",
+			S3_SECRET_ACCESS_KEY: "dummy-secret-access-key",
 		}
 		client, err := initConfig(context.Background(), c)
 		if err != nil {
@@ -196,7 +198,9 @@ func TestInitConfig(t *testing.T) {
 
 	t.Run("without custom endpoint", func(t *testing.T) {
 		c := &server.Config{
-			S3_REGION: "us-east-1",
+			S3_REGION:            "us-east-1",
+			S3_ACCESS_KEY_ID:     "dummy-access-key-id",
+			S3_SECRET_ACCESS_KEY: "dummy-secret-access-key",
 		}
 		client, err := initConfig(context.Background(), c)
 		if err != nil {
