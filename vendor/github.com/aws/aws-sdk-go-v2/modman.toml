@@ -1,10 +1,7 @@
 
 [dependencies]
   "github.com/aws/aws-sdk-go" = "v1.44.28"
-  "github.com/aws/smithy-go" = "v1.14.2"
-  "github.com/google/go-cmp" = "v0.5.8"
-  "github.com/jmespath/go-jmespath" = "v0.4.0"
-  "golang.org/x/net" = "v0.1.0"
+  "github.com/aws/smithy-go" = "v1.24.2"
 
 [modules]
 
@@ -54,6 +51,27 @@
     no_tag = true
 
   [modules."internal/protocoltest/restxmlwithnamespace"]
+    no_tag = true
+
+  [modules."internal/protocoltest/smithyrpcv2cbor"]
+    no_tag = true
+
+  [modules."internal/protocoltest/jsonrpc10querycompatible"]
+    no_tag = true
+
+  [modules."internal/protocoltest/smithyrpcv2cborquerycompatible"]
+    no_tag = true
+
+  [modules."internal/protocoltest/querycompatiblejsonrpc10"]
+    no_tag = true
+
+  [modules."internal/protocoltest/querycompatiblerpcv2protocol"]
+    no_tag = true
+
+  [modules."internal/protocoltest/nonquerycompatiblerpcv2protocol"]
+    no_tag = true
+
+  [modules."internal/kitchensinktest"]
     no_tag = true
 
   [modules."internal/repotools"]

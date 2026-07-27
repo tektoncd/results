@@ -4,13 +4,15 @@ LINT_IGNORE_S3MANAGER_INPUT='feature/s3/manager/upload.go:.+struct field SSEKMSK
 # Names of these are tied to endpoint rules and they're internal so ignore them
 LINT_IGNORE_AWSRULESFN_ARN='internal/endpoints/awsrulesfn/arn.go'
 LINT_IGNORE_AWSRULESFN_PARTITION='internal/endpoints/awsrulesfn/partition.go'
+LINT_IGNORE_PRIVATE_METRICS='aws/middleware/private/metrics'
 
 UNIT_TEST_TAGS=
 BUILD_TAGS=-tags "example,codegen,integration,ec2env,perftest"
+SNAPSHOT_TAGS=-tags "snapshot"
 
-SMITHY_GO_SRC ?= $(shell pwd)/../smithy-go
+SMITHY_GO_SRC ?= $(abspath $(shell pwd)/..)/smithy-go
 
-SDK_MIN_GO_VERSION ?= 1.15
+SDK_MIN_GO_VERSION ?= 1.24
 
 EACHMODULE_FAILFAST ?= true
 EACHMODULE_FAILFAST_FLAG=-fail-fast=${EACHMODULE_FAILFAST}
@@ -23,14 +25,6 @@ EACHMODULE_SKIP_FLAG=-skip="${EACHMODULE_SKIP}"
 
 EACHMODULE_FLAGS=${EACHMODULE_CONCURRENCY_FLAG} ${EACHMODULE_FAILFAST_FLAG} ${EACHMODULE_SKIP_FLAG}
 
-# SDK's Core and client packages that are compatible with Go 1.9+.
-SDK_CORE_PKGS=./aws/... ./internal/...
-SDK_CLIENT_PKGS=./service/...
-SDK_COMPA_PKGS=${SDK_CORE_PKGS} ${SDK_CLIENT_PKGS}
-
-# SDK additional packages that are used for development of the SDK.
-SDK_EXAMPLES_PKGS=
-SDK_ALL_PKGS=${SDK_COMPA_PKGS} ${SDK_EXAMPLES_PKGS}
 
 RUN_NONE=-run NONE
 RUN_INTEG=-run '^TestInteg_'
@@ -64,6 +58,8 @@ REPOTOOLS_CALCULATE_RELEASE_VERBOSE_FLAG=-v=${REPOTOOLS_CALCULATE_RELEASE_VERBOS
 
 REPOTOOLS_CALCULATE_RELEASE_ADDITIONAL_ARGS ?=
 
+DEV_SERVICE ?= s3
+
 ifneq ($(PRE_RELEASE_VERSION),)
 	REPOTOOLS_CALCULATE_RELEASE_ADDITIONAL_ARGS += -preview=${PRE_RELEASE_VERSION}
 endif
@@ -84,9 +80,18 @@ generate: smithy-generate update-requires gen-repo-mod-replace update-module-met
 gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-dropreplace-smithy-. min-go-version-. \
 tidy-modules-. add-module-license-files gen-aws-ptrs format
 
-generate-tmpreplace-smithy: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
-gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-replace-smithy-. min-go-version-. \
+generate-tmpreplace-smithy: smithy-generate update-requires gen-repo-mod-replace gen-mod-replace-smithy-. update-module-metadata smithy-annotate-stable \
+gen-config-asserts gen-internal-codegen copy-attributevalue-feature min-go-version-. \
 tidy-modules-. add-module-license-files gen-aws-ptrs format gen-mod-dropreplace-smithy-. reset-sum
+
+# stripped-down regenerate script that eliminates a lot of the cruft you don't
+# need in development (that takes time)
+# set DEV_SERVICE to the service package name (e.g. ec2, bedrockruntime)
+#
+# e.g.:
+# SMITHY_GO_BUILD_API=com.amazonaws.sqs DEV_SERVICE=sqs make generate-dev
+generate-dev: smithy-generate update-requires gen-repo-mod-replace gen-mod-replace-smithy-config gen-mod-replace-smithy-aws gen-mod-replace-smithy-service_${DEV_SERVICE} update-module-metadata smithy-annotate-stable \
+gen-config-asserts gen-internal-codegen tidy-modules-config tidy-modules-aws tidy-modules-service_${DEV_SERVICE} format-dev
 
 reset-sum:
 	find . -name go.sum -exec git checkout -- {} \;
@@ -97,11 +102,18 @@ smithy-generate:
 smithy-build:
 	cd codegen && ./gradlew clean build -Plog-tests
 
+# suffix-to-path pattern
+# Targets with pattern suffix -% convert the suffix to a path by:
+# 1. Stripping the target prefix (e.g., "go-build-modules-", "build-modules-", "ci-lint-")
+# 2. Converting underscores to slashes (e.g., internal_protocoltest -> internal/protocoltest)
+# The resulting path is passed to the eachmodule cmd via the -p flag to specify which
+# modules to operate on. Using "." targets all modules in the current directory.
+# Usage examples:
+#   make go-build-modules-internal_protocoltest
+#   make ci-lint-internal_protocoltest
+
 smithy-build-%:
-	@# smithy-build- command that uses the pattern to define build filter that
-	@# the smithy API model service id starts with. Strips off the
-	@# "smithy-build-".
-	@#
+	@# See suffix-to-path pattern. Defines the smithy API model service id starts with.
 	@# e.g. smithy-build-com.amazonaws.rds
 	@# e.g. smithy-build-com.amazonaws.rds#AmazonRDSv19
 	cd codegen && \
@@ -121,6 +133,9 @@ smithy-go-publish-local:
 format:
 	gofmt -w -s .
 
+format-dev:
+	gofmt -w -s service/${DEV_SERVICE}
+
 gen-config-asserts:
 	@echo "Generating SDK config package implementor assertions"
 	cd config \
@@ -138,8 +153,7 @@ gen-repo-mod-replace:
 	go run ${REPOTOOLS_CMD_MAKE_RELATIVE}
 
 gen-mod-replace-smithy-%:
-	@# gen-mod-replace-smithy- command that uses the pattern to define build filter that
-	@# for modules to add replace to. Strips off the "gen-mod-replace-smithy-".
+	@# See suffix-to-path pattern. Defines build filter for modules to add `-replace` to
 	@#
 	@# SMITHY_GO_SRC environment variable is the path to add replace to
 	@#
@@ -149,8 +163,7 @@ gen-mod-replace-smithy-%:
 			"go mod edit -replace github.com/aws/smithy-go=${SMITHY_GO_SRC}"
 
 gen-mod-dropreplace-smithy-%:
-	@# gen-mod-dropreplace-smithy- command that uses the pattern to define build filter that
-	@# for modules to add replace to. Strips off the "gen-mod-dropreplace-smithy-".
+	@# See suffix-to-path pattern. Defines build filter for modules to add `-dropreplace` to
 	@#
 	@# e.g. gen-mod-dropreplace-smithy-service_ssooidc
 	cd ./internal/repotools/cmd/eachmodule \
@@ -161,21 +174,13 @@ gen-aws-ptrs:
 	cd aws && go generate
 
 tidy-modules-%:
-	@# tidy command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "tidy-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. tidy-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Runs `go mod tidy`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst tidy-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go mod tidy"
 
 download-modules-%:
-	@# download command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "download-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. download-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Runs `go mod download all`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst download-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go mod download all"
@@ -204,13 +209,13 @@ sync-api-models:
 
 copy-attributevalue-feature:
 	cd ./feature/dynamodbstreams/attributevalue && \
-	find . -name "*.go" | grep -v "doc.go" | xargs -I % rm % && \
-	find ../../dynamodb/attributevalue -name "*.go" | grep -v "doc.go" | xargs -I % cp % . && \
-	ls *.go | grep -v "convert.go" | grep -v "doc.go" | \
+	find . -name "*.go" | grep -v "doc.go" | grep -v "go_module_metadata.go" | xargs -I % rm % && \
+	find ../../dynamodb/attributevalue -name "*.go" | grep -v "doc.go" | grep -v "go_module_metadata.go" | xargs -I % cp % . && \
+	ls *.go | grep -v "convert.go" | grep -v "doc.go" | grep -v "go_module_metadata.go" | \
 		xargs -I % sed -i.bk -E 's:github.com/aws/aws-sdk-go-v2/(service|feature)/dynamodb:github.com/aws/aws-sdk-go-v2/\1/dynamodbstreams:g' % &&  \
-	ls *.go | grep -v "convert.go" | grep -v "doc.go" | \
+	ls *.go | grep -v "convert.go" | grep -v "doc.go" | grep -v "go_module_metadata.go" | \
 		xargs -I % sed -i.bk 's:DynamoDB:DynamoDBStreams:g' % &&  \
-	ls *.go | grep -v "doc.go" | \
+	ls *.go | grep -v "doc.go" | grep -v "go_module_metadata.go" | \
 		xargs -I % sed -i.bk 's:dynamodb\.:dynamodbstreams.:g' % &&  \
 	sed -i.bk 's:streams\.:ddbtypes.:g' "convert.go" && \
 	sed -i.bk 's:ddb\.:streams.:g' "convert.go" &&  \
@@ -245,95 +250,79 @@ unit-test: test-modules-.
 unit-race-test: test-race-modules-.
 
 unit-race-modules-%:
-	@# unit command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "unit-race-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. unit-race-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Runs `go test` with `-race` flag
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst unit-race-modules-,,$@)) ${EACHMODULE_FLAGS} \
-		"go vet ${BUILD_TAGS} --all ./..." \
-		"go test ${BUILD_TAGS} ${RUN_NONE} ./..." \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./..."
+		"go test -timeout=2m ${UNIT_TEST_TAGS} -race -cpu=4 ./..."
 
 unit-modules-%:
-	@# unit command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "unit-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. unit-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Runs `go test`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst unit-modules-,,$@)) ${EACHMODULE_FLAGS} \
-		"go vet ${BUILD_TAGS} --all ./..." \
-		"go test ${BUILD_TAGS} ${RUN_NONE} ./..." \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} ./..."
+		"go test -timeout=2m ${UNIT_TEST_TAGS} ./..."
 
 build: build-modules-.
 
 build-modules-%:
-	@# build command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "build-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. build-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Builds all modules and test files via `go test -run NONE`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst build-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go test ${BUILD_TAGS} ${RUN_NONE} ./..."
 
+TEMP_FILE := $(shell mktemp)
+build-tagged-modules:
+	@# Compiles modules tagged with BUILD_TAGS.
+	@# This just ensures the modules compile correctly and doesn't actually produce any executable. 
+	@# This also runs "vet" analyzers on the module
+	cd ./internal/repotools/cmd/findtaggedmodules \
+		&& go run . $(BUILD_TAGS) > "$(TEMP_FILE)";
+	cd ./internal/repotools/cmd/eachmodule \
+		&& while read module; do \
+			echo "Testing module: $$module"; \
+			(go run . -p "$$module" ${EACHMODULE_FLAGS} "go test ${BUILD_TAGS} ${RUN_NONE} -vet=all ./...") || { echo "Tests failed for module: $$module"; exit 1; }; \
+		done < "$(TEMP_FILE)";
+
 go-build-modules-%:
-	@# build command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "build-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# Validates that all modules in the repo have buildable Go files.
-	@#
-	@# e.g. go-build-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Builds all modules without test files
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst go-build-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go build ${BUILD_TAGS} ./..."
 
-test: test-modules-.
+test: unit-modules-.
 
-test-race-modules-%:
-	@# Test command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "test-race-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. test-race-modules-internal_protocoltest
+test-race-vet-modules-%:
+	@# See suffix-to-path pattern. Runs `go test` with `-race -vet` flags
 	cd ./internal/repotools/cmd/eachmodule \
-		&& go run . -p $(subst _,/,$(subst test-race-modules-,,$@)) ${EACHMODULE_FLAGS} \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./..."
+		&& go run . -p $(subst _,/,$(subst test-race-vet-modules-,,$@)) ${EACHMODULE_FLAGS} \
+		"go test -timeout=2m ${UNIT_TEST_TAGS} -race -vet=all -cpu=4 ./..."
 
-test-modules-%:
-	@# Test command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "test-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. test-modules-internal_protocoltest
+test-check-snapshot-%:
 	cd ./internal/repotools/cmd/eachmodule \
-		&& go run . -p $(subst _,/,$(subst test-modules-,,$@)) ${EACHMODULE_FLAGS} \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} ./..."
+		&& go run . -p $(subst _,/,$(subst test-check-snapshot-,,$@)) ${EACHMODULE_FLAGS} \
+		"go test ${SNAPSHOT_TAGS} -run TestCheckSnapshot ./..."
+
+test-update-snapshot-%:
+	cd ./internal/repotools/cmd/eachmodule \
+		&& go run . -p $(subst _,/,$(subst test-update-snapshot-,,$@)) ${EACHMODULE_FLAGS} \
+		"go test ${SNAPSHOT_TAGS} -run TestUpdateSnapshot ./..."
+
+test-ci-check-snapshot-%:
+	cd ./internal/repotools/cmd/eachmodule \
+		&& go run . -p $(subst _,/,$(subst test-ci-check-snapshot-,,$@)) ${EACHMODULE_FLAGS} \
+		"go test ${SNAPSHOT_TAGS} -run TestCheckSnapshot -failfast ./..."
 
 cachedep: cachedep-modules-.
 
 cachedep-modules-%:
-	@# build command that uses the pattern to define the root path that the
-	@# module caching will start from. Strips off the "cachedep-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. cachedep-modules-internal_protocoltest
+	@# See suffix-to-path pattern. Runs `go mod download`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst cachedep-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go mod download"
 
 api-diff-modules-%:
-	@# Command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "api-diff-modules-" and
-	@# replaces all "_" with "/".
+	@# See suffix-to-path pattern. Runs `gorelease`
 	@#
 	@# Requires golang.org/x/exp/cmd/gorelease to be available in the GOPATH.
-	@#
-	@# e.g. api-diff-modules-internal_protocoltest
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst api-diff-modules-,,$@)) \
 			-fail-fast=true \
@@ -344,54 +333,20 @@ api-diff-modules-%:
 ##############
 # CI Testing #
 ##############
-.PHONY: ci-test ci-test-no-generate ci-test-generate-validate
+.PHONY: ci-test-no-generate ci-test-no-generate-no-race
 
-ci-test: generate unit-race ci-test-generate-validate
-ci-test-no-generate: unit-race
-
-ci-test-generate-validate:
-	@echo "CI test validate no generated code changes"
-	git update-index --assume-unchanged go.mod go.sum
-	git add . -A
-	gitstatus=`git diff --cached --ignore-space-change`; \
-	echo "$$gitstatus"; \
-	if [ "$$gitstatus" != "" ] && [ "$$gitstatus" != "skipping validation" ]; then echo "$$gitstatus"; exit 1; fi
-	git update-index --no-assume-unchanged go.mod go.sum
-
-ci-lint: ci-lint-.
-
-ci-lint-%:
-	@# Run golangci-lint command that uses the pattern to define the root path that the
-	@# module check will start from. Strips off the "ci-lint-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. ci-lint-internal_protocoltest
-	cd ./internal/repotools/cmd/eachmodule \
-		&& go run . -p $(subst _,/,$(subst ci-lint-,,$@)) \
-			-fail-fast=false \
-			-c 1 \
-			-skip="internal/repotools" \
-			"golangci-lint run"
-
-ci-lint-install:
-	@# Installs golangci-lint at GoPATH.
-	@# This should be used to run golangci-lint locally.
-	@#
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+ci-test-no-generate: lint build-tagged-modules test-race-vet-modules-.
+ci-test-no-generate-no-race: lint build-tagged-modules unit-modules-.
 
 #######################
 # Integration Testing #
 #######################
 .PHONY: integration integ-modules-% cleanup-integ-buckets
 
-integration: integ-modules-service
+integration: integ-modules-service integ-modules-feature
 
 integ-modules-%:
-	@# integration command that uses the pattern to define the root path that
-	@# the module testing will start from. Strips off the "integ-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. test-modules-service_dynamodb
+	@# See suffix-to-path pattern. Runs `go test` on modules with the `integration` tag
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst integ-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go test -timeout=10m -tags "integration" -v ${RUN_INTEG} -count 1 ./..."
@@ -408,11 +363,7 @@ cleanup-integ-buckets:
 bench: bench-modules-.
 
 bench-modules-%:
-	@# benchmark command that uses the pattern to define the root path that
-	@# the module testing will start from. Strips off the "bench-modules-" and
-	@# replaces all "_" with "/".
-	@#
-	@# e.g. bench-modules-service_dynamodb
+	@# See suffix-to-path pattern. Runs benchmark tests
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst bench-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go test -timeout=10m -bench . --benchmem ${BUILD_TAGS} ${RUN_NONE} ./..."
@@ -458,6 +409,14 @@ set-smithy-go-version:
 	fi
 	go run ${REPOTOOLS_CMD_EDIT_MODULE_DEPENDENCY} -s "github.com/aws/smithy-go" -v "${SMITHY_GO_VERSION}"
 
+external-changelog:
+	mkdir -p .changelog
+	cp changelog-template.json .changelog/00000000-0000-0000-0000-000000000000.json
+	@echo "Generate a new UUID and update the file at .changelog/00000000-0000-0000-0000-000000000000.json"
+	@echo "Make sure to rename the file with your new id, like .changelog/12345678-1234-1234-1234-123456789012.json"
+	@echo "See CONTRIBUTING.md 'Changelog Documents' and an example at https://github.com/aws/aws-sdk-go-v2/pull/2934/files"
+
+
 ##################
 # Linting/Verify #
 ##################
@@ -472,13 +431,15 @@ lint:
 	-e ${LINT_IGNORE_S3MANAGER_INPUT} \
 	-e ${LINTIGNORESINGLEFIGHT} \
 	-e ${LINT_IGNORE_AWSRULESFN_ARN} \
-	-e ${LINT_IGNORE_AWSRULESFN_PARTITION}`; \
+	-e ${LINT_IGNORE_AWSRULESFN_PARTITION} \
+	-e ${LINT_IGNORE_PRIVATE_METRICS}`; \
 	echo "$$dolint"; \
 	if [ "$$dolint" != "" ]; then exit 1; fi
 
 vet: vet-modules-.
 
 vet-modules-%:
+	@# See suffix-to-path pattern. Runs `go vet`
 	cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst vet-modules-,,$@)) ${EACHMODULE_FLAGS} \
 		"go vet ${BUILD_TAGS} --all ./..."
@@ -492,47 +453,8 @@ sdkv1check:
 list-deps: list-deps-.
 
 list-deps-%:
-	@# command that uses the pattern to define the root path that the
-	@# module testing will start from. Strips off the "list-deps-" and
-	@# replaces all "_" with "/".
-	@#
-	@# Trim output to only include stdout for list of dependencies only.
-	@#    make list-deps 2>&-
-	@#
-	@# e.g. list-deps-internal_protocoltest
+	@# See suffix-to-path pattern. Lists dependencies for Go modules
 	@cd ./internal/repotools/cmd/eachmodule \
 		&& go run . -p $(subst _,/,$(subst list-deps-,,$@)) ${EACHMODULE_FLAGS} \
 		"go list -m all | grep -v 'github.com/aws/aws-sdk-go-v2'" | sort -u
 
-###################
-# Sandbox Testing #
-###################
-.PHONY: sandbox-tests sandbox-build-% sandbox-run-% sandbox-test-% update-aws-golang-tip
-
-sandbox-tests: sandbox-test-go1.15 sandbox-test-go1.16 sandbox-test-go1.17 sandbox-test-go1.18 sandbox-test-go1.19 sandbox-test-go1.20 sandbox-test-gotip
-
-sandbox-build-%:
-	@# sandbox-build-go1.17
-	@# sandbox-build-gotip
-	@if [ $@ == sandbox-build-gotip ]; then\
-		docker build \
-			-f ./internal/awstesting/sandbox/Dockerfile.test.gotip \
-			-t "aws-sdk-go-$(subst sandbox-build-,,$@)" . ;\
-	else\
-		docker build \
-			--build-arg GO_VERSION=$(subst sandbox-build-go,,$@) \
-			-f ./internal/awstesting/sandbox/Dockerfile.test.goversion \
-			-t "aws-sdk-go-$(subst sandbox-build-,,$@)" . ;\
-	fi
-
-sandbox-run-%: sandbox-build-%
-	@# sandbox-run-go1.17
-	@# sandbox-run-gotip
-	docker run -i -t "aws-sdk-go-$(subst sandbox-run-,,$@)" bash
-sandbox-test-%: sandbox-build-%
-	@# sandbox-test-go1.17
-	@# sandbox-test-gotip
-	docker run -t "aws-sdk-go-$(subst sandbox-test-,,$@)"
-
-update-aws-golang-tip:
-	docker build --no-cache=true -f ./internal/awstesting/sandbox/Dockerfile.golang-tip -t "aws-golang:tip" .
