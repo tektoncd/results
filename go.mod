@@ -47,17 +47,17 @@ require (
 	google.golang.org/api v0.288.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478
 	google.golang.org/grpc v1.82.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
-	k8s.io/api v0.35.6
-	k8s.io/apimachinery v0.35.6
-	k8s.io/apiserver v0.35.6
+	k8s.io/api v0.35.7
+	k8s.io/apimachinery v0.35.7
+	k8s.io/apiserver v0.35.7
 	k8s.io/cli-runtime v0.29.15
-	k8s.io/client-go v0.35.6
+	k8s.io/client-go v0.35.7
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	knative.dev/pkg v0.0.0-20260329160701-396dbaacd652
 	sigs.k8s.io/yaml v1.6.0
