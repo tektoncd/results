@@ -28,6 +28,8 @@ import (
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -623,5 +625,119 @@ func TestGetLokiLogs_FailsWhenLineFormatUsesUndefinedField(t *testing.T) {
 
 	if strings.Contains(gotQuery, `undefined="`) {
 		t.Fatalf("did not expect undefined field to be present in json parsing map, got: %s", gotQuery)
+	}
+}
+
+func TestHttpStatusToGRPCCode(t *testing.T) {
+	tests := []struct {
+		httpStatus int
+		wantCode   codes.Code
+	}{
+		{http.StatusBadRequest, codes.InvalidArgument},
+		{http.StatusUnauthorized, codes.Unauthenticated},
+		{http.StatusForbidden, codes.PermissionDenied},
+		{http.StatusNotFound, codes.NotFound},
+		{http.StatusTooManyRequests, codes.ResourceExhausted},
+		{http.StatusInternalServerError, codes.Internal},
+		{http.StatusBadGateway, codes.Internal},
+		{http.StatusServiceUnavailable, codes.Internal},
+	}
+	for _, tt := range tests {
+		t.Run(strconv.Itoa(tt.httpStatus), func(t *testing.T) {
+			got := plugin.HTTPStatusToGRPCCode(tt.httpStatus)
+			if got != tt.wantCode {
+				t.Errorf("httpStatusToGRPCCode(%d) = %v, want %v", tt.httpStatus, got, tt.wantCode)
+			}
+		})
+	}
+}
+
+func TestGetLog_LokiForbidden_ReturnsPermissionDenied(t *testing.T) {
+	mockLoki := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":     "You don't have permission to access this tenant",
+			"errorType": "observatorium-api",
+			"status":    "error",
+		})
+	}))
+	defer mockLoki.Close()
+
+	tokenDir := t.TempDir()
+	tokenPath := filepath.Join(tokenDir, "token")
+	if err := os.WriteFile(tokenPath, []byte("dummytoken"), 0600); err != nil {
+		t.Fatalf("Failed to create token file: %v", err)
+	}
+
+	srv, err := server.New(&config.Config{
+		LOGS_API:                                true,
+		LOGS_TYPE:                               "Loki",
+		DB_ENABLE_AUTO_MIGRATION:                true,
+		LOGGING_PLUGIN_TOKEN_PATH:               tokenPath,
+		LOGGING_PLUGIN_PROXY_PATH:               "/app",
+		LOGGING_PLUGIN_API_URL:                  mockLoki.URL,
+		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
+		LOGGING_PLUGIN_STATIC_LABELS:            "namespace=\"foo\"",
+		LOGGING_PLUGIN_NAMESPACE_KEY:            "namespace",
+		LOGGING_PLUGIN_CONTAINER_KEY:            "kubernetes.container_name",
+		LOGGING_PLUGIN_QUERY_LIMIT:              1500,
+		LOGGING_PLUGIN_QUERY_PARAMS:             "direction=forward",
+	}, logger.Get("info"), test.NewDB(t))
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ctx := context.Background()
+	mockServer := &mockGetLogServer{ctx: ctx}
+
+	res, err := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "deleted-namespace",
+		Result: &pb.Result{
+			Name: "deleted-namespace/results/bar",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateResult: %v", err)
+	}
+
+	_, err = srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: res.GetName(),
+		Record: &pb.Record{
+			Name: record.FormatName(res.GetName(), "baz"),
+			Data: &pb.Any{
+				Type: "tekton.dev/v1.PipelineRun",
+				Value: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
+					Status: pipelinev1.PipelineRunStatus{
+						PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+							StartTime:      &metav1.Time{Time: time.Now()},
+							CompletionTime: &metav1.Time{Time: time.Now()},
+						},
+					},
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateRecord: %v", err)
+	}
+
+	req := &pb3.GetLogRequest{
+		Name: log.FormatName(res.GetName(), "baz"),
+	}
+
+	err = srv.LogPluginServer.GetLog(req, mockServer)
+	if err == nil {
+		t.Fatal("expected GetLog to return error for 403 Forbidden")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
+	}
+	if st.Code() != codes.PermissionDenied {
+		t.Errorf("expected PermissionDenied, got %v", st.Code())
+	}
+	if !strings.Contains(st.Message(), "403") {
+		t.Errorf("expected error message to contain HTTP status code 403, got: %s", st.Message())
 	}
 }

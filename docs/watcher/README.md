@@ -22,6 +22,10 @@ The Watcher currently supports the following types:
 - `tekton.dev/v1 TaskRun`
 - `tekton.dev/v1 PipelineRun`
 
+The Watcher also watches core `Namespace` resources to cascade-delete
+associated Results when a namespace is deleted (see
+[Namespace Cleanup](#namespace-cleanup)).
+
 ## Result Grouping
 
 The Watcher uses Object data to automatically detect and group related Records
@@ -76,6 +80,25 @@ Watcher implements a finalizer to block deletion by an external pruner when obje
 
 When deletion request comes, it will block until completion time + `completed_run_grace_period` period is passed. A hard limit could be set as `store_deadline` (default 10m), after which the object will be removed from the cluster even without confirmation it's been stored in the DB.
 
+
+## Namespace Cleanup
+
+The Watcher watches for Kubernetes Namespace deletions and automatically
+cascade-deletes all Results associated with the deleted namespace via the
+Results API. Records are removed automatically by the database foreign key
+constraint (`ON DELETE CASCADE`).
+
+This ensures that no orphaned data remains in the database after a namespace
+is removed from the cluster. The cleanup is handled by a dedicated namespace
+reconciler (`pkg/watcher/reconciler/namespace/`) that paginates through all
+Results for the deleted namespace and issues individual `DeleteResult` calls.
+
+The watcher's ClusterRole requires the following additional permissions for
+this feature:
+
+- `namespaces` (get, list, watch) to receive namespace deletion events.
+- `results.tekton.dev` resources (list, delete) to query and remove Results
+  via the API.
 
 ## Disabling Incomplete Runs storage
 
