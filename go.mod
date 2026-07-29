@@ -11,7 +11,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/cel-go v0.26.0
+	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-replayers/httpreplay v1.2.0
 	github.com/google/martian/v3 v3.3.3
@@ -32,11 +32,11 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
 	github.com/tektoncd/cli v0.41.1
-	github.com/tektoncd/pipeline v1.3.4
+	github.com/tektoncd/pipeline v1.3.6
 	github.com/tidwall/gjson v1.18.0
 	go.opencensus.io v0.24.0
 	go.uber.org/automaxprocs v1.6.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	gocloud.dev v0.40.0
 	golang.org/x/net v0.49.0
 	golang.org/x/oauth2 v0.34.0
@@ -49,11 +49,11 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.30.1
-	k8s.io/api v0.32.8
-	k8s.io/apimachinery v0.32.8
-	k8s.io/apiserver v0.32.8
+	k8s.io/api v0.32.13
+	k8s.io/apimachinery v0.32.13
+	k8s.io/apiserver v0.32.13
 	k8s.io/cli-runtime v0.29.15
-	k8s.io/client-go v0.32.8
+	k8s.io/client-go v0.32.13
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
 	sigs.k8s.io/yaml v1.6.0
@@ -111,7 +111,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589 // indirect
-	github.com/cloudevents/sdk-go/v2 v2.16.1 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.2 // indirect
 	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
@@ -251,7 +251,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.32.6 // indirect
+	k8s.io/apiextensions-apiserver v0.32.13 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
