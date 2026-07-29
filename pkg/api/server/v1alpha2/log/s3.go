@@ -178,9 +178,9 @@ func (s3s *s3Stream) uploadMultiPart(reader io.Reader, partNumber int32, partSiz
 		UploadId:      &s3s.uploadID,
 		Bucket:        &s3s.bucket,
 		Key:           &s3s.key,
-		PartNumber:    partNumber,
+		PartNumber:    &partNumber,
 		Body:          reader,
-		ContentLength: partSize,
+		ContentLength: &partSize,
 	}, s3.WithAPIOptions(
 		v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware,
 	))
@@ -194,7 +194,7 @@ func (s3s *s3Stream) uploadMultiPart(reader io.Reader, partNumber int32, partSiz
 		return err
 	}
 
-	s3s.parts = append(s3s.parts, types.CompletedPart{PartNumber: partNumber, ETag: part.ETag})
+	s3s.parts = append(s3s.parts, types.CompletedPart{PartNumber: &partNumber, ETag: part.ETag})
 	s3s.partNumber++
 
 	return err
