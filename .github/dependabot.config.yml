@@ -39,6 +39,7 @@ ecosystems:
         update-types:
           - version-update:semver-major
           - version-update:semver-minor
+      # Opentelemetry versions must be upgraded with knative/pkg and can't be done independently 
       - dependency-name: "go.opentelemetry.io/*"
         update-types:
           - version-update:semver-major
