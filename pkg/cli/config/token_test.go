@@ -2,6 +2,8 @@ package config
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/client-go/rest"
@@ -17,6 +19,24 @@ func TestResolveBearerTokenStaticToken(t *testing.T) {
 	}
 	if got != "static-token-abc" {
 		t.Fatalf("expected static token to be returned, got %q", got)
+	}
+}
+
+// TestResolveBearerTokenFile verifies client-go's token-file bearer wrapper is
+// exercised even when no custom WrapTransport is present.
+func TestResolveBearerTokenFile(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(tokenFile, []byte("token-file-abc"), 0o600); err != nil {
+		t.Fatalf("failed to write token file: %v", err)
+	}
+
+	rc := &rest.Config{Host: "https://test-host:6443", BearerTokenFile: tokenFile}
+	got, err := resolveBearerToken(rc)
+	if err != nil {
+		t.Fatalf("resolveBearerToken() error: %v", err)
+	}
+	if got != "token-file-abc" {
+		t.Fatalf("expected token from token file, got %q", got)
 	}
 }
 
@@ -92,8 +112,8 @@ func TestResolveBearerTokenWrapTransport(t *testing.T) {
 }
 
 // TestResolveBearerTokenNonBearerScheme verifies that a non-"Bearer"
-// Authorization header set by the transport chain is returned verbatim (the
-// "Bearer " prefix is only stripped when present).
+// Authorization header set by the transport chain is not returned as a Results
+// API token.
 func TestResolveBearerTokenNonBearerScheme(t *testing.T) {
 	rc := &rest.Config{Host: "https://test-host:6443"}
 	rc.WrapTransport = func(inner http.RoundTripper) http.RoundTripper {
@@ -107,8 +127,8 @@ func TestResolveBearerTokenNonBearerScheme(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveBearerToken() error: %v", err)
 	}
-	if got != "Custom raw-value" {
-		t.Fatalf("expected non-Bearer Authorization value verbatim, got %q", got)
+	if got != "" {
+		t.Fatalf("expected empty token for non-Bearer Authorization value, got %q", got)
 	}
 }
 

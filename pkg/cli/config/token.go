@@ -13,15 +13,15 @@ import (
 // request built from the given rest.Config.
 //
 // A kubeconfig context does not always carry a static bearer token: the token
-// may instead be produced at request time by an exec credential plugin (e.g.
-// `oc get-token` for OpenShift external OIDC, `aws eks get-token`, etc.) or a
-// legacy auth-provider (oidc/gcp/azure). In those cases rest.Config.BearerToken
-// is empty and the credential is injected via the transport's WrapTransport
-// round-tripper chain instead.
+// may instead be read from a token file or produced at request time by an exec
+// credential plugin (e.g. `oc get-token` for OpenShift external OIDC,
+// `aws eks get-token`, etc.) or a legacy auth-provider (oidc/gcp/azure). In
+// those cases rest.Config.BearerToken is empty and the credential is injected by
+// client-go's transport wrappers instead.
 //
-// This helper drives that round-tripper chain once so the exec plugin /
-// auth-provider is actually invoked, and captures the resulting
-// "Authorization: Bearer <token>" header — the same token oc/kubectl/tkn would
+// This helper drives those round-tripper wrappers once so token files, exec
+// plugins, and auth-providers are resolved, and captures the resulting
+// "Authorization: Bearer <token>" header - the same token oc/kubectl/tkn would
 // send. If the config already has a static token, that is returned directly and
 // no plugin is run.
 //
@@ -41,12 +41,6 @@ func resolveBearerToken(rc *rest.Config) (string, error) {
 	tc, err := rc.TransportConfig()
 	if err != nil {
 		return "", err
-	}
-
-	// If the transport does not wrap requests with a credential provider
-	// (exec/auth-provider), there is no bearer token to resolve here.
-	if tc.WrapTransport == nil {
-		return "", nil
 	}
 
 	// Build the credential-aware round-tripper chain and run a single request
@@ -72,11 +66,12 @@ func resolveBearerToken(rc *rest.Config) (string, error) {
 	if authz == "" {
 		return "", nil
 	}
-	// Strip the "Bearer " scheme prefix if present.
+	// Return only bearer tokens; other Authorization schemes are not usable as
+	// Results API tokens.
 	if parts := strings.SplitN(authz, " ", 2); len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 		return parts[1], nil
 	}
-	return authz, nil
+	return "", nil
 }
 
 // authHeaderCapturingRoundTripper is a terminal http.RoundTripper that records
