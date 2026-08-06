@@ -45,24 +45,31 @@ func resolveBearerToken(rc *rest.Config) (string, error) {
 
 	// Build the credential-aware round-tripper chain and run a single request
 	// through it. The terminal round-tripper never touches the network: it just
-	// captures whatever Authorization header the chain set.
-	capture := &authHeaderCapturingRoundTripper{}
-	rt, err := transport.HTTPWrappersForConfig(tc, capture)
+	// returns the request after wrapper-injected credentials have been applied.
+	rt, err := transport.HTTPWrappersForConfig(tc, roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       http.NoBody,
+			Request:    req,
+		}, nil
+	}))
 	if err != nil {
 		return "", err
 	}
 
-	// A minimal request; the host is irrelevant because capture short-circuits
+	// A minimal request; the host is irrelevant because the chain short-circuits
 	// before any network I/O.
 	req, err := http.NewRequest(http.MethodGet, "https://tekton-results.local/", nil)
 	if err != nil {
 		return "", err
 	}
-	if _, err := rt.RoundTrip(req); err != nil {
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
 		return "", err
 	}
 
-	authz := capture.authorization
+	authz := resp.Request.Header.Get("Authorization")
 	if authz == "" {
 		return "", nil
 	}
@@ -74,19 +81,9 @@ func resolveBearerToken(rc *rest.Config) (string, error) {
 	return "", nil
 }
 
-// authHeaderCapturingRoundTripper is a terminal http.RoundTripper that records
-// the Authorization header set by the wrapping credential round-trippers and
-// returns a stub response without performing any network I/O.
-type authHeaderCapturingRoundTripper struct {
-	authorization string
-}
+// roundTripperFunc adapts a function to http.RoundTripper.
+type roundTripperFunc func(*http.Request) (*http.Response, error)
 
-func (r *authHeaderCapturingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	r.authorization = req.Header.Get("Authorization")
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-		Body:       http.NoBody,
-		Request:    req,
-	}, nil
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

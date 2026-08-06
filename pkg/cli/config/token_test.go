@@ -151,32 +151,3 @@ func TestResolveBearerTokenWrapTransportNoAuth(t *testing.T) {
 		t.Fatalf("expected empty token when no Authorization header is set, got %q", got)
 	}
 }
-
-// TestAuthHeaderCapturingRoundTripper verifies the terminal round-tripper
-// records the Authorization header and returns a stub response without error.
-func TestAuthHeaderCapturingRoundTripper(t *testing.T) {
-	capture := &authHeaderCapturingRoundTripper{}
-	req, err := http.NewRequest(http.MethodGet, "https://test-host/", nil)
-	if err != nil {
-		t.Fatalf("failed to build request: %v", err)
-	}
-	req.Header.Set("Authorization", "Bearer captured")
-
-	resp, err := capture.RoundTrip(req)
-	if err != nil {
-		t.Fatalf("RoundTrip() error: %v", err)
-	}
-	if resp == nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected a non-nil 200 stub response, got %+v", resp)
-	}
-	if capture.authorization != "Bearer captured" {
-		t.Fatalf("expected captured Authorization header, got %q", capture.authorization)
-	}
-}
-
-// roundTripperFunc adapts a function to http.RoundTripper for tests.
-type roundTripperFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
-}
