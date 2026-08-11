@@ -24,6 +24,6 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          install-mode: "goinstall"
+          install-mode: "goinstall" #This is a temporary workaround to unblock the CI. Should be removed after workflow is fixed
           version: v2.12.2
           args: --new-from-merge-base=origin/${{ github.base_ref }} --timeout=10m
