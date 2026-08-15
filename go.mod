@@ -1,6 +1,6 @@
 module github.com/tektoncd/results
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
