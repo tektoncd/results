@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Config defines shared reconciler configuration options.
@@ -76,6 +77,12 @@ type Config struct {
 
 	// DisableStoringIncompleteRuns disables the collection of incomplete Runs data
 	DisableStoringIncompleteRuns bool
+
+	// AllowedManagedByValues is the set of spec.managedBy values the watcher
+	// will process. pipeline.ManagedBy ("tekton.dev/pipeline") is always
+	// included. Runs with nil or empty managedBy are also always accepted.
+	// This set must not be mutated after initialization to avoid data races.
+	AllowedManagedByValues sets.Set[string]
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be

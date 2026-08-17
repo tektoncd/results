@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	knativereconciler "knative.dev/pkg/reconciler"
@@ -33,7 +34,6 @@ import (
 
 // Reconciler represents taskRun watcher logic
 type Reconciler struct {
-
 	// kubeClientSet allows us to talk to the k8s for core APIs
 	kubeClientSet kubernetes.Interface
 
@@ -48,12 +48,19 @@ type Reconciler struct {
 }
 
 // Check that our Reconciler implements taskrunreconciler.Interface and taskrunreconciler.Finalizer
-var _ taskrunreconciler.Interface = (*Reconciler)(nil)
-var _ taskrunreconciler.Finalizer = (*Reconciler)(nil)
+var (
+	_ taskrunreconciler.Interface = (*Reconciler)(nil)
+	_ taskrunreconciler.Finalizer = (*Reconciler)(nil)
+)
 
 // ReconcileKind makes new watcher reconcile cycle to handle TaskRun.
 func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
 	logger := logging.FromContext(ctx).With(zap.String("results.tekton.dev/kind", "TaskRun"))
+
+	if !reconciler.IsManagedByAllowed(tr.Spec.ManagedBy, r.cfg.AllowedManagedByValues) {
+		logger.Debugf("skipping TaskRun %s/%s: managedBy %q not in allowed set", tr.Namespace, tr.Name, ptr.Deref(tr.Spec.ManagedBy, ""))
+		return nil
+	}
 
 	if r.cfg.DisableStoringIncompleteRuns {
 		// Skip if taskrun is not done
@@ -100,6 +107,20 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, tr *pipelinev1.TaskRun) 
 // that we see flowing through the system.  If we don't add a finalizer, it could
 // get cleaned up before we see the final state and store it.
 func (r *Reconciler) FinalizeKind(ctx context.Context, tr *pipelinev1.TaskRun) knativereconciler.Event {
+	if !reconciler.IsManagedByAllowed(tr.Spec.ManagedBy, r.cfg.AllowedManagedByValues) {
+		logging.FromContext(ctx).Infof("releasing finalizer for TaskRun %s/%s: managedBy no longer in allowed set", tr.Namespace, tr.Name)
+		if r.isFinalizerOwnedByMergePatch(tr) {
+			logging.FromContext(ctx).Infof("Removing merge-patch finalizer on %s/%s for SSA migration (disallowed managedBy path)",
+				tr.Namespace, tr.Name)
+			if err := r.removeFinalizerViaMergePatch(ctx, tr); err != nil {
+				logging.FromContext(ctx).Warnw("Failed to remove finalizer via merge patch",
+					zap.Error(err))
+				return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
+			}
+		}
+		return nil
+	}
+
 	// Reconcile the taskrun to ensure that it is stored in the database
 	rerr := r.ReconcileKind(ctx, tr)
 	if rerr != nil {
@@ -267,6 +288,7 @@ func (r *Reconciler) removeFinalizerViaMergePatch(ctx context.Context, tr *pipel
 	}
 
 	_, err = r.pipelineClient.TektonV1().TaskRuns(tr.Namespace).Patch(
-		ctx, tr.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+		ctx, tr.Name, types.MergePatchType, patch, metav1.PatchOptions{},
+	)
 	return err
 }

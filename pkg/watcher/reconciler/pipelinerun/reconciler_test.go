@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/ptr"
 	apis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -68,6 +69,22 @@ func TestReconcile(t *testing.T) {
 			},
 			cfg: &reconciler.Config{
 				DisableStoringIncompleteRuns: true,
+			},
+			want: nil,
+		},
+		{
+			name: "disallowed managedBy - skip",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+				},
+				Spec: pipelinev1.PipelineRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
 			},
 			want: nil,
 		},
@@ -112,41 +129,45 @@ func TestReconcile(t *testing.T) {
 		})
 	}
 }
+
 func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 	tests := []struct {
 		name string
 		in   *pipelinev1.PipelineRun
 		want bool
-	}{{
-		name: "all underlying TaskRuns are ready to be deleted",
-		in: &pipelinev1.PipelineRun{
-			Status: pipelinev1.PipelineRunStatus{
-				PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
-					ChildReferences: []pipelinev1.ChildStatusReference{{
-						TypeMeta: runtime.TypeMeta{
-							Kind:       "TaskRun",
-							APIVersion: "tekton.dev/v1",
+	}{
+		{
+			name: "all underlying TaskRuns are ready to be deleted",
+			in: &pipelinev1.PipelineRun{
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						ChildReferences: []pipelinev1.ChildStatusReference{
+							{
+								TypeMeta: runtime.TypeMeta{
+									Kind:       "TaskRun",
+									APIVersion: "tekton.dev/v1",
+								},
+								Name: "foo",
+							},
 						},
-						Name: "foo",
-					},
 					},
 				},
 			},
+			want: true,
 		},
-		want: true,
-	},
 		{
 			name: "one TaskRun is ready to be deleted whereas the other is not",
 			in: &pipelinev1.PipelineRun{
 				Status: pipelinev1.PipelineRunStatus{
 					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
-						ChildReferences: []pipelinev1.ChildStatusReference{{
-							TypeMeta: runtime.TypeMeta{
-								Kind:       "TaskRun",
-								APIVersion: "tekton.dev/v1",
+						ChildReferences: []pipelinev1.ChildStatusReference{
+							{
+								TypeMeta: runtime.TypeMeta{
+									Kind:       "TaskRun",
+									APIVersion: "tekton.dev/v1",
+								},
+								Name: "foo",
 							},
-							Name: "foo",
-						},
 							{
 								TypeMeta: runtime.TypeMeta{
 									Kind:       "TaskRun",
@@ -165,13 +186,14 @@ func TestAreAllUnderlyingTaskRunsReadyForDeletion(t *testing.T) {
 			in: &pipelinev1.PipelineRun{
 				Status: pipelinev1.PipelineRunStatus{
 					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
-						ChildReferences: []pipelinev1.ChildStatusReference{{
-							TypeMeta: runtime.TypeMeta{
-								Kind:       "TaskRun",
-								APIVersion: "tekton.dev/v1",
+						ChildReferences: []pipelinev1.ChildStatusReference{
+							{
+								TypeMeta: runtime.TypeMeta{
+									Kind:       "TaskRun",
+									APIVersion: "tekton.dev/v1",
+								},
+								Name: "foo",
 							},
-							Name: "foo",
-						},
 							{
 								TypeMeta: runtime.TypeMeta{
 									Kind:       "TaskRun",
@@ -580,28 +602,89 @@ func TestFinalize(t *testing.T) {
 	}
 }
 
+func TestFinalizeKindDisallowedManagedBy(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pr   *pipelinev1.PipelineRun
+		cfg  *reconciler.Config
+		want knativereconciler.Event
+	}{
+		{
+			name: "disallowed managedBy - release finalizer",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-pr",
+					Namespace:  "test-ns",
+					Finalizers: []string{"results.tekton.dev/pipelinerun"},
+				},
+				Spec: pipelinev1.PipelineRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
+			},
+			want: nil,
+		},
+		{
+			name: "disallowed managedBy with merge-patch finalizer - release finalizer",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:          "test-pr",
+					Namespace:     "test-ns",
+					Finalizers:    []string{"results.tekton.dev/pipelinerun"},
+					ManagedFields: mergePatchFinalizerManagedFields("results.tekton.dev/pipelinerun"),
+				},
+				Spec: pipelinev1.PipelineRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
+			},
+			want: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = logging.WithLogger(ctx, zaptest.NewLogger(t).Sugar())
+
+			fakeClient := fakeversioned.NewSimpleClientset(tc.pr)
+			r := &Reconciler{
+				cfg:            tc.cfg,
+				pipelineClient: fakeClient,
+			}
+			got := r.FinalizeKind(ctx, tc.pr)
+			if got != tc.want {
+				t.Errorf("FinalizeKind() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAreAllUnderlyingRunsReadyForDeletion_WithCustomRuns(t *testing.T) {
 	tests := []struct {
 		name string
 		in   *pipelinev1.PipelineRun
 		want bool
-	}{{
-		name: "all CustomRuns are ready to be deleted",
-		in: &pipelinev1.PipelineRun{
-			Status: pipelinev1.PipelineRunStatus{
-				PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
-					ChildReferences: []pipelinev1.ChildStatusReference{{
-						TypeMeta: runtime.TypeMeta{
-							Kind:       "CustomRun",
-							APIVersion: "tekton.dev/v1beta1",
-						},
-						Name: "custom-foo",
-					}},
+	}{
+		{
+			name: "all CustomRuns are ready to be deleted",
+			in: &pipelinev1.PipelineRun{
+				Status: pipelinev1.PipelineRunStatus{
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						ChildReferences: []pipelinev1.ChildStatusReference{{
+							TypeMeta: runtime.TypeMeta{
+								Kind:       "CustomRun",
+								APIVersion: "tekton.dev/v1beta1",
+							},
+							Name: "custom-foo",
+						}},
+					},
 				},
 			},
+			want: true,
 		},
-		want: true,
-	},
 		{
 			name: "one CustomRun is ready, one TaskRun is not",
 			in: &pipelinev1.PipelineRun{

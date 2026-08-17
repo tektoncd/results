@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 	apis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/controller"
@@ -64,6 +65,22 @@ func TestReconcile(t *testing.T) {
 			},
 			cfg: &reconciler.Config{
 				DisableStoringIncompleteRuns: true,
+			},
+			want: nil,
+		},
+		{
+			name: "disallowed managedBy - skip",
+			tr: &pipelinev1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tr",
+					Namespace: "test-ns",
+				},
+				Spec: pipelinev1.TaskRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
 			},
 			want: nil,
 		},
@@ -451,6 +468,66 @@ func TestFinalize(t *testing.T) {
 			got := r.finalize(ctx, tc.pr, tc.reconcileError)
 			if !errors.Is(got, tc.want) {
 				t.Errorf("finalize() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFinalizeKindDisallowedManagedBy(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		tr   *pipelinev1.TaskRun
+		cfg  *reconciler.Config
+		want knativereconciler.Event
+	}{
+		{
+			name: "disallowed managedBy - release finalizer",
+			tr: &pipelinev1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-tr",
+					Namespace:  "test-ns",
+					Finalizers: []string{"results.tekton.dev/taskrun"},
+				},
+				Spec: pipelinev1.TaskRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
+			},
+			want: nil,
+		},
+		{
+			name: "disallowed managedBy with merge-patch finalizer - release finalizer",
+			tr: &pipelinev1.TaskRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:          "test-tr",
+					Namespace:     "test-ns",
+					Finalizers:    []string{"results.tekton.dev/taskrun"},
+					ManagedFields: mergePatchFinalizerManagedFields("results.tekton.dev/taskrun"),
+				},
+				Spec: pipelinev1.TaskRunSpec{
+					ManagedBy: ptr.To("custom-controller"),
+				},
+			},
+			cfg: &reconciler.Config{
+				AllowedManagedByValues: reconciler.ParseManagedByValues(""),
+			},
+			want: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctx = logging.WithLogger(ctx, zaptest.NewLogger(t).Sugar())
+
+			fakeClient := fakeversioned.NewSimpleClientset(tc.tr)
+			r := &Reconciler{
+				cfg:            tc.cfg,
+				pipelineClient: fakeClient,
+			}
+			got := r.FinalizeKind(ctx, tc.tr)
+			if got != tc.want {
+				t.Errorf("FinalizeKind() = %v, want %v", got, tc.want)
 			}
 		})
 	}
