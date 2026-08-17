@@ -37,6 +37,7 @@ import (
 	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
@@ -59,6 +60,7 @@ const (
 	// This is a fixed path which does not contain a hard-coded secret or credential
 	podTokenPath             = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
 	finalizerRequeueInterval = 10 * time.Second
+	defaultServiceConfig     = `{"loadBalancingConfig":[{"round_robin":{}}]}`
 )
 
 var (
@@ -101,7 +103,7 @@ func main() {
 
 	ctx = filteredinformerfactory.WithSelectors(ctx, "app.kubernetes.io/name")
 
-	conn, err := connectToAPIServer(ctx, *apiAddr, *authMode)
+	conn, err := connectToAPIServer(*apiAddr, *authMode)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -178,7 +180,7 @@ func main() {
 	)
 }
 
-func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*grpc.ClientConn, error) {
+func connectToAPIServer(apiAddr string, authMode string) (*grpc.ClientConn, error) {
 	// Load TLS certs
 	certs, err := loadCerts()
 	if err != nil {
@@ -186,8 +188,14 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 	}
 	cred := credentials.NewClientTLSFromCert(certs, "")
 
+	connectParams := grpc.ConnectParams{
+		Backoff:           backoff.DefaultConfig,
+		MinConnectTimeout: 1 * time.Minute,
+	}
+
 	opts := []grpc.DialOption{
-		grpc.WithBlock(),
+		grpc.WithDefaultServiceConfig(defaultServiceConfig),
+		grpc.WithConnectParams(connectParams),
 	}
 	// Add in additional credentials to requests if desired.
 	switch authMode {
@@ -215,9 +223,7 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 	}
 
 	log.Printf("dialing %s...\n", apiAddr)
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-	return grpc.DialContext(ctx, apiAddr, opts...)
+	return grpc.NewClient(apiAddr, opts...)
 }
 
 func loadCerts() (*x509.CertPool, error) {
