@@ -77,6 +77,40 @@ Watcher implements a finalizer to block deletion by an external pruner when obje
 When deletion request comes, it will block until completion time + `completed_run_grace_period` period is passed. A hard limit could be set as `store_deadline` (default 10m), after which the object will be removed from the cluster even without confirmation it's been stored in the DB.
 
 
+## Filtering by `spec.managedBy`
+
+The `managed_by_values` flag controls which TaskRuns and PipelineRuns the Watcher will process based on their `spec.managedBy` field. This is useful when multiple controllers manage Tekton resources and you want the Results Watcher to only track runs managed by specific controllers.
+
+- `tekton.dev/pipeline` is **always accepted** and cannot be removed.
+- Runs with **unset, empty, or whitespace-only** `spec.managedBy` are always accepted (backward compatible).
+- Additional values can be specified as a comma-separated list.
+
+For example, to also process runs managed by a custom controller:
+
+```
+--managed_by_values=custom-controller
+```
+
+Multiple values:
+
+```
+--managed_by_values=custom-controller,another-controller
+```
+
+CustomRuns are not filtered because the CustomRun type does not have a `spec.managedBy` field.
+
+> **Note:** If a value is removed from `--managed_by_values`, the Watcher will
+> still process runs that already carry a Results finalizer so the finalizer
+> can be cleared and the resource can be deleted. New runs with that
+> `managedBy` value will be ignored. Runs that had a finalizer but were not
+> yet stored will **not** be stored — the finalizer is released without
+> persisting data, matching the operator's intent to stop tracking those runs.
+
+> **Known limitation:** Filtering applies to each resource independently.
+> If an external controller sets `spec.managedBy` on a PipelineRun but its
+> child TaskRuns or CustomRuns have nil `spec.managedBy` (the default), the
+> Watcher will ignore the PipelineRun but still process the child runs.
+
 ## Disabling Incomplete Runs storage
 
 The `disable_storing_incomplete_runs` flag controls whether the Watcher should store PipelineRuns, TaskRuns, and CustomRuns that are still in progress (i.e., not yet completed, cancelled or failed).

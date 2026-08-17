@@ -33,6 +33,7 @@ import (
 	pipelineruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/pipelinerun"
 	taskruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1/taskrun"
 	customruninformer "github.com/tektoncd/pipeline/pkg/client/injection/informers/pipeline/v1beta1/customrun"
+	"k8s.io/client-go/tools/cache"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 )
 
@@ -70,6 +71,8 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 		pipelineRunMetrics: pipelineRunMetrics,
 	}
 
+	managedByFilter := reconciler.PipelineRunFilterFunc(cfg.AllowedManagedByValues)
+
 	impl := pipelinerunreconciler.NewImpl(ctx, c, func(_ *controller.Impl) controller.Options {
 		return controller.Options{
 			// This results pipelinerun reconciler shouldn't mutate the pipelinerun's status.
@@ -78,12 +81,16 @@ func NewControllerWithConfig(ctx context.Context, resultsClient pb.ResultsClient
 			FinalizerName:                   "results.tekton.dev/pipelinerun",
 			UseServerSideApplyForFinalizers: true,
 			FinalizerFieldManager:           "tekton-results-watcher/finalizers",
+			PromoteFilterFunc:               managedByFilter,
 		}
 	})
 
-	_, err = pipelineRunInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	_, err = pipelineRunInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: managedByFilter,
+		Handler:    controller.HandleAll(impl.Enqueue),
+	})
 	if err != nil {
-		logger.Panicf("Couldn't register PipelineRun informer event handler: %w", err)
+		logger.Panicf("Couldn't register PipelineRun informer event handler: %v", err)
 	}
 
 	return impl

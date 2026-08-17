@@ -41,6 +41,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
@@ -83,6 +84,7 @@ var (
 	disableStoringIncompleteRuns = flag.Bool("disable_storing_incomplete_runs", false, "If enabled, Runs will not be stored until they are complete. If disabled, Runs will be initially stored upon creation and continuously upserted until after they're deleted")
 	storeDeadline                = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
 	forwardBuffer                = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
+	managedByValues              = flag.String("managed_by_values", "", "Comma-separated list of additional spec.managedBy values the watcher will process. Runs with unset, empty, whitespace-only or \"tekton.dev/pipeline\" managedBy values are always accepted.")
 )
 
 func main() {
@@ -136,9 +138,11 @@ func main() {
 		SummaryLabels:                *summaryLabels,
 		SummaryAnnotations:           *summaryAnnotations,
 		DisableStoringIncompleteRuns: *disableStoringIncompleteRuns,
+		AllowedManagedByValues:       reconciler.ParseManagedByValues(*managedByValues),
 	}
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
+	log.Printf("managed_by_values: %v", sets.List(cfg.AllowedManagedByValues))
 
 	if selector := *labelSelector; selector != "" {
 		if err := cfg.SetLabelSelector(selector); err != nil {
@@ -169,7 +173,8 @@ func main() {
 		k8scfg.Burst = *burst * len(ctors)
 	}
 
-	sharedmain.MainWithConfig(injection.WithNamespaceScope(ctx, *namespace), "watcher", k8scfg, ctors...,
+	sharedmain.MainWithConfig(
+		injection.WithNamespaceScope(ctx, *namespace), "watcher", k8scfg, ctors...,
 	)
 }
 
@@ -187,7 +192,8 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 	// Add in additional credentials to requests if desired.
 	switch authMode {
 	case "google":
-		opts = append(opts,
+		opts = append(
+			opts,
 			grpc.WithAuthority(apiAddr),
 			grpc.WithTransportCredentials(cred),
 			grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(creds.Google())),
@@ -199,7 +205,8 @@ func connectToAPIServer(ctx context.Context, apiAddr string, authMode string) (*
 		} else {
 			ts = transport.NewCachedFileTokenSource(podTokenPath)
 		}
-		opts = append(opts,
+		opts = append(
+			opts,
 			grpc.WithDefaultCallOptions(grpc.PerRPCCredentials(oauth.TokenSource{TokenSource: ts})),
 			grpc.WithTransportCredentials(cred),
 		)
