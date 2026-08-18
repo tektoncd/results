@@ -5,3 +5,4 @@ package plugin
 
 var MergeLogParts = mergeLogParts
 var GetLokiLogs = getLokiLogs
+var HTTPStatusToGRPCCode = httpStatusToGRPCCode
