@@ -1,0 +1,19 @@
+# Thin wrapper that delegates to the canonical zizmor workflow maintained
+# on the main branch. See
+# https://github.com/tektoncd/results/blob/main/.github/workflows/zizmor.yaml
+name: GitHub Actions Security Analysis with zizmor
+
+on:
+  push:
+    branches: ["release-v0.17.x"]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+jobs:
+  zizmor:
+    permissions:
+      contents: read
+      security-events: write
+    uses: tektoncd/results/.github/workflows/zizmor.yaml@main
