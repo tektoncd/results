@@ -1,56 +1,20 @@
 name: Go coverage
+# Thin wrapper that delegates to the canonical go-coverage workflow
+# maintained on the main branch. See
+# https://github.com/tektoncd/results/blob/main/.github/workflows/go-coverage.yml
 
 permissions:
   contents: read
 
 on:
   push:
-    branches: ["main"]
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
-defaults:
-  run:
-    shell: bash
+    branches: ["release-v0.20.x"]
+  workflow_dispatch: {}
 
 jobs:
   go-coverage:
     name: Go coverage
-    runs-on: ubuntu-24.04
     permissions:
+      contents: read
       id-token: write
-
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
-        with:
-          egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          path: ${{ github.workspace }}/src/github.com/tektoncd/results
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5  # v5.5.0
-        with:
-          go-version-file: "${{ github.workspace }}/src/github.com/tektoncd/results/go.mod"
-
-      - name: Generate coverage
-        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
-        run: |
-          go test ./... -coverprofile=coverage.out -covermode=atomic || true
-          echo "Generated coverage profile"
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
-        continue-on-error: true # job still "succeeds" even if this step fails
-        with:
-          files: ${{ github.workspace }}/src/github.com/tektoncd/results/coverage.out
-          flags: unit-tests
-          use_oidc: true
-          fail_ci_if_error: false
+    uses: tektoncd/results/.github/workflows/go-coverage.yml@main
