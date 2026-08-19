@@ -1,4 +1,7 @@
 name: Results CI Presubmit Tests
+# Thin wrapper that delegates to the canonical presubmit workflow
+# maintained on the main branch. See
+# https://github.com/tektoncd/results/blob/main/.github/workflows/presubmit-ci.yaml
 
 on:
   pull_request:
@@ -6,143 +9,28 @@ on:
       - main
       - release-*
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
-env:
-  SHELL: /bin/bash
-  GOPATH: ${{ github.workspace }}
-  GO111MODULE: on
-  KIND_CLUSTER_NAME: tekton-results
-
 jobs:
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          path: ${{ github.workspace }}/src/github.com/tektoncd/results
-          persist-credentials: false
+  presubmit:
+    permissions:
+      contents: read
+    uses: tektoncd/results/.github/workflows/presubmit-ci.yaml@main
+    with:
+      skip-ci-summary: true
 
-      - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          cache-dependency-path: src/github.com/tektoncd/results/go.sum
-          go-version-file: src/github.com/tektoncd/results/go.mod
-
-      - name: Install dependencies
-        run: |
-          go install github.com/jstemmer/go-junit-report@v0.9.1
-          mkdir -p "${ARTIFACTS:-/tmp/artifacts}"
-          echo "${GOPATH}/bin" >> "$GITHUB_PATH"
-
-      - name: Run Unit Tests
-        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
-        run: ./test/presubmit-tests.sh --unit-tests
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ github.workspace }}/src/github.com/tektoncd/results
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          cache-dependency-path: src/github.com/tektoncd/results/go.sum
-          go-version-file: src/github.com/tektoncd/results/go.mod
-
-      - name: Install dependencies (ko, kind, kubectl, go-junit-report)
-        run: |
-          echo '::group::install ko'
-          curl -L https://github.com/ko-build/ko/releases/download/v0.15.4/ko_0.15.4_Linux_x86_64.tar.gz | tar xzf - ko
-          chmod +x ./ko && sudo mv ko /usr/local/bin
-          echo '::endgroup::'
-
-          echo '::group::install kind'
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
-          chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
-          echo '::endgroup::'
-
-          echo '::group::install kubectl'
-          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
-          echo '::endgroup::'
-
-          echo '::group::install go-junit-report'
-          go install github.com/jstemmer/go-junit-report@v0.9.1
-          echo '::endgroup::'
-
-          mkdir -p "${ARTIFACTS:-/tmp/artifacts}"
-          echo "${GOPATH}/bin" >> "$GITHUB_PATH"
-
-      - name: Run Integration Tests
-        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
-        run: ./test/presubmit-tests.sh --integration-tests
-
-  build-tests:
-    name: Build Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          path: ${{ github.workspace }}/src/github.com/tektoncd/results
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
-        with:
-          cache-dependency-path: src/github.com/tektoncd/results/go.sum
-          go-version-file: src/github.com/tektoncd/results/go.mod
-
-      - name: Install dependencies (go-junit-report, go-licenses)
-        run: |
-          echo '::group::install go-junit-report'
-          go install github.com/jstemmer/go-junit-report@v0.9.1
-          echo '::endgroup::'
-
-          echo '::group::install go-licenses'
-          go install github.com/google/go-licenses@latest
-          echo '::endgroup::'
-
-          mkdir -p "${ARTIFACTS:-/tmp/artifacts}"
-          echo "${GOPATH}/bin" >> "$GITHUB_PATH"
-
-      - name: Run Build Tests
-        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
-        run: ./test/presubmit-tests.sh --build-tests
-
-  ci-summary:
+  CI-summary:
     name: CI summary
     if: always()
-    needs:
-      - unit-tests
-      - integration-tests
-      - build-tests
+    needs: [presubmit]
     runs-on: ubuntu-latest
     steps:
-      - name: Check job results
+      - name: Check result
         run: |
-          results=(${JOB_RESULTS})
-          for result in "${results[@]}"; do
-            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
-              echo "One or more jobs failed or were cancelled"
-              exit 1
-            fi
-          done
-          echo "All jobs passed or were skipped"
+          if [[ "$PRESUBMIT_RESULT" != "success" ]]; then
+            echo "Presubmit workflow failed"
+            exit 1
+          fi
         env:
-          JOB_RESULTS: ${{ join(needs.*.result, ' ') }}
-
-
+          PRESUBMIT_RESULT: ${{ needs.presubmit.result }}
