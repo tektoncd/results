@@ -196,7 +196,9 @@ func connectToAPIServer(apiAddr string, authMode string) (*grpc.ClientConn, erro
 	opts := []grpc.DialOption{
 		grpc.WithDefaultServiceConfig(defaultServiceConfig),
 		grpc.WithConnectParams(connectParams),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	}
+
 	// Add in additional credentials to requests if desired.
 	switch authMode {
 	case "google":
