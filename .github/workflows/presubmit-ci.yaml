@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - release-*
+  workflow_call: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -144,5 +145,3 @@ jobs:
           echo "All jobs passed or were skipped"
         env:
           JOB_RESULTS: ${{ join(needs.*.result, ' ') }}
-
-

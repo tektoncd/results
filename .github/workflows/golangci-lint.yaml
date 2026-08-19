@@ -4,6 +4,16 @@ on:  # yamllint disable-line rule:truthy
     branches:
       - main
   pull_request:  # yamllint disable-line rule:empty-values
+  workflow_call:
+    inputs:
+      base-ref:
+        description: >-
+          Base ref to diff against for --new-from-merge-base. github.base_ref
+          is only set for direct pull_request triggers and is empty inside a
+          called workflow, so callers invoking this via workflow_call from a
+          pull_request should pass their own github.base_ref here.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,4 +36,4 @@ jobs:
         with:
           install-mode: "goinstall" #This is a temporary workaround to unblock the CI. Should be removed after workflow is fixed
           version: v2.12.2
-          args: --new-from-merge-base=origin/${{ github.base_ref }} --timeout=10m
+          args: --new-from-merge-base=origin/${{ inputs['base-ref'] || github.base_ref }} --timeout=10m
