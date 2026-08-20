@@ -60,12 +60,9 @@ type config struct {
 //   - Config: A new Config instance if successful.
 //   - error: An error if any step in the configuration process fails.
 func NewConfig(p common.Params) (Config, error) {
-	kubeconfigPath := clientcmd.RecommendedHomeFile
-	if p.KubeConfigPath() != "" {
-		kubeconfigPath = p.KubeConfigPath()
-	}
-	// Load kubeConfig
-	cc := getRawKubeConfigLoader(kubeconfigPath)
+	// Load kubeConfig honoring the standard client-go precedence
+	// (--kubeconfig flag -> $KUBECONFIG -> ~/.kube/config).
+	cc := getRawKubeConfigLoader(p.KubeConfigPath())
 	ca := cc.ConfigAccess()
 	ac, err := cc.RawConfig()
 	if err != nil {
@@ -380,30 +377,51 @@ func (c *config) Host() string {
 	return url // Return the detected URL as default
 }
 
-// Token returns the bearer token from the REST configuration.
-// It returns an error if the REST configuration is not properly initialized.
+// Token returns the bearer token for the current kubeconfig context.
+//
+// If the context carries a static token it is returned directly. If the context
+// authenticates via an exec credential plugin (e.g. `oc get-token`) or a legacy
+// auth-provider, the plugin/provider is invoked to mint the token so it can be
+// forwarded to the Results API, matching oc/kubectl/tkn behavior. It returns an
+// error only if the REST configuration is not initialized or token resolution
+// fails.
 //
 // Returns:
-//   - any: The bearer token string if successful, or an error if the configuration is invalid.
+//   - any: The bearer token string if successful, an empty string if the
+//     context authenticates by non-token means, or an error on failure.
 func (c *config) Token() any {
 	if c.RESTConfig == nil {
 		return fmt.Errorf("REST configuration is not initialized")
 	}
-	return c.RESTConfig.BearerToken
+	token, err := resolveBearerToken(c.RESTConfig)
+	if err != nil {
+		return err
+	}
+	return token
 }
 
-// getRawKubeConfigLoader creates and returns a clientcmd.ClientConfig based on the provided kubeconfig path.
-// This function is equivalent to ToRawKubeConfigLoader() and is used to load the kubeconfig file.
+// getRawKubeConfigLoader creates and returns a clientcmd.ClientConfig using the
+// standard client-go loading rules. This function is equivalent to
+// ToRawKubeConfigLoader() and honors the usual kubeconfig precedence:
+// the --kubeconfig flag (explicitPath), then the $KUBECONFIG environment
+// variable (which may list multiple, colon-separated files that are merged),
+// and finally ~/.kube/config.
 //
 // Parameters:
-//   - kubeconfigPath: A string representing the path to the kubeconfig file.
+//   - explicitPath: An optional explicit kubeconfig path (e.g. from --kubeconfig).
+//     When empty, $KUBECONFIG / the default home file are used.
 //
 // Returns:
-//   - clientcmd.ClientConfig: A non-interactive deferred loading client configuration
-//     that uses the specified kubeconfig path and default overrides.
-func getRawKubeConfigLoader(kubeconfigPath string) clientcmd.ClientConfig {
-	// Set explicit path for kubeconfig
-	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+//   - clientcmd.ClientConfig: A non-interactive deferred loading client configuration.
+func getRawKubeConfigLoader(explicitPath string) clientcmd.ClientConfig {
+	// Use the default loading rules so that $KUBECONFIG is honored, matching
+	// the behavior of oc/kubectl/tkn and the rest of this package (see
+	// common.Params). An explicit --kubeconfig path, when provided, takes
+	// precedence over $KUBECONFIG.
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if explicitPath != "" {
+		loadingRules.ExplicitPath = explicitPath
+	}
 	configOverrides := &clientcmd.ConfigOverrides{}
 
 	// Return the clientcmd.ClientConfig (equivalent to ToRawKubeConfigLoader)
