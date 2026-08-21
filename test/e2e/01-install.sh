@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shellcheck disable=SC2181 # To ignore long command exit code check
-
 set -e
+
+MODE="${1:-standard}" # "standard" or "ha"
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
@@ -27,56 +27,39 @@ ROOT="$(git rev-parse --show-toplevel)"
 echo "Installing Tekton Pipelines..."
 TEKTON_PIPELINE_CONFIG=${TEKTON_PIPELINE_CONFIG:-"https://infra.tekton.dev/tekton-releases/pipeline/latest/release.yaml"}
 kubectl apply --filename "${TEKTON_PIPELINE_CONFIG}"
+kubectl wait --for=condition=ready pod -l app=tekton-pipelines-controller -n tekton-pipelines --timeout=120s
+kubectl wait --for=condition=ready pod -l app=tekton-pipelines-webhook -n tekton-pipelines --timeout=120s
 
 echo "Generating DB secret..."
 # Don't fail if the secret isn't created - this can happen if the secret already exists.
 kubectl create secret generic tekton-results-postgres --namespace="tekton-pipelines" --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 20)" || true
 
 echo "Generating TLS key pair..."
-set +e
 mkdir -p "${SSL_CERT_PATH}"
 
-SSL_INCLUDE_LOCALHOST=${SSL_INCLUDE_LOCALHOST:-"false"}
-altNames="DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-if [ "$SSL_INCLUDE_LOCALHOST" = "true" ] ; then
-    altNames+=",DNS:localhost"
+# The headless service SAN is only needed for the HA deployment, where the
+# watcher connects to the API via DNS-based load balancing over the headless
+# service. generate-tls-cert.sh includes it by default, so opt out for the
+# standard, single-replica install.
+if [ "$MODE" = "ha" ]; then
+    export EXTRA_SANS="DNS:tekton-results-api-service-headless.tekton-pipelines.svc.cluster.local"
+else
+    export EXTRA_SANS=""
 fi
+export OUTPUT_DIR="${SSL_CERT_PATH}"
+export CERT_FILE_NAME="tekton-results-cert.pem"
+export KEY_FILE_NAME="tekton-results-key.pem"
+"${ROOT}/config/components/horizontal-scaling/generate-tls-cert.sh"
 
-openssl req -x509 \
-        -newkey rsa:4096 \
-        -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
-        -out "${SSL_CERT_PATH}/tekton-results-cert.pem" \
-        -days 365 \
-        -nodes \
-        -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
-        -addext "subjectAltName = ${altNames}"
-
-if [ $? -ne 0 ] ; then
-    # LibreSSL didn't support the -addext flag until version 3.1.0 but
-    # version 2.8.3 ships with MacOS Big Sur. So let's try a different way...
-    echo "Falling back to legacy libressl cert generation"
-    openssl req -x509 \
-            -verbose \
-            -config <(cat /etc/ssl/openssl.cnf <(printf "[SAN]\nsubjectAltName = %s" ${altNames})) \
-            -extensions SAN \
-            -newkey rsa:4096 \
-            -keyout "${SSL_CERT_PATH}/tekton-results-key.pem" \
-            -out "${SSL_CERT_PATH}/tekton-results-cert.pem" \
-            -days 365 \
-            -nodes \
-            -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-
-    if [ $? -ne 0 ] ; then
-        echo "There was an error generating certificates"
-        exit 1
-    fi
+if [ "$MODE" = "ha" ]; then
+    echo "Installing Tekton Results with HA configuration..."
+    kustomize_dir="${ROOT}/test/e2e/kustomize-ha"
+else
+    echo "Installing Tekton Results..."
+    kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
-set -e
-kubectl create secret tls -n tekton-pipelines tekton-results-tls --cert="${SSL_CERT_PATH}/tekton-results-cert.pem" --key="${SSL_CERT_PATH}/tekton-results-key.pem" || true
-
-echo "Installing Tekton Results..."
 extra_ko_params="linux/$(go env GOARCH)"
-kubectl kustomize "${ROOT}/test/e2e/kustomize" | ko apply --platform="$extra_ko_params" -f -
+kubectl kustomize "${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
@@ -86,7 +69,23 @@ for service_account in "${service_accounts[@]}"; do
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
-echo "Waiting for deployments to be ready..."
-kubectl wait pod "tekton-results-postgres-0" --namespace="tekton-pipelines" --for="condition=Ready" --timeout="120s"
-kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
-kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+if [ "$MODE" = "ha" ]; then
+    echo "Waiting for Tekton Results pods..."
+    # The watcher and API run with multiple replicas in HA mode, so wait on
+    # the pod labels rather than a single Deployment/StatefulSet rollout.
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=tekton-results-api -n tekton-pipelines --timeout=300s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=tekton-results-watcher -n tekton-pipelines --timeout=300s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=tekton-results-postgres -n tekton-pipelines --timeout=120s
+
+    echo ""
+    echo "Installation complete!"
+    echo ""
+    kubectl get pods -n tekton-pipelines | grep tekton-results
+    echo ""
+    echo "Run E2E tests: go test -v --tags=e2e,e2e_ha -run TestHorizontalScaling ./test/e2e/..."
+else
+    echo "Waiting for deployments to be ready..."
+    kubectl wait pod "tekton-results-postgres-0" --namespace="tekton-pipelines" --for="condition=Ready" --timeout="120s"
+    kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+    kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+fi
