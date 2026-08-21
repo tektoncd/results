@@ -105,3 +105,14 @@ spec:
         - name: tls
           secret:
             secretName: tekton-results-tls
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: watcher-pdb
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tekton-results-watcher
