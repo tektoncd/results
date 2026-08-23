@@ -79,6 +79,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// profilingServerAddress returns the address to bind the profiling server to.
+// The profiling server is always bound to loopback (127.0.0.1) to prevent
+// unauthenticated access from outside the pod.
+func profilingServerAddress(port string) string {
+	return "127.0.0.1:" + port
+}
+
 func main() {
 	serverConfig := config.Get()
 
@@ -326,11 +333,12 @@ func main() {
 	// Allow service reflection - required for grpc_cli ls to work.
 	reflection.Register(gs)
 
-	// Enable profiling server
+	// Enable profiling server on loopback interface.
+	// Access it via `kubectl exec` or `kubectl port-forward`.
 	if serverConfig.PROFILING {
 		go func() {
-			log.Infof("Profiling server listening on: %s", serverConfig.PROFILING_PORT)
-			if err := http.ListenAndServe(":"+serverConfig.PROFILING_PORT, nil); err != nil {
+			log.Infof("Profiling server listening on: %s", profilingServerAddress(serverConfig.PROFILING_PORT))
+			if err := http.ListenAndServe(profilingServerAddress(serverConfig.PROFILING_PORT), nil); err != nil {
 				log.Fatalf("Error running Profiling server: %v", err)
 			}
 		}()

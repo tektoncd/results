@@ -683,9 +683,14 @@ curl -k https://localhost:8080/healthz?service=tekton.results.v1alpha2.Results
 
 ## Profiling
 
-The API Server includes an HTTP server for exposing golang's debug profiles. By default, the Service is disabled and exposes debug profiles on port `:6060`. For more
-details on the using the profiles, see
-<https://pkg.go.dev/net/http/pprof>.
+The API Server includes an HTTP server for exposing golang's debug profiles. By default, the service is disabled. When enabled via `PROFILING=true`, the profiling listener binds to `127.0.0.1:6060` (loopback only) and is not reachable from outside the pod. Access it using `kubectl exec` or `kubectl port-forward`, e.g.:
+
+```sh
+kubectl port-forward -n tekton-pipelines deploy/tekton-results-api 6060:6060
+curl http://localhost:6060/debug/pprof/heap > heap.out
+```
+
+For more details on using the profiles, see <https://pkg.go.dev/net/http/pprof>.
 
 
 ## References
