@@ -11,8 +11,8 @@
 | DB_SSLMODE               | Database SSL mode                                                                                                                 | verify-full                                                                                  |
 | DB_SSLROOTCERT           | Path to CA cert used to validate Database cert                                                                                    | /etc/tls/db/ca.crt                                                                           |
 | DB_ENABLE_AUTO_MIGRATION | Auto-migrate the database on startup (create/update schemas). For further details, refer to <https://gorm.io/docs/migration.html> | true (default)                                                                               |
-| PROFILING                | Enable profiling server                                                                                                           | false  (default)                                                                             |
-| PROFILING_PORT           | Profiling Server Port                                                                                                             | 6060  (default)                                                                              |
+| PROFILING                | Enable profiling server (bound to `127.0.0.1` only, not reachable from outside the pod)                                          | false  (default)                                                                             |
+| PROFILING_PORT           | Profiling Server Port (loopback-only)                                                                                            | 6060  (default)                                                                              |
 | DB_MAX_IDLE_CONNECTIONS  | The number of idle database connections to keep open                                                                              | 2 (default for golang, but specific database drivers may have settings for this too)         |
 | DB_MAX_OPEN_CONNECTIONS  | The maximum number of database connections, for best performance it should equal DB_MAX_IDLE_CONNECTIONS                          | unlimited (default for golang, but specific database drivers may have settings for this too) |
 | GRPC_WORKER_POOL         | The maximum number of goroutines pre-allocated for process GRPC requests. The GRPC server will also dynamically create threads.   | 2 (default)                                                                                  |
@@ -52,6 +52,15 @@ These values can also be set in the config file located in the `config/env/confi
 Values derived from Postgres DSN
 
 If you use the default postgres database we provide, the `DB_HOST` can be set as `tekton-results-postgres-service.tekton-pipelines`.
+
+## Profiling
+
+When `PROFILING=true`, the server exposes Go's `net/http/pprof` endpoints on `127.0.0.1:$PROFILING_PORT`. To access it, use `kubectl exec` or `kubectl port-forward` into the `api` pod, e.g.:
+
+```sh
+kubectl port-forward -n tekton-pipelines deploy/tekton-results-api 6060:6060
+curl http://localhost:6060/debug/pprof/heap > heap.out
+```
 
 ## TLS Configuration
 

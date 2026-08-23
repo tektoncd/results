@@ -67,3 +67,40 @@ func contextWithLogger(w io.Writer) context.Context {
 	logger := zap.New(zapcore.NewCore(encoder, writer, zapcore.DebugLevel))
 	return ctxzap.ToContext(context.Background(), logger)
 }
+
+func Test_profilingServerAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		port string
+		want string
+	}{
+		{
+			name: "default port",
+			port: "6060",
+			want: "127.0.0.1:6060",
+		},
+		{
+			name: "custom port",
+			port: "9999",
+			want: "127.0.0.1:9999",
+		},
+		{
+			name: "empty port",
+			port: "",
+			want: "127.0.0.1:",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := profilingServerAddress(tc.port)
+			if got != tc.want {
+				t.Errorf("profilingServerAddress(%q) = %q, want %q", tc.port, got, tc.want)
+			}
+			// Security check: verify the address is bound to loopback only
+			if !strings.HasPrefix(got, "127.0.0.1:") {
+				t.Errorf("profilingServerAddress(%q) = %q, must start with '127.0.0.1:' for security", tc.port, got)
+			}
+		})
+	}
+}
