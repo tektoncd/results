@@ -15,11 +15,11 @@
 # List of release branches to monitor (in addition to main branch)
 # These should be active release branches
 release-branches:
+  - release-v0.20.x
   - release-v0.19.x
   - release-v0.18.x
   - release-v0.17.x
   - release-v0.16.x
-  - release-v0.10.x
 # Package ecosystems to monitor
 # Each ecosystem will be configured for:
 # - main branch: all updates (major, minor, patch)
