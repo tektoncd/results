@@ -42,6 +42,50 @@ updates:
         semver-patch-days: 3
     - package-ecosystem: gomod
       directory: /
+      target-branch: release-v0.20.x
+      schedule:
+        interval: daily
+      labels:
+        - ok-to-test
+        - dependencies
+        - release-note-none
+        - kind/misc
+      ignore:
+        - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: '*'
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+      cooldown:
+        default-days: 7
+        semver-major-days: 30
+        semver-minor-days: 7
+        semver-patch-days: 3
+    - package-ecosystem: github-actions
+      directory: /
+      target-branch: release-v0.20.x
+      schedule:
+        interval: weekly
+      labels:
+        - ok-to-test
+        - dependencies
+        - release-note-none
+        - kind/misc
+      ignore:
+        - dependency-name: '*'
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+      cooldown:
+        default-days: 7
+        semver-major-days: 30
+        semver-minor-days: 7
+        semver-patch-days: 3
+    - package-ecosystem: gomod
+      directory: /
       target-branch: release-v0.19.x
       schedule:
         interval: daily
@@ -199,50 +243,6 @@ updates:
     - package-ecosystem: github-actions
       directory: /
       target-branch: release-v0.16.x
-      schedule:
-        interval: weekly
-      labels:
-        - ok-to-test
-        - dependencies
-        - release-note-none
-        - kind/misc
-      ignore:
-        - dependency-name: '*'
-          update-types:
-            - version-update:semver-major
-            - version-update:semver-minor
-      cooldown:
-        default-days: 7
-        semver-major-days: 30
-        semver-minor-days: 7
-        semver-patch-days: 3
-    - package-ecosystem: gomod
-      directory: /
-      target-branch: release-v0.10.x
-      schedule:
-        interval: daily
-      labels:
-        - ok-to-test
-        - dependencies
-        - release-note-none
-        - kind/misc
-      ignore:
-        - dependency-name: k8s.io/*
-          update-types:
-            - version-update:semver-major
-            - version-update:semver-minor
-        - dependency-name: '*'
-          update-types:
-            - version-update:semver-major
-            - version-update:semver-minor
-      cooldown:
-        default-days: 7
-        semver-major-days: 30
-        semver-minor-days: 7
-        semver-patch-days: 3
-    - package-ecosystem: github-actions
-      directory: /
-      target-branch: release-v0.10.x
       schedule:
         interval: weekly
       labels:
