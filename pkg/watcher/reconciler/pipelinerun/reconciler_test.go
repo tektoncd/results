@@ -459,6 +459,167 @@ func TestFinalize(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "required annotations not ready - requeue",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				StoreDeadline:            &storeDeadline,
+				FinalizerRequeueInterval: finalizerRequeueInterval,
+				RequiredAnnotations:      map[string]reconciler.AnnotationRequirement{"hub.example.com/scheduled": {ExactMatch: true, Value: "true"}},
+			},
+			want: controller.NewRequeueAfter(finalizerRequeueInterval),
+		},
+		{
+			name: "required annotations all satisfied - allow finalization",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored:    "true",
+						"hub.example.com/scheduled": "true",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				StoreDeadline:            &storeDeadline,
+				FinalizerRequeueInterval: finalizerRequeueInterval,
+				RequiredAnnotations:      map[string]reconciler.AnnotationRequirement{"hub.example.com/scheduled": {ExactMatch: true, Value: "true"}},
+			},
+			want: nil,
+		},
+		{
+			name: "multiple required annotations - one missing - requeue",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored:    "true",
+						"hub.example.com/scheduled": "true",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				StoreDeadline:            &storeDeadline,
+				FinalizerRequeueInterval: finalizerRequeueInterval,
+				RequiredAnnotations: map[string]reconciler.AnnotationRequirement{
+					"hub.example.com/scheduled": {ExactMatch: true, Value: "true"},
+					"syncer.example.com/synced": {ExactMatch: true, Value: "true"},
+				},
+			},
+			want: controller.NewRequeueAfter(finalizerRequeueInterval),
+		},
+		{
+			name: "required annotation present but wrong value - requeue",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored:    "true",
+						"hub.example.com/scheduled": "false",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				StoreDeadline:            &storeDeadline,
+				FinalizerRequeueInterval: finalizerRequeueInterval,
+				RequiredAnnotations:      map[string]reconciler.AnnotationRequirement{"hub.example.com/scheduled": {ExactMatch: true, Value: "true"}},
+			},
+			want: controller.NewRequeueAfter(finalizerRequeueInterval),
+		},
+		{
+			name: "store deadline passed - required annotations ignored",
+			pr: &pipelinev1.PipelineRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "test-ns",
+					Annotations: map[string]string{
+						resultsannotation.Stored: "true",
+					},
+				},
+				Status: pipelinev1.PipelineRunStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{
+							apis.Condition{
+								Type:   apis.ConditionSucceeded,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+						CompletionTime: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
+					},
+				},
+			},
+			cfg: &reconciler.Config{
+				StoreDeadline:            &storeDeadline,
+				FinalizerRequeueInterval: finalizerRequeueInterval,
+				RequiredAnnotations:      map[string]reconciler.AnnotationRequirement{"hub.example.com/scheduled": {ExactMatch: true, Value: "true"}},
+			},
+			want: nil,
+		},
+		{
 			name: "verify finalizer requeue interval",
 			pr: &pipelinev1.PipelineRun{
 				ObjectMeta: metav1.ObjectMeta{
