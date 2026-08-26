@@ -85,6 +85,7 @@ var (
 	storeDeadline                = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
 	forwardBuffer                = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
 	managedByValues              = flag.String("managed_by_values", "", "Comma-separated list of additional spec.managedBy values the watcher will process. Runs with unset, empty, whitespace-only or \"tekton.dev/pipeline\" managedBy values are always accepted.")
+	requiredAnnotations          = newAnnotationFlag("required_annotation", "Repeatable flag. Use \"key=value\" to require an exact match, or just \"key\" to require existence of the annotation regardless of its value. The stored annotation is always implicitly required.")
 )
 
 func main() {
@@ -139,6 +140,7 @@ func main() {
 		SummaryAnnotations:           *summaryAnnotations,
 		DisableStoringIncompleteRuns: *disableStoringIncompleteRuns,
 		AllowedManagedByValues:       reconciler.ParseManagedByValues(*managedByValues),
+		RequiredAnnotations:          map[string]reconciler.AnnotationRequirement(*requiredAnnotations),
 	}
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
@@ -245,4 +247,10 @@ func loadCerts() (*x509.CertPool, error) {
 		return nil, fmt.Errorf("unable to add cert to pool")
 	}
 	return certs, nil
+}
+
+func newAnnotationFlag(name, usage string) *reconciler.AnnotationFlag {
+	f := &reconciler.AnnotationFlag{}
+	flag.Var(f, name, usage)
+	return f
 }

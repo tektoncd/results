@@ -16,10 +16,13 @@
 package reconciler
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // Config defines shared reconciler configuration options.
@@ -83,6 +86,23 @@ type Config struct {
 	// included. Runs with nil or empty managedBy are also always accepted.
 	// This set must not be mutated after initialization to avoid data races.
 	AllowedManagedByValues sets.Set[string]
+
+	// RequiredAnnotations maps annotation keys to their requirements.
+	// Every listed annotation must be present before the watcher clears its
+	// finalizer. If the requirement specifies ExactMatch=true, the value must
+	// also match. The stored annotation (results.tekton.dev/stored) is always
+	// implicitly required and does not need to be listed. When nil/empty,
+	// only the stored annotation is checked (existing behavior).
+	RequiredAnnotations map[string]AnnotationRequirement
+}
+
+// AnnotationRequirement defines the condition an annotation must meet.
+type AnnotationRequirement struct {
+	// ExactMatch indicates if the annotation's value must exactly match Value.
+	// If false, only the existence of the annotation key is checked.
+	ExactMatch bool
+	// Value is the expected value of the annotation when ExactMatch is true.
+	Value string
 }
 
 // GetDisableAnnotationUpdate returns whether annotation updates should be
@@ -128,4 +148,74 @@ func (c *Config) SetLabelSelector(selector string) error {
 	}
 	c.labelSelector = parsedSelector
 	return nil
+}
+
+// AnnotationFlag implements flag.Value for a repeatable --required_annotation
+// flag. Each invocation adds one entry to the map.
+type AnnotationFlag map[string]AnnotationRequirement
+
+// String returns a display representation used by flag --help.
+func (f *AnnotationFlag) String() string {
+	if f == nil || len(*f) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(*f))
+	for k, req := range *f {
+		if req.ExactMatch {
+			parts = append(parts, k+"="+req.Value)
+		} else {
+			parts = append(parts, k)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// Set is called once per --required_annotation occurrence. It splits the
+// value on the first "=" to extract the annotation key and expected value.
+// If no "=" is present, it registers an existence-only requirement.
+func (f *AnnotationFlag) Set(val string) error {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return fmt.Errorf("invalid annotation: cannot be empty")
+	}
+	idx := strings.Index(val, "=")
+	key := val
+	if idx == 0 {
+		return fmt.Errorf(`invalid annotation %q, key cannot be empty`, val)
+	}
+	if idx > 0 {
+		key = val[:idx]
+	}
+	if errs := validation.IsQualifiedName(key); len(errs) > 0 {
+		return fmt.Errorf("invalid annotation key %q: %s", key, strings.Join(errs, ", "))
+	}
+	if *f == nil {
+		*f = make(map[string]AnnotationRequirement)
+	}
+	if idx < 0 {
+		(*f)[key] = AnnotationRequirement{ExactMatch: false}
+	} else {
+		(*f)[key] = AnnotationRequirement{ExactMatch: true, Value: val[idx+1:]}
+	}
+	return nil
+}
+
+// AreRequiredAnnotationsReady checks whether every required annotation is
+// present and meets its requirement (existence or exact value). Returns the
+// key of the first unsatisfied annotation and false, or "" and true when all
+// are satisfied.
+func (c *Config) AreRequiredAnnotationsReady(annotations map[string]string) (missingKey string, ready bool) {
+	if c == nil || len(c.RequiredAnnotations) == 0 {
+		return "", true
+	}
+	for key, req := range c.RequiredAnnotations {
+		val, exists := annotations[key]
+		if !exists {
+			return key, false
+		}
+		if req.ExactMatch && val != req.Value {
+			return key, false
+		}
+	}
+	return "", true
 }
