@@ -1,0 +1,47 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: sample-build-build-container
+  namespace: sample-ns
+  labels:
+    tekton.dev/pipeline: docker-build
+    tekton.dev/pipelineTask: build-container
+    appstudio.openshift.io/application: sample-app
+    appstudio.openshift.io/component: sample-component
+spec:
+  params:
+    - name: IMAGE
+      value: quay.example.test/org/sample-component:latest
+  taskRef:
+    resolver: bundles
+    params:
+      - name: name
+        value: buildah
+      - name: bundle
+        value: quay.example.test/konflux-ci/tekton-catalog/task-buildah:latest
+      - name: kind
+        value: task
+  serviceAccountName: appstudio-pipeline
+  timeout: 1h0m0s
+status:
+  startTime: "2026-01-01T00:02:00Z"
+  completionTime: "2026-01-01T00:10:00Z"
+  conditions:
+    - type: Succeeded
+      status: "True"
+      reason: Succeeded
+      message: All Steps have completed executing
+      lastTransitionTime: "2026-01-01T00:10:00Z"
+  podName: sample-build-build-container-pod
+  steps:
+    - name: build
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-01-01T00:02:10Z"
+        finishedAt: "2026-01-01T00:09:50Z"
+  results:
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_URL
+      value: quay.example.test/org/sample-component:latest

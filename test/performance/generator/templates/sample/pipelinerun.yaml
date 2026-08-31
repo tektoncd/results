@@ -1,0 +1,92 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: sample-build
+  namespace: sample-ns
+  labels:
+    tekton.dev/pipeline: docker-build
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/branch: main
+    appstudio.openshift.io/application: sample-app
+    appstudio.openshift.io/component: sample-component
+  annotations:
+    pipelinesascode.tekton.dev/repo-url: https://example.test/org/repo
+    results.tekton.dev/resultAnnotations: '{"repo":"sample"}'
+    results.tekton.dev/recordSummaryAnnotations: '{"component":"sample-component"}'
+spec:
+  params:
+    - name: git-url
+      value: https://example.test/org/repo
+    - name: revision
+      value: 0000000000000000000000000000000000000000
+    - name: output-image
+      value: quay.example.test/org/sample-component:latest
+  pipelineRef:
+    resolver: bundles
+    params:
+      - name: name
+        value: docker-build
+      - name: bundle
+        value: quay.example.test/konflux-ci/tekton-catalog/pipeline-docker-build:latest
+      - name: kind
+        value: pipeline
+  taskRunTemplate:
+    serviceAccountName: appstudio-pipeline
+  timeouts:
+    pipeline: 1h0m0s
+status:
+  startTime: "2026-01-01T00:00:00Z"
+  completionTime: "2026-01-01T00:12:00Z"
+  conditions:
+    - type: Succeeded
+      status: "True"
+      reason: Succeeded
+      message: "Tasks Completed: 4 (Failed: 0, Cancelled 0), Skipped: 0"
+      lastTransitionTime: "2026-01-01T00:12:00Z"
+  pipelineSpec:
+    params:
+      - name: git-url
+        type: string
+      - name: revision
+        type: string
+      - name: output-image
+        type: string
+    tasks:
+      - name: clone-repository
+        taskRef:
+          resolver: bundles
+      - name: build-container
+        taskRef:
+          resolver: bundles
+      - name: run-tests
+        taskRef:
+          resolver: bundles
+      - name: push-image
+        taskRef:
+          resolver: bundles
+  results:
+    - name: IMAGE_URL
+      value: quay.example.test/org/sample-component:latest
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: CHAINS-GIT_URL
+      value: https://example.test/org/repo
+    - name: CHAINS-GIT_COMMIT
+      value: "0000000000000000000000000000000000000000"
+  childReferences:
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: sample-build-clone-repository
+      pipelineTaskName: clone-repository
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: sample-build-build-container
+      pipelineTaskName: build-container
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: sample-build-run-tests
+      pipelineTaskName: run-tests
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: sample-build-push-image
+      pipelineTaskName: push-image
