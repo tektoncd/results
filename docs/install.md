@@ -33,6 +33,8 @@ want to use an external database, please refer [this page](./external-database.m
    Tekton Results expects the cert/key pair to be stored in a
    [TLS Kubernetes Secret](https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets) named `tekton-results-tls`.
 
+   **For standard deployments** (single replica):
+
    - Generate new self-signed cert
 
    ```sh
@@ -49,6 +51,33 @@ want to use an external database, please refer [this page](./external-database.m
    - Create new TLS Secret from cert.
 
    ```sh
+   kubectl create secret tls -n tekton-pipelines tekton-results-tls \
+   --cert=cert.pem \
+   --key=key.pem
+   ```
+
+   **For horizontal scaling deployments** (multiple replicas with headless service):
+
+   If you plan to use the horizontal-scaling component,
+   the certificate must include both the regular service and the headless service in the Subject Alternative Names.
+   Use the provided helper script:
+
+   ```sh
+   ./config/components/horizontal-scaling/generate-tls-cert.sh
+   ```
+
+   Or generate manually with both service names:
+
+   ```sh
+   openssl req -x509 \
+   -newkey rsa:4096 \
+   -keyout key.pem \
+   -out cert.pem \
+   -days 365 \
+   -nodes \
+   -subj "/CN=tekton-results-api-service.tekton-pipelines.svc.cluster.local" \
+   -addext "subjectAltName = DNS:tekton-results-api-service.tekton-pipelines.svc.cluster.local,DNS:tekton-results-api-service-headless.tekton-pipelines.svc.cluster.local"
+
    kubectl create secret tls -n tekton-pipelines tekton-results-tls \
    --cert=cert.pem \
    --key=key.pem

@@ -55,6 +55,9 @@ All components are installed to the current kubectl context
 This can safely be ran multiple times, and should be ran anytime a change is
 made to Results components.
 
+Accepts an optional mode argument: `./01-install.sh` (standard, default) or
+`./01-install.sh ha` (horizontal scaling configuration, see below).
+
 | Environment variable   | Description                                                                   | Default                                                                     |
 | ---------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | KO_DOCKER_REPO         | Docker repository to use for ko                                               | kind.local                                                                  |
@@ -71,3 +74,73 @@ Once you have configured your local client, you can run the tests by running:
 ```sh
 $ go test --tags=e2e .
 ```
+### HA E2E Tests
+
+The E2E test suite verifies the three correctness guarantees using a real Kubernetes cluster with the HA configuration deployed.
+
+**Test file:** `test/e2e/e2e_ha_test.go`
+**Prerequisites:**
+1. HA configuration deployed via `test/e2e/01-install.sh ha`
+2. Tekton Pipelines installed
+3. Service account tokens extracted for API authentication
+
+**Run tests:**
+
+```bash
+cd test/e2e
+./01-install.sh ha
+go test -v --tags=e2e,e2e_ha -run TestHorizontalScaling .
+```
+
+### Test Structure
+
+**TestHorizontalScaling** contains four subtests:
+
+**1. VerifyPods** (precondition)
+
+Polls pod status and asserts:
+- 3 API pods are Ready
+- 3 watcher pods are Ready
+- 1 Postgres pod is Ready
+
+Fails fast if the deployment is unhealthy.
+
+**2. NoDuplicates**
+
+Creates 9 TaskRuns and waits for Result/Record annotations.
+
+**API-side check:**
+
+For each TaskRun's Result, calls ListRecords and counts TaskRun-type records (filters by `Data.Type` to exclude log/event records). Asserts exactly 1 TaskRun record per Result.
+
+**Watcher-side check:**
+
+Reads logs from all watcher pods via Kubernetes Logs API. Searches for log entries containing `"knative.dev/key":"default/<taskrun-name>"`. Asserts each TaskRun appears in exactly one watcher's logs, 
+proving bucket sharding worked.
+
+**3. NoLostRequests**
+
+**Count invariant:**
+
+Lists all records via `ListRecords(parent: "default/results/-")` with pagination. Counts records matching TaskRuns from the test. Asserts exactly 9 records found.
+
+**Individual retrieval:**
+
+For each TaskRun, calls GetRecord using the record name from the annotation. Asserts every call succeeds, proving records are persisted and retrievable.
+
+**Data integrity:**
+
+For each Record, unmarshals the `data` field to a TaskRun and verifies the `Name` field matches the expected TaskRun name. Catches corruption during concurrent writes.
+
+**4. APIDistribution**
+
+Reads logs from all API pods via Kubernetes Logs API. Counts log lines containing `"grpc.method"` per pod. Asserts at least 2 of 3 API pods received gRPC requests.
+  
+Prints per-pod request counts for debugging:
+
+```
+API pod tekton-results-api-abc123: 15 requests
+API pod tekton-results-api-def456: 12 requests
+API pod tekton-results-api-ghi789: 14 requests
+```
+
