@@ -88,6 +88,7 @@ func New(cfg Config, ts *TemplateSet) (*Generator, error) {
 			return nil, err
 		}
 	}
+	fmt.Println("Creating generator...")
 	return &Generator{cfg: cfg, ts: ts}, nil
 }
 

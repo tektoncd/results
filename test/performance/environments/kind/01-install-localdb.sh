@@ -39,13 +39,13 @@ kubectl create configmap postgres-tuning \
     --from-file=postgresql.conf="${HERE}/postgresql.conf" \
     --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl patch statefulset postgres \
+kubectl patch statefulset tekton-results-postgres \
     --namespace="${NAMESPACE}" \
     --type=strategic \
     --patch-file "${HERE}/postgres-patch.yaml"
 
 echo "Waiting for Postgres to roll out with tuning applied..."
-kubectl rollout status statefulset/postgres --namespace="${NAMESPACE}" --timeout=180s
+kubectl rollout status statefulset/tekton-results-postgres --namespace="${NAMESPACE}" --timeout=180s
 kubectl wait deployment tekton-results-api --namespace="${NAMESPACE}" --for=condition=available --timeout=120s
 
 cat <<EOF

@@ -38,7 +38,7 @@ func loadSeed(ctx context.Context, gc pb.ResultsClient, cfg *RunConfig) (*metric
 	if err != nil {
 		return nil, nil, fmt.Errorf("computing dataset definition: %w", err)
 	}
-
+	fmt.Println("Running workers...")
 	m := runIndexed(ctx, cfg.Concurrency, 0, cfg.Count, func(ctx context.Context, index int, m *metrics.MetricSet) {
 		inst, err := g.At(index)
 		if err != nil {

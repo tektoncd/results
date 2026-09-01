@@ -197,11 +197,13 @@ func newLoadCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			fmt.Println("Loading seed...")
 			m, def, err := loadSeed(ctx, clients.GRPC, cfg)
 			if err != nil {
 				return err
 			}
 			if verify {
+				fmt.Println("Verifying seed...")
 				if err := verifySeed(ctx, grpcLister{c: clients.GRPC}, def); err != nil {
 					return fmt.Errorf("seed verification failed: %w", err)
 				}

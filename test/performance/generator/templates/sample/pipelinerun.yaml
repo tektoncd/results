@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   name: sample-build
-  namespace: sample-ns
+  namespace: default
   labels:
     tekton.dev/pipeline: docker-build
     pipelinesascode.tekton.dev/event-type: push

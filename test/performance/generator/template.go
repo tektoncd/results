@@ -132,6 +132,7 @@ func LoadTemplates(fsys fs.FS, root string) (*TemplateSet, error) {
 			continue
 		}
 		dir := path.Join(root, e.Name())
+		fmt.Println(fmt.Sprintf("Loading template %q from %s...", e.Name(), dir))
 		t, err := loadTemplate(fsys, dir, e.Name())
 		if err != nil {
 			return nil, err

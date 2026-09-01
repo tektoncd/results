@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: TaskRun
 metadata:
   name: sample-build-build-container
-  namespace: sample-ns
+  namespace: default
   labels:
     tekton.dev/pipeline: docker-build
     tekton.dev/pipelineTask: build-container
