@@ -17,7 +17,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres
+  name: tekton-results-postgres
 spec:
   template:
     spec:
