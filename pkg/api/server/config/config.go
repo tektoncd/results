@@ -47,8 +47,12 @@ type Config struct {
 	GCS_BUCKET_NAME       string `mapstructure:"GCS_BUCKET_NAME"`
 	STORAGE_EMULATOR_HOST string `mapstructure:"STORAGE_EMULATOR_HOST"`
 
-	S3_BUCKET_NAME        string `mapstructure:"S3_BUCKET_NAME"`
-	S3_ENDPOINT           string `mapstructure:"S3_ENDPOINT"`
+	S3_BUCKET_NAME string `mapstructure:"S3_BUCKET_NAME"`
+	S3_ENDPOINT    string `mapstructure:"S3_ENDPOINT"`
+	// S3_HOSTNAME_IMMUTABLE is deprecated and ignored: the S3 client always
+	// uses UsePathStyle, under which the bucket is placed in the request
+	// path regardless of this setting. Kept only so existing deployments
+	// that set it do not fail to parse their config.
 	S3_HOSTNAME_IMMUTABLE bool   `mapstructure:"S3_HOSTNAME_IMMUTABLE"`
 	S3_REGION             string `mapstructure:"S3_REGION"`
 	S3_ACCESS_KEY_ID      string `mapstructure:"S3_ACCESS_KEY_ID"`
