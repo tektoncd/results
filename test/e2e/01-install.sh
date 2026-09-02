@@ -18,9 +18,11 @@
 set -e
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
-export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
 export SA_TOKEN_PATH=${SA_TOKEN_PATH:-"/tmp/tekton-results/tokens"}
 export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
+export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
+
+
 
 ROOT="$(git rev-parse --show-toplevel)"
 
@@ -90,3 +92,4 @@ echo "Waiting for deployments to be ready..."
 kubectl wait pod "tekton-results-postgres-0" --namespace="tekton-pipelines" --for="condition=Ready" --timeout="120s"
 kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
 kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+kubectl get events -n tekton-pipelines
