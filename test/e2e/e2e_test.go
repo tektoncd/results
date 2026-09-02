@@ -19,102 +19,45 @@ package e2e
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"strings"
-	"testing"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/tektoncd/results/test/e2e/client"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/transport"
-
-	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
-	"knative.dev/pkg/apis"
-
-	"time"
-
 	"os"
 	"path"
+	"strings"
+	"testing"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	tektonv1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	tektonv1client "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
+	resultsv1alpha2 "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
+	"github.com/tektoncd/results/test/e2e/client"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/transport"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/yaml"
 )
 
 const (
-	defaultServerName                           = "tekton-results-api-service.tekton-pipelines.svc.cluster.local"
-	defaultServerAddress                        = "https://localhost:8080"
-	defaultCertFileName                         = "tekton-results-cert.pem"
-	allNamespacesReadAccessTokenFileName        = "all-namespaces-read-access"
-	singleNamespaceReadAccessTokenFileName      = "single-namespace-read-access"
-	allNamespacesAdminAccessTokenFileName       = "all-namespaces-admin-access"
-	allNamespacesImpersonateAccessTokenFileName = "all-namespaces-impersonate-access"
-	defaultCertPath                             = "/tmp/tekton-results/ssl"
-	defaultTokenPath                            = "/tmp/tekton-results/tokens"
-	defaultNamespace                            = "default"
+	allNamespacesReadAccessToken        = "all-namespaces-read-access"
+	singleNamespaceReadAccessToken      = "single-namespace-read-access"
+	allNamespacesAdminAccessToken       = "all-namespaces-admin-access"
+	allNamespacesImpersonateAccessToken = "all-namespaces-impersonate-access"
+	defaultNamespace                    = "default"
 )
 
-var (
-	allNamespacesReadAccessTokenFile,
-	singleNamespaceReadAccessTokenFile,
-	allNamespacesAdminAccessTokenFile,
-	allNamespacesImpersonateAccessTokenFile,
-	certFile string
-	serverName    string
-	serverAddress string
-)
-
-//lint:ignore SA1019
-
-func init() {
-	certPath := os.Getenv("SSL_CERT_PATH")
-	if len(certPath) == 0 {
-		certPath = defaultCertPath
-	}
-
-	certFileName := os.Getenv("CERT_FILE_NAME")
-	if len(certFileName) == 0 {
-		certFileName = defaultCertFileName
-	}
-	certFile = path.Join(certPath, certFileName)
-
-	tokenPath := os.Getenv("SA_TOKEN_PATH")
-	if len(tokenPath) == 0 {
-		tokenPath = defaultTokenPath
-	}
-
-	apiServerName := os.Getenv("API_SERVER_NAME")
-	if len(apiServerName) == 0 {
-		apiServerName = defaultServerName
-	}
-	serverName = apiServerName
-
-	apiServerAddress := os.Getenv("API_SERVER_ADDR")
-	if len(apiServerAddress) == 0 {
-		apiServerAddress = defaultServerAddress
-	}
-	serverAddress = apiServerAddress
-
-	allNamespacesReadAccessTokenFile = path.Join(tokenPath, allNamespacesReadAccessTokenFileName)
-	singleNamespaceReadAccessTokenFile = path.Join(tokenPath, singleNamespaceReadAccessTokenFileName)
-	allNamespacesAdminAccessTokenFile = path.Join(tokenPath, allNamespacesAdminAccessTokenFileName)
-	allNamespacesImpersonateAccessTokenFile = path.Join(tokenPath, allNamespacesImpersonateAccessTokenFileName)
-}
+var envCfg = client.NewEnvConfig()
 
 func TestTaskRun(t *testing.T) {
 	ctx := context.Background()
@@ -137,7 +80,7 @@ func TestTaskRun(t *testing.T) {
 		t.Fatalf("Error creating TaskRun: %v", err)
 	}
 
-	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	var resName, recName, eventName string
 
@@ -228,7 +171,7 @@ func TestPipelineRun(t *testing.T) {
 		t.Fatalf("Error creating PipelineRun: %v", err)
 	}
 
-	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	var resName, recName, eventName string
 
@@ -372,57 +315,17 @@ func tektonClient(t *testing.T) *tektonv1client.TektonV1Client {
 	return tektonv1client.NewForConfigOrDie(clientConfig(t))
 }
 
-func resultsClient(t *testing.T, tokenFile string, impersonationConfig *transport.ImpersonationConfig) (client.GRPCClient, client.RESTClient) {
+func resultsClient(t *testing.T, tokenFileName string, impersonationConfig *transport.ImpersonationConfig) (client.GRPCClient, client.RESTClient) {
 	t.Helper()
 
-	if impersonationConfig == nil {
-		impersonationConfig = &transport.ImpersonationConfig{}
-	}
-
-	var tlsConfig transport.TLSConfig
-	transportCredentials, err := credentials.NewClientTLSFromFile(certFile, serverName)
-	if err != nil {
-		t.Logf("TLS certificate verification will be skipped, error creating client TLS: %v", err)
-		transportCredentials = credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
-		tlsConfig = transport.TLSConfig{Insecure: true}
-	} else {
-		tlsConfig = transport.TLSConfig{
-			CAFile:     certFile,
-			ServerName: serverName,
-		}
-	}
-
-	callOptions := []grpc.CallOption{
-		grpc.PerRPCCredentials(&client.CustomCredentials{
-			TokenSource:         transport.NewCachedFileTokenSource(tokenFile),
-			ImpersonationConfig: impersonationConfig,
-		}),
-	}
-
-	grpcOptions := []grpc.DialOption{
-		grpc.WithBlock(), //nolint:staticcheck
-		grpc.WithDefaultCallOptions(callOptions...),
-		grpc.WithTransportCredentials(transportCredentials),
-	}
-
-	grpcClient, err := client.NewGRPCClient(serverAddress, grpcOptions...)
+	grpcClient, err := client.NewGRPCClientFromConfig(envCfg, tokenFileName, impersonationConfig)
 	if err != nil {
 		t.Fatalf("Error creating gRPC client: %v", err)
 	}
 
-	restConfig := &transport.Config{
-		TLS:             tlsConfig,
-		BearerTokenFile: tokenFile,
-		Impersonate:     *impersonationConfig,
-	}
-
-	restOptions := []client.RestOption{
-		client.WithConfig(restConfig),
-	}
-
-	restClient, err := client.NewRESTClient(serverAddress, restOptions...)
+	restClient, err := client.NewRESTClientFromConfig(envCfg, tokenFileName, impersonationConfig)
 	if err != nil {
-		t.Fatalf("Error creating REST request: %v", err)
+		t.Fatalf("Error creating REST client: %v", err)
 	}
 
 	return grpcClient, restClient
@@ -439,7 +342,7 @@ func TestGRPCLogging(t *testing.T) {
 
 	matcher := "\"grpc.method\":\"ListResults\""
 
-	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	t.Run("log entry is found when not expected", func(t *testing.T) {
 		resultsAPILogs, err := getResultsAPILogs(ctx, &podLogOptions, t)
@@ -514,7 +417,7 @@ func TestListResults(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list results under the default parent", func(t *testing.T) {
-		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
@@ -527,7 +430,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("list results across parents", func(t *testing.T) {
-		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 		// For the purposes of this test suite, listing results under
 		// the `default` parent or using the `-` symbol must return the
@@ -556,7 +459,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, singleNamespaceReadAccessToken, nil)
 		_, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
@@ -568,7 +471,7 @@ func TestListResults(t *testing.T) {
 	})
 
 	t.Run("list results under the default parent using the identity with more limited access", func(t *testing.T) {
-		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, singleNamespaceReadAccessToken, nil)
 		res, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 		if err != nil {
 			t.Fatal(err)
@@ -581,7 +484,7 @@ func TestListResults(t *testing.T) {
 
 	t.Run("grpc and rest consistency", func(t *testing.T) {
 		parent := "default"
-		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, rc := resultsClient(t, allNamespacesReadAccessToken, nil)
 		want, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Results: %v", err)
@@ -602,7 +505,7 @@ func TestListRecords(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("list records by omitting the result name", func(t *testing.T) {
-		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 		res, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
@@ -614,7 +517,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("list records by omitting the parent and result names", func(t *testing.T) {
-		gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 		// For the purposes of this test suite, listing records under
 		// the `default/results/-` result or using the `-/results/-`
@@ -644,7 +547,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("return an error because the identity isn't authorized to access all namespaces", func(t *testing.T) {
-		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, singleNamespaceReadAccessToken, nil)
 		_, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "-/results/-"})
 		if err == nil {
 			t.Fatal("Want an unauthenticated error, but the request succeeded")
@@ -655,7 +558,7 @@ func TestListRecords(t *testing.T) {
 	})
 
 	t.Run("list records using the identity with more limited access", func(t *testing.T) {
-		gc, _ := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+		gc, _ := resultsClient(t, singleNamespaceReadAccessToken, nil)
 		resp, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 		if err != nil {
 			t.Fatal(err)
@@ -667,7 +570,7 @@ func TestListRecords(t *testing.T) {
 
 	t.Run("grpc and rest consistency", func(t *testing.T) {
 		parent := "default/results/-"
-		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, rc := resultsClient(t, allNamespacesReadAccessToken, nil)
 		want, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: parent})
 		if err != nil {
 			t.Fatalf("Error listing Records: %v", err)
@@ -686,7 +589,7 @@ func TestListRecords(t *testing.T) {
 
 func TestGetResult(t *testing.T) {
 	ctx := context.Background()
-	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, rc := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 	if err != nil {
@@ -723,7 +626,7 @@ func TestGetResult(t *testing.T) {
 
 func TestGetRecord(t *testing.T) {
 	ctx := context.Background()
-	gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, rc := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 	if err != nil {
@@ -761,7 +664,7 @@ func TestGetRecord(t *testing.T) {
 
 func TestDeleteRecord(t *testing.T) {
 	ctx := context.Background()
-	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
+	gc, rc := resultsClient(t, allNamespacesAdminAccessToken, nil)
 
 	list, err := gc.ListRecords(ctx, &resultsv1alpha2.ListRecordsRequest{Parent: "default/results/-"})
 	if err != nil {
@@ -799,7 +702,7 @@ func TestDeleteRecord(t *testing.T) {
 
 func TestDeleteResult(t *testing.T) {
 	ctx := context.Background()
-	gc, rc := resultsClient(t, allNamespacesAdminAccessTokenFile, nil)
+	gc, rc := resultsClient(t, allNamespacesAdminAccessToken, nil)
 
 	list, err := gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: "default"})
 	if err != nil {
@@ -837,15 +740,15 @@ func TestDeleteResult(t *testing.T) {
 
 func TestAuthentication(t *testing.T) {
 	ctx := context.Background()
-	invalidTokenFile := path.Join(defaultTokenPath, "invalid-token")
-	err := os.WriteFile(invalidTokenFile, []byte("invalid token"), 0666)
+	const invalidTokenName = "invalid-token"
+	err := os.WriteFile(path.Join(envCfg.TokenPath, invalidTokenName), []byte("invalid token"), 0666)
 	if err != nil {
 		t.Fatalf("Error writing file: %v", err)
 	}
 	p := "default"
 
 	t.Run("valid token", func(t *testing.T) {
-		gc, rc := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+		gc, rc := resultsClient(t, allNamespacesReadAccessToken, nil)
 		t.Run("grpc", func(t *testing.T) {
 			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
 			if err != nil {
@@ -861,7 +764,7 @@ func TestAuthentication(t *testing.T) {
 	})
 
 	t.Run("invalid token", func(t *testing.T) {
-		gc, rc := resultsClient(t, invalidTokenFile, nil)
+		gc, rc := resultsClient(t, invalidTokenName, nil)
 		t.Run("grpc", func(t *testing.T) {
 			_, err = gc.ListResults(ctx, &resultsv1alpha2.ListResultsRequest{Parent: p})
 			if err == nil {
@@ -883,7 +786,7 @@ func TestAuthentication(t *testing.T) {
 
 func TestAuthorization(t *testing.T) {
 	ctx := context.Background()
-	gc, rc := resultsClient(t, singleNamespaceReadAccessTokenFile, nil)
+	gc, rc := resultsClient(t, singleNamespaceReadAccessToken, nil)
 
 	t.Run("unauthorized token", func(t *testing.T) {
 		p := "tekton"
@@ -910,7 +813,7 @@ func TestImpersonation(t *testing.T) {
 	ctx := context.Background()
 	p := "default"
 	t.Run("impersonate with user not having permission", func(t *testing.T) {
-		gc, rc := resultsClient(t, allNamespacesImpersonateAccessTokenFile, &transport.ImpersonationConfig{
+		gc, rc := resultsClient(t, allNamespacesImpersonateAccessToken, &transport.ImpersonationConfig{
 			UserName: "system:serviceaccount:default:default",
 		})
 		t.Run("grpc", func(t *testing.T) {
@@ -932,7 +835,7 @@ func TestImpersonation(t *testing.T) {
 	})
 
 	t.Run("impersonate with user having permission", func(t *testing.T) {
-		gc, rc := resultsClient(t, allNamespacesImpersonateAccessTokenFile, &transport.ImpersonationConfig{
+		gc, rc := resultsClient(t, allNamespacesImpersonateAccessToken, &transport.ImpersonationConfig{
 			UserName: "system:serviceaccount:default:all-namespaces-read-access",
 		})
 		t.Run("grpc", func(t *testing.T) {
