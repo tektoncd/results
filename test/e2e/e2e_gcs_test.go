@@ -63,7 +63,7 @@ func TestGCSLog(t *testing.T) {
 		t.Fatalf("Error creating PipelineRun: %v", err)
 	}
 
-	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	var logName string
 
