@@ -50,7 +50,7 @@ const (
 func TestHorizontalScaling(t *testing.T) {
 	ctx := context.Background()
 	tc := tektonClient(t)
-	gc, _ := resultsClient(t, allNamespacesReadAccessTokenFile, nil)
+	gc, _ := resultsClient(t, allNamespacesReadAccessToken, nil)
 
 	t.Run("VerifyPods", func(t *testing.T) {
 		// Verify 3 API pods are ready
