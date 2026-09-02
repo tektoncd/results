@@ -74,6 +74,7 @@ Once you have configured your local client, you can run the tests by running:
 ```sh
 $ go test --tags=e2e .
 ```
+
 ### HA E2E Tests
 
 The E2E test suite verifies the three correctness guarantees using a real Kubernetes cluster with the HA configuration deployed.
@@ -144,3 +145,19 @@ API pod tekton-results-api-def456: 12 requests
 API pod tekton-results-api-ghi789: 14 requests
 ```
 
+### Postgres DB layer tests
+
+The `db/` sub-package contains end-to-end tests that exercise
+Postgres-specific behavior (error code mapping, schema validation, lister
+filter/sort/pagination, jsonb). These run against the deployed API server and
+its live Postgres instance — **not** an in-process server.
+
+See [`db/README.md`](db/README.md) for details on environment variables,
+standalone runs, and how to add tests for future stories.
+
+```sh
+$ go test -v -count=1 -tags=e2e ./test/e2e/db/...
+```
+
+The `e2e.sh` script runs these automatically after the main e2e suite; it
+handles port-forwarding and credential wiring via `DB_URL`.
