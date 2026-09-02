@@ -9,7 +9,7 @@ linters:
   enable:
     - unused
     - errcheck
-    - gomodguard
+    - gomodguard_v2
     - gosec
     - gocritic
     - revive
