@@ -24,6 +24,15 @@ These tools are recommended, but not required:
 
 > **Note:** When cloning on Windows, use `git clone -c core.symlinks=true https://github.com/tektoncd/results.git` to properly handle symlinks.
 
+## Documentation README files
+
+This repository maintains two README files:
+
+- **`docs/README.md`** — synced to [tekton.dev](https://tekton.dev/docs/results/). Uses docs-relative links (e.g. `install.md`, `api/README.md`).
+- **`README.md`** (repo root) — displayed on GitHub. Uses repo-root-relative links (e.g. `docs/install.md`, `docs/api/README.md`).
+
+When updating README content, edit both files and keep links consistent with each file's location.
+
 ## Quickstart
 
 The easiest way to get started is to use the e2e testing scripts to bootstrap
