@@ -65,7 +65,7 @@ echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
 service_accounts=(all-namespaces-read-access single-namespace-read-access all-namespaces-admin-access all-namespaces-impersonate-access)
 for service_account in "${service_accounts[@]}"; do
-    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account"
+    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account" --duration=24h
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
