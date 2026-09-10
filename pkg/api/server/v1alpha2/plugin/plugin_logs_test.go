@@ -172,6 +172,75 @@ func TestLogPluginServer_GetLog(t *testing.T) {
 
 }
 
+func TestLogPluginServer_GetLog_WithConfigurableUIDKey(t *testing.T) {
+	// Create a mock Loki server
+	mockLoki := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify that the custom UID key is used in the query
+		if !strings.Contains(r.URL.String(), "custom_pipelinerun_uid_key") {
+			t.Errorf("expected query to contain custom_pipelinerun_uid_key, got %s", r.URL.String())
+		}
+
+		response := map[string]interface{}{
+			"status": "success",
+			"data": map[string]interface{}{
+				"result": []map[string]interface{}{
+					{
+						"stream": map[string]string{},
+						"values": [][]string{
+							{"1625081600000000000", "Log Message 0"},
+						},
+					},
+				},
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer mockLoki.Close()
+
+	tokenDir := t.TempDir()
+	tokenPath := filepath.Join(tokenDir, "token")
+	os.WriteFile(tokenPath, []byte("dummytoken"), 0600)
+
+	srv, _ := server.New(&config.Config{
+		LOGS_API:                                true,
+		LOGS_TYPE:                               "Loki",
+		DB_ENABLE_AUTO_MIGRATION:                true,
+		LOGGING_PLUGIN_TOKEN_PATH:               tokenPath,
+		LOGGING_PLUGIN_API_URL:                  mockLoki.URL,
+		LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE: true,
+		LOGGING_PLUGIN_PIPELINERUN_UID_KEY:      "custom_pipelinerun_uid_key",
+	}, logger.Get("info"), test.NewDB(t))
+
+	ctx := context.Background()
+	mockServer := &mockGetLogServer{ctx: ctx}
+
+	res, _ := srv.CreateResult(ctx, &pb.CreateResultRequest{
+		Parent: "foo",
+		Result: &pb.Result{Name: "foo/results/bar"},
+	})
+
+	srv.CreateRecord(ctx, &pb.CreateRecordRequest{
+		Parent: res.GetName(),
+		Record: &pb.Record{
+			Name: record.FormatName(res.GetName(), "baz"),
+			Data: &pb.Any{
+				Type: "tekton.dev/v1.PipelineRun",
+				Value: jsonutil.AnyBytes(t, pipelinev1.PipelineRun{
+					Status: pipelinev1.PipelineRunStatus{
+						PipelineRunStatusFields: pipelinev1.PipelineRunStatusFields{
+							StartTime:      &metav1.Time{Time: time.Now()},
+							CompletionTime: &metav1.Time{Time: time.Now()},
+						},
+					},
+				}),
+			},
+		},
+	})
+
+	req := &pb3.GetLogRequest{Name: log.FormatName(res.GetName(), "baz")}
+	srv.LogPluginServer.GetLog(req, mockServer)
+}
+
 func TestMergeLogParts(t *testing.T) {
 	tests := []struct {
 		name           string
