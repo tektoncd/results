@@ -233,6 +233,12 @@ func (r *Reconciler) finalize(ctx context.Context, tr *pipelinev1.TaskRun, rerr 
 		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
 	}
 
+	if missingKey, ready := r.cfg.AreRequiredAnnotationsReady(tr.Annotations); !ready {
+		logging.FromContext(ctx).Debugf("required annotation %q is not ready on taskrun %s/%s, requeuing",
+			missingKey, tr.Namespace, tr.Name)
+		return controller.NewRequeueAfter(r.cfg.FinalizerRequeueInterval)
+	}
+
 	return nil
 }
 

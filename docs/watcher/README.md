@@ -76,6 +76,32 @@ Watcher implements a finalizer to block deletion by an external pruner when obje
 
 When deletion request comes, it will block until completion time + `completed_run_grace_period` period is passed. A hard limit could be set as `store_deadline` (default 10m), after which the object will be removed from the cluster even without confirmation it's been stored in the DB.
 
+### Required annotations for finalizer release
+
+The `--required_annotation` flag (repeatable) specifies annotations that must be present on a PipelineRun or TaskRun before the Watcher clears its finalizer. This is useful in multicluster scenarios where external controllers (e.g. a Hub scheduler or syncer service) need to write annotations on a resource before it can be safely deleted.
+
+The flag supports two modes:
+1. **Value matching:** Use `key=value` to require that the annotation exists AND its value exactly matches the provided value.
+2. **Existence only:** Use `key` (without an `=`) to require that the annotation exists, regardless of what its value is.
+
+The `results.tekton.dev/stored` annotation is always implicitly required and does not need to be listed. When the flag is not provided (the default), only the stored annotation is checked and behavior is unchanged from previous versions.
+
+For example, to require that a Hub scheduler has annotated the resource (existence only) before the finalizer is cleared:
+
+```
+--required_annotation "hub.example.com/scheduled"
+```
+
+Multiple annotations with mixed requirements:
+
+```
+--required_annotation "hub.example.com/scheduled"
+--required_annotation "ci.example.com/status=passed"
+```
+
+If any required annotation is missing or does not match its expected value, the Watcher re-queues the resource and checks again after the `FinalizerRequeueInterval` (10 seconds). The `store_deadline` safety limit still applies — if the deadline passes, the finalizer is cleared regardless of whether the required annotations are present.
+
+> **Note:** This flag applies to both PipelineRun and TaskRun resources. CustomRuns are not affected.
 
 ## Filtering by `spec.managedBy`
 
