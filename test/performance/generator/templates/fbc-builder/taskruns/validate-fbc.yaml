@@ -1,0 +1,770 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:56:59Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: validate-fbc
+    tekton.dev/task: validate-fbc
+  name: perf-tenant-v0-on-push-rgqnb-validate-fbc
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772751400"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: IMAGE_URL
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: validate-fbc
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-validate-fbc:0.3@sha256:5ac2ab06fa8b7b7dfaa7a57cf68d3dd8de3fa9c7d6ebaef17626509c45f234a3
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:57:49Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:57:49Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-push-rgqnb-validate-fbc-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 5ac2ab06fa8b7b7dfaa7a57cf68d3dd8de3fa9c7d6ebaef17626509c45f234a3
+      entryPoint: validate-fbc
+      uri: quay.io/konflux-ci/tekton-catalog/task-validate-fbc
+  results:
+    - name: IMAGES_PROCESSED
+      type: string
+      value: |
+        {"image": {"pullspec": "quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0", "digests": ["sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000"]}}
+    - name: TEST_OUTPUT
+      type: string
+      value: '{"result":"SUCCESS","timestamp":"2026-09-02T20:57:46+00:00","note":"Task validate-fbc completed: Check result for task result.","namespace":"default","successes":12,"failures":0,"warnings":0}'
+    - name: RELATED_IMAGES_DIGEST
+      type: string
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: RENDERED_CATALOG_DIGEST
+      type: string
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:56:59Z"
+  steps:
+    - container: step-inspect-image
+      imageID: quay.io/konflux-ci/konflux-test@sha256:300027a2dc1eb34560d52cff98ecb9410950329e5b60a5be00a7c70c311b9cd7
+      name: inspect-image
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:08Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:05Z"
+      terminationReason: Completed
+    - container: step-extract-and-validate
+      imageID: quay.io/konflux-ci/konflux-test@sha256:300027a2dc1eb34560d52cff98ecb9410950329e5b60a5be00a7c70c311b9cd7
+      name: extract-and-validate
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:46Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:57:46+00:00\",\"note\":\"Task validate-fbc completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":12,\"failures\":0,\"warnings\":0}","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:08Z"
+      terminationReason: Completed
+    - container: step-save-related-images
+      imageID: quay.io/konflux-ci/oras@sha256:76d221b871642154f32151797186430a9cb8b46a194221870c2a87b1a0b916ff
+      name: save-related-images
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:47Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"RELATED_IMAGES_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:57:46+00:00\",\"note\":\"Task validate-fbc completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":12,\"failures\":0,\"warnings\":0}","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:46Z"
+      terminationReason: Completed
+    - container: step-save-rendered-catalog
+      imageID: quay.io/konflux-ci/oras@sha256:76d221b871642154f32151797186430a9cb8b46a194221870c2a87b1a0b916ff
+      name: save-rendered-catalog
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:49Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"RELATED_IMAGES_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"RENDERED_CATALOG_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:57:46+00:00\",\"note\":\"Task validate-fbc completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":12,\"failures\":0,\"warnings\":0}","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:48Z"
+      terminationReason: Completed
+  taskSpec:
+    description: Ensures file-based catalog (FBC) components are uniquely linted for proper construction as part of build pipeline. The manifest data of container images is checked using OpenShift Operator Framework's opm CLI tool. The opm binary is extracted from the container's base image, which must come from a trusted source.
+    params:
+      - description: Fully qualified image name.
+        name: IMAGE_URL
+        type: string
+      - description: Image digest.
+        name: IMAGE_DIGEST
+        type: string
+    results:
+      - description: The Trusted Artifact URI pointing to the artifact with the related images for the FBC fragment.
+        name: RELATED_IMAGE_ARTIFACT
+        type: string
+      - description: The Trusted Artifact URI pointing to the artifact with the related images for the FBC fragment.
+        name: TEST_OUTPUT_ARTIFACT
+        type: string
+      - description: Tekton task test output.
+        name: TEST_OUTPUT
+        type: string
+      - description: Digest for attached json file containing related images
+        name: RELATED_IMAGES_DIGEST
+        type: string
+      - description: Images processed in the task.
+        name: IMAGES_PROCESSED
+        type: string
+      - description: Digest for attached json file containing the FBC fragment's opm rendered catalog.
+        name: RENDERED_CATALOG_DIGEST
+        type: string
+    stepTemplate:
+      computeResources: {}
+      env:
+        - name: IMAGE_URL
+          value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+        - name: IMAGE_DIGEST
+          value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        - name: IMAGE_INSPECT
+          value: /shared/image_inspect.json
+        - name: BASE_IMAGE_INSPECT
+          value: /shared/base_image_inspect.json
+        - name: RAW_IMAGE_INSPECT
+          value: /shared/raw_image_inspect.json
+        - name: OPM_RENDER_CACHE
+          value: /shared/render-cache/
+      volumeMounts:
+        - mountPath: /shared
+          name: shared
+        - mountPath: /var/workdir
+          name: workdir
+    steps:
+      - computeResources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        image: quay.io/konflux-ci/konflux-test:v1.5.0@sha256:fbd5ad045b902065990218922aa6f343e8eb5fd039ecd445bc54819b8e968c3e
+        name: inspect-image
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          source /utils.sh
+          trap 'handle_error "/tekton/results/TEST_OUTPUT"' EXIT
+
+          # Given a tag and a the digest in the IMAGE_URL we opt to use the digest alone
+          # this is because containers/image currently doesn't support image references
+          # that contain both. See https://github.com/containers/image/issues/1736
+          IMAGE_URL="$(get_image_registry_and_repository "${IMAGE_URL}")"
+          image_with_digest="$(get_image_registry_repository_digest "${IMAGE_URL}@${IMAGE_DIGEST}")"
+
+          status=0
+          manifest_digests="$(get_image_manifests -i "$image_with_digest")" || status=$?
+          if [ "$status" -ne 0 ]; then
+              echo "Failed to get manifests for ${image_with_digest}"
+              note="Step inspect-image failed: Encountered errors while inspecting image. For details, check Tekton task log."
+              TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+              echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+              exit 0
+          fi
+          echo "Manifest digests are: ${manifest_digests}"
+
+          # Use the amd64 manifest digest for future operations
+          reference_manifest_digest=$(echo -n "${manifest_digests}" | jq -jr '.amd64')
+          if [[ "${reference_manifest_digest}" == "null" ]]; then
+              echo "No amd64 image manifest found for ${image_with_digest}"
+              note="Step inspect-image failed: Encountered errors while inspecting image. For details, check Tekton task log."
+              TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+              echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+              exit 0
+          fi
+          image_with_digest="$(get_image_registry_repository_digest "${IMAGE_URL}@${reference_manifest_digest}")"
+          echo -n "${image_with_digest}" > /shared/image_with_digest
+
+          # FBC content should be identical across different architectures so the IMAGES_PROCESSED result
+          # is a no-op for now. We can come back later and enforce that the content is identical between
+          # all architectures if desired.
+          images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
+          if [ -n "$manifest_digests" ]; then
+            while read -r _arch arch_sha; do
+              digests_processed+=("\"$arch_sha\"")
+            done < <(echo "$manifest_digests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+          fi
+
+          # If the image is an Image Index, also add the Image Index digest to the list.
+          if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
+            digests_processed+=("\"$IMAGE_DIGEST\"")
+          fi
+          digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
+          echo "${images_processed_template/\[%s]/[$digests_processed_string]}" | tee "/tekton/results/IMAGES_PROCESSED"
+
+          skopeo_retries=3
+
+          echo "Inspecting manifest for source image ${image_with_digest}."
+          if ! retry skopeo inspect --retry-times "$skopeo_retries" --no-tags docker://"${image_with_digest}" > "$IMAGE_INSPECT"
+          then
+            echo "Failed to inspect image ${image_with_digest}"
+            note="Step inspect-image failed: Encountered errors while inspecting image. For details, check Tekton task log."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+          echo "Image ${image_with_digest} metadata:"
+          cat "$IMAGE_INSPECT"
+
+          echo "Inspecting manifest for source image ${image_with_digest}."
+          if ! retry skopeo inspect --retry-times "$skopeo_retries" --no-tags --raw docker://"${image_with_digest}" > "$RAW_IMAGE_INSPECT"
+          then
+            echo "Failed to get raw metadata of image ${image_with_digest}"
+            note="Step inspect-image failed: Encountered errors while inspecting image. For details, check Tekton task log."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          echo "Image ${image_with_digest} raw metadata:"
+          jq < "$RAW_IMAGE_INSPECT" # jq for readable formatting
+
+          echo "Getting base image manifest for source image ${image_with_digest}."
+          if ! get_base_image "${image_with_digest}" > /shared/base_image
+          then
+            echo "Unable to find base image for ${image_with_digest}."
+            note="Step inspect-image failed: Cannot find base image. For details, check Tekton task log."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          echo "Detected base image:"
+          cat /shared/base_image
+          echo -e "\nDetected base image repository:"
+          get_image_registry_and_repository "$(cat /shared/base_image)" | tee /shared/base_image_repository
+          echo -e "\nDetected base image:"
+          echo "get_image_registry_repository_digest $(cat /shared/base_image)"
+          get_image_registry_repository_digest "$(cat /shared/base_image)" | tee /shared/base_image_with_digest
+          echo "" # the above has no newline
+          base_image_with_digest=$(cat /shared/base_image_with_digest)
+
+          echo "Inspecting base image ${base_image_with_digest}."
+          if ! retry skopeo inspect --retry-times "$skopeo_retries" --no-tags "docker://$base_image_with_digest"  > "$BASE_IMAGE_INSPECT"
+          then
+            echo "Failed to inspect base image ${base_image_with_digest}"
+            note="Step inspect-image failed: Encountered errors while inspecting image. For details, check Tekton task log."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+          runAsUser: 0
+        workingDir: /var/workdir/inspect-image
+      - computeResources:
+          limits:
+            memory: 10Gi
+          requests:
+            cpu: "8"
+            memory: 10Gi
+        image: quay.io/konflux-ci/konflux-test:v1.5.0@sha256:fbd5ad045b902065990218922aa6f343e8eb5fd039ecd445bc54819b8e968c3e
+        name: extract-and-validate
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [[ -s /tekton/results/TEST_OUTPUT ]]; then
+            echo "Test failed in previous step. Bailing."
+            echo "For details, check Tekton task result TEST_OUTPUT in the inspect-image step."
+            exit 0
+          fi
+
+          source /utils.sh
+          trap 'handle_error "/tekton/results/TEST_OUTPUT"' EXIT
+
+          image_with_digest=$(cat /shared/image_with_digest)
+          base_image_with_digest=$(cat /shared/base_image_with_digest)
+          base_image_repository=$(cat /shared/base_image_repository)
+          note=""
+
+          declare -a ALLOWED_BASE_IMAGES=(
+            "registry.redhat.io/openshift4/ose-operator-registry"
+            "registry.redhat.io/openshift4/ose-operator-registry-rhel9"
+            "registry.redhat.io/openshift5/ose-operator-registry"
+            "registry.redhat.io/openshift5/ose-operator-registry-rhel9"
+            "brew.registry.redhat.io/rh-osbs/openshift-ose-operator-registry-rhel9"
+          )
+
+          ### FBC base image check
+          allowed=false
+          for value in "${ALLOWED_BASE_IMAGES[@]}"
+          do
+            if [[ "${base_image_repository}" == "${value}" ]]; then
+              allowed=true
+              break
+            fi
+          done
+
+          if [[ "${allowed}" == false ]]; then
+            echo "Base image ${base_image_with_digest} is not allowed for the file based catalog image. Allowed images: " "${ALLOWED_BASE_IMAGES[@]}"
+            note="Step extract-and-validate failed: Base image ${base_image_with_digest} is not allowed for the file based catalog image. For details, check Tekton task logs."
+            TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          status=0
+          OCP_VER_FROM_BASE=$(get_ocp_version_from_fbc_fragment "$image_with_digest") || status=$?
+          if [ $status -ne 0 ]; then
+            echo "!FAILURE! - Could not get OCP version. See https://konflux-ci.dev/architecture/ADR/0026-specifying-ocp-targets-for-fbc.html for defining the parent image."
+            note="Step extract-and-validate failed: Could not get the OCP version from the base.  For details, check Tekton task logs."
+            TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          ### Try to extract binaries with configs > check binaries functionality > check opm validate ###
+          if [ ! -s "$IMAGE_INSPECT" ]; then
+            echo "File $IMAGE_INSPECT did not generate correctly. Check inspect-image task log."
+            note="Step extract-and-validate failed: $IMAGE_INSPECT did not generate correctly. For details, check Tekton task result TEST_OUTPUT in task inspect-image."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          if [ ! -s "$RAW_IMAGE_INSPECT" ]; then
+            echo "File $RAW_IMAGE_INSPECT did not generate correctly. Check inspect-image task log."
+            note="Step extract-and-validate failed: $RAW_IMAGE_INSPECT did not generate correctly. For details, check Tekton task result TEST_OUTPUT in task inspect-image."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          status=0
+          conffolder=$(jq -r '.Labels ."operators.operatorframework.io.index.configs.v1"' "$IMAGE_INSPECT") || status=$?
+          if [[ $status -ne 0 ||  "${conffolder}" == "null" ]]; then
+            echo "Could not get 'operators.operatorframework.io.index.configs.v1' label from ${IMAGE_INSPECT}. Make sure file exists and it contains this label."
+            TEST_OUTPUT="$(make_result_json -r ERROR)"
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+          mkdir -p /tmp/image-content confdir
+          pushd /tmp/image-content
+
+          if ! retry oc image extract --registry-config ~/.docker/config.json "${image_with_digest}" ; then
+            echo "Unable to extract or validate extracted binaries."
+            note="Step extract-and-validate failed: Failed to extract image with oc extract command, so it cannot validate extracted binaries. For details, check Tekton task log."
+            ERROR_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            popd
+            exit 0
+          fi
+
+          if [ -z "$(ls -A .$conffolder)" ]; then
+            echo "$conffolder is missing catalog file."
+            TEST_OUTPUT="$(make_result_json -r ERROR)"
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            popd
+            exit 0
+          fi
+
+          EXTRACT_DIR="/extracted_base_img"
+          mkdir "${EXTRACT_DIR}"
+          if ! retry oc image extract "${base_image_with_digest}" --path /:"${EXTRACT_DIR}"; then
+            echo "Unable to extract opm binary"
+            note="Step extract-and-validate failed: Failed to extract base image with oc extract command, so it cannot validate extracted binaries.  For details, check Tekton task log."
+            ERROR_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          # extract the opm binary for operations
+          OPM_BINARIES="$(find "${EXTRACT_DIR}" -type f -name opm)"
+          BINARIES_COUNT=$(wc -l <<< "${OPM_BINARIES}")
+          if [[ $BINARIES_COUNT -ne "1" ]]; then
+              note="Step extract-and-validate failed: Expected exactly one opm binary in base image.  For details, check Tekton task log"
+              ERROR_OUTPUT=$(make_result_json -r ERROR -t "$note")
+              echo "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+              echo "found $BINARIES_COUNT opm binaries:"
+              echo "${OPM_BINARIES}"
+              exit 0
+          fi
+          OPM_BINARY=$(echo "${OPM_BINARIES}" | head -n 1)
+          echo "OPM_BINARY: '${OPM_BINARY}'"
+          chmod 775 "$OPM_BINARY"
+
+          # Insert the binary location to the beginning of the path
+          # so that the same binary version is used for all functions
+          mkdir -p /shared/bin/
+          mv "$OPM_BINARY" /shared/bin/opm
+          export PATH=/shared/bin:$PATH
+
+          # We have 12 total checks
+          check_num=12
+          failure_num=0
+          TESTPASSED=true
+
+          if [[ ! $(find . -name "grpc_health_probe") ]]; then
+            echo "!FAILURE! - grpc_health_probe binary presence check failed."
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          fi
+
+          ### FBC DIRECTORY STRUCTURE VALIDATION ###
+          echo "Validating FBC directory structure."
+          PACKAGE_DIRS=$(find ".${conffolder}" -mindepth 1 -maxdepth 1 -type d)
+
+          # First, check if any package subdirectories exist at all.
+          if [[ -z "${PACKAGE_DIRS}" ]]; then
+            echo "!FAILURE! - No package subdirectories found inside '.${conffolder}'. At least one is required."
+            echo "--> The FBC image must contain one or more package directories."
+            echo "    Example valid structure:"
+            echo "    ${conffolder}/"
+            echo "    └── <package-name>/"
+
+            # Set the note for the final error report
+            note="FBC directory structure validation failed: No package subdirectories were found inside the '${conffolder}' directory."
+
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          else
+            # Array to hold directories that are found to be empty
+            empty_dirs=()
+
+            # Loop through each found package directory to check if it's empty
+            while IFS= read -r pkg_dir; do
+              # Check if the find command returns anything inside the directory
+              if [[ -z "$(find "${pkg_dir}" -mindepth 1)" ]]; then
+                echo "!FAILURE! - Package directory '${pkg_dir}' is empty."
+                empty_dirs+=("${pkg_dir}")
+              fi
+            done <<< "${PACKAGE_DIRS}"
+
+            # After checking all directories, report if any were empty
+            if [[ ${#empty_dirs[@]} -gt 0 ]]; then
+              echo "--> FBC package directories must not be empty."
+              echo "    Example valid structure:"
+              echo "    ${conffolder}/"
+              echo "    └── <package-name>/"
+
+              # Set a detailed note for the final error report, listing all empty directories
+              note="FBC directory validation failed. The following package directories are empty: ${empty_dirs[*]}"
+
+              failure_num=$((failure_num + 1))
+              TESTPASSED=false
+            else
+              echo "FBC directory structure is valid."
+            fi
+          fi
+
+          if ! opm validate ."${conffolder}"; then
+            echo "!FAILURE! - opm validate check failed."
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          fi
+
+          echo "Rendering catalog fragment."
+          OPM_RENDERED_CATALOG=/shared/catalog.json
+          render_opm -t ."${conffolder}" > ${OPM_RENDERED_CATALOG}
+          if [ ! -f ${OPM_RENDERED_CATALOG} ]; then
+            echo "!FAILURE! - unable to render the fragment FBC."
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          fi
+
+          if jq -en 'reduce (inputs | select(.schema == "olm.package")) as $obj (0; .+1) < 1' ${OPM_RENDERED_CATALOG}; then
+            echo "!FAILURE! - There are no olm package entries defined in this FBC fragment."
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          fi
+
+          # examines the base image tag to derive the target OCP version
+          # assumes this is in the form
+          # image-path:[v]major-digits.minor-digits[@sha...]
+          # extracts major digits and filters out any leading alphabetic characters, for e.g. 'v4' --> '4'
+          OCP_VER_MAJOR=$(echo "${OCP_VER_FROM_BASE}" | cut -d '.' -f 1 | sed "s/^[a-zA-Z]*//")
+          OCP_VER_MINOR=$(echo "${OCP_VER_FROM_BASE}" | cut -d '.' -f 2)
+
+          RUN_OCP_VERSION_VALIDATION="false"
+          digits_regex='^[0-9]*$'
+          if [[ ${OCP_VER_MAJOR} =~ $digits_regex ]] && [[ ${OCP_VER_MINOR} =~ $digits_regex ]] ; then
+            RUN_OCP_VERSION_VALIDATION="true"
+          fi
+
+          if [ "${RUN_OCP_VERSION_VALIDATION}" == "false" ] ; then
+            echo "!WARNING! - unable to assess bundle metadata alignment with OCP version because we cannot parse OCP version from the base image ${OCP_VER_FROM_BASE}"
+          else
+            OCP_BUNDLE_METADATA_THRESHOLD_MAJOR=4
+            OCP_BUNDLE_METADATA_THRESHOLD_MINOR=17
+            OCP_BUNDLE_METADATA_FORMAT="olm.bundle.object"
+
+            if [[ "${OCP_VER_MAJOR}" -gt "${OCP_BUNDLE_METADATA_THRESHOLD_MAJOR}" ]] || [[ "${OCP_VER_MAJOR}" -eq "${OCP_BUNDLE_METADATA_THRESHOLD_MAJOR}" && "${OCP_VER_MINOR}" -ge "${OCP_BUNDLE_METADATA_THRESHOLD_MINOR}" ]]; then
+               OCP_BUNDLE_METADATA_FORMAT="olm.csv.metadata"
+            fi
+
+            # enforce the presence of either olm.csv.metadata or olm.bundle.object based on OCP version
+            if [[ "${OCP_BUNDLE_METADATA_FORMAT}" = "olm.csv.metadata" ]]; then
+              if ! jq -en 'reduce( inputs | select(.schema == "olm.bundle" and .properties[].type == "olm.bundle.object")) as $_ (0;.+1) == 0' ${OPM_RENDERED_CATALOG}; then
+                echo "!FAILURE! - olm.bundle.object bundle properties are not permitted in a FBC fragment for OCP version ${OCP_VER_MAJOR}.${OCP_VER_MINOR}. Fragments must move to olm.csv.metadata bundle metadata."
+                failure_num=$((failure_num + 1))
+                TESTPASSED=false
+              fi
+            else
+              if ! jq -en 'reduce( inputs | select(.schema == "olm.bundle" and .properties[].type == "olm.csv.metadata")) as $_ (0;.+1) == 0' ${OPM_RENDERED_CATALOG}; then
+                echo "!FAILURE! - olm.csv.metadata bundle properties are not permitted in a FBC fragment for OCP version ${OCP_VER_MAJOR}.${OCP_VER_MINOR}. Fragments must only use olm.bundle.object bundle metadata."
+                failure_num=$((failure_num + 1))
+                TESTPASSED=false
+              fi
+            fi
+
+            # enforce that each bundle has the OCP-version-appropriate bundle metadata.
+            BUNDLE_COUNT=$(jq -en 'def count(stream): reduce stream as $i (0; .+1); count(inputs|select(.schema=="olm.bundle"))' ${OPM_RENDERED_CATALOG})
+            BUNDLE_BO_COUNT=$(jq -en 'def count(stream): reduce stream as $i (0; .+1); count(inputs|select(.schema == "olm.bundle" and .properties[].type == "olm.bundle.object"))' ${OPM_RENDERED_CATALOG})
+            BUNDLE_CM_COUNT=$(jq -en 'def count(stream): reduce stream as $i (0; .+1); count(inputs|select(.schema == "olm.bundle" and .properties[].type == "olm.csv.metadata"))' ${OPM_RENDERED_CATALOG})
+
+            if [[ "${OCP_BUNDLE_METADATA_FORMAT}" = "olm.csv.metadata" ]]; then
+              if [[ "${BUNDLE_COUNT}" -ne "${BUNDLE_CM_COUNT}" ]]; then
+                echo "!FAILURE! - every olm.bundle object in the fragment must have a corresponding olm.csv.metadata bundle property"
+              failure_num=$((failure_num + 1))
+                TESTPASSED=false
+              fi
+            else
+              if [[ "${BUNDLE_BO_COUNT}" -lt "${BUNDLE_COUNT}" ]]; then
+                echo "!FAILURE! - every olm.bundle object in the fragment must have at least one olm.bundle.object bundle property"
+              failure_num=$((failure_num + 1))
+                TESTPASSED=false
+              fi
+            fi
+          fi
+
+          # Validate olm.bundle image references are digest-pinned and from trusted registries
+          status=0
+          bundle_images=$(jq -r 'select(.schema == "olm.bundle" and .image != null) | .image' ${OPM_RENDERED_CATALOG}) || status=$?
+          if [ $status -ne 0 ]; then
+            echo "!FAILURE! - Could not extract olm.bundle image references from rendered catalog."
+            echo "Skipping digest-pinning and trusted-registry checks."
+            failure_num=$((failure_num + 2))
+            TESTPASSED=false
+          else
+            digest_pinned_regex='@sha256:[a-fA-F0-9]{64}$'
+            trusted_registry_regex='^registry\.(stage\.)?redhat\.io/'
+            non_pinned_images=()
+            wrong_registry_images=()
+
+            while IFS= read -r bundle_image; do
+              if [[ -n "${bundle_image}" ]]; then
+                if [[ ! "${bundle_image}" =~ ${digest_pinned_regex} ]]; then
+                  non_pinned_images+=("${bundle_image}")
+                fi
+                if [[ ! "${bundle_image}" =~ ${trusted_registry_regex} ]]; then
+                  wrong_registry_images+=("${bundle_image}")
+                fi
+              fi
+            done <<< "${bundle_images}"
+
+            if [[ ${#non_pinned_images[@]} -gt 0 ]]; then
+              echo "!FAILURE! - The following olm.bundle image references are not digest-pinned:"
+              printf '  %s\n' "${non_pinned_images[@]}"
+              failure_num=$((failure_num + 1))
+              TESTPASSED=false
+            fi
+
+            if [[ ${#wrong_registry_images[@]} -gt 0 ]]; then
+              echo "!FAILURE! - The following olm.bundle image references are not from registry.redhat.io or registry.stage.redhat.io:"
+              printf '  %s\n' "${wrong_registry_images[@]}"
+              failure_num=$((failure_num + 1))
+              TESTPASSED=false
+            fi
+          fi
+
+          # Get the new related images that are being added so that we can check them for validity
+          echo "Rendering target index and finding unreleased related images."
+          status=0
+          echo "Running command: get_unreleased_fbc_related_images -i ${image_with_digest}"
+          related_images=$(get_unreleased_fbc_related_images -i "$image_with_digest") || status=$?
+          if [ $status -ne 0 ]; then
+            get_unreleased_fbc_related_images -i "$image_with_digest"
+            echo "!FAILURE! - Could not get related images."
+            note="Step extract-and-validate failed ($status): Could not fetch related images. Make sure you have catalog.yaml or catalog.json formatted correctly in your file-based catalog (FBC) fragment image."
+            failure_num=$((failure_num + 1))
+            TESTPASSED=false
+          else
+            echo -n "$related_images" > /shared/related-images.json
+
+            # We have moved verification of the related images to a Conformal policy. This enables
+            # the results of this task to be stable in time (i.e. it doesn't need to be re-run after
+            # any other images have been released).
+            echo -e "Related images detected:\n$(jq -cr '.[]' /shared/related-images.json )."
+          fi
+
+          if [ $TESTPASSED == false ]; then
+            if [ -z "$note" ]; then
+              note="Step extract-and-validate failed: Validation checks failed. For details, check Tekton task log."
+            fi
+            ERROR_OUTPUT=$(make_result_json -r FAILURE -f $failure_num -s $((check_num - failure_num)) -t "$note")
+            echo -n "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+          else
+            note="Task validate-fbc completed: Check result for task result."
+            TEST_OUTPUT=$(make_result_json -r SUCCESS -s $check_num -t "$note")
+            echo -n "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+          fi
+          popd
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+          runAsUser: 0
+        workingDir: /var/workdir/extract-and-validate
+      - computeResources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        image: quay.io/konflux-ci/oras:latest@sha256:76d221b871642154f32151797186430a9cb8b46a194221870c2a87b1a0b916ff
+        name: save-related-images
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [ ! -f /shared/related-images.json ]; then
+            echo "Related images not generated. Skipping attach."
+            exit 0
+          fi
+          if ! retry attach-helper --subject "${IMAGE_URL}@${IMAGE_DIGEST}" --media-type-name "related-images+json" \
+            --digestfile "/tekton/results/RELATED_IMAGES_DIGEST" \
+            /shared/related-images.json
+          then
+            echo "Failed to attach related images to ${IMAGE_URL}@${IMAGE_DIGEST}"
+            exit 1
+          fi
+      - computeResources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        image: quay.io/konflux-ci/oras:latest@sha256:76d221b871642154f32151797186430a9cb8b46a194221870c2a87b1a0b916ff
+        name: save-rendered-catalog
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [ ! -f /shared/catalog.json ]; then
+            echo "Catalog not generated. Skipping attach."
+            exit 0
+          fi
+          if ! retry attach-helper --subject "${IMAGE_URL}@${IMAGE_DIGEST}" --media-type-name "rendered-catalog+json" \
+            --digestfile "/tekton/results/RENDERED_CATALOG_DIGEST" \
+            /shared/catalog.json
+          then
+            echo "Failed to attach catalog to ${IMAGE_URL}@${IMAGE_DIGEST}"
+            exit 1
+          fi
+    volumes:
+      - emptyDir: {}
+        name: shared
+      - emptyDir: {}
+        name: workdir

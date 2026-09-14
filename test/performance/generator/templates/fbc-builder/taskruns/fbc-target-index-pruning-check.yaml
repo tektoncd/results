@@ -1,0 +1,418 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:57:49Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: fbc-target-index-pruning-check
+    tekton.dev/task: fbc-target-index-pruning-check
+  name: perf-tenant-v0-on-push-rf00430eef91f6ce108cc574a41c1ef36
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772753118"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: IMAGE_URL
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: TARGET_INDEX
+      value: registry.redhat.io/redhat/redhat-operator-index
+    - name: RENDERED_CATALOG_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: fbc-target-index-pruning-check
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-fbc-target-index-pruning-check:0.1@sha256:a7696d92734be62700723b6d2c40dfaee4809e6a1d42b28deefc7c7463176c32
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:58:14Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:58:14Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-pu67c28a73bf9687853484be555ea9a9a2-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: a7696d92734be62700723b6d2c40dfaee4809e6a1d42b28deefc7c7463176c32
+      entryPoint: fbc-target-index-pruning-check
+      uri: quay.io/konflux-ci/tekton-catalog/task-fbc-target-index-pruning-check
+  results:
+    - name: IMAGES_PROCESSED
+      type: string
+      value: |
+        {"image": {"pullspec": "quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000", "digests": ["sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000"]}}
+    - name: TEST_OUTPUT
+      type: string
+      value: |
+        {"result":"SUCCESS","timestamp":"2026-09-02T20:58:13+00:00","note":"Task fbc-target-index-pruning-check completed: Check result for task result.","namespace":"default","successes":1,"failures":0,"warnings":0}
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:57:50Z"
+  steps:
+    - container: step-pull-rendered-catalog
+      imageID: quay.io/konflux-ci/task-runner@sha256:1c0582a85dae0949f3ec94aca95695c5d7698b371f1b76c5a78822a6249073dc
+      name: pull-rendered-catalog
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:56Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:57:55Z"
+      terminationReason: Completed
+    - container: step-run-pruning-check
+      imageID: quay.io/konflux-ci/konflux-test@sha256:300027a2dc1eb34560d52cff98ecb9410950329e5b60a5be00a7c70c311b9cd7
+      name: run-pruning-check
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:58:13Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:58:13+00:00\",\"note\":\"Task fbc-target-index-pruning-check completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":1,\"failures\":0,\"warnings\":0}\n","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:56Z"
+      terminationReason: Completed
+  taskSpec:
+    description: Ensures file-based catalog (FBC) components do not remove versions of operators already added to a released catalog. Pruning is allowed only in channels that contain dev-preview, pre-ga, or candidate in their names.
+    params:
+      - description: Fully qualified image name.
+        name: IMAGE_URL
+        type: string
+      - description: Image digest.
+        name: IMAGE_DIGEST
+        type: string
+      - default: registry.redhat.io/redhat/redhat-operator-index
+        description: Image name of target index, minus tag.
+        name: TARGET_INDEX
+        type: string
+      - description: Digest for attached json file containing the FBC fragment's opm rendered catalog.
+        name: RENDERED_CATALOG_DIGEST
+        type: string
+    results:
+      - description: Tekton task test output.
+        name: TEST_OUTPUT
+        type: string
+      - description: Images processed in the task.
+        name: IMAGES_PROCESSED
+        type: string
+    stepTemplate:
+      computeResources: {}
+      env:
+        - name: IMAGE_URL
+          value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+        - name: IMAGE_DIGEST
+          value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        - name: TARGET_INDEX
+          value: registry.redhat.io/redhat/redhat-operator-index
+        - name: RENDERED_CATALOG_DIGEST
+          value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      volumeMounts:
+        - mountPath: /shared
+          name: shared
+        - mountPath: /var/workdir
+          name: workdir
+    steps:
+      - computeResources:
+          limits:
+            memory: 2Gi
+          requests:
+            cpu: 50m
+            memory: 2Gi
+        image: quay.io/konflux-ci/task-runner:1.7.0@sha256:1c0582a85dae0949f3ec94aca95695c5d7698b371f1b76c5a78822a6249073dc
+        name: pull-rendered-catalog
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          ARTIFACT_URL="${IMAGE_URL}@${RENDERED_CATALOG_DIGEST}"
+          if ! retry oras pull --registry-config <(select-oci-auth "${IMAGE_URL}") --no-tty "${ARTIFACT_URL}"
+          then
+            echo "Failed to pull catalog for ${IMAGE_URL} from registry"
+            exit 1
+          fi
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+          runAsUser: 0
+        workingDir: /shared
+      - computeResources:
+          limits:
+            memory: 10Gi
+          requests:
+            cpu: 1200m
+            memory: 10Gi
+        image: quay.io/konflux-ci/konflux-test:v1.5.0@sha256:fbd5ad045b902065990218922aa6f343e8eb5fd039ecd445bc54819b8e968c3e
+        name: run-pruning-check
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          source /utils.sh
+          trap 'handle_error /tekton/results/TEST_OUTPUT' EXIT
+
+          IMAGE_URL="${IMAGE_URL}@${IMAGE_DIGEST}"
+          # Given a tag and a the digest in the IMAGE_URL we opt to use the digest alone
+          # this is because containers/image currently doesn't support image references
+          # that contain both. See https://github.com/containers/image/issues/1736
+          if [[ "${IMAGE_URL}" == *":"*"@"* ]]; then
+            IMAGE_URL="${IMAGE_URL/:*@/@}"
+          fi
+
+          ### Check if TARGET_INDEX is defined
+          if [ -z "${TARGET_INDEX}" ]; then
+            echo "TARGET_INDEX is not defined."
+            note="Task fbc-target-index-pruning-check failed: TARGET_INDEX is not defined."
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          rendered_fbc_image=/shared/catalog.json
+          if [[ ! -f "${rendered_fbc_image}" ]]; then
+            note="Task fbc-target-index-pruning-check failed: Rendered FBC fragment does not exist: ${rendered_fbc_image}"
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+
+          ### Run opm render for target index
+          ocp_version=$(get_ocp_version_from_fbc_fragment "${IMAGE_URL}")
+          target_index_pullspec="${TARGET_INDEX}:${ocp_version}"
+          echo "Rendering target index: ${target_index_pullspec}"
+          rendered_target_index=$(render_opm -t "${target_index_pullspec}" --file)
+          if [[ ! -f "${rendered_target_index}" ]]; then
+            note="Task fbc-target-index-pruning-check failed: Unable to render the fragment target index image: ${IMAGE_URL}"
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+
+          failure_num=0
+          TESTPASSED=true
+          # Allowed pruned channels are those that contain dev-preview, pre-ga, or candidate anywhere in their names
+          fbc_allowed_pruned_channels=".*(dev-preview|pre-ga|candidate).*"
+
+          fbc_channels=/tmp/olm-channels-fbc-image.json
+          ndx_channels=/tmp/olm-channels-target-index.json
+
+          ### Filter out channels and channel entries from FBC fragment render
+          jq -s 'map(select(.schema == "olm.channel")) | reduce .[] as $obj ([]; . += [{package: $obj.package, channel: $obj.name, entries: [$obj.entries[].name]}])' "${rendered_fbc_image}" > "${fbc_channels}"
+
+          echo ""
+          echo "Channels defined in FBC fragment:"
+          jq '.' "${fbc_channels}"
+          echo ""
+
+          ### Filter out channels and channel entries from target index render
+          jq -s 'map(select(.schema == "olm.channel")) | reduce .[] as $obj ([]; . += [{package: $obj.package, channel: $obj.name, entries: [$obj.entries[].name]}])' "${rendered_target_index}" > "${ndx_channels}"
+
+          ### Get the package(s) the fragment is configuring
+          mapfile -t fbc_pkgs < <(jq -r '.[].package ' "${fbc_channels}" | sort -u)
+          if (( ${#fbc_pkgs[@]} < 1 )); then
+            note="Task fbc-target-index-pruning-check failed: No OLM packages detected in FBC fragment."
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+
+          ### Get packages in target index
+          mapfile -t ndx_pkgs < <(jq -r '.[].package ' "${ndx_channels}" | sort -u)
+          if [[ ${#ndx_pkgs[@]} -lt 1 ]]; then
+            note="Task fbc-target-index-pruning-check failed: No OLM packages detected in target index."
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+
+          ### Test packages in the FBC fragment that already exist in the target index.
+          pkgs_to_test=()
+          for pkg in "${fbc_pkgs[@]}"; do
+            if echo "${ndx_pkgs[@]}" | grep -Fwq "${pkg}"; then
+              pkgs_to_test+=("${pkg}")
+            fi
+          done
+
+          if (( ${#pkgs_to_test[@]} > 0 )); then
+            for pkg in "${pkgs_to_test[@]}"; do
+              channels_to_test=()
+              mapfile -t fbc_channel_names < <(jq -r --arg p "${pkg}" '.[] | select(.package == $p) | .channel' ${fbc_channels})
+              mapfile -t ndx_channel_names < <(jq -r --arg p "${pkg}" '.[] | select(.package == $p) | .channel' ${ndx_channels})
+
+              ### Check for removed channels
+              for chan in "${ndx_channel_names[@]}"; do
+                if echo "${fbc_channel_names[@]}" | grep -Fwq "${chan}"; then
+                  channels_to_test+=("${chan}")
+                else
+                  if [[ ! "${chan}" =~ ${fbc_allowed_pruned_channels} ]]; then
+                    echo "!FAILURE! - FBC fragment prunes entire ${pkg}.${chan} channel."
+                    TESTPASSED=false
+                    failure_num=$((failure_num + 1))
+                  else
+                    echo "FBC fragment prunes entire ${pkg}.${chan} channel. Pruning in ${chan} channel is allowed."
+                  fi
+                fi
+              done
+
+              ### Check each channel for removed entries
+              if (( ${#channels_to_test[@]} > 0 )); then
+                for chan in "${channels_to_test[@]}"; do
+                  echo ""
+                  echo "TARGET INDEX ${pkg}.${chan} channel:"
+                  jq -r --arg p "${pkg}" --arg c "${chan}" '.[] | select(.package == $p and .channel == $c)' "${ndx_channels}"
+                  echo ""
+                  mapfile -t ndx_entries < <(jq -r --arg p "${pkg}" --arg c "${chan}" '.[] | select(.package == $p and .channel == $c) | .entries[]' "${ndx_channels}")
+                  mapfile -t fbc_entries < <(jq -r --arg p "${pkg}" --arg c "${chan}" '.[] | select(.package == $p and .channel == $c) | .entries[]' "${fbc_channels}")
+
+                  for entry in "${ndx_entries[@]}"; do
+                    if ! echo "${fbc_entries[@]}" | grep -Fwq "${entry}"; then
+                      if [[ ! "${chan}" =~ ${fbc_allowed_pruned_channels} ]]; then
+                        echo "!FAILURE! - FBC fragment prunes ${entry} from ${pkg}.${chan} channel."
+                        failure_num=$((failure_num + 1))
+                        TESTPASSED=false
+                      else
+                        echo "FBC fragment prunes ${entry} from ${pkg}.${chan} channel. Pruning in ${chan} channel is allowed."
+                      fi
+                    fi
+                  done
+                done
+              fi
+            done
+          else
+            echo "FBC fragment is not modifying any existing channels in the target index."
+          fi
+
+          note="Task fbc-target-index-pruning-check completed: Check result for task result."
+          if [[ $TESTPASSED == false ]]; then
+            ERROR_OUTPUT=$(make_result_json -r FAILURE -f $failure_num -s 0 -t "${note}")
+            echo "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+          else
+            TEST_OUTPUT=$(make_result_json -r SUCCESS -s 1 -t "${note}")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+          fi
+
+          ### Add IMAGES_PROCESSED to result
+          image_without_tag=$(echo -n "$IMAGE_URL" | cut -d@ -f1 | sed 's_/\(.*\):\(.*\)_/\1_g')
+          image_with_digest="${image_without_tag}@${IMAGE_DIGEST}"
+          images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
+          image_manifests=$(get_image_manifests -i "${image_with_digest}")
+          echo "image_manifests: $image_manifests"
+          if [ -n "$image_manifests" ]; then
+            while read -r _arch arch_sha; do
+              digests_processed+=("\"$arch_sha\"")
+            done < <(echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+          fi
+
+          # If the image is an Image Index, also add the Image Index digest to the list.
+          if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
+            digests_processed+=("\"$IMAGE_DIGEST\"")
+          fi
+
+          digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
+          echo "${images_processed_template/\[%s]/[$digests_processed_string]}" | tee "/tekton/results/IMAGES_PROCESSED"
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+          runAsUser: 0
+        workingDir: /var/workdir
+    volumes:
+      - emptyDir: {}
+        name: shared
+      - emptyDir: {}
+        name: workdir

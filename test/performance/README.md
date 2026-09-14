@@ -300,3 +300,4 @@ CI runs it on demand via the **Performance Smoke** GitHub Actions workflow
 [`.github/workflows/performance-smoke.yaml`](../../.github/workflows/performance-smoke.yaml)),
 which stands up kind local-db and runs `make performance-smoke`. Tier-2 runs stay
 manual (they need a booked ephemeral OpenShift cluster).
+

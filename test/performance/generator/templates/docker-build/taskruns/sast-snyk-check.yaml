@@ -1,0 +1,244 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/org/repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux,security,sast
+  creationTimestamp: "2026-09-09T12:35:40Z"
+  finalizers:
+  - chains.tekton.dev/taskrun
+  - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    appstudio.openshift.io/application: example-application
+    appstudio.openshift.io/component: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: container-build
+    tekton.dev/pipelineRun: container-build-on-pull-request-a1b2c
+    tekton.dev/pipelineTask: sast-snyk-check
+    tekton.dev/task: sast-snyk-check-oci-ta
+  name: container-build-on-pull-request-a1b2c-sast-snyk-check
+  namespace: build-tenant
+  ownerReferences:
+  - apiVersion: tekton.dev/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: PipelineRun
+    name: container-build-on-pull-request-a1b2c
+    uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9855242110"
+  uid: 00000000-0000-0000-0000-000000000009
+spec:
+  params:
+  - name: image-url
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000
+  - name: image-digest
+    value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  - name: SOURCE_ARTIFACT
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.git
+  - name: CACHI2_ARTIFACT
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.prefetch
+  - name: ARGS
+    value: -d --report --org=00000000-0000-0000-0000-000000000000 --project-name=example-project
+  serviceAccountName: build-pipeline-app-component
+  taskRef:
+    params:
+    - name: name
+      value: sast-snyk-check-oci-ta
+    - name: bundle
+      value: quay.io/konflux-ci/tekton-catalog/task-sast-snyk-check-oci-ta:0.5@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: kind
+      value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  completionTime: "2026-09-09T12:42:18Z"
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:42:18Z"
+    message: All Steps have completed executing
+    reason: Succeeded
+    status: "True"
+    type: Succeeded
+  podName: container-build-on-pull-request-a1b2c-sast-snyk-check-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      enableAPIFields: alpha
+      enableProvenanceInStatus: true
+  results:
+  - name: SNYK_SCAN_RESULT
+    type: string
+    value: |
+      {
+        "vulnerabilities": {
+          "critical": 1,
+          "high": 5,
+          "medium": 23,
+          "low": 89
+        },
+        "dependencies": {
+          "total": 234,
+          "vulnerable": 17
+        },
+        "license_issues": 2,
+        "project_id": "00000000-0000-0000-0000-000000000000",
+        "timestamp": "2026-09-09T12:42:10Z"
+      }
+  - name: TEST_OUTPUT
+    type: string
+    value: |
+      {
+        "result": "WARNING",
+        "timestamp": "2026-09-09T12:42:15Z",
+        "failures": 0,
+        "warnings": 6,
+        "successes": 228
+      }
+  startTime: "2026-09-09T12:35:40Z"
+  steps:
+  - container: step-fetch-source
+    imageID: quay.io/konflux-ci/oras@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: fetch-source
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:35:50Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:35:45Z"
+  - container: step-fetch-cachi2
+    imageID: quay.io/konflux-ci/oras@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: fetch-cachi2
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:35:58Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:35:51Z"
+  - container: step-snyk-code-test
+    imageID: quay.io/redhat-appstudio/konflux-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: snyk-code-test
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:41:45Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:35:59Z"
+  - container: step-snyk-container-test
+    imageID: quay.io/redhat-appstudio/konflux-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: snyk-container-test
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:42:10Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:41:46Z"
+  - container: step-conftest-vulnerabilities
+    imageID: quay.io/redhat-appstudio/hacbs-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: conftest-vulnerabilities
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:42:15Z"
+      message: '[{"key":"SNYK_SCAN_RESULT","value":"{\n  \"vulnerabilities\": {\n    \"critical\": 1,\n    \"high\": 5,\n    \"medium\": 23,\n    \"low\": 89\n  },\n  \"dependencies\": {\n    \"total\": 234,\n    \"vulnerable\": 17\n  },\n  \"license_issues\": 2,\n  \"project_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"timestamp\": \"2026-09-09T12:42:10Z\"\n}","type":1},{"key":"TEST_OUTPUT","value":"{\n  \"result\": \"WARNING\",\n  \"timestamp\": \"2026-09-09T12:42:15Z\",\n  \"failures\": 0,\n  \"warnings\": 6,\n  \"successes\": 228\n}","type":1}]'
+      reason: Completed
+      startedAt: "2026-09-09T12:42:11Z"
+  - container: step-upload-results
+    imageID: quay.io/redhat-appstudio/konflux-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: upload-results
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:42:17Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:42:16Z"
+  taskSpec:
+    description: Scans source code for security issues using Snyk
+    params:
+    - description: Image URL
+      name: image-url
+      type: string
+    - description: Image digest
+      name: image-digest
+      type: string
+    - description: Source artifact
+      name: SOURCE_ARTIFACT
+      type: string
+    - description: Cachi2 artifact
+      name: CACHI2_ARTIFACT
+      type: string
+    - default: ""
+      description: Snyk arguments
+      name: ARGS
+      type: string
+    results:
+    - description: Snyk scan results
+      name: SNYK_SCAN_RESULT
+      type: string
+    - description: Test output
+      name: TEST_OUTPUT
+      type: string
+    steps:
+    - computeResources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      image: quay.io/konflux-ci/oras:latest
+      name: fetch-source
+      script: |
+        #!/usr/bin/env bash
+        oras pull $(params.SOURCE_ARTIFACT)
+    - image: quay.io/konflux-ci/oras:latest
+      name: fetch-cachi2
+      script: |
+        #!/usr/bin/env bash
+        oras pull $(params.CACHI2_ARTIFACT)
+    - computeResources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 250m
+          memory: 1Gi
+      env:
+      - name: SNYK_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: snyk_token
+            name: snyk-secret
+      - name: SNYK_ARGS
+        value: $(params.ARGS)
+      image: quay.io/redhat-appstudio/konflux-test:latest
+      name: snyk-code-test
+      script: |
+        #!/usr/bin/env bash
+        snyk code test /workspace/source ${SNYK_ARGS}
+    - env:
+      - name: SNYK_TOKEN
+        valueFrom:
+          secretKeyRef:
+            key: snyk_token
+            name: snyk-secret
+      - name: IMAGE_URL
+        value: $(params.image-url)
+      - name: IMAGE_DIGEST
+        value: $(params.image-digest)
+      image: quay.io/redhat-appstudio/konflux-test:latest
+      name: snyk-container-test
+      script: |
+        #!/usr/bin/env bash
+        snyk container test "${IMAGE_URL}@${IMAGE_DIGEST}"
+    - image: quay.io/redhat-appstudio/hacbs-test:latest
+      name: conftest-vulnerabilities
+      script: |
+        #!/usr/bin/env bash
+        conftest test --policy /policy /workspace/snyk-results.json
+    - image: quay.io/redhat-appstudio/konflux-test:latest
+      name: upload-results
+      script: |
+        #!/usr/bin/env bash
+        upload-scan-results /workspace/snyk-results.json

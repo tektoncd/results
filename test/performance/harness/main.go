@@ -69,6 +69,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
 	root.AddCommand(newLoadCmd(), newStoreCmd(), newQueryCmd(), newMixedCmd(), newDatasetCmd(), newDeriveCmd(), newCompareCmd())
 	return root
 }
