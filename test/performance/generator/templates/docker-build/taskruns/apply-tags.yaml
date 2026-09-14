@@ -1,0 +1,208 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/build-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/build-tenant/pipelinerun/build-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/build-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/build-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"app-component","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:56:59Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: build-tenant-v0
+    appstudio.openshift.io/component: build-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: build-tenant-v0-on-push
+    tekton.dev/pipelineRun: build-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: apply-tags
+    tekton.dev/task: apply-tags
+  name: build-tenant-v0-on-push-rgqnb-apply-tags
+  namespace: build-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: build-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772746042"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: IMAGE_URL
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-build-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: apply-tags
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-apply-tags:0.3@sha256:da0cff2a36f07087798cd5f577b15f3d9e6dd4d3d08956227b298362e08ecc37
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:57:05Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:57:05Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: build-tenant-v0-on-push-rgqnb-apply-tags-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: da0cff2a36f07087798cd5f577b15f3d9e6dd4d3d08956227b298362e08ecc37
+      entryPoint: apply-tags
+      uri: quay.io/konflux-ci/tekton-catalog/task-apply-tags
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:56:59Z"
+  steps:
+    - container: step-apply-additional-tags
+      imageID: quay.io/konflux-ci/konflux-build-cli@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+      name: apply-additional-tags
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:04Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:57:03Z"
+      terminationReason: Completed
+  taskSpec:
+    description: Applies additional tags to the built image.
+    params:
+      - description: Image repository and tag reference of the the built image.
+        name: IMAGE_URL
+        type: string
+      - description: Image digest of the built image.
+        name: IMAGE_DIGEST
+        type: string
+      - default: []
+        description: Additional tags that will be applied to the image in the registry.
+        name: ADDITIONAL_TAGS
+        type: array
+      - default: trusted-ca
+        description: The name of the ConfigMap to read CA bundle data from.
+        name: CA_TRUST_CONFIG_MAP_NAME
+        type: string
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the CA bundle data.
+        name: CA_TRUST_CONFIG_MAP_KEY
+        type: string
+      - default: info
+        description: Log level to use in the task. See golang logrus docs for available levels.
+        name: LOG_LEVEL
+        type: string
+    stepTemplate:
+      computeResources: {}
+      volumeMounts:
+        - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+    steps:
+      - args:
+          - --image-url
+          - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+          - --digest
+          - sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - --tags
+          - --tags-from-image-label
+          - konflux.additional-tags
+        command:
+          - konflux-build-cli
+          - image
+          - apply-tags
+        computeResources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        env:
+          - name: KBC_LOG_LEVEL
+            value: info
+        image: quay.io/konflux-ci/konflux-build-cli@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+        name: apply-additional-tags
+    volumes:
+      - configMap:
+          items:
+            - key: ca-bundle.crt
+              path: ca-bundle.crt
+          name: trusted-ca
+          optional: true
+        name: trusted-ca

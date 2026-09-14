@@ -1,0 +1,818 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:56:59Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: fbc-fips-check-oci-ta
+    tekton.dev/task: fbc-fips-check-oci-ta
+  name: perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772760072"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: image-digest
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: image-url
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: SOURCE_ARTIFACT
+      value: oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: fbc-fips-check-oci-ta
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-fbc-fips-check-oci-ta:0.1@sha256:11f4adee71143d1bb8504bb96edfa868be9624e0f1758fc299d7a9a86f30e8e0
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:59:20Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:59:20Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 11f4adee71143d1bb8504bb96edfa868be9624e0f1758fc299d7a9a86f30e8e0
+      entryPoint: fbc-fips-check-oci-ta
+      uri: quay.io/konflux-ci/tekton-catalog/task-fbc-fips-check-oci-ta
+  results:
+    - name: IMAGES_PROCESSED
+      type: string
+      value: |
+        {"image": {"pullspec": "quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000", "digests": ["sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000"]}}
+    - name: TEST_OUTPUT
+      type: string
+      value: |+
+        {"result":"SUCCESS","timestamp":"2026-09-02T20:59:19+00:00","note":"Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta completed: Check result for task result.","namespace":"default","successes":35,"failures":0,"warnings":0}
+
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:57:00Z"
+  steps:
+    - container: step-use-trusted-artifact
+      imageID: quay.io/konflux-ci/build-trusted-artifacts@sha256:048d2923117546b7ef7efd982e94f993e32c5ef586722f178d8373fc47b28133
+      name: use-trusted-artifact
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:07Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:57:06Z"
+      terminationReason: Completed
+    - container: step-get-unique-related-images
+      imageID: quay.io/konflux-ci/konflux-test@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+      name: get-unique-related-images
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:58:52Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:57:08Z"
+      terminationReason: Completed
+    - container: step-fips-operator-check-step-action
+      imageID: quay.io/konflux-ci/konflux-test@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+      name: fips-operator-check-step-action
+      provenance: {}
+      results:
+        - name: TEST_OUTPUT
+          type: string
+          value: |
+            {"result":"SUCCESS","timestamp":"2026-09-02T20:59:19+00:00","note":"Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta completed: Check result for task result.","namespace":"default","successes":35,"failures":0,"warnings":0}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:59:19Z"
+        message: '[{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:59:19+00:00\",\"note\":\"Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":35,\"failures\":0,\"warnings\":0}\n","type":4}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:58:53Z"
+      terminationReason: Completed
+    - container: step-parse-images-processed-result
+      imageID: quay.io/konflux-ci/konflux-test@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+      name: parse-images-processed-result
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:59:19Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"SUCCESS\",\"timestamp\":\"2026-09-02T20:59:19+00:00\",\"note\":\"Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta completed: Check result for task result.\",\"namespace\":\"default\",\"successes\":35,\"failures\":0,\"warnings\":0}\n\n","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:59:19Z"
+      terminationReason: Completed
+  taskSpec:
+    description: |-
+      The fbc-fips-check task uses the check-payload tool to verify if an unreleased operator bundle in an FBC fragment image is FIPS compliant. It only scans operator bundle images which either claim to be FIPS compliant by setting the `features.operators.openshift.io/fips-compliant` label to `"true"` on the bundle image or require one of `OpenShift Kubernetes Engine, OpenShift Platform Plus or OpenShift Container Platform` subscriptions to run the operator on an Openshift cluster.
+      This task extracts relatedImages from all unreleased operator bundle images from your FBC fragment and scans them. In the context of FBC fragment, an unreleased operator bundle image is the one that isn't currently present in the Red Hat production Index Image (`registry.redhat.io/redhat/redhat-operator-index`). It is necessary for relatedImages pullspecs to be pullable at build time of the FBC fragment.
+      In order to resolve them, this task expects an ImageDigestMirrorSet file at the path given by `image-mirror-set-path` (default: `.tekton/images-mirror-set.yaml`) of your FBC fragment git repo. It should map unreleased `registry.redhat.io` pullspecs of relatedImages to their valid quay.io pullspecs. If the ImageDigestMirrorSet is not provided, the task will attempt to process the registry.redhat.io pullspecs as is and might fail.
+    params:
+      - default: "8"
+        description: Maximum number of images to process in parallel
+        name: MAX_PARALLEL
+        type: string
+      - description: The Trusted Artifact URI pointing to the artifact with the application source code.
+        name: SOURCE_ARTIFACT
+        type: string
+      - description: Image digest to scan.
+        name: image-digest
+        type: string
+      - default: .tekton/images-mirror-set.yaml
+        description: Path to the image mirror set file.
+        name: image-mirror-set-path
+        type: string
+      - description: Image URL.
+        name: image-url
+        type: string
+    results:
+      - description: Images processed in the task.
+        name: IMAGES_PROCESSED
+        type: string
+      - description: Tekton task test output.
+        name: TEST_OUTPUT
+        type: string
+    stepTemplate:
+      computeResources: {}
+      volumeMounts:
+        - mountPath: /var/workdir
+          name: workdir
+    steps:
+      - args:
+          - use
+          - oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000=/var/workdir/source
+        computeResources: {}
+        image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:a246cf2267fe6fa68ae8885c6ca4141923edca3ccf9b56838d1ebe369d31b46d
+        name: use-trusted-artifact
+      - computeResources:
+          limits:
+            memory: 6Gi
+          requests:
+            cpu: 705m
+            memory: 6Gi
+        env:
+          - name: IMAGE_URL
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+          - name: IMAGE_DIGEST
+            value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - name: SOURCE_CODE_DIR
+            value: /var/workdir
+          - name: IMAGE_MIRROR_SET_PATH
+            value: .tekton/images-mirror-set.yaml
+        image: quay.io/konflux-ci/konflux-test:v1.5.6@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+        name: get-unique-related-images
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          . /utils.sh
+
+          unique_related_images=()
+          digests_processed=()
+          images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
+
+          image_mirror_map=""
+          mirror_set="${SOURCE_CODE_DIR}/source/${IMAGE_MIRROR_SET_PATH}"
+          if [[ -f "${mirror_set}" ]]; then
+            mirror_set_yaml=$(cat "${mirror_set}")
+            image_mirror_map=$(process_image_digest_mirror_set "${mirror_set_yaml}")
+            echo "${image_mirror_map}" >"/tekton/home/related-images-map.txt"
+            echo "Image mirror map:"
+            echo "${image_mirror_map}" | jq '.'
+          else
+            echo "Could not find Image mirror set at ${mirror_set}. Unreleased bundles and relatedImages will fail the scan."
+          fi
+
+          image_without_tag=$(echo -n "${IMAGE_URL}" | sed "s/\(.*\):.*/\1/")
+          # strip new-line escape symbol from parameter and save it to variable
+          image_and_digest="${image_without_tag}@${IMAGE_DIGEST}"
+
+          echo "Inspecting raw image manifest $image_and_digest."
+          # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
+          image_manifests=$(get_image_manifests -i "${image_and_digest}")
+          echo "Image manifests are $image_manifests"
+
+          echo "Getting Target ocp version for the FBC fragment"
+          image_manifest_sha=$(echo "${image_manifests}" | jq -r 'to_entries[0].value')
+          target_ocp_version=$(get_ocp_version_from_fbc_fragment "$image_without_tag@$image_manifest_sha")
+          echo "${target_ocp_version#v}" >"/tekton/home/target_ocp_version.txt"
+          echo "Target OCP version: ${target_ocp_version}"
+
+          target_index_url=$(get_target_fbc_catalog_image -i "${image_and_digest}")
+          echo "Target index: ${target_index_url}"
+
+          target_index_repo_reg=$(get_image_registry_and_repository "${target_index_url}")
+
+          # Get package names from fragment
+          echo "Rendering FBC fragment: ${image_and_digest}"
+          rendered_fbc_image_file=$(render_opm -t "${image_and_digest}" --file)
+          if [[ ! -f "${rendered_fbc_image_file}" ]]; then
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Unable to render the FBC fragment image: ${image_and_digest}"
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+          echo "Getting package names in FBC fragment"
+          if ! fragment_pkg_names=$(extract_unique_package_names_from_catalog "${rendered_fbc_image_file}" --file); then
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Could not get package names from FBC fragment."
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+          echo "Packages in FBC fragment: ${fragment_pkg_names}"
+
+          # Get package names from target index
+          echo "Rendering target index: ${target_index_url}"
+          rendered_target_index_file=$(render_opm -t "${target_index_url}" --file)
+          if [[ ! -f "${rendered_target_index_file}" ]]; then
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Unable to render the fragment target index image: ${IMAGE_URL}"
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r ERROR -t "${note}")
+            exit 0
+          fi
+
+          if ! ti_pkg_names=$(extract_unique_package_names_from_catalog "${rendered_target_index_file}" --file); then
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Could not get package names from the target index."
+            echo "${note}"
+            TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+            echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          declare -i unreleased_pkg_count=0
+          for pkg in ${fragment_pkg_names}; do
+            if ! echo "${ti_pkg_names}" | grep -Fwq "${pkg}"; then
+              unreleased_pkg_count+=1
+              echo "${pkg} was not found in target index."
+            fi
+          done
+
+          # If package names not in the target index use the previous version
+          if [[ "${unreleased_pkg_count}" -gt 0 ]]; then
+            echo "One or more packages in the FBC fragment were not found in the target index."
+
+            prev_ocp_version=$(get_prev_ocp_version "${target_ocp_version}")
+            echo "Using the previous catalog OCP version to check for unreleased bundles: ${prev_ocp_version}"
+            target_index_url="${target_index_repo_reg}:${prev_ocp_version}"
+          fi
+
+          declare -A seen_related_images
+          while read -r _ arch_sha; do
+            digests_processed+=("\"$arch_sha\"")
+
+            if ! unreleased_bundles=$(get_unreleased_bundle -i "$image_without_tag@$arch_sha" -b "$target_index_url"); then
+              note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Could not get unreleased bundle images from the fragment. Make sure you have ImagePullCredentials for registry.redhat.io"
+              echo "${note}"
+              TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+              echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+              exit 0
+            fi
+
+            if [ -z "${unreleased_bundles}" ]; then
+              echo "No unreleased bundles found. Skipping check."
+              exit 0
+            fi
+
+            for bundle in ${unreleased_bundles}; do
+              echo "Processing bundle image : ${bundle}"
+
+              image_accessible=0
+              if ! bundle_out=$(opm render "$bundle"); then
+                echo "Could not inspect original pullspec $bundle. Checking if there's a mirror present"
+                if [ -n "${image_mirror_map}" ]; then
+                  reg_and_repo=$(get_image_registry_and_repository "${bundle}")
+                  mapfile -t mirrors < <(get_image_mirror_list "${reg_and_repo}" "${image_mirror_map}")
+                  if [[ -z "${mirrors[0]}" ]]; then
+                    echo "No mirrors found in image mirror map for ${reg_and_repo}"
+                  else
+                    echo "Mirrors for $reg_and_repo are:"
+                    printf "%s\n" "${mirrors[@]}"
+
+                    for mirror in "${mirrors[@]}"; do
+                      echo "Attempting to use mirror ${mirror}"
+                      replaced_image=$(replace_image_pullspec "$bundle" "$mirror")
+                      if ! bundle_out=$(opm render "$replaced_image"); then
+                        echo "Mirror $mirror is inaccessible."
+                        continue
+                      fi
+                      image_accessible=1
+                      echo "Replacing $bundle with $replaced_image"
+                      bundle="$replaced_image"
+                      break
+                    done
+                  fi
+                fi
+              else
+                image_accessible=1
+                echo "Successfully inspected $bundle. Mirror not required."
+              fi
+
+              # Run the FIPS check only if the bundle is part of the Openshift Subscription or has the fips label set
+              if [[ $image_accessible -eq 0 ]]; then
+                note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Could not render unreleased bundle image: ${bundle}. Make sure the image is accessible or a mirror is provided for the same in images-mirror-set.yaml"
+                echo "${note}"
+                TEST_OUTPUT=$(make_result_json -r FAILURE -f 1 -t "$note")
+                echo "${TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+                exit 0
+              fi
+              subscription_label=$(echo "${bundle_out}" | jq -r '.properties[] | select((.value | type == "object") and (.value.annotations["operators.openshift.io/valid-subscription"] != null)) | (.value.annotations["operators.openshift.io/valid-subscription"] | fromjson)[]')
+
+              fips_annotation=$(echo "${bundle_out}" | jq -r '.properties[] | select((.value | type == "object") and (.value.annotations["features.operators.openshift.io/fips-compliant"]? == "true")) | .value.annotations["features.operators.openshift.io/fips-compliant"]')
+
+              # Extract createdAt annotation for FIPS exemption check
+              created_at=$(echo "${bundle_out}" | jq -r '.properties[] | select((.value | type == "object") and (.value.annotations["createdAt"] != null)) | .value.annotations["createdAt"]' | head -1)
+
+              # FIPS requirement cutoff date (Jan 31, 2025) - bundles created before this date
+              # with qualifying subscriptions are exempt from FIPS checks unless they explicitly
+              # claim fips-compliant=true
+              FIPS_CUTOFF_DATE="2025-01-31T00:00:00Z"
+              # Pre-computed epoch seconds for FIPS_CUTOFF_DATE to avoid runtime date parsing issues
+              FIPS_CUTOFF_EPOCH=1738281600
+
+              if ! echo "${subscription_label}" | grep -e "OpenShift Kubernetes Engine" -e "OpenShift Container Platform" -e "OpenShift Platform Plus"; then
+                echo "OpenShift Kubernetes Engine, OpenShift Platform Plus or OpenShift Container Platform are not present in operators.openshift.io/valid-subscription."
+                echo "Subscription labels are : $subscription_label"
+                if [ -z "${fips_annotation}" ] || [ "${fips_annotation}" != "true" ]; then
+                  echo "The annotation features.operators.openshift.io/fips-compliant is also not set to true. Skipping the FIPS static check for ${bundle}"
+                  continue
+                else
+                  echo "The annotation features.operators.openshift.io/fips-compliant is set to true. Running the FIPS static check..."
+                fi
+              else
+                # Bundle has qualifying Red Hat subscription
+                echo "OpenShift Kubernetes Engine, OpenShift Platform Plus or OpenShift Container Platform are present in operators.openshift.io/valid-subscription."
+
+                # Check for FIPS exemption based on createdAt date
+                is_legacy_bundle=false
+                if [ -n "${created_at}" ]; then
+                  echo "Bundle createdAt: ${created_at}"
+                  # Convert createdAt to Unix timestamp for comparison
+                  created_at_ts=$(date -d "${created_at}" +%s 2>/dev/null || echo "")
+
+                  if [ -n "${created_at_ts}" ] && [ "${created_at_ts}" -lt "${FIPS_CUTOFF_EPOCH}" ]; then
+                    is_legacy_bundle=true
+                    echo "Bundle was created before FIPS requirement date (${FIPS_CUTOFF_DATE})"
+                  fi
+                else
+                  echo "No createdAt annotation found on bundle"
+                fi
+
+                if [ "${is_legacy_bundle}" = true ]; then
+                  # Legacy bundle (created before FIPS requirement date)
+                  if [ -n "${fips_annotation}" ] && [ "${fips_annotation}" = "true" ]; then
+                    echo "Legacy bundle claims fips-compliant=true. Running FIPS static check to verify compliance..."
+                  else
+                    echo "Legacy bundle created before ${FIPS_CUTOFF_DATE} is exempt from FIPS check. Skipping FIPS static check for ${bundle}"
+                    continue
+                  fi
+                else
+                  echo "Bundle created on or after FIPS requirement date. Running the FIPS static check..."
+                fi
+              fi
+
+              manifest_related_images=$(extract_related_images_from_bundle "$bundle")
+              if [ -n "$manifest_related_images" ]; then
+                for img in $manifest_related_images; do
+                  if [ -z "${seen_related_images["$img"]:-}" ]; then
+                    unique_related_images+=("$img")
+                    seen_related_images["$img"]=1
+                  fi
+                done
+              fi
+              echo "Current unique images list is ${unique_related_images[*]}"
+
+            done
+          done < <(echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+
+          if [ ${#unique_related_images[@]} -gt 0 ]; then
+            echo "Unique related images: ${unique_related_images[*]}"
+            echo "${unique_related_images[*]}" >"/tekton/home/unique_related_images.txt"
+          else
+            echo "No related images found. Skipping check."
+            exit 0
+          fi
+
+          # If the image is an Image Index, also add the Image Index digest to the list.
+          if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
+            digests_processed+=("\"$IMAGE_DIGEST\"")
+          fi
+          digests_processed_string=$(
+            IFS=,
+            echo "${digests_processed[*]}"
+          )
+
+          echo "${images_processed_template/\[%s]/[$digests_processed_string]}" >"/tekton/home/images_processed.txt"
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+      - args:
+          - -s
+          - --
+          - bash
+          - -c
+          - |
+            set -euo pipefail
+            # shellcheck source=/dev/null
+            . /utils.sh
+
+            export RETRY_COUNT=2
+            export RETRY_INTERVAL=5
+
+            # Create temporary directory for parallel processing counters
+            counter_dir=$(mktemp -d)
+            trap 'rm -rf "$counter_dir"' EXIT
+
+            # Function to clean up OCI image and extracted directory
+            cleanup_image_artifacts() {
+              local image_num="$1"
+              local component_label="$2"
+              local version_label="$3"
+              local release_label="$4"
+              # Clean up OCI directory (may already be deleted by inline rm, or may not exist)
+              rm -rf "/tekton/home/${image_num}-${component_label}-${version_label}-${release_label}" 2>/dev/null || true
+              # Clean up extracted directory (may or may not exist depending on failure point)
+              rm -rf "/tekton/home/unpacked-${image_num}-${component_label}-${version_label}-${release_label}" 2>/dev/null || true
+            }
+
+            # Function to process a single related image
+            process_image() {
+              # shellcheck source=/dev/null
+              . /utils.sh
+
+              local related_image="$1"
+              local image_num="$2"
+              local total_images="$3"
+              local check_payload_version="$4"
+              local image_mirror_map="$5"
+
+              related_image="${related_image//$'\n'/}"
+              echo "Processing related image ${image_num} of ${total_images}: ${related_image}"
+
+              image_accessible=0
+              if ! image_labels=$(get_image_labels "$related_image"); then
+                echo "Could not inspect original pullspec $related_image. Checking if there's a mirror present"
+                if [ -n "${image_mirror_map}" ]; then
+                  reg_and_repo=$(get_image_registry_and_repository "${related_image}")
+                  mapfile -t mirrors < <(get_image_mirror_list "${reg_and_repo}" "${image_mirror_map}")
+                  if [[ -z "${mirrors[0]}" ]]; then
+                    echo "No mirrors found in image mirror map for ${reg_and_repo}"
+                  else
+                    echo "Mirrors for $reg_and_repo are:"
+                    printf "%s\n" "${mirrors[@]}"
+
+                    for mirror in "${mirrors[@]}"; do
+                      echo "Attempting to use mirror ${mirror}"
+                      replaced_image=$(replace_image_pullspec "$related_image" "$mirror")
+                      if ! image_labels=$(get_image_labels "$replaced_image"); then
+                        echo "Mirror $mirror is inaccessible."
+                        continue
+                      fi
+                      image_accessible=1
+                      echo "Replacing $related_image with $replaced_image"
+                      related_image="$replaced_image"
+                      break
+                    done
+                  fi
+                fi
+              else
+                image_accessible=1
+                echo "Successfully inspected $related_image. Mirror not required."
+              fi
+
+              if [[ $image_accessible -eq 0 ]]; then
+                echo -e "Error: Unable to scan image: Could not inspect image ${related_image} for labels\n"
+                echo "1" >> "${counter_dir}/error"
+                return
+              fi
+              component_label=$(echo "${image_labels}" | grep 'com.redhat.component=' | cut -d= -f2 | tr -d '\n\r' | xargs || true)
+              version_label=$(echo "${image_labels}" | grep '^version=' | cut -d= -f2 | tr -d '\n\r' | xargs || true)
+              release_label=$(echo "${image_labels}" | grep 'release=' | cut -d= -f2 | tr -d '\n\r' | xargs || true)
+              echo "Component label is ${component_label}"
+              echo "Version label is ${version_label}"
+              echo "Release label is ${release_label}"
+
+              # Sanitize component_label to prevent directory path issues
+              # Replace problematic characters (/ \ : * ? " < > | and whitespace) with hyphens
+              sanitized_component_label=$(echo -n "${component_label}" | tr '/\\:*?"<>|[:space:]' '-')
+              echo "Sanitized component label for path usage: ${component_label} -> ${sanitized_component_label}"
+              component_label="${sanitized_component_label}"
+
+              if [ -z "${component_label}" ]; then
+                echo -e "Error: Unable to scan image: Could not get com.redhat.component label for ${related_image}\n"
+                echo "1" >> "${counter_dir}/error"
+                return
+              fi
+
+              # Sanitize the image reference to handle Docker references with both tag and digest
+              sanitized_related_image=$(get_image_registry_repository_digest "${related_image}")
+
+              # If no digest is present, fallback to using tag-based sanitization
+              if [[ "${sanitized_related_image}" != *"@"* ]]; then
+                echo "No digest found in sanitized image, using tag-based sanitization"
+                sanitized_related_image=$(get_image_registry_repository_tag "${related_image}")
+              fi
+              echo "Successfully sanitized image reference: ${sanitized_related_image}. Using sanitized image reference for extraction"
+
+              # Fetch the first available architecture so that the skopeo copy does not fail if the default arch is not available
+              first_arch=$(get_first_arch "${sanitized_related_image}")
+              echo "Detected architecture for ${sanitized_related_image}: ${first_arch}"
+
+              # Create destination directory for extraction
+              extract_dir="/tekton/home/unpacked-${image_num}-${component_label}-${version_label}-${release_label}"
+              mkdir -p "${extract_dir}"
+
+              # Extract image filesystem using oc image extract, with fallback to skopeo+umoci
+              # oc image extract may fail with large images under high parallelism
+              extraction_success=1
+              if oc image extract "${sanitized_related_image}" \
+                  --path=/:"${extract_dir}" \
+                  --filter-by-os=".*/${first_arch}" \
+                  --confirm \
+                  --preserve-ownership; then
+                extraction_success=0
+                echo "Successfully extracted ${related_image} using oc image extract"
+              else
+                echo "oc image extract failed for ${related_image}, falling back to skopeo+umoci"
+                # Clean up partial extraction before fallback
+                rm -rf "${extract_dir}" 2>/dev/null || true
+                mkdir -p "${extract_dir}"
+
+                # Fallback: use skopeo copy + umoci unpack
+                oci_dir="/tekton/home/${image_num}-${component_label}-${version_label}-${release_label}"
+                if retry skopeo copy --override-arch "${first_arch}" --remove-signatures \
+                    "docker://${sanitized_related_image}" \
+                    "oci://${oci_dir}:latest"; then
+                  if retry umoci raw unpack --rootless \
+                      --image "${oci_dir}:latest" \
+                      "${extract_dir}"; then
+                    extraction_success=0
+                    echo "Successfully extracted ${related_image} using skopeo+umoci fallback"
+                  else
+                    echo "umoci unpack failed for ${related_image}"
+                  fi
+                  # Clean up OCI image regardless of umoci success
+                  rm -rf "${oci_dir}" 2>/dev/null || true
+                else
+                  echo "skopeo copy failed for ${related_image}"
+                fi
+              fi
+
+              if [[ "${extraction_success}" -ne 0 ]]; then
+                echo -e "Error: Unable to scan image: Could not extract filesystem from ${related_image}\n"
+                # Clean up any partial extracted directory to prevent resource accumulation
+                cleanup_image_artifacts "${image_num}" "${component_label}" "${version_label}" "${release_label}"
+                echo "1" >> "${counter_dir}/error"
+                return
+              fi
+
+              # Run check-payload on the extracted image
+              # The check-payload command fails with exit 1 when the scan for an image is unsuccessful
+              # or when the image is not FIPS compliant. Hence, count those as failures and not errors
+              if ! check-payload scan local \
+                  --path="/tekton/home/unpacked-${image_num}-${component_label}-${version_label}-${release_label}" \
+                  "${check_payload_version}" \
+                  --components="${component_label}" \
+                  --output-format=csv \
+                  --output-file="/tekton/home/report-${image_num}-${component_label}-${version_label}-${release_label}.csv"; then
+                echo -e "check-payload scan failed for ${related_image}\n"
+                # Clean up extracted directory on scan failure to prevent resource accumulation
+                cleanup_image_artifacts "${image_num}" "${component_label}" "${version_label}" "${release_label}"
+                echo "1" >> "${counter_dir}/failure"
+                return
+              fi
+
+              if [ -f "/tekton/home/report-${image_num}-${component_label}-${version_label}-${release_label}.csv" ]; then
+                if grep -q -- "---- Successful run" "/tekton/home/report-${image_num}-${component_label}-${version_label}-${release_label}.csv"; then
+                  echo -e "check-payload scan was successful for ${related_image}\n"
+                  echo "1" >> "${counter_dir}/success"
+                  # Clean up extracted directory on successful run to save space
+                  cleanup_image_artifacts "${image_num}" "${component_label}" "${version_label}" "${release_label}"
+                elif grep -q -- "---- Successful run with warnings" "/tekton/home/report-${image_num}-${component_label}-${version_label}-${release_label}.csv"; then
+                  echo -e "check-payload scan was successful with warnings for ${related_image}\n"
+                  echo "1" >> "${counter_dir}/warnings"
+                  # Clean up extracted directory on successful run with warnings to save space
+                  cleanup_image_artifacts "${image_num}" "${component_label}" "${version_label}" "${release_label}"
+                fi
+              fi
+            }
+
+            if [ ! -e "/tekton/home/unique_related_images.txt" ]; then
+              echo "No relatedImages to process"
+              exit 0
+            fi
+
+            mapfile -d ' ' -t related_images < <(cat /tekton/home/unique_related_images.txt)
+            echo "Related images are :"
+            printf "%s\n" "${related_images[@]}"
+
+            # If target OCP version is found, use it to apply the exception list when running check-payload
+            check_payload_version=""
+            if [ -f "/tekton/home/target_ocp_version.txt" ]; then
+              version=$(cat "/tekton/home/target_ocp_version.txt")
+              check_payload_version="-V=${version}"
+              echo "Target OCP version found: ${check_payload_version}"
+            fi
+
+            # Check if an image to mirror map is defined for unreleased images
+            image_mirror_map=""
+            if [ -f "/tekton/home/related-images-map.txt" ]; then
+              image_mirror_map=$(cat "/tekton/home/related-images-map.txt")
+              echo "Image Mirror Map found:"
+              echo "${image_mirror_map}" | jq '.'
+            fi
+
+            # Process images in parallel with MAX_PARALLEL limit
+            echo "Processing ${#related_images[@]} images with MAX_PARALLEL=${MAX_PARALLEL}"
+            declare -i count=0
+            for related_image in "${related_images[@]}"; do
+              count+=1
+              # Wait if we've reached the parallel limit
+              while [ "$(jobs -r | wc -l)" -ge "${MAX_PARALLEL}" ]; do
+                wait -n
+              done
+              # Launch background job to process image
+              process_image "$related_image" "$count" "${#related_images[@]}" "$check_payload_version" "$image_mirror_map" &
+            done
+
+            # Wait for all background jobs to complete
+            wait
+
+            # Aggregate results from counter files
+            success_counter=0
+            warnings_counter=0
+            error_counter=0
+            failure_counter=0
+
+            if [ -f "${counter_dir}/success" ]; then
+              success_counter=$(wc -l < "${counter_dir}/success")
+            fi
+            if [ -f "${counter_dir}/warnings" ]; then
+              warnings_counter=$(wc -l < "${counter_dir}/warnings")
+            fi
+            if [ -f "${counter_dir}/error" ]; then
+              error_counter=$(wc -l < "${counter_dir}/error")
+            fi
+            if [ -f "${counter_dir}/failure" ]; then
+              failure_counter=$(wc -l < "${counter_dir}/failure")
+            fi
+
+            echo "Results: success=${success_counter}, warnings=${warnings_counter}, errors=${error_counter}, failures=${failure_counter}"
+
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta failed: Some images could not be scanned. For details, check Tekton task log."
+            ERROR_OUTPUT=$(make_result_json -r ERROR -t "$note")
+
+            note="Task perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta completed: Check result for task result."
+            if [[ "$error_counter" == 0 ]];
+            then
+              if [[ "${failure_counter}" -gt 0 ]]; then
+                RES="FAILURE"
+              elif [[ "${warnings_counter}" -gt 0 ]]; then
+                RES="WARNING"
+              else
+                RES="SUCCESS"
+              fi
+              TEST_OUTPUT=$(make_result_json \
+                -r "${RES}" \
+                -s "${success_counter}" -f "${failure_counter}" -w "${warnings_counter}" -t "$note")
+            fi
+            echo "${TEST_OUTPUT:-${ERROR_OUTPUT}}" | tee "/tekton/steps/step-fips-operator-check-step-action/results/TEST_OUTPUT"
+        command:
+          - /usr/bin/tini
+        computeResources:
+          limits:
+            memory: 10Gi
+          requests:
+            cpu: 2059m
+            memory: 10Gi
+        env:
+          - name: MAX_PARALLEL
+            value: "8"
+        image: quay.io/konflux-ci/konflux-test:v1.5.6@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+        name: fips-operator-check-step-action
+        results:
+          - description: Tekton task test output.
+            name: TEST_OUTPUT
+            type: string
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+      - computeResources:
+          limits:
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        env:
+          - name: STEP_ACTION_TEST_OUTPUT
+            value: $(steps.fips-operator-check-step-action.results.TEST_OUTPUT)
+        image: quay.io/konflux-ci/konflux-test:v1.5.6@sha256:365b172d2a8a145406f028d0a94a77b489fbdf9d84e5bd9529b1c3ad72f077b1
+        name: parse-images-processed-result
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [ -e "/tekton/home/images_processed.txt" ]; then
+            tee "/tekton/results/IMAGES_PROCESSED" </tekton/home/images_processed.txt
+            echo "${STEP_ACTION_TEST_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+          else
+            echo "Task was skipped. Exiting"
+            exit 0
+          fi
+    volumes:
+      - emptyDir: {}
+        name: workdir

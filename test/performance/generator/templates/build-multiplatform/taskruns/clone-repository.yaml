@@ -1,0 +1,195 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/org/repo/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux,git
+  creationTimestamp: "2026-09-09T12:25:12Z"
+  finalizers:
+  - chains.tekton.dev/taskrun
+  - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    appstudio.openshift.io/application: ml-application
+    appstudio.openshift.io/component: ml-base-image
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: ml-container-build
+    tekton.dev/pipelineRun: ml-ml-base-image-on-pull-request-xyz12
+    tekton.dev/pipelineTask: clone-repository
+    tekton.dev/task: git-clone-oci-ta
+  name: ml-ml-base-image-on-pull-request-xyz12-clone-repository
+  namespace: build-tenant
+  ownerReferences:
+  - apiVersion: tekton.dev/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: PipelineRun
+    name: ml-ml-base-image-on-pull-request-xyz12
+    uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9855241860"
+  uid: 00000000-0000-0000-0000-000000000002
+spec:
+  params:
+  - name: url
+    value: https://example.com/org/repo
+  - name: revision
+    value: "0000000000000000000000000000000000000000"
+  - name: depth
+    value: "10"
+  - name: enableSymlinkCheck
+    value: "false"
+  - name: ociStorage
+    value: quay.io/example-org/build-tenant/ml-application/ml-base-image:on-pr-0000000000000000000000000000000000000000.git
+  - name: ociArtifactExpiresAfter
+    value: 5d
+  serviceAccountName: build-pipeline-ml-base-image
+  taskRef:
+    params:
+    - name: name
+      value: git-clone-oci-ta
+    - name: bundle
+      value: quay.io/konflux-ci/tekton-catalog/task-git-clone-oci-ta:0.2.6@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: kind
+      value: task
+    resolver: bundles
+  timeout: 2h0m0s
+  workspaces:
+  - name: basic-auth
+    secret:
+      secretName: pac-gitauth-example
+status:
+  completionTime: "2026-09-09T12:25:28Z"
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:25:28Z"
+    message: All Steps have completed executing
+    reason: Succeeded
+    status: "True"
+    type: Succeeded
+  podName: ml-ml-base-image-on-pull-request-xyz12-clone-repository-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      enableAPIFields: alpha
+      enableProvenanceInStatus: true
+  results:
+  - name: url
+    type: string
+    value: https://example.com/org/repo
+  - name: commit
+    type: string
+    value: "0000000000000000000000000000000000000000"
+  - name: short-commit
+    type: string
+    value: "00000000"
+  - name: commit-timestamp
+    type: string
+    value: "1725886507"
+  - name: SOURCE_ARTIFACT
+    type: string
+    value: quay.io/example-org/build-tenant/ml-application/ml-base-image:on-pr-0000000000000000000000000000000000000000.git
+  startTime: "2026-09-09T12:25:12Z"
+  steps:
+  - container: step-clone
+    imageID: registry.redhat.io/openshift-pipelines/pipelines-git-init-rhel8@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: clone
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:25:20Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:25:15Z"
+  - container: step-symlink-check
+    imageID: registry.access.redhat.com/ubi9/ubi-minimal@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: symlink-check
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:25:22Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:25:21Z"
+  - container: step-store-source-in-oci
+    imageID: quay.io/konflux-ci/oras@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: store-source-in-oci
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:25:27Z"
+      message: '[{"key":"url","value":"https://example.com/org/repo","type":1},{"key":"commit","value":"0000000000000000000000000000000000000000","type":1},{"key":"short-commit","value":"00000000","type":1},{"key":"commit-timestamp","value":"1725886507","type":1},{"key":"SOURCE_ARTIFACT","value":"quay.io/example-org/build-tenant/ml-application/ml-base-image:on-pr-0000000000000000000000000000000000000000.git","type":1}]'
+      reason: Completed
+      startedAt: "2026-09-09T12:25:23Z"
+  taskSpec:
+    description: Clone a git repository and store it as an OCI artifact
+    params:
+    - description: Repository URL to clone
+      name: url
+      type: string
+    - default: ""
+      description: Revision to checkout
+      name: revision
+      type: string
+    - default: "1"
+      description: Git clone depth
+      name: depth
+      type: string
+    - default: "true"
+      description: Enable symlink checking
+      name: enableSymlinkCheck
+      type: string
+    - description: OCI storage location
+      name: ociStorage
+      type: string
+    - default: ""
+      description: OCI artifact expiration
+      name: ociArtifactExpiresAfter
+      type: string
+    results:
+    - description: The URL of the cloned repository
+      name: url
+      type: string
+    - description: The commit SHA
+      name: commit
+      type: string
+    - description: Short commit SHA
+      name: short-commit
+      type: string
+    - description: Commit timestamp
+      name: commit-timestamp
+      type: string
+    - description: OCI artifact reference
+      name: SOURCE_ARTIFACT
+      type: string
+    steps:
+    - computeResources:
+        limits:
+          cpu: "2"
+          memory: 2Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      image: registry.redhat.io/openshift-pipelines/pipelines-git-init-rhel8:v1.15
+      name: clone
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        git clone --depth=$(params.depth) $(params.url) /workspace/source
+        cd /workspace/source
+        git checkout $(params.revision)
+    - image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+      name: symlink-check
+      script: |
+        #!/usr/bin/env bash
+        if [ "$(params.enableSymlinkCheck)" == "true" ]; then
+          find /workspace/source -type l
+        fi
+    - image: quay.io/konflux-ci/oras:latest
+      name: store-source-in-oci
+      script: |
+        #!/usr/bin/env bash
+        oras push $(params.ociStorage) /workspace/source:application/vnd.konflux.source
+    workspaces:
+    - name: basic-auth
+      optional: true
