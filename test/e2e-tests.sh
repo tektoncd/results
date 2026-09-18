@@ -26,7 +26,7 @@ set -o nounset
 set -x
 
 # Setting defaults
-E2E_GO_TEST_TIMEOUT=${E2E_GO_TEST_TIMEOUT:="20m"}
+E2E_GO_TEST_TIMEOUT=${E2E_GO_TEST_TIMEOUT:="40m"}
 
 function main() {
     failed=0

@@ -3,6 +3,7 @@ package plugin
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,6 +64,16 @@ const (
 	splunkTokenEnv            = "SPLUNK_SEARCH_TOKEN"
 	splunkOutputFormat        = "?output_mode=json"
 )
+
+// Splunk search REST accepts Bearer JWTs or HTTP Basic (user:password).
+// Authentication tokens issued by Splunk are JWTs and start with "eyJ".
+func setSplunkAuthorization(req *http.Request, token string) {
+	if strings.HasPrefix(token, "eyJ") {
+		req.Header.Set("Authorization", "Bearer "+token)
+		return
+	}
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(token)))
+}
 
 var (
 	openBucket = func(ctx context.Context, urlString string) (*blob.Bucket, error) {
@@ -561,7 +572,7 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", "Bearer "+token)
+	setSplunkAuthorization(req, token)
 	resp, err := s.client.Do(req)
 	if err != nil {
 		s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
@@ -611,7 +622,7 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 		return err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
+	setSplunkAuthorization(req, token)
 	lresp, err := s.client.Do(req)
 	if err != nil {
 		s.logger.Errorf("request to fetch log from  splunk failed, err: %s, req: %v", err.Error(), req)
@@ -695,7 +706,7 @@ func pollSplunkJobStatus(s *LogServer, url, token string) error {
 					return fmt.Errorf("new request to splunk failed: err: %s", err.Error())
 				}
 
-				req.Header.Set("Authorization", "Bearer "+token)
+				setSplunkAuthorization(req, token)
 				resp, err := s.client.Do(req)
 				if err != nil {
 					s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)

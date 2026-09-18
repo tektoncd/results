@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: plugin-logs-fixture
+spec:
+  pipelineSpec:
+    tasks:
+      - name: greet
+        taskSpec:
+          steps:
+            - name: alpha
+              image: busybox:1.36
+              script: |
+                #!/bin/sh
+                echo PLUGIN_LOG_E2E_MARKER_ALPHA
+                echo PLUGIN_LOG_E2E_ORDER_1
+                echo PLUGIN_LOG_E2E_ORDER_2
+                echo PLUGIN_LOG_E2E_ORDER_3
+                # Pad so Vector's checksum fingerprint accepts the file.
+                i=0
+                while [ "$i" -lt 20 ]; do echo "PLUGIN_LOG_E2E_PAD_ALPHA_$i"; i=$((i+1)); done
+                # Keep the log file around so Vector's glob can pick it up.
+                sleep 15
+            - name: beta
+              image: busybox:1.36
+              script: |
+                #!/bin/sh
+                echo PLUGIN_LOG_E2E_MARKER_BETA
+                i=0
+                while [ "$i" -lt 20 ]; do echo "PLUGIN_LOG_E2E_PAD_BETA_$i"; i=$((i+1)); done
+                sleep 15
+      - name: farewell
+        taskSpec:
+          steps:
+            - name: gamma
+              image: busybox:1.36
+              script: |
+                #!/bin/sh
+                echo PLUGIN_LOG_E2E_MARKER_GAMMA
+                i=0
+                while [ "$i" -lt 20 ]; do echo "PLUGIN_LOG_E2E_PAD_GAMMA_$i"; i=$((i+1)); done
+                sleep 15

@@ -78,7 +78,7 @@ func NewLogServer(config *config.Config, logger *zap.SugaredLogger, auth auth.Ch
 	s.client = &http.Client{
 		Transport: &http.Transport{
 			Dial: (&net.Dialer{
-				Timeout:   5 * time.Minute,
+				Timeout:   20 * time.Second,
 				KeepAlive: 10 * time.Minute,
 			}).Dial,
 			TLSHandshakeTimeout:   10 * time.Second,
