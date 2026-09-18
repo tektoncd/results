@@ -11,17 +11,14 @@ customConfig:
       #Poll often enough to see short-lived step containers.
       glob_minimum_cooldown_ms: 1000
       read_from: beginning
-    internal_metrics:
-      type: internal_metrics
   transforms:
     remap_app_logs:
       type: remap
       inputs: [kubernetes_logs]
       source: |-
-        .log_type = "application"
-        .log_tekton = "application"
-        .kubernetes_namespace_name = .kubernetes.pod_namespace
         .message = string!(.message)
+        .structured.msg = ""
+        .kubernetes.namespace_name = .kubernetes.pod_namespace
         if exists(.kubernetes.pod_labels."tekton.dev/pipelineRunUID") {
           .kubernetes.labels.tekton_dev_pipelineRunUID = .kubernetes.pod_labels."tekton.dev/pipelineRunUID"
         }
@@ -29,16 +26,18 @@ customConfig:
           .kubernetes.labels.tekton_dev_taskRunUID = .kubernetes.pod_labels."tekton.dev/taskRunUID"
         }
   sinks:
-    loki:
-      type: loki
-      out_of_order_action: "accept"
-      healthcheck:
-        enabled: false
+    splunk_hec:
+      type: splunk_hec_logs
       inputs: ["remap_app_logs"]
-      endpoint: "http://loki.logging.svc.cluster.local:3100/"
+      endpoint: "https://splunk.logging.svc.cluster.local:8088"
+      default_token: "abcd1234-hec-token-e2e-0001"
+      index: "main"
+      sourcetype: "_json"
+      compression: none
+      batch:
+        max_events: 50
+        timeout_secs: 1
+      tls:
+        verify_certificate: false
       encoding:
         codec: json
-      labels:
-        log_type: "application"
-        kubernetes_namespace_name: >-
-          {{`{{ kubernetes_namespace_name }}`}}

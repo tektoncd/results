@@ -17,18 +17,19 @@ data:
     AUTH_IMPERSONATE=true
     LOG_LEVEL=debug
     LOGS_API=true
-    LOGS_TYPE=Loki
+    LOGS_TYPE=Splunk
     LOGS_BUFFER_SIZE=32768
     LOGS_PATH=/logs
-    LOGGING_PLUGIN_STATIC_LABELS='log_type=application'
+    LOGGING_PLUGIN_STATIC_LABELS=
     LOGGING_PLUGIN_TOKEN_PATH=/var/run/secrets/kubernetes.io/serviceaccount/token
     LOGGING_PLUGIN_PROXY_PATH=
-    LOGGING_PLUGIN_NAMESPACE_KEY=kubernetes_namespace_name
+    LOGGING_PLUGIN_NAMESPACE_KEY=kubernetes.namespace_name
     LOGGING_PLUGIN_CONTAINER_KEY=kubernetes.container_name
-    LOGGING_PLUGIN_API_URL=http://loki.logging.svc.cluster.local:3100
-    LOGGING_PLUGIN_FORWARDER_DELAY_DURATION=1
+    LOGGING_PLUGIN_API_URL=https://splunk.logging.svc.cluster.local:8089
+    LOGGING_PLUGIN_FORWARDER_DELAY_DURATION=5
     LOGGING_PLUGIN_QUERY_LIMIT=1700
-    LOGGING_PLUGIN_QUERY_PARAMS='direction=forward'
+    LOGGING_PLUGIN_QUERY_PARAMS=index=main
+    LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE=true
 kind: ConfigMap
 metadata:
   labels:

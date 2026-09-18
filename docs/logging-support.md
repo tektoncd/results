@@ -37,9 +37,10 @@ endpoint_url = https://play.min.io:9000
 
 ## Splunk
  The following environment variables are required:
-- `SPLUNK_SEARCH_TOKEN`: Token with permission to use search api in splunk.
+- `SPLUNK_SEARCH_TOKEN`: Credential with permission to use the Splunk search API. A Splunk authentication token (JWT, typically starting with `eyJ`) is sent as `Authorization: Bearer`. A `user:password` value is sent as HTTP Basic. Licensed Splunk installs should use a JWT. HTTP Basic is the fallback when token auth is unavailable (for example Splunk Free, which has no Auth license feature).
 - `LOGGING_PLUGIN_API_URL`: The URL of the splunk alongwith port.
 - `LOGGING_PLUGIN_QUERY_PARAMS`: Index needs to be passed as index=name where name is the index name.
+- `LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE`: Set to `true` when Splunk uses a self-signed certificate and you are not providing `LOGGING_PLUGIN_CA_CERT`. Use a CA in production instead of disabling verification.
 
 ## Common Configuration
 

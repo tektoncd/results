@@ -65,6 +65,10 @@ main() {
         kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-watcher | sed "s/^.\{4\}//") -n tekton-pipelines
         kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
         go test -v -count=1 --tags=e2e,gcs $(go list --tags=e2e ${REPO}/test/e2e/... | grep -v /client) -run TestGCSLog
+
+        # Plugin log retrieval — Loki (presubmit)
+        "${REPO}/test/e2e/02-loki-vector.sh"
+        go test -v -count=1 --tags=e2e,loki $(go list --tags=e2e ${REPO}/test/e2e/... | grep -v /client) -timeout 15m
     fi
 
 }

@@ -73,7 +73,7 @@ jobs:
           cache-dependency-path: src/github.com/tektoncd/results/go.sum
           go-version-file: src/github.com/tektoncd/results/go.mod
 
-      - name: Install dependencies (ko, kind, kubectl, go-junit-report)
+      - name: Install dependencies (ko, kind, kubectl, helm, go-junit-report)
         run: |
           echo '::group::install ko'
           curl -L https://github.com/ko-build/ko/releases/download/v0.15.4/ko_0.15.4_Linux_x86_64.tar.gz | tar xzf - ko
@@ -88,6 +88,11 @@ jobs:
           echo '::group::install kubectl'
           curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          echo '::endgroup::'
+
+          echo '::group::install helm'
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/v3.16.4/scripts/get-helm-3 | DESIRED_VERSION=v3.16.4 bash
+          helm version
           echo '::endgroup::'
 
           echo '::group::install go-junit-report'

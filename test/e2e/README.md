@@ -16,6 +16,7 @@ $ go test --tags=e2e .
 - ko (>= v0.6.2)
 - kind
 - jq
+- helm (>= 3.12)
 
 ## E2E Test Environment Variables
 
@@ -66,6 +67,34 @@ Accepts an optional mode argument: `./01-install.sh` (standard, default) or
 | SA_TOKEN_PATH          | Path to store the service account tokens used for testing                     | `/tmp/tekton-results/tokens`                                                |
 | SSL_CERT_PATH          | Path to store the SSL certificate used to secure the gRPC endpoint            | `/tmp/tekton-results/ssl`                                                   |
 | SSL_INCLUDE_LOCALHOST  | Include "localhost" as an alternate DNS name in the generated SSL certificate | "false"                                                                     |
+
+### `02-loki-vector.sh`
+
+Installs single-binary Loki and Vector (Helm) in namespace `logging`, applies
+`loki_vector/loki-vector-api-config.yaml` (`LOGS_TYPE=Loki`), and restarts the
+Results API so the v1alpha3 log plugin queries Loki.
+
+Used by `e2e.sh` after the default e2e and GCS suites. Requires Helm.
+
+### `03-splunk.sh`
+
+Installs Splunk (Free license) and Vector (Helm) in namespace `logging`, sets
+`SPLUNK_SEARCH_TOKEN`, applies `splunk/api-config.yaml` (`LOGS_TYPE=Splunk`),
+and restarts the Results API so the v1alpha3 log plugin queries Splunk.
+
+Requires Helm and Docker (the Splunk image is loaded into kind). Do not run on
+the same cluster as Loki: both overwrite `tekton-results-api-config` and the
+`vector` Helm release.
+
+### `e2e-splunk.sh`
+
+Creates a kind cluster, runs `00-setup.sh`, `01-install.sh`, and `03-splunk.sh`,
+then `go test --tags=e2e,splunk`. Deletes the cluster on exit.
+
+Used by the Nightly Splunk E2E GitHub Action
+(`.github/workflows/nightly-splunk-e2e.yaml`). The `schedule` trigger only runs
+after this workflow is on the default branch; use **Run workflow**
+(`workflow_dispatch`) to try it before that. Splunk is not part of presubmit.
 
 ## Running the tests
 
@@ -144,3 +173,52 @@ API pod tekton-results-api-def456: 12 requests
 API pod tekton-results-api-ghi789: 14 requests
 ```
 
+
+## Log plugin backend matrix
+
+| Backend | Setup | Go tags | CI |
+| --- | --- | --- | --- |
+| Default Results APIs (no plugin logs) | `00-setup.sh` + `01-install.sh` | `e2e` | presubmit (`e2e.sh`) |
+| GCS emulator (legacy v1alpha2 `GetLog`, deprecated) | `gcs-emulator.yaml` | `e2e,gcs` | presubmit (`e2e.sh`) |
+| Loki + Vector (plugin v1alpha3) | `02-loki-vector.sh` | `e2e,loki` | presubmit (`e2e.sh`, same Integration Tests job) |
+| Splunk + Vector (plugin v1alpha3) | `03-splunk.sh` (`e2e-splunk.sh`) | `e2e,splunk` | nightly (`.github/workflows/nightly-splunk-e2e.yaml`; not every PR) |
+
+`--tags=e2e` does **not** run Loki or Splunk plugin tests. Those files are `//go:build e2e && loki` and `//go:build e2e && splunk`.
+
+Shared helpers: `logs_harness_test.go`. Fixture: `testdata/pipelinerun-plugin-logs.yaml`.
+
+### Run Loki locally (kind)
+
+From the **results** repo root (`git rev-parse --show-toplevel` must be this repo):
+
+```sh
+export KIND_CLUSTER_NAME=tekton-results
+export KO_DOCKER_REPO=kind.local
+export SA_TOKEN_PATH=/tmp/tekton-results/tokens
+export SSL_CERT_PATH=/tmp/tekton-results/ssl
+export SSL_INCLUDE_LOCALHOST=true
+export API_SERVER_ADDR=https://localhost:8080
+export CGO_ENABLED=0
+
+./test/e2e/00-setup.sh
+./test/e2e/01-install.sh
+./test/e2e/02-loki-vector.sh
+
+cd test/e2e
+go test -v -count=1 --tags=e2e,loki . -timeout 15m
+```
+
+### Run Splunk locally (kind)
+
+Same env as Loki, then:
+
+```sh
+./test/e2e/00-setup.sh
+./test/e2e/01-install.sh
+./test/e2e/03-splunk.sh
+
+cd test/e2e
+go test -v -count=1 --tags=e2e,splunk . -timeout 20m
+```
+
+Or from the repo root: `./test/e2e/e2e-splunk.sh` (deletes the kind cluster on exit).

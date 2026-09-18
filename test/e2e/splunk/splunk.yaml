@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: splunk-secrets
+  namespace: logging
+type: Opaque
+stringData:
+  password: "Changeme1234!"
+  hec-token: "abcd1234-hec-token-e2e-0001"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: splunk
+  namespace: logging
+spec:
+  selector:
+    app: splunk
+  ports:
+    - name: hec
+      port: 8088
+      targetPort: 8088
+    - name: mgmt
+      port: 8089
+      targetPort: 8089
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: splunk-defaults
+  namespace: logging
+data:
+  default.yml: |
+    splunk:
+      conf:
+        - key: server
+          value:
+            directory: /opt/splunk/etc/system/local
+            content:
+              general:
+                allowRemoteLogin: always
+              kvstore:
+                disabled: false
+                percRAMForCache: 5
+        - key: authorize
+          value:
+            directory: /opt/splunk/etc/system/local
+            content:
+              tokens_auth:
+                disabled: false
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: splunk
+  namespace: logging
+  labels:
+    app: splunk
+spec:
+  serviceName: splunk
+  replicas: 1
+  selector:
+    matchLabels:
+      app: splunk
+  template:
+    metadata:
+      labels:
+        app: splunk
+    spec:
+      containers:
+        - name: splunk
+          image: splunk/splunk:9.2
+          imagePullPolicy: IfNotPresent
+          # Cap KV cache before first start. Restart splunkd if it exits
+          # (amd64 image under Rosetta); PID 1 is the entrypoint, not splunkd.
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -e
+              sudo mkdir -p /opt/splunk/etc/system/local
+              printf '%s\n' '[general]' 'allowRemoteLogin = always' '[kvstore]' 'disabled = false' 'percRAMForCache = 5' | sudo tee /opt/splunk/etc/system/local/server.conf >/dev/null
+              printf '%s\n' '[tokens_auth]' 'disabled = false' | sudo tee /opt/splunk/etc/system/local/authorize.conf >/dev/null
+              sudo chown -R splunk:splunk /opt/splunk/etc/system/local
+              (
+                sleep 120
+                while true; do
+                  code=$(curl -sk --connect-timeout 3 --max-time 8 -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}" https://127.0.0.1:8089/services/server/info || true)
+                  if [ "${code}" != "200" ]; then
+                    sudo -u splunk /opt/splunk/bin/splunk start --accept-license --answer-yes --no-prompt >/dev/null 2>&1 || true
+                  fi
+                  sleep 15
+                done
+              ) &
+              exec /sbin/entrypoint.sh start-service
+          ports:
+            - containerPort: 8088
+            - containerPort: 8089
+          env:
+            - name: SPLUNK_START_ARGS
+              value: "--accept-license"
+            - name: SPLUNK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: splunk-secrets
+                  key: password
+            - name: SPLUNK_HEC_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: splunk-secrets
+                  key: hec-token
+            - name: SPLUNK_LICENSE_URI
+              value: Free
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1.5Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: defaults
+              mountPath: /tmp/defaults
+          # Management API requires basic auth; an unauthenticated httpGet
+          # returns 401 forever and the pod never becomes Ready.
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test "$(curl -sk --connect-timeout 5 -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}" https://127.0.0.1:8089/services/server/info)" = 200
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 20
+            failureThreshold: 36
+      volumes:
+        - name: defaults
+          configMap:
+            name: splunk-defaults

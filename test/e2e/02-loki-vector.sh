@@ -22,29 +22,16 @@ ROOT="$(git rev-parse --show-toplevel)"
 # Install Grafana Loki
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
-helm upgrade --install loki grafana/loki --namespace logging --create-namespace --values ${ROOT}/test/e2e/loki_vector/loki.yaml
+helm upgrade --install loki grafana/loki --namespace logging --create-namespace --values ${ROOT}/test/e2e/loki_vector/loki.yaml --wait --timeout 5m
 
 # Install Vector
 helm repo add vector https://helm.vector.dev
 helm repo update
-helm upgrade --install vector vector/vector --namespace logging --values ${ROOT}/test/e2e/loki_vector/vector.yaml
+helm upgrade --install vector vector/vector --namespace logging --values ${ROOT}/test/e2e/loki_vector/vector.yaml --wait --timeout 5m
 
 # Update Results API ConfigMap   
 kubectl apply -f ${ROOT}/test/e2e/loki_vector/loki-vector-api-config.yaml
 
 # Rollout Restart Results API Deployment
 kubectl rollout restart deployment tekton-results-api -n tekton-pipelines
-
-# Update Results Watcher Deployment Args
-kubectl patch deployment \
-  tekton-results-watcher \
-  --namespace tekton-pipelines \
-  --type='json' \
-  -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": [
-  "-api_addr",
-  "$(TEKTON_RESULTS_API_SERVICE)",
-  "-auth_mode",
-  "$(AUTH_MODE)",
-  "-store_event",
-  "true"
-]}]'
+kubectl rollout status deployment tekton-results-api -n tekton-pipelines --timeout=180s

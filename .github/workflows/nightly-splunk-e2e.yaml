@@ -1,0 +1,68 @@
+# Standalone Splunk plugin e2e. Splunk stays off the PR path
+# because the image is large and startup is slow.
+name: Nightly Splunk E2E
+
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SHELL: /bin/bash
+  GOPATH: ${{ github.workspace }}
+  GO111MODULE: on
+  KIND_CLUSTER_NAME: tekton-results
+
+jobs:
+  splunk-e2e:
+    name: Splunk plugin e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: ${{ github.workspace }}/src/github.com/tektoncd/results
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache-dependency-path: src/github.com/tektoncd/results/go.sum
+          go-version-file: src/github.com/tektoncd/results/go.mod
+
+      - name: Install dependencies (ko, kind, kubectl, helm)
+        run: |
+          echo '::group::install ko'
+          curl -L https://github.com/ko-build/ko/releases/download/v0.15.4/ko_0.15.4_Linux_x86_64.tar.gz | tar xzf - ko
+          chmod +x ./ko && sudo mv ko /usr/local/bin
+          echo '::endgroup::'
+
+          echo '::group::install kind'
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+          echo '::endgroup::'
+
+          echo '::group::install kubectl'
+          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          echo '::endgroup::'
+
+          echo '::group::install helm'
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/v3.16.4/scripts/get-helm-3 | DESIRED_VERSION=v3.16.4 bash
+          helm version
+          echo '::endgroup::'
+
+          mkdir -p "${ARTIFACTS:-/tmp/artifacts}"
+          echo "${GOPATH}/bin" >> "$GITHUB_PATH"
+
+      - name: Run Splunk e2e
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        run: ./test/e2e/e2e-splunk.sh
