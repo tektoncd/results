@@ -17,6 +17,7 @@ package cel
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/google/cel-go/cel"
@@ -66,6 +67,18 @@ func (allowAll) ContextEval(context.Context, any) (ref.Val, *cel.EvalDetails, er
 
 func (allowAll) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 	return types.Bool(true), nil, nil
+}
+
+func (allowAll) ConcurrentEval(ctx context.Context, _ any) <-chan cel.EvalResult {
+	resCh := make(chan cel.EvalResult, 1)
+	if ctx == nil {
+		resCh <- cel.EvalResult{Err: errors.New("context can not be nil")}
+		close(resCh)
+		return resCh
+	}
+	resCh <- cel.EvalResult{Val: types.Bool(true)}
+	close(resCh)
+	return resCh
 }
 
 // Match determines whether the given CEL filter matches the result.
