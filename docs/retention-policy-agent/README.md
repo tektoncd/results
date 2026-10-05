@@ -21,6 +21,17 @@ For best results, the Retention Policy Agent should also be used in conjunction 
 
 The Results Retention Policy Agent is configured via the `tekton-results-config-results-retention-policy` ConfigMap.
 
+Changes to this ConfigMap are automatically reloaded and the pruning schedule
+is updated without restarting the agent pod. Cleanup runs according to that
+schedule.
+
+Database settings are loaded separately from the `tekton-results-api-config`
+ConfigMap and database credentials from the `tekton-results-postgres` Secret.
+Both the API server and the Retention Policy Agent read these settings only at
+startup. After changing database settings or credentials, restart the pods for
+both components to apply the changes. See
+[Applying database configuration changes](../external-database.md#applying-database-configuration-changes).
+
 The following fields are supported:
 
 - `runAt`: Determines when to run the pruning job for the DB. It uses a cron schedule format. The default is `"7 7 * * 7"` (every Sunday at 7:07 AM).
