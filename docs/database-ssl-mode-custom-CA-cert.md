@@ -58,5 +58,12 @@ volumeMount to the Tekton Results API deployment:
 With that configuration, the CA certificate will be available in the
 container as "/etc/tls/db/ca.crt", so you set DB_SSLROOTCERT to that value.
 
+If the Retention Policy Agent is enabled, also mount the CA certificate into its
+deployment at the path specified by `DB_SSLROOTCERT`. Both the API server and
+the Retention Policy Agent read database settings only at startup. After
+changing `DB_SSLMODE`, `DB_SSLROOTCERT`, or the CA certificate, restart the pods
+for both components to apply the changes. See
+[Applying database configuration changes](./external-database.md#applying-database-configuration-changes).
+
 The Tekton Results API tries to comment to the database on start, so you'll
 immediately find in the logs if something is not working properly.

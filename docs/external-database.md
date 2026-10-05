@@ -105,6 +105,16 @@ in the `tekton-pipelines` namespace and containing `POSTGRES_USER` and
   --from-literal=POSTGRES_PASSWORD=<your-db-password>
  ```
 
+## Applying database configuration changes
+
+Both the API server and the Retention Policy Agent read database settings only
+at startup. After changing database settings in the
+`tekton-results-api-config` ConfigMap or credentials in the
+`tekton-results-postgres` Secret, restart the pods for **both components** to
+apply the changes. Updating the ConfigMap or Secret alone does not reconfigure
+their existing database connections. This includes changes to the database
+host, port, name, credentials, SSL settings, and connection pool limits.
+
 ## Binding everything together
 
 Please follow the step 1 and 3 from the [installation docs](./install.md).
