@@ -1,0 +1,81 @@
+name: Performance Smoke
+
+# On-demand functional smoke of the performance harness against a tier-1 kind
+# cluster. This is NOT a performance gate — it only proves the load/store/query/
+# mixed drivers run end-to-end and emit valid JSON. Tier-2 runs stay manual
+# (they need a booked ephemeral OpenShift cluster); see
+# test/performance/environments/openshift/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Top-level PipelineRuns to load for the smoke run"
+        required: false
+        default: "1000"
+      duration:
+        description: "Query/mixed run duration in seconds"
+        required: false
+        default: "15"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SHELL: /bin/bash
+  GOPATH: ${{ github.workspace }}
+  GO111MODULE: on
+  KIND_CLUSTER_NAME: tekton-results
+
+jobs:
+  smoke:
+    name: Tier-1 Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: ${{ github.workspace }}/src/github.com/tektoncd/results
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache-dependency-path: src/github.com/tektoncd/results/go.sum
+          go-version-file: src/github.com/tektoncd/results/go.mod
+
+      - name: Install dependencies (ko, kind, kubectl)
+        run: |
+          echo '::group::install ko'
+          curl -L https://github.com/ko-build/ko/releases/download/v0.15.4/ko_0.15.4_Linux_x86_64.tar.gz | tar xzf - ko
+          chmod +x ./ko && sudo mv ko /usr/local/bin
+          echo '::endgroup::'
+
+          echo '::group::install kind'
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+          chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+          echo '::endgroup::'
+
+          echo '::group::install kubectl'
+          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          echo '::endgroup::'
+
+      - name: Stand up tier-1 kind cluster
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        run: ./test/performance/environments/kind/00-kind-up.sh
+
+      - name: Install Tekton Results (local DB + tuning)
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        run: ./test/performance/environments/kind/01-install-localdb.sh
+
+      - name: Run performance smoke
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        env:
+          SMOKE_COUNT: ${{ github.event.inputs.count }}
+          SMOKE_DURATION: ${{ github.event.inputs.duration }}
+        run: make performance-smoke

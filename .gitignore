@@ -16,3 +16,10 @@ tkn-results
 .DS_Store
 cover.out
 coverage.txt
+
+# Performance benchmark harness run outputs (test/performance)
+/store.json
+/query.json
+/mixed.json
+*.sendlog.json
+test/performance/output/

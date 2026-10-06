@@ -1,0 +1,59 @@
+# Copyright 2026 The Tekton Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Strategic-merge patch for tier-2: reserve Postgres resources, isolate the
+# database on a dedicated node, and mount the tuned postgresql.conf into bitnami's
+# conf.d. The OpenShift installer labels the worker hosting the initial Postgres
+# pod as the database node and taints it (NoExecute by default) so other workloads
+# are evicted; the tolerations below let Postgres stay. Requests are sized for a
+# small/ephemeral cluster; the limit allows use of otherwise idle CPU/memory. Keep
+# requests.memory in sync with BENCH_DB_MIN_MEMORY in 01-install.sh.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tekton-results-postgres
+spec:
+  template:
+    spec:
+      nodeSelector:
+        tekton-results.dev/role: database
+      tolerations:
+        - key: tekton-results.dev/role
+          operator: Equal
+          value: database
+          effect: NoSchedule
+        - key: tekton-results.dev/role
+          operator: Equal
+          value: database
+          effect: NoExecute
+      containers:
+        - name: postgres
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            - name: postgres-tuning
+              mountPath: /opt/bitnami/postgresql/conf/conf.d/override.conf
+              subPath: override.conf
+      volumes:
+        - name: postgres-tuning
+          configMap:
+            name: postgres-tuning
+            items:
+              - key: postgresql.conf
+                path: override.conf

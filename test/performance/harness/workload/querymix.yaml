@@ -1,0 +1,59 @@
+label_selector:
+  fraction: 0.43478260869565216
+  keys:
+  - count: 5
+    key: appstudio.openshift.io/application
+    weight: 0.5
+  - count: 2
+    key: appstudio.openshift.io/component
+    weight: 0.2
+  - count: 1
+    key: pipelinesascode.tekton.dev/event-type
+    weight: 0.1
+  - count: 1
+    key: results.tekton.dev/childOfUid
+    weight: 0.1
+  - count: 1
+    key: tekton.dev/pipelineRun
+    weight: 0.1
+namespace_fanout:
+  distinct_count: 5
+  top_share: 0.6785714285714286
+operations:
+- count: 10
+  kind: pipelineruns
+  type: list_by_namespace_kind
+  weight: 0.35714285714285715
+- count: 9
+  kind: pipelineruns
+  type: label_selector_list
+  weight: 0.32142857142857145
+- count: 3
+  kind: pipelineruns
+  type: get_by_name
+  weight: 0.10714285714285714
+- count: 3
+  kind: taskruns
+  type: list_by_namespace_kind
+  weight: 0.10714285714285714
+- count: 2
+  kind: pipelineruns
+  type: owner_uid_lookup
+  weight: 0.07142857142857142
+- count: 1
+  kind: taskruns
+  type: label_selector_list
+  weight: 0.03571428571428571
+page_sizes:
+- count: 10
+  limit: 500
+  weight: 0.43478260869565216
+- count: 9
+  limit: 30
+  weight: 0.391304347826087
+- count: 4
+  limit: 100
+  weight: 0.17391304347826086
+sample_size: 28
+schema_version: "1"
+source: anonymized sample (test/performance/harness/workload/testdata/sample-access.log)
