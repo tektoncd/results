@@ -5,3 +5,10 @@ package plugin
 
 var MergeLogParts = mergeLogParts
 var GetLokiLogs = getLokiLogs
+var GetSplunkLogs = getSplunkLogs
+var GetBlobLogs = getBlobLogs
+
+var HTTPStatusToCode = httpStatusToCode
+var TransportErrorToCode = transportErrorToCode
+var BlobCodeToGRPC = blobCodeToGRPC
+var CodeToHTTPStatus = codeToHTTPStatus
