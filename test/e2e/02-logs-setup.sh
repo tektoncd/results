@@ -13,27 +13,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# shellcheck disable=SC2181 # To ignore long command exit code check
+# Sets up in-cluster MinIO + Vector for blob log e2e tests.
+# Called by e2e.sh before the blob log test suite.
 
-set -e
+set -o errexit
+set -o pipefail
+set -o nounset
+set -x
 
 ROOT="$(git rev-parse --show-toplevel)"
 
-curl https://dl.min.io/client/mc/release/linux-amd64/mc \
-  --create-dirs \
-  -o $HOME/minio-binaries/mc
+echo "Deploying in-cluster MinIO..."
+kubectl apply -f "${ROOT}/test/e2e/blob-logs/minio.yaml"
+kubectl wait deployment minio --namespace=tekton-pipelines \
+    --for=condition=available --timeout=120s
+kubectl wait job minio-bucket-init --namespace=tekton-pipelines \
+    --for=condition=complete --timeout=120s
 
-chmod +x $HOME/minio-binaries/mc
-export PATH=$PATH:$HOME/minio-binaries/
+echo "Installing Vector via Helm..."
+# Suppress set -x: Helm may echo values that contain credentials.
+set +x
+helm repo add vector https://helm.vector.dev 2>/dev/null || true
+helm repo update
+helm upgrade --install vector vector/vector \
+    --namespace logging --create-namespace \
+    --version 0.36.1 \
+    --values "${ROOT}/test/e2e/blob-logs/vector-s3.yaml" \
+    --wait --timeout 120s
+set -x
 
-mc alias set myPlayMinio https://play.min.io:9000  Q3AM3UQ867SPQQA43P2F zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG
+echo "Applying blob plugin API config..."
+kubectl apply -f "${ROOT}/test/e2e/blob-logs/vector-minio-config.yaml"
 
-mc mb myPlayMinio/tekton-logs
+echo "Setting AWS credentials on API deployment..."
+# The ConfigMap is read by viper as a file; AWS SDK env vars must be set
+# on the container directly for s3blob to authenticate.
+set +x
+kubectl set env deployment/tekton-results-api -n tekton-pipelines \
+    AWS_ACCESS_KEY_ID=tekton-results \
+    AWS_SECRET_ACCESS_KEY=tekton-results-password
+set -x
 
-helm upgrade --install vector vector/vector --namespace logging --values ${ROOT}/test/e2e/blob-logs/vector-s3.yaml
+echo "Restarting API server and watcher to pick up new config..."
+kubectl rollout restart deployment/tekton-results-api -n tekton-pipelines
+kubectl rollout status deployment/tekton-results-api -n tekton-pipelines --timeout=120s
+kubectl rollout restart deployment/tekton-results-watcher -n tekton-pipelines
+kubectl rollout status deployment/tekton-results-watcher -n tekton-pipelines --timeout=120s
 
-kubectl apply -f ${ROOT}/test/e2e/blob-logs/vector-minio-config.yaml
-kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-api | sed "s/^.\{4\}//") -n tekton-pipelines
-kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
-kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-watcher | sed "s/^.\{4\}//") -n tekton-pipelines
-kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+echo "Blob log setup complete."
