@@ -40,6 +40,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// TestGCSLog covers the deprecated v1alpha2 streaming-storage log path
+// (LOGS_TYPE=GCS, watcher uploads logs). Use the blob plugin tests in
+// logs_blob_test.go (S3) and logs_gcs_blob_test.go (GCS) instead.
+// This test will be removed when the legacy path is deleted.
 func TestGCSLog(t *testing.T) {
 	ctx := context.Background()
 	pr := new(tektonv1beta1.PipelineRun)

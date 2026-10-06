@@ -32,13 +32,14 @@ data:
     GRPC_WORKER_POOL=2
     K8S_QPS=5
     K8S_BURST=10
+    FEATURE_GATES='PartialResponse=true'
     PROFILING=false
     PROFILING_PORT=6060
     SERVER_PORT=8080
     PROMETHEUS_PORT=9090
     PROMETHEUS_HISTOGRAM=false
     TLS_PATH=/etc/tls
-    AUTH_DISABLE=true
+    AUTH_DISABLE=false
     AUTH_IMPERSONATE=true
     LOG_LEVEL=debug
     LOGS_API=true
@@ -58,8 +59,12 @@ data:
     LOGGING_PLUGIN_QUERY_LIMIT=1700
     LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE=
     LOGGING_PLUGIN_FORWARDER_DELAY_DURATION=10
-    LOGGING_PLUGIN_API_URL=s3://tekton-logs
-    LOGGING_PLUGIN_QUERY_PARAMS='v1alpha2LogType=true&use_path_style=true'
+    LOGGING_PLUGIN_API_URL=s3://tekton-logs?endpoint=http://minio.tekton-pipelines.svc.cluster.local:9000&region=us-east-1&disable_https=true&s3ForcePathStyle=true
+    LOGGING_PLUGIN_QUERY_PARAMS='v1alpha2LogType=true'
+    # MinIO credentials are set as env vars on the API deployment
+    # (see 02-logs-setup.sh). The ConfigMap is read by viper as a file,
+    # not exported as process env vars, so AWS SDK env vars must be
+    # set on the container directly.
 kind: ConfigMap
 metadata:
   labels:
