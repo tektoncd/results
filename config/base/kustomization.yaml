@@ -15,6 +15,7 @@
 resources:
 - 100-api-serviceaccount.yaml
 - 100-watcher-serviceaccount.yaml
+- 100-retention-policy-agent-serviceaccount.yaml
 - api.yaml
 - retention-policy-agent.yaml
 - default-clusterroles.yaml

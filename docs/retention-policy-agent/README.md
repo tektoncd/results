@@ -38,6 +38,7 @@ The following fields are supported:
 > - If only `defaultRetention` is set, it will be used (recommended).
 
 - `policies`: A list of fine-grained retention policies that allow for more specific control over data retention.
+- `namespaceCleanup`: Configuration of the removal of the data belonging to namespaces that no longer exist in the cluster. Disabled by default. See [Namespace Cleanup](#namespace-cleanup).
 
 ### Fine-Grained Retention Policies
 
@@ -102,6 +103,78 @@ In this example:
 3.  Any other Result in the `production` or `prod-east` namespace will be kept for **60 days**.
 4.  Any Result in the `ci` namespace will be kept for **7 days**.
 5.  All other Results that do not match any of these policies will be kept for the default `defaultRetention` period of **30 days**.
+
+## Namespace Cleanup
+
+When a namespace is deleted from the cluster, the Results and Records it produced remain in the database until their retention period expires. The optional namespace cleanup removes that data as soon as the namespace is gone, without waiting for the retention period.
+
+Namespace cleanup is **disabled by default** and is configured under the `namespaceCleanup` key of the `tekton-results-config-results-retention-policy` ConfigMap:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tekton-results-config-results-retention-policy
+  namespace: tekton-pipelines
+data:
+  runAt: "0 2 * * *"
+  defaultRetention: "30d"
+  namespaceCleanup: |
+    enabled: true
+    inactivityPeriod: "24h"
+    excludeNamespaces:
+      - "kube-system"
+    maxNamespacesPerRun: 10
+    dryRun: false
+```
+
+### Fields
+
+- `enabled`: Turns the namespace cleanup on. The default is `false`.
+- `inactivityPeriod`: A namespace is only eligible for cleanup once its data has not been updated for at least this long. This protects the data of namespaces in the case of accidental removal. This can be a number (e.g., `2`), which is interpreted as days, or a duration string (e.g., `24h`, `2d`). The default is `24h`.
+- `excludeNamespaces`: A list of namespaces whose data is kept even when they no longer exist in the cluster. The exclusion only applies to the namespace cleanup. The data of those namespaces is still subject to `defaultRetention` and to any matching policy, so it is removed once it exceeds its retention period. The default is empty.
+- `maxNamespacesPerRun`: The maximum number of namespaces removed in a single run. If more namespaces are eligible, **nothing is deleted** and the run is skipped. This acts as a safety valve against an unexpected mass deletion. The default is `10`. It must be greater than `0`.
+
+  A skipped run is reported at `error` level in the Retention Policy Agent logs, listing the eligible namespaces and the setting to raise, for example:
+
+  ```
+  namespace cleanup skipped and no data was deleted: 14 namespaces are eligible for cleanup but maxNamespacesPerRun is 10. Review the namespaces below and, if the cleanup is expected, raise namespaceCleanup.maxNamespacesPerRun in the tekton-results-config-results-retention-policy ConfigMap, or add the namespaces to namespaceCleanup.excludeNamespaces to keep their data. Eligible namespaces: ...
+  ```
+
+  The cleanup stays skipped on every subsequent run until an administrator raises `maxNamespacesPerRun` or excludes the namespaces, so it is worth alerting on `error` level logs of the agent.
+
+  At most **25 namespace names are listed** in a log message, to keep the entry readable. When more namespaces are eligible, the message ends with `and N more`, so the reported count at the beginning of the message, not the listed names, reflects how many namespaces are actually eligible. The same limit applies to the `dryRun` message.
+- `dryRun`: When `true`, the namespaces that would be cleaned up are logged and no data is deleted. Useful to review the impact before enabling the cleanup. The default is `false`. As above, at most 25 namespace names are listed in the log message, followed by `and N more` when there are others.
+
+### Behavior
+
+The cleanup runs as part of the retention job, on the schedule defined by `runAt`. On each run the agent:
+
+1. Lists the namespaces of the cluster. If the list cannot be retrieved, or the cluster reports no namespaces at all, the cleanup is skipped and nothing is deleted.
+2. Selects the namespaces stored in the database whose data has not been updated within the `inactivityPeriod`.
+3. Removes from that set the namespaces that still exist in the cluster and the ones listed in `excludeNamespaces`.
+4. Deletes the Results, and their associated Records, of the remaining namespaces.
+
+> **⚠️ IMPORTANT - DATA LOSS RISK**
+>
+> Namespace cleanup ignores the retention periods. Once a namespace is deleted from the cluster and its data has been inactive for the `inactivityPeriod`, **all** of its data is removed from the database, regardless of the `defaultRetention` or of any matching policy. Enable `dryRun` first to review what would be deleted.
+
+> **Note**
+>
+> Namespace cleanup only removes the data stored in the database. Logs stored in an external logging backend, such as Loki, Blob storage or Splunk, are **not** removed. This is expected to be addressed in a future release.
+
+### Permissions
+
+The Retention Policy Agent must be able to list the namespaces of the cluster. This permission is part of the `tekton-results-retention-policy-agent` ClusterRole shipped with the release:
+
+```yaml
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+```
+
+If the agent runs with a custom ServiceAccount, grant it the same permission, otherwise the cleanup is skipped on every run and an error is logged.
 
 ## Migrating from `maxRetention` to `defaultRetention`
 
