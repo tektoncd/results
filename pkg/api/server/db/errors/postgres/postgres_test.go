@@ -4,8 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jackc/pgconn"
-	pgxpgconn "github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc/codes"
 )
 
@@ -18,13 +17,13 @@ func TestTranslate(t *testing.T) {
 		want codes.Code
 	}{
 		{
-			name: "github.com/jackc/pgconn",
+			name: "unique_violation",
 			err:  &pgconn.PgError{Code: sqlStateUniqueViolation},
 			want: codes.AlreadyExists,
 		},
 		{
-			name: "github.com/jackc/pgx/v5/pgconn",
-			err:  &pgxpgconn.PgError{Code: sqlStateForeignKey},
+			name: "foreign_key_violation",
+			err:  &pgconn.PgError{Code: sqlStateForeignKey},
 			want: codes.FailedPrecondition,
 		},
 		{
