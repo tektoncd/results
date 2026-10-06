@@ -21,11 +21,12 @@ data:
     LOGS_BUFFER_SIZE=32768888
     LOGS_PATH=/logs
     LOGGING_PLUGIN_STATIC_LABELS='log_type=application'
-    LOGGING_PLUIN_TOKEN_PATH=/var/run/secrets/kubernetes.io/serviceaccount/token
+    LOGGING_PLUGIN_TOKEN_PATH=/var/run/secrets/kubernetes.io/serviceaccount/token
     LOGGING_PLUGIN_PROXY_PATH=
     LOGGING_PLUGIN_NAMESPACE_KEY=kubernetes_namespace_name
     LOGGING_PLUGIN_CONTAINER_KEY=kubernetes.container_name
-    LOGGING_PLUGIN_API_URL=http://loki.logging.svc.cluster.local:3100/loki/api/v1/query_range
+    LOGGING_PLUGIN_API_URL=http://loki.logging.svc.cluster.local:3100
+    LOGGING_PLUGIN_QUERY_LIMIT=1700
 kind: ConfigMap
 metadata:
   labels:
