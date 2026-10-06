@@ -1,4 +1,4 @@
-# Copyright 2023 The Tekton Authors
+# Copyright 2026 The Tekton Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#
-# quay.io/khrm/gcse-emulator:latest is image for
-# https://github.com/fullstorydev/emulators/tree/master/storage
-# There's no official image for STORAGE EMULATORS.
+# ConfigMap for the blob plugin's GCS variant.
+# Uses fake-gcs-server (deployed by gcs-emulator.yaml) with the blob log
+# retrieval path (LOGS_TYPE=blob + gs:// URL), NOT the legacy LOGS_TYPE=GCS
+# streaming-storage path.
 apiVersion: v1
 data:
   config: |
@@ -46,8 +46,8 @@ data:
     LOGS_TYPE=blob
     LOGS_BUFFER_SIZE=32768
     LOGS_PATH=/logs
-    GCS_BUCKET_NAME=
-    STORAGE_EMULATOR_HOST=
+    GCS_BUCKET_NAME=tekton-logs
+    STORAGE_EMULATOR_HOST=gcs-emulator.tekton-pipelines.svc.cluster.local:9000
     CONVERTER_ENABLE=false
     CONVERTER_DB_LIMIT=50
     MAX_RETENTION=
@@ -59,12 +59,8 @@ data:
     LOGGING_PLUGIN_QUERY_LIMIT=1700
     LOGGING_PLUGIN_TLS_VERIFICATION_DISABLE=
     LOGGING_PLUGIN_FORWARDER_DELAY_DURATION=10
-    LOGGING_PLUGIN_API_URL=s3://tekton-logs?endpoint=http://minio.tekton-pipelines.svc.cluster.local:9000&region=us-east-1&disable_https=true&s3ForcePathStyle=true
+    LOGGING_PLUGIN_API_URL=gs://tekton-logs
     LOGGING_PLUGIN_QUERY_PARAMS='v1alpha2LogType=true'
-    # MinIO credentials are set as env vars on the API deployment
-    # (see 02-logs-setup.sh). The ConfigMap is read by viper as a file,
-    # not exported as process env vars, so AWS SDK env vars must be
-    # set on the container directly.
 kind: ConfigMap
 metadata:
   labels:

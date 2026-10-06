@@ -161,3 +161,57 @@ $ go test -v -count=1 -tags=e2e ./test/e2e/db/...
 
 The `e2e.sh` script runs these automatically after the main e2e suite; it
 handles port-forwarding and credential wiring via `DB_URL`.
+
+### Blob log plugin tests
+
+The blob log tests exercise the **supported** log retrieval path: the v1alpha3
+log plugin backed by blob storage (S3 via in-cluster MinIO). Logs are shipped
+by Vector and retrieved through the plugin HTTP route — the API server never
+stores logs itself.
+
+**Test files:**
+- `test/e2e/logs_blob_test.go` (build tag: `e2e,blobs`) — S3 variant (MinIO)
+- `test/e2e/logs_gcs_blob_test.go` (build tag: `e2e,gcs_blob`) — GCS variant (fake-gcs-server)
+- `test/e2e/blob_helpers_test.go` (build tag: `e2e,(blobs||gcs_blob)`) — shared helpers
+
+**What is tested:**
+
+| Test | Tags | Description |
+|---|---|---|
+| `TestBlobLog_HappyPath` | `e2e,blobs` | Multi-step TaskRun → Vector ships logs to MinIO → retrieve via plugin → assert content + container identity |
+| `TestBlobLog_PipelineRun` | `e2e,blobs` | Two-task PipelineRun → per-TaskRun log retrieval → cross-task isolation (no marker leak) |
+| `TestBlobLog_NoLogs` | `e2e,blobs` | Record with no logs → verify HTTP 200 with empty body (no crash, no phantom data) |
+| `TestBlobLog_Unauthorized` | `e2e,blobs` | Unauthenticated request (no token) → 401/403 |
+| `TestBlobLog_RBACDenied` | `e2e,blobs` | Authenticated token without `logs/get` permission → 401/403 |
+| `TestBlobLog_LargeLog` | `e2e,blobs` | ~27MB log output → assert completeness (no truncation) + API pod memory bounded |
+| `TestGCSBlobLog_HappyPath` | `e2e,gcs_blob` | Pre-seeded data in fake-gcs-server → read via `gs://` URL (validates `gcsblob` driver) |
+
+**Run manually (after cluster is up):**
+
+```sh
+# S3 variant (exclude /db and /client sub-packages)
+$ ./test/e2e/02-logs-setup.sh
+$ go test -v -count=1 -tags=e2e,blobs -timeout 10m -run TestBlobLog ./test/e2e/
+
+# GCS variant
+$ ./test/e2e/02-logs-setup-gcs.sh
+$ go test -v -count=1 -tags=e2e,gcs_blob -timeout 10m -run TestGCSBlobLog ./test/e2e/
+```
+
+The `e2e.sh` script runs both variants automatically after the DB tests and
+before the legacy GCS tests.
+
+### Legacy GCS log tests (deprecated path)
+
+The `TestGCSLog` test in `e2e_gcs_test.go` covers the deprecated v1alpha2
+streaming-storage path where the watcher uploads logs into GCS. This test
+uses `gcs-emulator.yaml` (in-cluster `fake-gcs-server`). It will be removed
+when the legacy path is deleted. **Do not extend this test.**
+
+### Log backend test matrix
+
+| Backend | Path | Driver | Test file | Build tags | Status |
+|---|---|---|---|---|---|
+| MinIO (S3) | Plugin (v1alpha3) | `s3blob` | `logs_blob_test.go` | `e2e,blobs` | Active |
+| GCS emulator | Plugin (v1alpha3) | `gcsblob` | `logs_gcs_blob_test.go` | `e2e,gcs_blob` | Active |
+| GCS emulator | Legacy (v1alpha2) | `gcs.go` | `e2e_gcs_test.go` | `e2e,gcs` | Deprecated |
