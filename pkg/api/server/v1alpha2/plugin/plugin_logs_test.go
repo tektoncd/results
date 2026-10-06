@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,6 +29,7 @@ import (
 	pb3 "github.com/tektoncd/results/proto/v1alpha3/results_go_proto"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -623,5 +625,66 @@ func TestGetLokiLogs_FailsWhenLineFormatUsesUndefinedField(t *testing.T) {
 
 	if strings.Contains(gotQuery, `undefined="`) {
 		t.Fatalf("did not expect undefined field to be present in json parsing map, got: %s", gotQuery)
+	}
+}
+
+// metadataAuthChecker is an auth.Checker that inspects the gRPC metadata
+// attached to the incoming context and records whether the "authorization"
+// key was found via metadata.Get (which looks up lowercase keys).
+type metadataAuthChecker struct {
+	called         bool
+	foundAuthToken bool
+	tokenValue     string
+}
+
+func (c *metadataAuthChecker) Check(ctx context.Context, _, _, _ string) error {
+	c.called = true
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return fmt.Errorf("no incoming metadata in context")
+	}
+	vals := md.Get("authorization")
+	if len(vals) > 0 {
+		c.foundAuthToken = true
+		c.tokenValue = vals[0]
+	}
+	return fmt.Errorf("deny for test")
+}
+
+// TestLogMux_LowercasesHeaderKeysInMetadata verifies the bug fix where
+// net/http canonical header keys (e.g. "Authorization") were stored as-is
+// in gRPC metadata, but metadata.Get lowercases the lookup key. Without
+// the fix, the Authorization header is never found and every authenticated
+// request fails.
+func TestLogMux_LowercasesHeaderKeysInMetadata(t *testing.T) {
+	checker := &metadataAuthChecker{}
+
+	srv, err := plugin.NewLogServer(&config.Config{}, logger.Get("info"), checker, test.NewDB(t))
+	if err != nil {
+		t.Fatalf("NewLogServer: %v", err)
+	}
+
+	handler := srv.LogMux()
+
+	req := httptest.NewRequest("GET", "/logs", nil)
+	req.SetPathValue("parent", "ns")
+	req.SetPathValue("resultID", "r1")
+	req.SetPathValue("recordID", "rec1")
+	req.Header.Set("Authorization", "Bearer test-token-value")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if !checker.called {
+		t.Fatal("auth.Check was never called")
+	}
+	if !checker.foundAuthToken {
+		t.Fatal("Authorization header not found via metadata.Get(\"authorization\"); LogMux must lowercase header keys")
+	}
+	if checker.tokenValue != "Bearer test-token-value" {
+		t.Errorf("token = %q, want %q", checker.tokenValue, "Bearer test-token-value")
+	}
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("HTTP status = %d, want %d", rr.Code, http.StatusUnauthorized)
 	}
 }
