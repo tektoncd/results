@@ -175,6 +175,47 @@ func TestS3Stream_ReadFrom(t *testing.T) {
 	}
 }
 
+func TestInitConfig(t *testing.T) {
+	t.Run("with custom endpoint", func(t *testing.T) {
+		c := &server.Config{
+			S3_REGION:            "us-east-1",
+			S3_ENDPOINT:          "https://minio.example.com",
+			S3_ACCESS_KEY_ID:     "dummy-access-key-id",
+			S3_SECRET_ACCESS_KEY: "dummy-secret-access-key",
+		}
+		client, err := initConfig(context.Background(), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts := client.Options()
+		if !opts.UsePathStyle {
+			t.Error("expected UsePathStyle to be true")
+		}
+		if opts.BaseEndpoint == nil || *opts.BaseEndpoint != c.S3_ENDPOINT {
+			t.Errorf("expected BaseEndpoint to be %q, got %v", c.S3_ENDPOINT, opts.BaseEndpoint)
+		}
+	})
+
+	t.Run("without custom endpoint", func(t *testing.T) {
+		c := &server.Config{
+			S3_REGION:            "us-east-1",
+			S3_ACCESS_KEY_ID:     "dummy-access-key-id",
+			S3_SECRET_ACCESS_KEY: "dummy-secret-access-key",
+		}
+		client, err := initConfig(context.Background(), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		opts := client.Options()
+		if !opts.UsePathStyle {
+			t.Error("expected UsePathStyle to be true")
+		}
+		if opts.BaseEndpoint != nil {
+			t.Errorf("expected BaseEndpoint to be nil, got %v", *opts.BaseEndpoint)
+		}
+	})
+}
+
 func TestS3Stream_Delete(t *testing.T) {
 	c := &server.Config{
 		S3_BUCKET_NAME: "test-bucket",
