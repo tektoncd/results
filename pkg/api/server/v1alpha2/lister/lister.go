@@ -107,9 +107,7 @@ func (l *Lister[M, W]) List(ctx context.Context, db *gorm.DB) ([]W, string, erro
 	}
 
 	var models = make([]M, 0)
-	db.Find(&models)
-
-	if err := errors.Wrap(err); err != nil {
+	if err := errors.Wrap(db.Find(&models).Error); err != nil {
 		return nil, "", err
 	}
 
