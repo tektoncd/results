@@ -24,12 +24,74 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/tektoncd/results/pkg/api/server/cel"
+	"github.com/tektoncd/results/pkg/api/server/db"
 	pagetokenpb "github.com/tektoncd/results/pkg/api/server/v1alpha2/lister/proto/pagetoken_go_proto"
+	"github.com/tektoncd/results/pkg/api/server/v1alpha2/result"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/utils/tests"
 )
+
+func TestList(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		models   []*db.Result
+		queryErr error
+	}{
+		{name: "zero matches"},
+		{name: "one match", models: []*db.Result{{ID: "first"}}},
+		{name: "multiple matches", models: []*db.Result{{ID: "first"}, {ID: "second"}}},
+		{name: "query error", queryErr: gorm.ErrRecordNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gdb, err := gorm.Open(tests.DummyDialector{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := gdb.Callback().Query().Replace("gorm:query", func(tx *gorm.DB) {
+				if tc.queryErr != nil {
+					tx.AddError(tc.queryErr)
+					return
+				}
+				*tx.Statement.Dest.(*[]*db.Result) = tc.models
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			lister := &Lister[*db.Result, *resultspb.Result]{
+				pageSize: 2,
+				convert:  result.ToAPI,
+			}
+			got, token, err := lister.List(context.Background(), gdb)
+			if token != "" {
+				t.Errorf("Want empty page token, got %q", token)
+			}
+			if tc.queryErr != nil {
+				if status.Code(err) != codes.NotFound {
+					t.Fatalf("Want NotFound query error, got %v", err)
+				}
+				if got != nil {
+					t.Errorf("Want nil resources on query error, got %v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != len(tc.models) {
+				t.Fatalf("Want %d resources, got %d", len(tc.models), len(got))
+			}
+			for i, model := range tc.models {
+				if got[i].GetUid() != model.ID {
+					t.Errorf("Want resource UID %q, got %q", model.ID, got[i].GetUid())
+				}
+			}
+		})
+	}
+}
 
 func TestBuildQuery(t *testing.T) {
 	env, err := cel.NewResultsEnv()
