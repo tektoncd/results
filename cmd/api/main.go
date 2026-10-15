@@ -79,6 +79,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// apiJSONMarshaler returns the JSON marshaler for the gRPC gateway REST API.
+// EmitUnpopulated ensures list responses include empty collections and strings
+// (e.g. {"records":[],"next_page_token":""}) per the OpenAPI spec.
+func apiJSONMarshaler() *runtime.JSONPb {
+	return &runtime.JSONPb{
+		MarshalOptions: protojson.MarshalOptions{
+			UseProtoNames:   true,
+			EmitUnpopulated: true,
+		},
+		UnmarshalOptions: protojson.UnmarshalOptions{
+			DiscardUnknown: true,
+		},
+	}
+}
+
 // profilingServerAddress returns the address to bind the profiling server to.
 // The profiling server is always bound to loopback (127.0.0.1) to prevent
 // unauthenticated access from outside the pod.
@@ -239,14 +254,7 @@ func main() {
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
-	serverMuxOptions := []runtime.ServeMuxOption{runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
-		MarshalOptions: protojson.MarshalOptions{
-			UseProtoNames: true,
-		},
-		UnmarshalOptions: protojson.UnmarshalOptions{
-			DiscardUnknown: true,
-		},
-	})}
+	serverMuxOptions := []runtime.ServeMuxOption{runtime.WithMarshalerOption(runtime.MIMEWildcard, apiJSONMarshaler())}
 	if serverConfig.AUTH_DISABLE {
 		log.Warn("Kubernetes RBAC authorization check disabled - all requests will be allowed by the API server")
 		authCheck = &auth.AllowAll{}
