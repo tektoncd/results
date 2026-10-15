@@ -784,7 +784,13 @@ func (s *LogServer) LogMux() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TODO: Create a new log handler
 		ctx := r.Context()
-		md := metadata.MD(r.Header)
+		// net/http uses canonical header keys (e.g. "Authorization") but
+		// gRPC metadata.Get lowercases the lookup key, so the map must
+		// store lowercase keys for the token to be found.
+		md := make(metadata.MD, len(r.Header))
+		for k, v := range r.Header {
+			md[strings.ToLower(k)] = v
+		}
 		ctx = metadata.NewIncomingContext(ctx, md)
 		parent := r.PathValue("parent")
 		recID := r.PathValue("recordID")

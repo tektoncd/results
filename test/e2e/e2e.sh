@@ -102,7 +102,21 @@ main() {
         # Postgres DB layer tests
         run_db_tests "${REPO}"
 
-        # Test GCS logging
+        # Blob log plugin tests (S3 via in-cluster MinIO)
+        ${REPO}/test/e2e/02-logs-setup.sh
+        go test -v -count=1 --tags=e2e,blobs -timeout 10m -run TestBlobLog $(go list --tags=e2e,blobs ${REPO}/test/e2e/... | grep -v /client | grep -v /db)
+
+        # Clean up S3-specific resources before switching to GCS variant.
+        echo "Cleaning up MinIO resources..."
+        kubectl delete job minio-bucket-init -n tekton-pipelines --ignore-not-found
+        kubectl delete deployment minio -n tekton-pipelines --ignore-not-found
+        kubectl delete service minio -n tekton-pipelines --ignore-not-found
+
+        # Blob log plugin tests (GCS via fake-gcs-server emulator)
+        ${REPO}/test/e2e/02-logs-setup-gcs.sh
+        go test -v -count=1 --tags=e2e,gcs_blob -timeout 10m -run TestGCSBlobLog $(go list --tags=e2e,gcs_blob ${REPO}/test/e2e/... | grep -v /client | grep -v /db)
+
+        # Test GCS logging (legacy deprecated path — keep until legacy path is removed)
         kubectl apply -f ${REPO}/test/e2e/gcs-emulator.yaml
         kubectl delete pod $(kubectl get pod -o=name -n tekton-pipelines | grep tekton-results-api | sed "s/^.\{4\}//") -n tekton-pipelines
         kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
