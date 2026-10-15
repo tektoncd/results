@@ -1,0 +1,168 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/org/repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux,security,scan
+  creationTimestamp: "2026-09-09T12:35:40Z"
+  finalizers:
+  - chains.tekton.dev/taskrun
+  - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    appstudio.openshift.io/application: example-application
+    appstudio.openshift.io/component: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: container-build
+    tekton.dev/pipelineRun: container-build-on-pull-request-a1b2c
+    tekton.dev/pipelineTask: clair-scan
+    tekton.dev/task: clair-scan
+  name: container-build-on-pull-request-a1b2c-clair-scan-0
+  namespace: build-tenant
+  ownerReferences:
+  - apiVersion: tekton.dev/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: PipelineRun
+    name: container-build-on-pull-request-a1b2c
+    uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9855242100"
+  uid: 00000000-0000-0000-0000-000000000008
+spec:
+  params:
+  - name: image-digest
+    value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  - name: image-url
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000
+  - name: image-platform
+    value: linux/x86_64
+  serviceAccountName: build-pipeline-app-component
+  taskRef:
+    params:
+    - name: name
+      value: clair-scan
+    - name: bundle
+      value: quay.io/konflux-ci/tekton-catalog/task-clair-scan:0.4@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: kind
+      value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  completionTime: "2026-09-09T12:37:25Z"
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:37:25Z"
+    message: All Steps have completed executing
+    reason: Succeeded
+    status: "True"
+    type: Succeeded
+  podName: container-build-on-pull-request-a1b2c-clair-scan-0-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      enableAPIFields: alpha
+      enableProvenanceInStatus: true
+  results:
+  - name: CLAIR_SCAN_RESULT
+    type: string
+    value: |
+      {
+        "vulnerabilities": {
+          "critical": 0,
+          "high": 2,
+          "medium": 15,
+          "low": 47,
+          "unknown": 3
+        },
+        "timestamp": "2026-09-09T12:37:20Z"
+      }
+  - name: TEST_OUTPUT
+    type: string
+    value: |
+      {
+        "result": "SUCCESS",
+        "timestamp": "2026-09-09T12:37:20Z",
+        "failures": 0,
+        "warnings": 2
+      }
+  startTime: "2026-09-09T12:35:40Z"
+  steps:
+  - container: step-get-vulnerabilities
+    imageID: quay.io/redhat-appstudio/clair-in-ci@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: get-vulnerabilities
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:37:15Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:35:45Z"
+  - container: step-conftest-vulnerabilities
+    imageID: quay.io/redhat-appstudio/hacbs-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: conftest-vulnerabilities
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:37:20Z"
+      message: '[{"key":"CLAIR_SCAN_RESULT","value":"{\n  \"vulnerabilities\": {\n    \"critical\": 0,\n    \"high\": 2,\n    \"medium\": 15,\n    \"low\": 47,\n    \"unknown\": 3\n  },\n  \"timestamp\": \"2026-09-09T12:37:20Z\"\n}","type":1},{"key":"TEST_OUTPUT","value":"{\n  \"result\": \"SUCCESS\",\n  \"timestamp\": \"2026-09-09T12:37:20Z\",\n  \"failures\": 0,\n  \"warnings\": 2\n}","type":1}]'
+      reason: Completed
+      startedAt: "2026-09-09T12:37:16Z"
+  - container: step-test-format-result
+    imageID: quay.io/redhat-appstudio/hacbs-test@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: test-format-result
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:37:24Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:37:21Z"
+  taskSpec:
+    description: Scan container images for vulnerabilities using Clair
+    params:
+    - description: Image digest to scan
+      name: image-digest
+      type: string
+    - description: Image URL
+      name: image-url
+      type: string
+    - default: ""
+      description: Platform to scan
+      name: image-platform
+      type: string
+    results:
+    - description: Clair scan results
+      name: CLAIR_SCAN_RESULT
+      type: string
+    - description: Test output result
+      name: TEST_OUTPUT
+      type: string
+    steps:
+    - computeResources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+      env:
+      - name: IMAGE_URL
+        value: $(params.image-url)
+      - name: IMAGE_DIGEST
+        value: $(params.image-digest)
+      image: quay.io/redhat-appstudio/clair-in-ci:latest
+      name: get-vulnerabilities
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        clair-scanner --image="${IMAGE_URL}@${IMAGE_DIGEST}" --format=json
+    - image: quay.io/redhat-appstudio/hacbs-test:latest
+      name: conftest-vulnerabilities
+      script: |
+        #!/usr/bin/env bash
+        conftest test --policy /policy /workspace/vulnerabilities.json
+    - image: quay.io/redhat-appstudio/hacbs-test:latest
+      name: test-format-result
+      script: |
+        #!/usr/bin/env bash
+        format-test-output /workspace/results.json

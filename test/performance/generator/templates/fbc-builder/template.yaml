@@ -1,0 +1,8 @@
+id: fbc-builder
+weight: 1.0
+childTaskRuns:
+  min: 10
+  max: 14
+childSkeletonWeights:
+  build: 4
+description: "Konflux FBC (file-based catalog) container build; 10-14 child tasks"

@@ -1,0 +1,518 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:52:43Z"
+  finalizers:
+    - results.tekton.dev/taskrun
+    - chains.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: fbc-inject-lifecycle
+    tekton.dev/task: fbc-inject-lifecycle-oci-ta
+  name: perf-tenant-v0-on-push-rgqnb-fbc-inject-lifecycle
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772708936"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: DOCKERFILE
+      value: catalog.Containerfile
+    - name: CONTEXT
+      value: catalog/v5.0
+    - name: SOURCE_ARTIFACT
+      value: oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: ociStorage
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.lifecycle
+    - name: ociArtifactExpiresAfter
+      value: ""
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: kind
+        value: task
+      - name: name
+        value: fbc-inject-lifecycle-oci-ta
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-fbc-inject-lifecycle-oci-ta:0.1@sha256:da1217be1dcec3d5b5140ea351466607005481397b31f2b81108c4fd3012fbde
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:52:53Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:52:53Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-push-rgqnb-fbc-inject-lifecycle-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: da1217be1dcec3d5b5140ea351466607005481397b31f2b81108c4fd3012fbde
+      entryPoint: fbc-inject-lifecycle-oci-ta
+      uri: quay.io/konflux-ci/tekton-catalog/task-fbc-inject-lifecycle-oci-ta
+  results:
+    - name: SOURCE_ARTIFACT
+      type: string
+      value: oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: TEST_OUTPUT
+      type: string
+      value: '{"result":"FAILURE","timestamp":"2026-09-02T20:52:53Z","note":"Task fbc-inject-lifecycle-oci-ta failed: plcc2fbc generation errors. Check logs.","namespace":"default","successes":0,"failures":1,"warnings":0}'
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:52:43Z"
+  steps:
+    - container: step-use-trusted-artifact
+      imageID: quay.io/konflux-ci/build-trusted-artifacts@sha256:3e6dc09d80042c78c0c3bbcb4faf91f493bffc45cdee0978f285a2e57ac8aebb
+      name: use-trusted-artifact
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:50Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:49Z"
+      terminationReason: Completed
+    - container: step-check-lifecycle-eligibility
+      imageID: quay.io/konflux-ci/operator-foundry@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+      name: check-lifecycle-eligibility
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:50Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:50Z"
+      terminationReason: Completed
+    - container: step-get-packages
+      imageID: quay.io/konflux-ci/operator-foundry@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+      name: get-packages
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:50Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:50Z"
+      terminationReason: Completed
+    - container: step-generate-lifecycle
+      imageID: quay.io/konflux-ci/fbc-update-planner@sha256:756516302435356d73911a79e2de2ef20a8adf4296009c5aa2b521563e1610dd
+      name: generate-lifecycle
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 3
+        finishedAt: "2026-09-02T20:52:52Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:50Z"
+      terminationReason: Continued
+    - container: step-inject-lifecycle
+      imageID: quay.io/konflux-ci/operator-foundry@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+      name: inject-lifecycle
+      provenance: {}
+      results:
+        - name: skip_create_trusted_artifact
+          type: string
+          value: "true"
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:53Z"
+        message: '[{"key":"SOURCE_ARTIFACT","value":"oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"FAILURE\",\"timestamp\":\"2026-09-02T20:52:53Z\",\"note\":\"Task fbc-inject-lifecycle-oci-ta failed: plcc2fbc generation errors. Check logs.\",\"namespace\":\"default\",\"successes\":0,\"failures\":1,\"warnings\":0}","type":1},{"key":"skip_create_trusted_artifact","value":"true","type":4}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:52:53Z"
+      terminationReason: Completed
+    - container: step-create-trusted-artifact
+      imageID: quay.io/konflux-ci/build-trusted-artifacts@sha256:3e6dc09d80042c78c0c3bbcb4faf91f493bffc45cdee0978f285a2e57ac8aebb
+      name: create-trusted-artifact
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:53Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:53Z"
+      terminationReason: Skipped
+  taskSpec:
+    description: The fbc-inject-lifecycle-oci-ta task injects lifecycle data into a file-based catalog (FBC) component. Checks whether the component is eligible for lifecycle injection (targets all OCP versions >= 5.0), determines the target OLM packages from the Dockerfile, generates lifecycle JSON files using plcc2fbc, and injects them into the catalog source directories. If the component is not eligible, the task succeeds without performing injection. If the component is eligible, any failure to find packages, generate lifecycle data, or inject it results in task failure.
+    params:
+      - default: .
+        description: Path to the directory to use as context.
+        name: CONTEXT
+        type: string
+      - default: ./Dockerfile
+        description: Path to the Dockerfile to build.
+        name: DOCKERFILE
+        type: string
+      - default: []
+        description: The array of --build-arg values ("arg=value" strings), passed to the check-lifecycle-eligibility, get-packages, and inject-lifecycle steps to resolve ARG references used in the Dockerfile's base image tag or in COPY/ADD source paths. Do not use for secrets, values are visible in TaskRun status, pod specs, and logs.
+        name: BUILD_ARGS
+        type: array
+      - default: ""
+        description: Expiration date for the trusted artifacts created in the OCI repository. An empty string means the artifacts do not expire.
+        name: ociArtifactExpiresAfter
+        type: string
+      - description: The OCI repository where the Trusted Artifacts are stored.
+        name: ociStorage
+        type: string
+      - description: The Trusted Artifact URI pointing to the artifact with the application source code.
+        name: SOURCE_ARTIFACT
+        type: string
+      - default: trusted-ca
+        description: The name of the ConfigMap containing the CA bundle for TLS verification.
+        name: caTrustConfigMapName
+        type: string
+      - default: ca-bundle.crt
+        description: The key in the ConfigMap containing the CA bundle.
+        name: caTrustConfigMapKey
+        type: string
+    results:
+      - description: The Trusted Artifact URI pointing to the artifact with the application source code.
+        name: SOURCE_ARTIFACT
+        type: string
+      - description: Tekton task test output.
+        name: TEST_OUTPUT
+        type: string
+    stepTemplate:
+      computeResources: {}
+      volumeMounts:
+        - mountPath: /var/workdir
+          name: workdir
+        - mountPath: /shared
+          name: shared
+        - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+          name: trusted-ca
+          readOnly: true
+          subPath: ca-bundle.crt
+    steps:
+      - args:
+          - use
+          - oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000=/var/workdir/source
+        computeResources: {}
+        image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:3e6dc09d80042c78c0c3bbcb4faf91f493bffc45cdee0978f285a2e57ac8aebb
+        name: use-trusted-artifact
+      - computeResources:
+          limits:
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        env:
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: CONTEXT
+            value: catalog/v5.0
+        image: quay.io/konflux-ci/operator-foundry:0.1@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+        name: check-lifecycle-eligibility
+        onError: continue
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          BUILD_ARG_FLAGS=()
+          for build_arg in "$@"; do
+            BUILD_ARG_FLAGS+=(--build-arg "${build_arg}")
+          done
+
+          operator-foundry fbc check-lifecycle-eligibility \
+            --dockerfile "${DOCKERFILE}" \
+            --build-context "${CONTEXT}" \
+            "${BUILD_ARG_FLAGS[@]}" \
+            --output /shared/eligible
+
+          echo "[INFO] Component eligible for lifecycle injection (targets OCP 5.0+): $(cat /shared/eligible)"
+        workingDir: /var/workdir/source
+      - computeResources:
+          limits:
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        env:
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: CONTEXT
+            value: catalog/v5.0
+        image: quay.io/konflux-ci/operator-foundry:0.1@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+        name: get-packages
+        onError: continue
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [[ ! -s /shared/eligible ]] || [[ "$(cat /shared/eligible)" != "true" ]]; then
+            echo "[INFO] Not eligible for lifecycle injection (or eligibility check failed), skipping package extraction."
+            exit 0
+          fi
+
+          BUILD_ARG_FLAGS=()
+          for build_arg in "$@"; do
+            BUILD_ARG_FLAGS+=(--build-arg "${build_arg}")
+          done
+
+          operator-foundry fbc get-packages \
+            --dockerfile "${DOCKERFILE}" \
+            --build-context "${CONTEXT}" \
+            "${BUILD_ARG_FLAGS[@]}" \
+            --output /shared/packages.txt
+
+          if [[ ! -s /shared/packages.txt ]]; then
+            echo "[INFO] No packages requiring lifecycle injection found."
+          else
+            echo "[INFO] Packages to inject lifecycle for: $(cat /shared/packages.txt)"
+          fi
+        workingDir: /var/workdir/source
+      - computeResources:
+          limits:
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        image: quay.io/konflux-ci/fbc-update-planner:0.1.0@sha256:756516302435356d73911a79e2de2ef20a8adf4296009c5aa2b521563e1610dd
+        name: generate-lifecycle
+        onError: continue
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if [[ ! -s /shared/packages.txt ]]; then
+            echo "[INFO] No packages to process, skipping lifecycle generation."
+            exit 0
+          fi
+
+          mkdir -p /shared/lifecycle
+
+          plcc2fbc --validators none --package "$(cat /shared/packages.txt)" --split /shared/lifecycle/
+        workingDir: /var/workdir/source
+      - args:
+          - |
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            BUILD_ARG_FLAGS=()
+            for build_arg in "$@"; do
+              BUILD_ARG_FLAGS+=(--build-arg "${build_arg}")
+            done
+
+            echo -n "${SOURCE_ARTIFACT}" > "/tekton/results/SOURCE_ARTIFACT"
+
+            # Eligibility check step itself failed to run (script error), not a normal ineligible result.
+            ELIG_EXIT_CODE=$(cat /tekton/steps/step-check-lifecycle-eligibility/exitCode)
+            if [[ "$ELIG_EXIT_CODE" != "0" ]]; then
+              echo "[ERROR] Lifecycle eligibility check failed with exit code $ELIG_EXIT_CODE." >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: lifecycle eligibility check errors. Check logs."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            # Eligibility check ran but produced no output file - treat as a tooling failure.
+            if [[ ! -s /shared/eligible ]]; then
+              echo "[ERROR] Lifecycle eligibility check failed to produce output." >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: lifecycle eligibility check errors. Check logs."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            # Component does not target OCP 5.0+, so lifecycle injection is not required.
+            # This is expected/valid, not an error - report SUCCESS with zero successes.
+            if [[ "$(cat /shared/eligible)" != "true" ]]; then
+              echo "[INFO] Component not eligible for lifecycle injection (requires OCP 5.0+), skipping."
+              note="Task fbc-inject-lifecycle-oci-ta completed: Component not eligible for lifecycle injection (requires OCP 5.0+)."
+              operator-foundry make-result-json --result SUCCESS --successes 0 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            # get-packages step itself failed to run (script error), distinct from "no packages found" below.
+            GET_EXIT_CODE=$(cat /tekton/steps/step-get-packages/exitCode)
+            if [[ "$GET_EXIT_CODE" != "0" ]]; then
+              echo "[ERROR] get-packages step failed with exit code $GET_EXIT_CODE." >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: get-packages errors. Check logs."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            # Eligible component but no target packages found - this is a hard failure,
+            # since eligible components are expected to always have packages.
+            if [[ ! -s /shared/packages.txt ]]; then
+              echo "[ERROR] Component is eligible for lifecycle injection but no packages were found." >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: Component eligible (OCP 5.0+) but no packages requiring lifecycle injection were found."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            # generate-lifecycle step itself failed to run (script error);
+            # plcc2fbc validation failures land here too since the script propagates plcc2fbc's exit code.
+            GEN_EXIT_CODE=$(cat /tekton/steps/step-generate-lifecycle/exitCode)
+            if [[ "$GEN_EXIT_CODE" != "0" ]]; then
+              echo "[ERROR] plcc2fbc generation failed with exit code $GEN_EXIT_CODE." >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: plcc2fbc generation errors. Check logs."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            if ! operator-foundry fbc inject-lifecycle \
+              --dockerfile "${DOCKERFILE}" \
+              --build-context "${CONTEXT}" \
+              --packages "$(cat /shared/packages.txt)" \
+              --lifecycle-dir /shared/lifecycle/ \
+              "${BUILD_ARG_FLAGS[@]}"; then
+
+              # Injection itself failed despite valid packages and lifecycle data being available.
+              echo "[ERROR] Failed to inject lifecycle data" >&2
+              note="Task fbc-inject-lifecycle-oci-ta failed: lifecycle injection errors. Check logs."
+              operator-foundry make-result-json --result FAILURE --failures 1 --note "${note}" \
+                > "/tekton/results/TEST_OUTPUT"
+              echo -n "true" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+              exit 0
+            fi
+
+            note="Task fbc-inject-lifecycle-oci-ta completed: Lifecycle data injected successfully."
+            operator-foundry make-result-json --result SUCCESS --successes 1 --note "${note}" \
+              > "/tekton/results/TEST_OUTPUT"
+            echo -n "false" > "/tekton/steps/step-inject-lifecycle/results/skip_create_trusted_artifact"
+          - bash
+        command:
+          - /bin/bash
+          - -c
+        computeResources:
+          limits:
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        env:
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: CONTEXT
+            value: catalog/v5.0
+          - name: SOURCE_ARTIFACT
+            value: oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        image: quay.io/konflux-ci/operator-foundry:0.1@sha256:70a3fceca8d568544d302750370dd6d7a31e4145ef45a062e8d2f11392365f76
+        name: inject-lifecycle
+        results:
+          - description: Set to 'true' if create-trusted-artifact should be skipped.
+            name: skip_create_trusted_artifact
+        securityContext:
+          runAsUser: 0
+        workingDir: /var/workdir/source
+      - args:
+          - create
+          - --store
+          - quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.lifecycle
+          - /tekton/results/SOURCE_ARTIFACT=/var/workdir/source
+        computeResources: {}
+        env:
+          - name: IMAGE_EXPIRES_AFTER
+        image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:3e6dc09d80042c78c0c3bbcb4faf91f493bffc45cdee0978f285a2e57ac8aebb
+        name: create-trusted-artifact
+        when:
+          - input: $(steps.inject-lifecycle.results.skip_create_trusted_artifact)
+            operator: in
+            values:
+              - "false"
+    volumes:
+      - emptyDir: {}
+        name: workdir
+      - emptyDir: {}
+        name: shared
+      - configMap:
+          items:
+            - key: ca-bundle.crt
+              path: ca-bundle.crt
+          name: trusted-ca
+          optional: true
+        name: trusted-ca

@@ -1,0 +1,168 @@
+{
+  "schema_version": "1",
+  "meta": {
+    "git_commit": "636f411c3234d70c217f46ad399bf126fdb12f42",
+    "git_dirty": true,
+    "dataset_version": "seed-small-v1",
+    "dataset_hash": "44a144d2d1245952a6a9fdccd02ee57b9d531c283e285c1b7dac1dcbcf515edd",
+    "tier": "tier2",
+    "mode": "mixed",
+    "started_at": "2026-09-28T10:30:42Z",
+    "duration_ms": 120000,
+    "hostname": "obetsun-thinkpadp1gen7.raanaii.csb",
+    "api_server_addr": "https://localhost:8080",
+    "db_backend": "local",
+    "server_image": ""
+  },
+  "config": {
+    "count": 5000,
+    "concurrency": 64,
+    "duration_sec": 120,
+    "transport": "grpc",
+    "read_ratio": 3,
+    "write_ratio": 1,
+    "dataset": "seed-small",
+    "seed": 42
+  },
+  "metrics": {
+    "throughput_per_sec": 51.724680050094925,
+    "total_ops": 6207,
+    "total_errors": 1493,
+    "by_op": {
+      "create_child_record": {
+        "count": 833,
+        "errors": 833,
+        "error_codes": {
+          "AlreadyExists": 789,
+          "DeadlineExceeded": 31,
+          "Unauthenticated": 13
+        },
+        "p50_ms": 1259.2203,
+        "p90_ms": 1430.262183,
+        "p99_ms": 1651.61879,
+        "min_ms": 0.001502,
+        "max_ms": 1858.071121,
+        "mean_ms": 1128.467262
+      },
+      "create_record": {
+        "count": 276,
+        "errors": 276,
+        "error_codes": {
+          "AlreadyExists": 270,
+          "DeadlineExceeded": 5,
+          "Unauthenticated": 1
+        },
+        "p50_ms": 1268.537002,
+        "p90_ms": 1409.77582,
+        "p99_ms": 1694.173766,
+        "min_ms": 0.001842,
+        "max_ms": 1709.292918,
+        "mean_ms": 1161.384953
+      },
+      "create_result": {
+        "count": 276,
+        "errors": 276,
+        "error_codes": {
+          "AlreadyExists": 271,
+          "DeadlineExceeded": 5
+        },
+        "p50_ms": 1260.53927,
+        "p90_ms": 1412.975616,
+        "p99_ms": 1666.623657,
+        "min_ms": 36.931003,
+        "max_ms": 1688.280983,
+        "mean_ms": 1197.956658
+      },
+      "list_records_label": {
+        "count": 889,
+        "errors": 19,
+        "error_codes": {
+          "DeadlineExceeded": 11,
+          "OK": 870,
+          "Unauthenticated": 8
+        },
+        "p50_ms": 1303.99071,
+        "p90_ms": 1542.141454,
+        "p99_ms": 2310.785657,
+        "min_ms": 9.074822,
+        "max_ms": 3766.65792,
+        "mean_ms": 1319.660839
+      },
+      "list_records_type": {
+        "count": 899,
+        "errors": 23,
+        "error_codes": {
+          "DeadlineExceeded": 10,
+          "OK": 876,
+          "Unauthenticated": 13
+        },
+        "p50_ms": 1302.24475,
+        "p90_ms": 1545.525133,
+        "p99_ms": 2507.070004,
+        "min_ms": 4.896053,
+        "max_ms": 3099.642847,
+        "mean_ms": 1320.199603
+      },
+      "list_results_all": {
+        "count": 926,
+        "errors": 14,
+        "error_codes": {
+          "DeadlineExceeded": 7,
+          "OK": 912,
+          "Unauthenticated": 7
+        },
+        "p50_ms": 1249.204655,
+        "p90_ms": 1487.494304,
+        "p99_ms": 2674.787897,
+        "min_ms": 13.368319,
+        "max_ms": 2698.853437,
+        "mean_ms": 1270.011513
+      },
+      "list_results_recent": {
+        "count": 913,
+        "errors": 21,
+        "error_codes": {
+          "DeadlineExceeded": 14,
+          "OK": 892,
+          "Unauthenticated": 7
+        },
+        "p50_ms": 1249.422889,
+        "p90_ms": 1355.612531,
+        "p99_ms": 1550.438981,
+        "min_ms": 5.606437,
+        "max_ms": 1836.876014,
+        "mean_ms": 1188.25447
+      },
+      "list_results_status": {
+        "count": 919,
+        "errors": 20,
+        "error_codes": {
+          "DeadlineExceeded": 6,
+          "OK": 899,
+          "Unauthenticated": 14
+        },
+        "p50_ms": 1282.91074,
+        "p90_ms": 1474.687498,
+        "p99_ms": 1688.285101,
+        "min_ms": 32.847332,
+        "max_ms": 1827.054122,
+        "mean_ms": 1239.423227
+      },
+      "update_result": {
+        "count": 276,
+        "errors": 11,
+        "error_codes": {
+          "DeadlineExceeded": 6,
+          "OK": 265,
+          "Unauthenticated": 5
+        },
+        "p50_ms": 1269.134697,
+        "p90_ms": 1442.922157,
+        "p99_ms": 1571.533736,
+        "min_ms": 0.003877,
+        "max_ms": 1708.788835,
+        "mean_ms": 1190.764879
+      }
+    }
+  }
+}

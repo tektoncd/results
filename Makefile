@@ -110,6 +110,12 @@ cli-docs: ; $(info $(M) Generating docs…) ## update docs
 	@go run ./cmd/cli-docs --root=. --target=./docs/cli
 	@go run ./cmd/cli-docs --root=. --target=./docs/man/man1 --kind=man
 
+# Performance
+
+.PHONY: performance-smoke
+performance-smoke: ; $(info $(M) running performance smoke…) @ ## Run the tier-1 performance smoke suite (needs a kind cluster + install)
+	$Q ./test/performance/environments/kind/03-smoke.sh
+
 # Misc
 
 .PHONY: clean

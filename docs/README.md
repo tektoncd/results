@@ -113,6 +113,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for build, test, and contribution instructi
 
 - [Roadmap](roadmap.md)
 - [Results API Query Cookbook](api/README.md#cookbook)
+- [Performance Benchmarking](performance.md)
 
 ## Contact
 

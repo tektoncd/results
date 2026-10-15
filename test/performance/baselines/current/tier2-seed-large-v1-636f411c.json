@@ -1,0 +1,101 @@
+{
+  "schema_version": "1",
+  "meta": {
+    "git_commit": "9ea873477a9591c1b5332bea3be06c9f227fd048",
+    "git_dirty": false,
+    "dataset_version": "seed-small-v1",
+    "dataset_hash": "",
+    "tier": "tier1",
+    "mode": "query",
+    "started_at": "2026-09-14T16:47:05Z",
+    "duration_ms": 30000,
+    "hostname": "obetsun-thinkpadp1gen7.raanaii.csb",
+    "api_server_addr": "https://localhost:8080",
+    "db_backend": "local",
+    "server_image": ""
+  },
+  "config": {
+    "count": 1000,
+    "concurrency": 8,
+    "duration_sec": 0,
+    "transport": "both",
+    "read_ratio": 0,
+    "write_ratio": 0,
+    "dataset": "seed-small",
+    "seed": 42
+  },
+  "metrics": {
+    "throughput_per_sec": 2.933244032869798,
+    "total_ops": 88,
+    "total_errors": 9,
+    "by_op": {
+      "list_records_label": {
+        "count": 16,
+        "errors": 8,
+        "error_codes": {
+          "OK": 8,
+          "Unknown": 8
+        },
+        "p50_ms": 3195.559476,
+        "p90_ms": 3199.745927,
+        "p99_ms": 3199.752041,
+        "min_ms": 189.075726,
+        "max_ms": 3199.752041,
+        "mean_ms": 2043.320847
+      },
+      "list_records_type": {
+        "count": 24,
+        "errors": 1,
+        "error_codes": {
+          "OK": 23,
+          "Unauthenticated": 1
+        },
+        "p50_ms": 3200.752827,
+        "p90_ms": 3206.355212,
+        "p99_ms": 3207.569374,
+        "min_ms": 1598.301519,
+        "max_ms": 3207.569374,
+        "mean_ms": 3135.026252
+      },
+      "list_results_all": {
+        "count": 16,
+        "errors": 0,
+        "error_codes": {
+          "OK": 16
+        },
+        "p50_ms": 3196.883489,
+        "p90_ms": 3198.381692,
+        "p99_ms": 3199.051285,
+        "min_ms": 10.676765,
+        "max_ms": 3199.051285,
+        "mean_ms": 1866.764292
+      },
+      "list_results_recent": {
+        "count": 16,
+        "errors": 0,
+        "error_codes": {
+          "OK": 16
+        },
+        "p50_ms": 3200.640346,
+        "p90_ms": 3202.394716,
+        "p99_ms": 3202.439539,
+        "min_ms": 3197.701061,
+        "max_ms": 3202.439539,
+        "mean_ms": 3200.199294
+      },
+      "list_results_status": {
+        "count": 16,
+        "errors": 0,
+        "error_codes": {
+          "OK": 16
+        },
+        "p50_ms": 3199.978234,
+        "p90_ms": 3201.795201,
+        "p99_ms": 3202.250964,
+        "min_ms": 3001.594978,
+        "max_ms": 3202.250964,
+        "mean_ms": 3187.522693
+      }
+    }
+  }
+}
