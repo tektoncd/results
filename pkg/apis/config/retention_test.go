@@ -8,6 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func defaultNamespaceCleanup() NamespaceCleanup {
+	return NamespaceCleanup{
+		InactivityPeriodDuration: DefaultNamespaceCleanupInactivityPeriod,
+		MaxNamespacesPerRun:      DefaultNamespaceCleanupMaxPerRun,
+	}
+}
+
 func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 	type args struct {
 		config *corev1.ConfigMap
@@ -23,6 +30,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			args: args{config: &corev1.ConfigMap{}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: DefaultDefaultRetention,
 			},
 		},
@@ -35,6 +43,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: 10 * 24 * time.Hour,
 			},
 		},
@@ -47,6 +56,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: 10 * 24 * time.Hour,
 			},
 		},
@@ -59,6 +69,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: 10 * 24 * time.Hour,
 			},
 		},
@@ -72,6 +83,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: 15 * 24 * time.Hour,
 			},
 		},
@@ -90,6 +102,7 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
 			}},
 			want: &RetentionPolicy{
 				RunAt:            DefaultRunAt,
+				NamespaceCleanup: defaultNamespaceCleanup(),
 				DefaultRetention: DefaultDefaultRetention,
 				Policies: []Policy{
 					{
@@ -114,6 +127,105 @@ func TestNewRetentionPolicyFromConfigMap(t *testing.T) {
   retention: "10d"
  :
 `,
+				},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "namespace cleanup enabled with defaults",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\n",
+				},
+			}},
+			want: &RetentionPolicy{
+				RunAt:            DefaultRunAt,
+				DefaultRetention: DefaultDefaultRetention,
+				NamespaceCleanup: NamespaceCleanup{
+					Enabled:                  true,
+					InactivityPeriodDuration: DefaultNamespaceCleanupInactivityPeriod,
+					MaxNamespacesPerRun:      DefaultNamespaceCleanupMaxPerRun,
+				},
+			},
+		},
+		{
+			name: "namespace cleanup fully configured",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": `
+enabled: true
+inactivityPeriod: "48h"
+excludeNamespaces:
+  - "kube-system"
+  - "default"
+maxNamespacesPerRun: 5
+dryRun: true
+`,
+				},
+			}},
+			want: &RetentionPolicy{
+				RunAt:            DefaultRunAt,
+				DefaultRetention: DefaultDefaultRetention,
+				NamespaceCleanup: NamespaceCleanup{
+					Enabled:                  true,
+					InactivityPeriod:         "48h",
+					ExcludeNamespaces:        []string{"kube-system", "default"},
+					MaxNamespacesPerRun:      5,
+					DryRun:                   true,
+					InactivityPeriodDuration: 48 * time.Hour,
+				},
+			},
+		},
+		{
+			name: "namespace cleanup inactivityPeriod without suffix is days",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\ninactivityPeriod: \"2\"\n",
+				},
+			}},
+			want: &RetentionPolicy{
+				RunAt:            DefaultRunAt,
+				DefaultRetention: DefaultDefaultRetention,
+				NamespaceCleanup: NamespaceCleanup{
+					Enabled:                  true,
+					InactivityPeriod:         "2",
+					InactivityPeriodDuration: 2 * 24 * time.Hour,
+					MaxNamespacesPerRun:      DefaultNamespaceCleanupMaxPerRun,
+				},
+			},
+		},
+		{
+			name: "unknown namespace cleanup field is rejected",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\ndryrun: true\n",
+				},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "invalid namespace cleanup yaml",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\n :\n",
+				},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "invalid namespace cleanup inactivityPeriod",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\ninactivityPeriod: \"soon\"\n",
+				},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "invalid namespace cleanup maxNamespacesPerRun",
+			args: args{config: &corev1.ConfigMap{
+				Data: map[string]string{
+					"namespaceCleanup": "enabled: true\nmaxNamespacesPerRun: 0\n",
 				},
 			}},
 			wantErr: true,
