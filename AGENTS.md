@@ -89,6 +89,8 @@ Handles all data mutations and queries.
 **Watcher** (`cmd/watcher`, `pkg/watcher/`): Kubernetes controller that watches
 TaskRun, PipelineRun, and CustomRun resources. Creates or updates corresponding
 Records via the Results API. Annotates original CRDs with result identifiers.
+Also watches Namespace deletions and cascade-deletes associated Results/Records
+via a dedicated namespace reconciler.
 
 **Retention Policy Agent** (`cmd/retention-policy-agent`, `pkg/retention/`):
 Deletes old data from the database based on configured retention policies.
@@ -106,6 +108,7 @@ Logs are read from the external log store, not stored in the Results database.
 - **New API handler**: Follow the pattern in `pkg/api/server/<proto_version>/results.go`
 - **Watcher shared reconciler logic**: See `pkg/watcher/reconciler/dynamic/`
 - **Watcher resource-specific reconciler**: See `pkg/watcher/reconciler/pipelinerun/`, `taskrun/`, or `customrun/`
+- **Watcher namespace cleanup reconciler**: See `pkg/watcher/reconciler/namespace/`
 - **Proto definition changes**: Follow `proto/<proto_version>/results.proto`
 - **Database migrations**: See `tools/tkn-results-migrator/`
 - **Integration tests**: Follow examples in `test/e2e/`

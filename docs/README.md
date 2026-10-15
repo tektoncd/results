@@ -39,7 +39,8 @@ Tekton Results is composed of 3 main components:
 - A [queryable gRPC API server](api/) backed by persistent storage (see
   [proto/v1alpha2](../proto/v1alpha2) for the latest API spec).
 - A [controller to watch and report](watcher/) TaskRun, PipelineRun, and
-  CustomRun updates to the API server.
+  CustomRun updates to the API server. It also watches for Namespace
+  deletions and cascade-deletes associated Results and Records.
 - A [retention policy agent](retention-policy-agent/), an agent which deletes older data from DB.
 
 ### Life of a Result
