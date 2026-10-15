@@ -1,0 +1,191 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:52:17Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: init
+    tekton.dev/task: init
+  name: perf-tenant-v0-on-push-rgqnb-init
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772704527"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: enable-cache-proxy
+      value: "false"
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: init
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-init:0.4.3@sha256:15d3d4a7e5c70b068103a9d4c6ba2e049db8896709fc45c0bd4be49c134b0989
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:52:22Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:52:22Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-push-rgqnb-init-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 15d3d4a7e5c70b068103a9d4c6ba2e049db8896709fc45c0bd4be49c134b0989
+      entryPoint: init
+      uri: quay.io/konflux-ci/tekton-catalog/task-init
+  results:
+    - name: http-proxy
+      type: string
+      value: ""
+    - name: no-proxy
+      type: string
+      value: ""
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:52:17Z"
+  steps:
+    - container: step-init
+      imageID: quay.io/konflux-ci/konflux-build-cli@sha256:25fa4c4eeec8509c3486d24d3d215fc4c8280b1b0ca9cc8f4f7569f3a9523a25
+      name: init
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:21Z"
+        message: '[{"key":"http-proxy","value":"","type":1},{"key":"no-proxy","value":"","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:52:21Z"
+      terminationReason: Completed
+  taskSpec:
+    description: Initialize Pipeline Task, enables configuration for cache-proxy if required during the PipelineRun.
+    params:
+      - default: "false"
+        description: Enable cache proxy configuration
+        name: enable-cache-proxy
+        type: string
+    results:
+      - description: HTTP proxy URL for cache proxy (when enable-cache-proxy is true)
+        name: http-proxy
+        type: string
+      - description: NO_PROXY value for cache proxy (when enable-cache-proxy is true)
+        name: no-proxy
+        type: string
+    steps:
+      - args:
+          - --enable
+          - "false"
+        command:
+          - konflux-build-cli
+          - config
+          - cache-proxy
+        computeResources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        env:
+          - name: KBC_LOG_LEVEL
+            value: info
+          - name: DEFAULT_HTTP_PROXY
+            value: squid.caching.svc.cluster.local:3128
+          - name: DEFAULT_NO_PROXY
+            value: brew.registry.redhat.io,docker.io,gcr.io,ghcr.io,images.paas.redhat.com,mirror.gcr.io,nvcr.io,quay.io,registry-proxy.engineering.redhat.com,registry.access.redhat.com,registry.ci.openshift.org,registry.fedoraproject.org,registry.redhat.io,registry.stage.redhat.io,vault.habana.ai
+          - name: HTTP_PROXY_RESULTS_PATH
+            value: /tekton/results/http-proxy
+          - name: NO_PROXY_RESULTS_PATH
+            value: /tekton/results/no-proxy
+        image: quay.io/konflux-ci/konflux-build-cli@sha256:b296232c9b0d478c0bd1f48911ead97cd786eebdc737b877797564567fda8eae
+        name: init
