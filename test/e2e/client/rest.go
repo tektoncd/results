@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/transport"
 )
 
@@ -28,6 +29,7 @@ const (
 
 // RESTClient represents rest API client to connect to Tekton results api server.
 type RESTClient interface {
+	CloseIdleConnections()
 	GetResult(ctx context.Context, in *v1alpha2.GetResultRequest) (*v1alpha2.Result, error)
 	ListResults(ctx context.Context, in *v1alpha2.ListResultsRequest) (*v1alpha2.ListResultsResponse, error)
 	DeleteResult(ctx context.Context, in *v1alpha2.DeleteResultRequest) (*emptypb.Empty, error)
@@ -59,6 +61,16 @@ func NewRESTClient(serverAddress string, opts ...RestOption) (RESTClient, error)
 	}
 
 	return rc, nil
+}
+
+// CloseIdleConnections releases idle HTTP connections, including those behind
+// Kubernetes transport wrappers. It does not interrupt active requests.
+func (c *restClient) CloseIdleConnections() {
+	rt := c.httpClient.Transport
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	utilnet.CloseIdleConnectionsFor(rt)
 }
 
 // RestOption is customization of the HTTP Client.

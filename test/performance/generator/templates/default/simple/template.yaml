@@ -1,0 +1,16 @@
+id: simple
+weight: 1.0
+childTaskRuns:
+  min: 2
+  max: 4
+# Per-skeleton selection weights (keys are taskruns/ file basenames without .yaml).
+# A weight is a relative frequency, not a size: build-container is picked ~3x as
+# often as clone-repository, so a PipelineRun's children skew toward the larger
+# skeleton the way a real build does.
+childSkeletonWeights:
+  build-container: 3
+description: >-
+  Lightweight default build template: a small clone-repository next to a larger
+  build-container, exercising the weighted child TaskRun mix while keeping
+  generated objects small so default runs and tests stay fast. Use the heavier
+  fbc-builder reference template for realistic large-manifest baselines.

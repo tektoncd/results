@@ -21,6 +21,8 @@ export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
 export SA_TOKEN_PATH=${SA_TOKEN_PATH:-"/tmp/tekton-results/tokens"}
 export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
+export SSL_CERT_FILE=${SSL_CERT_FILE:="${SSL_CERT_PATH}/tekton-results-cert.pem"}
+export SA_TOKEN_FILE=${SA_TOKEN_FILE:="${SA_TOKEN_PATH}/all-namespaces-read-access"}
 
 ROOT="$(git rev-parse --show-toplevel)"
 
@@ -59,13 +61,13 @@ else
     kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
 extra_ko_params="linux/$(go env GOARCH)"
-kubectl kustomize "${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
+kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-${ROOT}/test/e2e/kustomize}" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
 service_accounts=(all-namespaces-read-access single-namespace-read-access all-namespaces-admin-access all-namespaces-impersonate-access)
 for service_account in "${service_accounts[@]}"; do
-    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account"
+    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account" --duration=24h
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
