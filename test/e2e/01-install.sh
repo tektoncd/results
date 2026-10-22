@@ -61,7 +61,7 @@ else
     kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
 extra_ko_params="linux/$(go env GOARCH)"
-kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-${ROOT}/test/e2e/kustomize}" | ko apply --platform="$extra_ko_params" -f -
+kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
