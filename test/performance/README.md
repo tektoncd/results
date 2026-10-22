@@ -77,7 +77,7 @@ against the golden definition:
 go run ./test/performance/harness load --verify --cert "$SSL_CERT_PATH" --token "$SA_TOKEN_PATH"
 
 # 3. Benchmark — reports are written under test/performance/output/ (created on
-#    demand); omit --output to stream the JSON report to stdout instead.
+#    demand); omit --output to write under /tmp/<timestamp>-<commit> instead.
 go run ./test/performance/harness store  --cert "$SSL_CERT_PATH" --token "$SA_TOKEN_PATH" --output test/performance/output/store.json
 go run ./test/performance/harness query  --cert "$SSL_CERT_PATH" --token "$SA_TOKEN_PATH" --output test/performance/output/query.json --transport both
 go run ./test/performance/harness mixed  --cert "$SSL_CERT_PATH" --token "$SA_TOKEN_PATH" --output test/performance/output/mixed.json --duration 60
@@ -95,18 +95,19 @@ go run ./test/performance/harness mixed  --cert "$SSL_CERT_PATH" --token "$SA_TO
 
 When `load` or `store` uses `--output report.json`, it also writes
 `report.sendlog.json` with the instance UIDs, record names, and operation status
-codes for ingest verification. The load send log is written before `--verify`
-runs, so it remains available if verification fails. No sidecar is written when
-the report goes to stdout.
+codes for ingest verification. The load report and send log are written before
+`--verify` runs, so they remain available if verification fails. No sidecar is
+written when `--output` is omitted.
 
-When at least 50% of the attempted seed instances have a write error, `load` emits
-a structured warning to stderr with the affected and total instance counts and
-error percentage. An instance comprises one PipelineRun and its child TaskRuns;
-any error while writing its Result, PipelineRun, or children counts that instance
-once. `AlreadyExists` responses tolerated by the loader do not count as failures.
-The warning indicates that the seed dataset may be incomplete; it does not fail
-the command. `--verify` still fails if the stored row counts do not match the
-golden definition. The JSON report retains the full per-operation metrics.
+Every `load` report includes `metrics.seed_load` with `total_instances`,
+`failed_instances`, and `error_rate_percent`.
+An instance comprises one PipelineRun and its child TaskRuns; any error while
+writing its Result, PipelineRun, or children counts that instance once.
+`AlreadyExists` responses tolerated by the loader do not count as failed
+instances. The summary describes write outcomes, not an actual missing-row count.
+Write errors do not fail the command; `--verify` still fails if the stored row
+counts do not match the golden definition. See [Investigating seed-load errors](#investigating-seed-load-errors)
+for how to find the underlying error in API and Postgres logs.
 
 ## Common flags
 
@@ -125,7 +126,7 @@ Defaults come from the same environment variables the e2e suite uses.
 | `--namespaces`    | `50`                                 |                   |
 | `--child-min/max` | `2` / `15`                           |                   |
 | `--db-type`    | `local`                              | `BENCH_DB_TYPE`   |
-| `--output`        | stdout                               |                   |
+| `--output`        | `/tmp/<timestamp>-<commit>`           |                   |
 
 ## Dataset determinism
 
@@ -154,7 +155,7 @@ for later runs:
   "meta": {
     "git_commit": "…", "git_dirty": false,
     "dataset_version": "seed-small-v1", "dataset_hash": "…",
-    "tier": "tier1", "mode": "store",
+    "tier": "tier1", "mode": "load",
     "started_at": "…", "duration_ms": 1234,
     "api_server_addr": "…",
     "db_type": "local", "server_image": "…"
@@ -163,6 +164,9 @@ for later runs:
   "metrics": {
     "throughput_per_sec": 812.3,
     "total_ops": 5000, "total_errors": 0,
+    "seed_load": {
+      "total_instances": 1000, "failed_instances": 0, "error_rate_percent": 0
+    },
     "by_op": {
       "create_record": { "count": 1000, "errors": 0, "error_codes": {},
         "p50_ms": 3.1, "p90_ms": 7.4, "p99_ms": 19.0,
@@ -173,12 +177,56 @@ for later runs:
 ```
 
 Percentiles are exact (nearest-rank over sorted samples); errors are classified by
-gRPC status code. Map keys serialize in stable order.
+gRPC status code. Map keys serialize in stable order. `metrics.seed_load` is
+present only in `load` reports. Its percentage is
+`100 * failed_instances / total_instances`, or zero when no instances were
+attempted. Per-operation error counts and codes remain in `metrics.by_op`.
+Those counters record raw API statuses, so tolerated `AlreadyExists` responses
+can appear there even when `failed_instances` is zero.
+
+### Investigating seed-load errors
+
+Start with the instance summary and the operations with nonzero error counts:
+
+```bash
+# Replace this with the path of your load report.
+report_path=/tmp/20261022-120000-abcdef01
+jq '{seed_load: .metrics.seed_load,
+     failed_operations: (.metrics.by_op | with_entries(select(.value.errors > 0)))}' "$report_path"
+```
+
+The report contains aggregate counts and gRPC status codes. For the underlying
+server or database error, collect logs covering the run's start time. These
+selectors and container names match the bundled performance deployment:
+
+```bash
+run_start=$(jq -r '.meta.started_at' "$report_path")
+
+kubectl logs -n tekton-pipelines \
+  -l app.kubernetes.io/name=tekton-results-api -c api \
+  --since-time="$run_start" --timestamps --prefix --tail=-1 > api.log
+
+kubectl logs -n tekton-pipelines \
+  -l app.kubernetes.io/name=tekton-results-postgres -c postgres \
+  --since-time="$run_start" --timestamps --prefix --tail=-1 > postgres.log
+```
+
+Inspect `api.log` for request failures, timeouts, and database errors. Inspect
+`postgres.log` for `ERROR`, `FATAL`, deadlocks, connection-limit errors, or failed
+statements around the same time. Use the report's `meta.duration_ms` to identify
+the run's time window, and the instance UIDs/resource names in the send log, when
+available, to correlate entries. Authentication, validation, or transport errors
+can occur before a database request, so they may have no matching Postgres entry.
+
+If a container restarted, request its previous logs with `kubectl logs --previous`
+using that pod and container name. For the external database overlay, use the
+database's actual namespace, pod selector, and container name; for a managed
+database, inspect its provider's database logs.
 
 ### What the measurements mean
 
-The harness only ever calls the deployed API, so every number is an **end-to-end,
-client-observed** measurement of one API operation (`create_result`,
+The harness only ever calls the deployed API, so operation metrics are **end-to-end,
+client-observed** measurements of API operations (`create_result`,
 `create_record`, `update_record`, `create_child`, the list queries, …). It is a
 **proxy for database performance**: the API server is a thin layer over Postgres,
 so with the dataset held constant (same `dataset_hash`) a change in these numbers

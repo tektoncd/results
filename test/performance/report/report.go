@@ -72,6 +72,15 @@ type Metrics struct {
 	TotalOps         int64               `json:"total_ops"`
 	TotalErrors      int64               `json:"total_errors"`
 	ByOp             map[string]OpReport `json:"by_op"`
+	SeedLoad         *SeedLoadMetrics    `json:"seed_load,omitempty"`
+}
+
+// SeedLoadMetrics summarizes write errors across attempted seed instances.
+// Each instance counts once if any write for it failed.
+type SeedLoadMetrics struct {
+	TotalInstances   int     `json:"total_instances"`
+	FailedInstances  int     `json:"failed_instances"`
+	ErrorRatePercent float64 `json:"error_rate_percent"`
 }
 
 // OpReport is the per-operation summary in report units (milliseconds).

@@ -228,8 +228,13 @@ func newLoadCmd() *cobra.Command {
 				return err
 			}
 			snap := m.Snapshot()
-			warnSeedErrors(ctx, log)
 			if err := writeSendLog(cfg.OutputPath, log); err != nil {
+				return err
+			}
+			if err := emitReport(ctx, cfg, "load", "grpc", reportExtra{
+				datasetHash: def.ContentHash,
+				seedLoad:    summarizeSeedLoad(log),
+			}, snap); err != nil {
 				return err
 			}
 			if verify {
@@ -238,7 +243,7 @@ func newLoadCmd() *cobra.Command {
 				}
 				fmt.Fprintf(os.Stderr, "seed verified: %d PipelineRuns, dataset hash %s\n", def.Count, def.ContentHash)
 			}
-			return emitReport(ctx, cfg, "load", "grpc", reportExtra{datasetHash: def.ContentHash}, snap)
+			return nil
 		},
 	}
 	bindCommon(cmd, cfg)
@@ -274,6 +279,7 @@ type reportExtra struct {
 	datasetHash string
 	readRatio   int
 	writeRatio  int
+	seedLoad    *report.SeedLoadMetrics
 }
 
 // emitReport assembles and writes the JSON report for a completed run.
@@ -298,6 +304,7 @@ func emitReport(ctx context.Context, cfg *RunConfig, mode, transport string, ext
 		Seed:        cfg.Seed,
 	}
 	rep := report.New(meta, rc, snap)
+	rep.Metrics.SeedLoad = extra.seedLoad
 	return withOutput(cfg.OutputPath, func(w *os.File) error {
 		return report.Write(w, rep)
 	})

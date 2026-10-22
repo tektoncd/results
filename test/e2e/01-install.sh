@@ -15,7 +15,7 @@
 
 set -e
 
-MODE="${1:-standard}" # "standard" or "ha"
+MODE="${1:-standard}" # "standard", "ha" or "performance"
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
@@ -56,12 +56,15 @@ export KEY_FILE_NAME="tekton-results-key.pem"
 if [ "$MODE" = "ha" ]; then
     echo "Installing Tekton Results with HA configuration..."
     kustomize_dir="${ROOT}/test/e2e/kustomize-ha"
+elif [ "$MODE" = "performance" ]; then
+    echo "Installing Tekton Results with performance configuration..."
+    kustomize_dir="${ROOT}/test/performance/kustomize"
 else
     echo "Installing Tekton Results..."
     kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
 extra_ko_params="linux/$(go env GOARCH)"
-kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
+kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"

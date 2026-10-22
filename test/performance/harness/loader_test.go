@@ -17,11 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,36 +30,34 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"knative.dev/pkg/logging"
 
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"github.com/tektoncd/results/test/performance/generator"
+	"github.com/tektoncd/results/test/performance/report"
 )
 
-func TestWarnSeedErrors(t *testing.T) {
+func TestSummarizeSeedLoad(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
 		total       int
 		failed      int
 		failedCodes []string
-		wantWarn    bool
 	}{
 		{name: "no instances"},
 		{name: "all successful", total: 100},
-		{name: "below threshold", total: 100, failed: 49},
-		{name: "at threshold", total: 100, failed: 50, wantWarn: true},
-		{name: "above threshold", total: 100, failed: 51, wantWarn: true},
-		{name: "odd total below threshold", total: 3, failed: 1},
-		{name: "odd total above threshold", total: 3, failed: 2, wantWarn: true},
-		{name: "all failed", total: 1, failed: 1, wantWarn: true},
-		{name: "child write fails", total: 2, failed: 1, failedCodes: []string{"OK", "OK", "OK", "OK", "PermissionDenied"}, wantWarn: true},
-		{name: "PipelineRun update fails", total: 2, failed: 1, failedCodes: []string{"OK", "OK", "Unavailable", "OK", "OK"}, wantWarn: true},
-		{name: "multiple errors count once", total: 2, failed: 1, failedCodes: []string{"Unavailable", "PermissionDenied", "FailedPrecondition"}, wantWarn: true},
+		{name: "one percent", total: 100, failed: 1},
+		{name: "49 percent", total: 100, failed: 49},
+		{name: "50 percent", total: 100, failed: 50},
+		{name: "51 percent", total: 100, failed: 51},
+		{name: "one of three", total: 3, failed: 1},
+		{name: "two of three", total: 3, failed: 2},
+		{name: "all failed", total: 1, failed: 1},
+		{name: "child write fails", total: 2, failed: 1, failedCodes: []string{"OK", "OK", "OK", "OK", "PermissionDenied"}},
+		{name: "PipelineRun update fails", total: 2, failed: 1, failedCodes: []string{"OK", "OK", "Unavailable", "OK", "OK"}},
+		{name: "multiple errors count once", total: 2, failed: 1, failedCodes: []string{"Unavailable", "PermissionDenied", "FailedPrecondition"}},
 		{name: "errors concentrated in one instance", total: 3, failed: 1, failedCodes: strings.Fields(strings.Repeat("Unavailable ", 20))},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,35 +78,12 @@ func TestWarnSeedErrors(t *testing.T) {
 				}
 				log.add(sendLogEntry{Index: i, Codes: rpcCodes})
 			}
-			var output bytes.Buffer
-			core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&output), zap.DebugLevel)
-			ctx := logging.WithLogger(context.Background(), zap.New(core).Sugar())
-			warnSeedErrors(ctx, log)
-			if !tt.wantWarn {
-				if output.Len() != 0 {
-					t.Fatalf("unexpected warning: %s", output.String())
-				}
-				return
+			want := &report.SeedLoadMetrics{TotalInstances: tt.total, FailedInstances: tt.failed}
+			if tt.total > 0 {
+				want.ErrorRatePercent = 100 * (float64(tt.failed) / float64(tt.total))
 			}
-			var got struct {
-				Level            string  `json:"level"`
-				Message          string  `json:"msg"`
-				FailedInstances  int     `json:"failed_instances"`
-				TotalInstances   int     `json:"total_instances"`
-				ErrorRatePercent float64 `json:"error_rate_percent"`
-			}
-			if err := json.Unmarshal(output.Bytes(), &got); err != nil {
-				t.Fatalf("decoding warning (expected exactly one): %v", err)
-			}
-			wantMessage := fmt.Sprintf("%d of %d seed instances had write errors; seed dataset may be incomplete", tt.failed, tt.total)
-			if got.Level != "warn" || got.Message != wantMessage {
-				t.Errorf("warning level/message = %q/%q, want warn/%q", got.Level, got.Message, wantMessage)
-			}
-			if got.FailedInstances != tt.failed || got.TotalInstances != tt.total {
-				t.Errorf("warning counts = %d/%d, want %d/%d", got.FailedInstances, got.TotalInstances, tt.failed, tt.total)
-			}
-			if want := 100 * (float64(tt.failed) / float64(tt.total)); got.ErrorRatePercent != want {
-				t.Errorf("warning percentage = %g, want %g", got.ErrorRatePercent, want)
+			if diff := cmp.Diff(want, summarizeSeedLoad(log)); diff != "" {
+				t.Errorf("seed-load summary mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -141,9 +117,9 @@ func (seedResultsClient) UpdateResult(_ context.Context, req *pb.UpdateResultReq
 	return req.GetResult(), nil
 }
 
-func TestLoadSeedChildErrorWarning(t *testing.T) {
+func TestLoadSeedChildErrorsReport(t *testing.T) {
 	cfg := testRunConfig()
-	cfg.Count = 2
+	cfg.Count = 3
 	cfg.Concurrency = 2
 	cfg.ChildMin = 2
 	cfg.ChildMax = 2
@@ -157,29 +133,93 @@ func TestLoadSeedChildErrorWarning(t *testing.T) {
 	}
 	for _, code := range []codes.Code{codes.PermissionDenied, codes.AlreadyExists} {
 		t.Run(code.String(), func(t *testing.T) {
+			cfg.OutputPath = filepath.Join(t.TempDir(), "load.json")
 			client := seedResultsClient{createRecordErrs: map[string]error{
 				inst.ChildRecords[0]: status.Error(code, "create child"),
 			}}
-			m, _, log, err := loadSeed(context.Background(), client, cfg)
+			ctx := context.Background()
+			m, def, log, err := loadSeed(ctx, client, cfg)
 			if err != nil {
 				t.Fatalf("loadSeed() = %v, want nonfatal write errors", err)
 			}
 			snap := m.Snapshot()
-			if snap.TotalError != 1 || snap.TotalOps != 12 {
-				t.Fatalf("API metrics = %d/%d errors, want 1/12", snap.TotalError, snap.TotalOps)
+			if err := emitReport(ctx, cfg, "load", "grpc", reportExtra{
+				datasetHash: def.ContentHash,
+				seedLoad:    summarizeSeedLoad(log),
+			}, snap); err != nil {
+				t.Fatalf("emitReport() = %v", err)
 			}
-			var output bytes.Buffer
-			core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&output), zap.DebugLevel)
-			ctx := logging.WithLogger(context.Background(), zap.New(core).Sugar())
-			warnSeedErrors(ctx, log)
+			data, err := os.ReadFile(cfg.OutputPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got report.Report
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatalf("decoding load report: %v", err)
+			}
+			if got.Metrics.TotalErrors != 1 || got.Metrics.TotalOps != 18 {
+				t.Errorf("reported API metrics = %d/%d errors, want 1/18", got.Metrics.TotalErrors, got.Metrics.TotalOps)
+			}
+			want := &report.SeedLoadMetrics{TotalInstances: 3, FailedInstances: 1, ErrorRatePercent: 100 * (1.0 / float64(cfg.Count))}
 			if code == codes.AlreadyExists {
-				if output.Len() != 0 {
-					t.Fatalf("tolerated child AlreadyExists produced warning: %s", output.String())
-				}
-			} else if !strings.Contains(output.String(), "1 of 2 seed instances had write errors") {
-				t.Fatalf("expected a warning at 50%% failed instances despite 1/12 failed API calls; got %q", output.String())
+				want.FailedInstances = 0
+				want.ErrorRatePercent = 0
+			}
+			if diff := cmp.Diff(want, got.Metrics.SeedLoad); diff != "" {
+				t.Errorf("reported seed-load summary mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestLoadReportSurvivesVerificationFailure(t *testing.T) {
+	reportDir := t.TempDir()
+	t.Setenv("TMPDIR", reportDir)
+	server := grpc.NewServer()
+	// Unimplemented writes fail nonfatally; ListRecords then fails verification.
+	pb.RegisterResultsServer(server, &pb.UnimplementedResultsServer{})
+	t.Cleanup(server.Stop)
+	https := httptest.NewUnstartedServer(server)
+	https.EnableHTTP2 = true
+	https.StartTLS()
+	t.Cleanup(https.Close)
+	credentialsDir := t.TempDir()
+	certPath := filepath.Join(credentialsDir, "ca.pem")
+	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: https.Certificate().Raw})
+	if err := os.WriteFile(certPath, cert, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(credentialsDir, "token")
+	if err := os.WriteFile(tokenPath, []byte("test-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newLoadCmd()
+	cmd.SetArgs([]string{
+		"--server-addr", https.URL, "--server-name", "127.0.0.1",
+		"--cert", certPath, "--token", tokenPath,
+		"--count", "2", "--child-min", "2", "--child-max", "2", "--verify",
+	})
+	if err := cmd.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), "seed verification failed") {
+		t.Fatalf("load --verify error = %v, want verification failure", err)
+	}
+	files, err := os.ReadDir(reportDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("default report directory contains %d entries, want one report", len(files))
+	}
+	data, err := os.ReadFile(filepath.Join(reportDir, files[0].Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got report.Report
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("decoding report after failed verification: %v", err)
+	}
+	want := &report.SeedLoadMetrics{TotalInstances: 2, FailedInstances: 2, ErrorRatePercent: 100}
+	if diff := cmp.Diff(want, got.Metrics.SeedLoad); diff != "" {
+		t.Errorf("seed-load summary after failed verification mismatch (-want +got):\n%s", diff)
 	}
 }
 

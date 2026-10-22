@@ -114,3 +114,60 @@ func TestReportRequiredKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestReportSeedLoadMetrics(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		summary *SeedLoadMetrics
+	}{
+		{name: "other mode"},
+		{name: "empty load", summary: &SeedLoadMetrics{}},
+		{name: "successful load", summary: &SeedLoadMetrics{TotalInstances: 100}},
+		{name: "one percent errors", summary: &SeedLoadMetrics{TotalInstances: 100, FailedInstances: 1, ErrorRatePercent: 1}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mode := "load"
+			if tt.summary == nil {
+				mode = "query"
+			}
+			r := New(Meta{Mode: mode}, Config{}, sampleSnapshot())
+			r.Metrics.SeedLoad = tt.summary
+			var buf bytes.Buffer
+			if err := Write(&buf, r); err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Metrics map[string]json.RawMessage `json:"metrics"`
+			}
+			if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+				t.Fatal(err)
+			}
+			seedJSON, present := doc.Metrics["seed_load"]
+			if tt.summary == nil {
+				if present {
+					t.Fatal("non-load report contains seed_load metrics")
+				}
+				return
+			}
+			var got map[string]float64
+			if err := json.Unmarshal(seedJSON, &got); err != nil {
+				t.Fatalf("decoding seed_load metrics: %v", err)
+			}
+			want := map[string]float64{
+				"total_instances":    float64(tt.summary.TotalInstances),
+				"failed_instances":   float64(tt.summary.FailedInstances),
+				"error_rate_percent": tt.summary.ErrorRatePercent,
+			}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("seed_load JSON mismatch (-want +got):\n%s", diff)
+			}
+			decoded, err := Read(&buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(r, decoded); diff != "" {
+				t.Errorf("load report round-trip mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

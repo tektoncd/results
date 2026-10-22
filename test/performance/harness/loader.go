@@ -23,8 +23,8 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"github.com/tektoncd/results/test/performance/generator"
 	"github.com/tektoncd/results/test/performance/metrics"
+	"github.com/tektoncd/results/test/performance/report"
 	"google.golang.org/grpc/codes"
-	"knative.dev/pkg/logging"
 )
 
 // loadSeed writes the full seed dataset through the API and returns the metrics,
@@ -54,33 +54,25 @@ func loadSeed(ctx context.Context, gc pb.ResultsClient, cfg *RunConfig) (*metric
 	return m, def, log, nil
 }
 
-// warnSeedErrors reports a degraded seed without failing the load. Each instance
-// counts once if any write for its Result, PipelineRun, or children failed.
-func warnSeedErrors(ctx context.Context, log *sendLog) {
+// summarizeSeedLoad counts each instance once if any write for its Result,
+// PipelineRun, or children failed. Tolerated errors are already normalized in
+// the send log.
+func summarizeSeedLoad(log *sendLog) *report.SeedLoadMetrics {
 	log.mu.Lock()
-	total := len(log.entries)
-	failed := 0
+	defer log.mu.Unlock()
+	summary := &report.SeedLoadMetrics{TotalInstances: len(log.entries)}
 	for _, entry := range log.entries {
 		for _, code := range entry.Codes {
 			if code != codes.OK.String() {
-				failed++
+				summary.FailedInstances++
 				break
 			}
 		}
 	}
-	log.mu.Unlock()
-	if total == 0 {
-		return
+	if summary.TotalInstances > 0 {
+		summary.ErrorRatePercent = 100 * (float64(summary.FailedInstances) / float64(summary.TotalInstances))
 	}
-	errorRate := float64(failed) / float64(total)
-	if errorRate >= 0.5 {
-		logging.FromContext(ctx).Warnw(
-			fmt.Sprintf("%d of %d seed instances had write errors; seed dataset may be incomplete", failed, total),
-			"failed_instances", failed,
-			"total_instances", total,
-			"error_rate_percent", 100*errorRate,
-		)
-	}
+	return summary
 }
 
 // verifySeed counts the PipelineRun and TaskRun records actually present and
