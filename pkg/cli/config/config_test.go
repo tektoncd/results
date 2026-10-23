@@ -647,3 +647,38 @@ func TestToken(t *testing.T) {
 		})
 	}
 }
+
+// TestNewConfigImpersonation tests that the impersonation settings end up in the REST config
+func TestNewConfigImpersonation(t *testing.T) {
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
+
+	p := &common.ResultsParams{}
+	p.SetKubeConfigPath(kubeconfigPath)
+	p.SetKubeContext("test-context")
+	p.SetImpersonation("alice", []string{"developers", "admins"}, "1234")
+
+	cfg, err := NewConfig(p)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	c, ok := cfg.(*config)
+	if !ok {
+		t.Fatalf("Expected *config, got %T", cfg)
+	}
+	imp := c.RESTConfig.Impersonate
+	if imp.UserName != "alice" || imp.UID != "1234" || len(imp.Groups) != 2 || imp.Groups[0] != "developers" {
+		t.Errorf("unexpected impersonation config: %+v", imp)
+	}
+
+	// Without the flags nothing is impersonated.
+	p2 := &common.ResultsParams{}
+	p2.SetKubeConfigPath(kubeconfigPath)
+	p2.SetKubeContext("test-context")
+	cfg2, err := NewConfig(p2)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if got := cfg2.(*config).RESTConfig.Impersonate; got.UserName != "" || got.UID != "" || len(got.Groups) != 0 {
+		t.Errorf("expected no impersonation, got %+v", got)
+	}
+}
