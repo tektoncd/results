@@ -50,6 +50,13 @@ type Params interface {
 	SetSkipTLSVerify(bool)
 	SkipTLSVerify() bool
 
+	// SetImpersonation stores the user, groups and UID to impersonate when
+	// talking to the Kubernetes API server (kubectl --as, --as-group, --as-uid)
+	SetImpersonation(user string, groups []string, uid string)
+	ImpersonateUser() string
+	ImpersonateGroups() []string
+	ImpersonateUID() string
+
 	// Client access method for dependency injection
 	// Returns REST client - from which log/record clients are created
 	SetRESTClient(client *client.RESTClient)
