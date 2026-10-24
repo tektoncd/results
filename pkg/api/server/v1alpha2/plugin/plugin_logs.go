@@ -64,6 +64,23 @@ const (
 	splunkOutputFormat        = "?output_mode=json"
 )
 
+func httpStatusToGRPCCode(httpStatus int) codes.Code {
+	switch httpStatus {
+	case http.StatusBadRequest:
+		return codes.InvalidArgument
+	case http.StatusUnauthorized:
+		return codes.Unauthenticated
+	case http.StatusForbidden:
+		return codes.PermissionDenied
+	case http.StatusNotFound:
+		return codes.NotFound
+	case http.StatusTooManyRequests:
+		return codes.ResourceExhausted
+	default:
+		return codes.Internal
+	}
+}
+
 var (
 	openBucket = func(ctx context.Context, urlString string) (*blob.Bucket, error) {
 		bucket, err := blob.OpenBucket(ctx, urlString)
@@ -109,6 +126,7 @@ func (s *LogServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServer) er
 	err = s.getLog(s, writer, parent, rec)
 	if err != nil {
 		s.logger.Error(err)
+		return err
 	}
 
 	_, err = writer.Flush()
@@ -267,6 +285,11 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		s.logger.Debugf("loki request url:%s", URL.String())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			s.logger.Errorf("error closing response body: %s", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Errorf("Loki API request failed with HTTP status code: %d", resp.StatusCode)
@@ -278,7 +301,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		if err == nil {
 			s.logger.Debugf("Response Dump***:\n %q\n", dump)
 		}
-		return status.Error(codes.Internal, "Error fetching log data")
+		return status.Errorf(httpStatusToGRPCCode(resp.StatusCode), "Error fetching log data (HTTP %d)", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -581,7 +604,7 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 
 	if resp.StatusCode != http.StatusCreated {
 		s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
-		return status.Error(codes.Internal, "Error fetching log data - search job creation failed")
+		return status.Errorf(httpStatusToGRPCCode(resp.StatusCode), "Error fetching log data - search job creation failed (HTTP %d)", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -630,8 +653,8 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	}()
 
 	if lresp.StatusCode != http.StatusOK {
-		s.logger.Errorf("Splunk Fetch Log API request failed with HTTP status code: %d", resp.StatusCode)
-		return status.Error(codes.Internal, "Error fetching log data - fetch log api failed")
+		s.logger.Errorf("Fetch Log API request failed with HTTP status code: %d", lresp.StatusCode)
+		return status.Errorf(httpStatusToGRPCCode(lresp.StatusCode), "Error fetching log data - fetch log api failed (HTTP %d)", lresp.StatusCode)
 	}
 
 	data, err = io.ReadAll(lresp.Body)
