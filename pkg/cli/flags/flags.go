@@ -15,12 +15,19 @@ const (
 	token                 = "token"
 	apiPath               = "api-path"
 	insecureSkipTLSVerify = "insecure-skip-tls-verify"
+	asUser                = "as"
+	asGroup               = "as-group"
+	asUID                 = "as-uid"
 )
 
 // ResultsOptions all global Results options
 type ResultsOptions struct {
 	KubeConfig, Context, Namespace, Host, Token, APIPath string
 	InsecureSkipTLSVerify                                bool
+	// Impersonation settings, as in kubectl --as, --as-group and --as-uid.
+	As      string
+	AsGroup []string
+	AsUID   string
 }
 
 // AddResultsOptions amends the provided command by adding flags required to initialize a cli.Param.
@@ -64,6 +71,17 @@ func AddResultsOptions(cmd *cobra.Command) {
 		insecureSkipTLSVerify, "", false,
 		"skip server's certificate validation for requests (default: false)")
 
+	cmd.PersistentFlags().String(
+		asUser, "",
+		"username to impersonate for the operation (user or service account)")
+
+	cmd.PersistentFlags().StringArray(
+		asGroup, nil,
+		"group to impersonate for the operation, this flag can be repeated to specify multiple groups")
+
+	cmd.PersistentFlags().String(
+		asUID, "",
+		"UID to impersonate for the operation")
 }
 
 // GetResultsOptions retrieves the global Results Options that are not passed to subcommands.
@@ -83,6 +101,9 @@ func GetResultsOptions(cmd *cobra.Command) ResultsOptions {
 	t, _ := cmd.Flags().GetString(token)
 	ap, _ := cmd.Flags().GetString(apiPath)
 	skipTLSVerify, _ := cmd.Flags().GetBool(insecureSkipTLSVerify)
+	as, _ := cmd.Flags().GetString(asUser)
+	asGroups, _ := cmd.Flags().GetStringArray(asGroup)
+	asuid, _ := cmd.Flags().GetString(asUID)
 	return ResultsOptions{
 		KubeConfig:            kcPath,
 		Context:               kubeContext,
@@ -91,6 +112,9 @@ func GetResultsOptions(cmd *cobra.Command) ResultsOptions {
 		Token:                 t,
 		APIPath:               ap,
 		InsecureSkipTLSVerify: skipTLSVerify,
+		As:                    as,
+		AsGroup:               asGroups,
+		AsUID:                 asuid,
 	}
 }
 
@@ -161,6 +185,20 @@ func InitParams(p common.Params, cmd *cobra.Command) error {
 		return err
 	}
 	p.SetSkipTLSVerify(skipTLSVerify)
+
+	as, err := cmd.Flags().GetString(asUser)
+	if err != nil {
+		return err
+	}
+	asGroups, err := cmd.Flags().GetStringArray(asGroup)
+	if err != nil {
+		return err
+	}
+	asuid, err := cmd.Flags().GetString(asUID)
+	if err != nil {
+		return err
+	}
+	p.SetImpersonation(as, asGroups, asuid)
 
 	return nil
 }

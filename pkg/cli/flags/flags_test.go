@@ -1,6 +1,7 @@
 package flags
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -212,5 +213,30 @@ func TestInitParamsWithEmptyFlags(t *testing.T) {
 	err := InitParams(p, cmd)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
+	}
+}
+
+// TestImpersonationFlags tests that the impersonation flags are registered, read and passed on to the Params.
+func TestImpersonationFlags(t *testing.T) {
+	cmd := &cobra.Command{Use: "test", Short: "Test command"}
+	AddResultsOptions(cmd)
+
+	args := []string{"--as", "alice", "--as-group", "developers", "--as-group", "admins", "--as-uid", "1234"}
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatalf("Failed to parse flags: %v", err)
+	}
+
+	opts := GetResultsOptions(cmd)
+	if opts.As != "alice" || opts.AsUID != "1234" || !reflect.DeepEqual(opts.AsGroup, []string{"developers", "admins"}) {
+		t.Errorf("unexpected impersonation options: %+v", opts)
+	}
+
+	p := &common.ResultsParams{}
+	if err := InitParams(p, cmd); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if p.ImpersonateUser() != "alice" || p.ImpersonateUID() != "1234" ||
+		!reflect.DeepEqual(p.ImpersonateGroups(), []string{"developers", "admins"}) {
+		t.Errorf("unexpected impersonation params: %q %v %q", p.ImpersonateUser(), p.ImpersonateGroups(), p.ImpersonateUID())
 	}
 }

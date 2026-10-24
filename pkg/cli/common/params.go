@@ -15,6 +15,10 @@ type ResultsParams struct {
 	apiPath        string
 	skipTLSVerify  bool
 
+	impersonateUser   string
+	impersonateGroups []string
+	impersonateUID    string
+
 	// Simple client storage
 	restClient *client.RESTClient
 }
@@ -126,6 +130,33 @@ func (p *ResultsParams) SkipTLSVerify() bool {
 //   - skip: Whether to skip TLS verification.
 func (p *ResultsParams) SetSkipTLSVerify(skip bool) {
 	p.skipTLSVerify = skip
+}
+
+// SetImpersonation sets the user, groups and UID to impersonate.
+//
+// Parameters:
+//   - user: The user name to impersonate (kubectl --as).
+//   - groups: The groups to impersonate (kubectl --as-group).
+//   - uid: The UID to impersonate (kubectl --as-uid).
+func (p *ResultsParams) SetImpersonation(user string, groups []string, uid string) {
+	p.impersonateUser = user
+	p.impersonateGroups = groups
+	p.impersonateUID = uid
+}
+
+// ImpersonateUser returns the user name to impersonate.
+func (p *ResultsParams) ImpersonateUser() string {
+	return p.impersonateUser
+}
+
+// ImpersonateGroups returns the groups to impersonate.
+func (p *ResultsParams) ImpersonateGroups() []string {
+	return p.impersonateGroups
+}
+
+// ImpersonateUID returns the UID to impersonate.
+func (p *ResultsParams) ImpersonateUID() string {
+	return p.impersonateUID
 }
 
 // SetRESTClient injects a REST client

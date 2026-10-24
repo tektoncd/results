@@ -42,11 +42,14 @@ Describe a TaskRun as json
 
 ```
       --api-path string            api path to use (default: value provided in config set command)
+      --as string                  username to impersonate for the operation (user or service account)
+      --as-group stringArray       group to impersonate for the operation, this flag can be repeated to specify multiple groups
+      --as-uid string              UID to impersonate for the operation
   -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)
       --host string                host to use (default: value provided in config set command)
       --insecure-skip-tls-verify   skip server's certificate validation for requests (default: false)
-  -k, --kubeconfig string          kubectl config file (default: $HOME/.kube/config)
-  -n, --namespace string           namespace to use (default: from $KUBECONFIG)
+  -k, --kubeconfig string          kubectl config file (default: $KUBECONFIG, then $HOME/.kube/config)
+  -n, --namespace string           namespace to use (default: the current kubeconfig context's namespace)
       --token string               bearer token to use (default: value provided in config set command)
 ```
 

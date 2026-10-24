@@ -88,6 +88,14 @@ func NewConfig(p common.Params) (Config, error) {
 		return nil, err
 	}
 
+	// Honor the impersonation flags (--as, --as-group, --as-uid), which take
+	// precedence over any impersonation configured in the kubeconfig.
+	if p.ImpersonateUser() != "" {
+		rc.Impersonate.UserName = p.ImpersonateUser()
+		rc.Impersonate.Groups = p.ImpersonateGroups()
+		rc.Impersonate.UID = p.ImpersonateUID()
+	}
+
 	c := &config{
 		ConfigAccess: ca,
 		APIConfig:    &ac,
