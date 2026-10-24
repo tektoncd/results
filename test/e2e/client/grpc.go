@@ -18,11 +18,13 @@ import (
 type GRPCClient interface {
 	resultsv1alpha2.LogsClient
 	resultsv1alpha2.ResultsClient
+	Close() error
 }
 
 type grpcClient struct {
 	resultsv1alpha2.LogsClient
 	resultsv1alpha2.ResultsClient
+	conn *grpc.ClientConn
 }
 
 // NewGRPCClient creates a new gRPC client.
@@ -42,9 +44,15 @@ func NewGRPCClient(serverAddress string, opts ...grpc.DialOption) (GRPCClient, e
 	}
 
 	return &grpcClient{
-		resultsv1alpha2.NewLogsClient(clientConn),
-		resultsv1alpha2.NewResultsClient(clientConn),
+		LogsClient:    resultsv1alpha2.NewLogsClient(clientConn),
+		ResultsClient: resultsv1alpha2.NewResultsClient(clientConn),
+		conn:          clientConn,
 	}, nil
+}
+
+// Close shuts down the gRPC connection and its background goroutines.
+func (c *grpcClient) Close() error {
+	return c.conn.Close()
 }
 
 // CustomCredentials supplies PerRPCCredentials from a Token Source and Impersonation config.

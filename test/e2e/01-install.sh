@@ -15,12 +15,14 @@
 
 set -e
 
-MODE="${1:-standard}" # "standard" or "ha"
+MODE="${1:-standard}" # "standard", "ha" or "performance"
 
 export KO_DOCKER_REPO=${KO_DOCKER_REPO:-"kind.local"}
 export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-"tekton-results"}
 export SA_TOKEN_PATH=${SA_TOKEN_PATH:-"/tmp/tekton-results/tokens"}
 export SSL_CERT_PATH=${SSL_CERT_PATH:="/tmp/tekton-results/ssl"}
+export SSL_CERT_FILE=${SSL_CERT_FILE:="${SSL_CERT_PATH}/tekton-results-cert.pem"}
+export SA_TOKEN_FILE=${SA_TOKEN_FILE:="${SA_TOKEN_PATH}/all-namespaces-read-access"}
 
 ROOT="$(git rev-parse --show-toplevel)"
 
@@ -54,18 +56,21 @@ export KEY_FILE_NAME="tekton-results-key.pem"
 if [ "$MODE" = "ha" ]; then
     echo "Installing Tekton Results with HA configuration..."
     kustomize_dir="${ROOT}/test/e2e/kustomize-ha"
+elif [ "$MODE" = "performance" ]; then
+    echo "Installing Tekton Results with performance configuration..."
+    kustomize_dir="${ROOT}/test/performance/kustomize"
 else
     echo "Installing Tekton Results..."
     kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
 extra_ko_params="linux/$(go env GOARCH)"
-kubectl kustomize "${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
+kubectl kustomize "${TEKTON_RESULTS_KUSTOMIZATION:-kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
 service_accounts=(all-namespaces-read-access single-namespace-read-access all-namespaces-admin-access all-namespaces-impersonate-access)
 for service_account in "${service_accounts[@]}"; do
-    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account"
+    kubectl create token "$service_account" > "${SA_TOKEN_PATH}"/"$service_account" --duration=24h
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
