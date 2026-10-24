@@ -13,15 +13,22 @@ import (
 )
 
 const (
-	runAt            = "runAt"
-	maxRetention     = "maxRetention"
-	defaultRetention = "defaultRetention"
-	policiesKey      = "policies"
-	retentionCMName  = "tekton-results-config-results-retention-policy"
+	runAt               = "runAt"
+	maxRetention        = "maxRetention"
+	defaultRetention    = "defaultRetention"
+	policiesKey         = "policies"
+	namespaceCleanupKey = "namespaceCleanup"
+	retentionCMName     = "tekton-results-config-results-retention-policy"
 	// DefaultRunAt is the default value for RunAt
 	DefaultRunAt = "7 7 * * 7"
 	// DefaultDefaultRetention is the default value for DefaultRetention
 	DefaultDefaultRetention = time.Hour * 24 * 30
+	// DefaultNamespaceCleanupInactivityPeriod is the default duration a namespace's
+	// data must be untouched before the namespace becomes eligible for cleanup.
+	DefaultNamespaceCleanupInactivityPeriod = time.Hour * 24
+	// DefaultNamespaceCleanupMaxPerRun is the default upper bound on the number
+	// of namespaces cleaned up in a single run.
+	DefaultNamespaceCleanupMaxPerRun = 10
 )
 
 // ParseDuration parses a string into a time.Duration.
@@ -56,11 +63,34 @@ type Selector struct {
 	MatchStatuses    []string            `yaml:"matchStatuses"`
 }
 
+// NamespaceCleanup defines the configuration for removing the data of
+// namespaces that no longer exist in the cluster.
+type NamespaceCleanup struct {
+	// Enabled turns the namespace cleanup on. It is disabled by default.
+	Enabled bool `yaml:"enabled"`
+	// InactivityPeriod is the minimum duration a namespace's data must have been
+	// untouched before the namespace is eligible for cleanup.
+	InactivityPeriod string `yaml:"inactivityPeriod"`
+	// ExcludeNamespaces are never removed by the namespace cleanup. Their data
+	// is still subject to the age based retention policies.
+	ExcludeNamespaces []string `yaml:"excludeNamespaces"`
+	// MaxNamespacesPerRun is the maximum number of namespaces removed in a
+	// single run. If more namespaces are eligible, the run is aborted.
+	MaxNamespacesPerRun int `yaml:"maxNamespacesPerRun"`
+	// DryRun logs the namespaces that would be cleaned up without removing
+	// any data.
+	DryRun bool `yaml:"dryRun"`
+
+	// InactivityPeriodDuration is the parsed representation of InactivityPeriod.
+	InactivityPeriodDuration time.Duration `yaml:"-"`
+}
+
 // RetentionPolicy holds the configurations for the Retention Policy of the DB
 type RetentionPolicy struct {
 	RunAt            string
 	DefaultRetention time.Duration
 	Policies         []Policy
+	NamespaceCleanup NamespaceCleanup
 }
 
 // DeepCopy copying the receiver, creating a new RetentionPolicy.
@@ -72,6 +102,7 @@ func (cfg *RetentionPolicy) DeepCopy() *RetentionPolicy {
 	newCfg := &RetentionPolicy{
 		RunAt:            cfg.RunAt,
 		DefaultRetention: cfg.DefaultRetention,
+		NamespaceCleanup: *cfg.NamespaceCleanup.DeepCopy(),
 	}
 	if cfg.Policies != nil {
 		newCfg.Policies = make([]Policy, len(cfg.Policies))
@@ -121,6 +152,38 @@ func (s *Selector) DeepCopy() *Selector {
 	return out
 }
 
+// DeepCopy returns a deep copy of the NamespaceCleanup.
+func (nc *NamespaceCleanup) DeepCopy() *NamespaceCleanup {
+	if nc == nil {
+		return nil
+	}
+	out := *nc
+	if nc.ExcludeNamespaces != nil {
+		out.ExcludeNamespaces = append([]string(nil), nc.ExcludeNamespaces...)
+	}
+	return &out
+}
+
+// Equals returns true if two NamespaceCleanup configurations are identical.
+func (nc *NamespaceCleanup) Equals(other *NamespaceCleanup) bool {
+	if nc == nil || other == nil {
+		return nc == other
+	}
+	if nc.Enabled != other.Enabled ||
+		nc.InactivityPeriodDuration != other.InactivityPeriodDuration ||
+		nc.MaxNamespacesPerRun != other.MaxNamespacesPerRun ||
+		nc.DryRun != other.DryRun ||
+		len(nc.ExcludeNamespaces) != len(other.ExcludeNamespaces) {
+		return false
+	}
+	for i, ns := range nc.ExcludeNamespaces {
+		if other.ExcludeNamespaces[i] != ns {
+			return false
+		}
+	}
+	return true
+}
+
 // Equals returns true if two Configs are identical
 func (cfg *RetentionPolicy) Equals(other *RetentionPolicy) bool {
 	if cfg == nil && other == nil {
@@ -132,13 +195,18 @@ func (cfg *RetentionPolicy) Equals(other *RetentionPolicy) bool {
 	}
 
 	return other.RunAt == cfg.RunAt &&
-		other.DefaultRetention == cfg.DefaultRetention
+		other.DefaultRetention == cfg.DefaultRetention &&
+		other.NamespaceCleanup.Equals(&cfg.NamespaceCleanup)
 }
 
 func newRetentionPolicyFromMap(cfgMap map[string]string) (*RetentionPolicy, error) {
 	rp := RetentionPolicy{
 		RunAt:            DefaultRunAt,
 		DefaultRetention: DefaultDefaultRetention,
+		NamespaceCleanup: NamespaceCleanup{
+			InactivityPeriodDuration: DefaultNamespaceCleanupInactivityPeriod,
+			MaxNamespacesPerRun:      DefaultNamespaceCleanupMaxPerRun,
+		},
 	}
 
 	if schedule, ok := cfgMap[runAt]; ok {
@@ -168,7 +236,45 @@ func newRetentionPolicyFromMap(cfgMap map[string]string) (*RetentionPolicy, erro
 		rp.Policies = policies
 	}
 
+	if cleanupYAML, ok := cfgMap[namespaceCleanupKey]; ok {
+		nc, err := newNamespaceCleanupFromYAML(cleanupYAML)
+		if err != nil {
+			return nil, err
+		}
+		rp.NamespaceCleanup = *nc
+	}
+
 	return &rp, nil
+}
+
+func newNamespaceCleanupFromYAML(cleanupYAML string) (*NamespaceCleanup, error) {
+	nc := NamespaceCleanup{
+		MaxNamespacesPerRun: DefaultNamespaceCleanupMaxPerRun,
+	}
+	// Strict unmarshalling so that a misspelled or unsupported field is
+	// reported instead of being silently ignored. Silently dropping dryRun,
+	// for instance, would delete data the user expected to be kept.
+	if err := yaml.UnmarshalStrict([]byte(cleanupYAML), &nc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal namespaceCleanup: %w", err)
+	}
+
+	nc.InactivityPeriodDuration = DefaultNamespaceCleanupInactivityPeriod
+	if nc.InactivityPeriod != "" {
+		v, err := ParseDuration(nc.InactivityPeriod)
+		if err != nil {
+			return nil, fmt.Errorf("incorrect configuration for namespaceCleanup.inactivityPeriod: %w", err)
+		}
+		if v < 0 {
+			return nil, fmt.Errorf("incorrect configuration for namespaceCleanup.inactivityPeriod: %q must not be negative", nc.InactivityPeriod)
+		}
+		nc.InactivityPeriodDuration = v
+	}
+
+	if nc.MaxNamespacesPerRun <= 0 {
+		return nil, fmt.Errorf("incorrect configuration for namespaceCleanup.maxNamespacesPerRun: %d must be greater than 0", nc.MaxNamespacesPerRun)
+	}
+
+	return &nc, nil
 }
 
 // NewRetentionPolicyFromConfigMap returns a Config for the given configmap
