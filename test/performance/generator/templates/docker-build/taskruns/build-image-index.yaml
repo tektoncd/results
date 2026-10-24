@@ -1,0 +1,419 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/build-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    chains.tekton.dev/signed: "true"
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/build-tenant/pipelinerun/build-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/build-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/build-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    results.tekton.dev/childReadyForDeletion: "true"
+    results.tekton.dev/record: build-tenant/results/00000000-0000-0000-0000-000000000000/records/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"app-component","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    results.tekton.dev/result: build-tenant/results/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/stored: "true"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: image-build, konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:56:38Z"
+  finalizers:
+    - results.tekton.dev/taskrun
+    - chains.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: build-tenant-v0
+    appstudio.openshift.io/component: build-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: build-tenant-v0-on-push
+    tekton.dev/pipelineRun: build-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: build-image-index
+    tekton.dev/task: build-image-index
+  name: build-tenant-v0-on-push-rgqnb-build-image-index
+  namespace: build-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: build-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772745738"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: IMAGE
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+    - name: ALWAYS_BUILD_INDEX
+      value: "true"
+    - name: IMAGES
+      value:
+        - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-s390x@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-ppc64le@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-arm64@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: BUILDAH_FORMAT
+      value: oci
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-build-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: build-image-index
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-build-image-index:0.3.1@sha256:b00c9e68e96d41c95c725805e378ccdda44e0a1e55b69eae3f9d1f0ba1a6a493
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:56:59Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:56:59Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: build-tenant-v0-on-push-rgqnb-build-image-index-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: b00c9e68e96d41c95c725805e378ccdda44e0a1e55b69eae3f9d1f0ba1a6a493
+      entryPoint: build-image-index
+      uri: quay.io/konflux-ci/tekton-catalog/task-build-image-index
+  results:
+    - name: IMAGES
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      type: string
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_REF
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_URL
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+    - name: SBOM_BLOB_URL
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:56:38Z"
+  steps:
+    - container: step-build
+      imageID: quay.io/konflux-ci/konflux-build-cli@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+      name: build
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:56:53Z"
+        message: '[{"key":"IMAGES","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:56:43Z"
+      terminationReason: Completed
+    - container: step-create-sbom
+      imageID: quay.io/konflux-ci/mobster@sha256:135eec87fe80d0751a1ea5e8e47b240147b25ee9a41973cae365540d2e2ee473
+      name: create-sbom
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:56:54Z"
+        message: '[{"key":"IMAGES","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:56:53Z"
+      terminationReason: Completed
+    - container: step-upload-sbom
+      imageID: quay.io/konflux-ci/task-runner@sha256:4b01fbf98fa7155f5c21443c285f88853864ae7cc66981cf6b543fc6ba16b81b
+      name: upload-sbom
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:56:59Z"
+        message: '[{"key":"IMAGES","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000,quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000","type":1},{"key":"SBOM_BLOB_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:56:55Z"
+      terminationReason: Completed
+  taskSpec:
+    description: This takes existing Image Manifests and combines them in an Image Index.
+    params:
+      - description: The target image and tag where the image will be pushed to.
+        name: IMAGE
+        type: string
+      - default: "true"
+        description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
+        name: TLSVERIFY
+        type: string
+      - description: List of Image Manifests to be referenced by the Image Index
+        name: IMAGES
+        type: array
+      - default: "true"
+        description: Build an image index even if IMAGES is of length 1. Default true. If the image index generation is skipped, the task will forward values for params.IMAGES[0] to results.IMAGE_*. In order to properly set all results, use the repository:tag@sha256:digest format for the IMAGES parameter.
+        name: ALWAYS_BUILD_INDEX
+        type: string
+      - default: vfs
+        description: Storage driver to configure for buildah
+        name: STORAGE_DRIVER
+        type: string
+      - default: oci
+        description: The format for the resulting image's mediaType. Valid values are oci (default) or docker.
+        name: BUILDAH_FORMAT
+        type: string
+      - default: "false"
+        description: Flag to enable or disable SBOM validation before save. Validation is optional - use this if you are experiencing performance issues.
+        name: SBOM_SKIP_VALIDATION
+        type: string
+      - default: trusted-ca
+        description: The name of the ConfigMap to read CA bundle data from
+        name: caTrustConfigMapName
+        type: string
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the CA bundle data
+        name: caTrustConfigMapKey
+        type: string
+    results:
+      - description: Digest of the image just built
+        name: IMAGE_DIGEST
+        type: string
+      - description: Image repository and tag where the built image was pushed
+        name: IMAGE_URL
+        type: string
+      - description: List of all referenced image manifests
+        name: IMAGES
+        type: string
+      - description: Image reference of the built image containing both the repository and the digest
+        name: IMAGE_REF
+        type: string
+      - description: Reference of SBOM blob digest to enable digest-based verification from provenance
+        name: SBOM_BLOB_URL
+        type: string
+    stepTemplate:
+      computeResources: {}
+      env:
+        - name: BUILDAH_FORMAT
+          value: oci
+        - name: IMAGE
+          value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+        - name: TLSVERIFY
+          value: "true"
+        - name: ALWAYS_BUILD_INDEX
+          value: "true"
+        - name: STORAGE_DRIVER
+          value: vfs
+        - name: SBOM_SKIP_VALIDATION
+          value: "false"
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - mountPath: /index-build-data
+          name: shared-dir
+        - mountPath: /mnt/trusted-ca
+          name: trusted-ca
+          readOnly: true
+    steps:
+      - args:
+          - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-s390x@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-ppc64le@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          - quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-arm64@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        computeResources:
+          limits:
+            memory: 4Gi
+          requests:
+            cpu: 250m
+            memory: 4Gi
+        image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:0415613f955ef8f7c6fc821a6738dcf062d9a3582441042b87a2391c375d7f54
+        name: build
+        script: |
+          #!/bin/bash
+          # Fixing group permission on /var/lib/containers
+          set -eu
+          set -o pipefail
+          chown root:root /var/lib/containers
+
+          sed -i 's/^\s*short-name-mode\s*=\s*.*/short-name-mode = "disabled"/' /etc/containers/registries.conf
+
+          echo "[$(date --utc -Ins)] Update CA trust"
+
+          ca_bundle=/mnt/trusted-ca/ca-bundle.crt
+          if [ -f "$ca_bundle" ]; then
+            echo "INFO: Using mounted CA bundle: $ca_bundle"
+            cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors
+            update-ca-trust
+          fi
+
+          MANIFEST_DATA_FILE="/index-build-data/manifest_data.json"
+
+          echo "Running konflux-build-cli"
+          if ! konflux-build-cli image build-image-index \
+            --image "$IMAGE" \
+            --tls-verify="$TLSVERIFY" \
+            --buildah-format "$BUILDAH_FORMAT" \
+            --always-build-index="$ALWAYS_BUILD_INDEX" \
+            --additional-tags "build-tenant-v0-on-push-rgqnb-build-image-index" \
+            --output-manifest-path "$MANIFEST_DATA_FILE" \
+            --result-path-image-digest "/tekton/results/IMAGE_DIGEST" \
+            --result-path-image-url "/tekton/results/IMAGE_URL" \
+            --result-path-image-ref "/tekton/results/IMAGE_REF" \
+            --result-path-images "/tekton/results/IMAGES" \
+            --images "$@"; then
+            echo "Failed to build image index"
+            exit 1
+          fi
+        securityContext:
+          capabilities:
+            add:
+              - SETFCAP
+          runAsUser: 0
+      - computeResources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        image: quay.io/konflux-ci/mobster:1.2.1-1782136886@sha256:1374bc35c71781987cce00ef5efe2be42923f83def19b60a570e947189b90d15
+        name: create-sbom
+        script: |
+          #!/bin/bash
+          set -e
+
+          MANIFEST_DATA_FILE="/index-build-data/manifest_data.json"
+          if [ ! -f "$MANIFEST_DATA_FILE" ]; then
+            echo "The manifest_data.json file does not exist. Skipping the SBOM creation..."
+            exit 0
+          fi
+
+          IMAGE_URL="$(cat "/tekton/results/IMAGE_URL")"
+          IMAGE_DIGEST="$(cat "/tekton/results/IMAGE_DIGEST")"
+          echo "Creating SBOM result file..."
+          mobster_args=(generate --output /index-build-data/index.spdx.json)
+
+          if [ "${SBOM_SKIP_VALIDATION}" == "true" ]; then
+            echo "Skipping SBOM validation"
+            mobster_args+=(--skip-validation)
+          fi
+
+          mobster_args+=(
+            oci-index
+            --index-image-pullspec "$IMAGE_URL"
+            --index-image-digest "$IMAGE_DIGEST"
+            --index-manifest-path "$MANIFEST_DATA_FILE"
+          )
+          mobster "${mobster_args[@]}"
+      - computeResources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        image: quay.io/konflux-ci/task-runner:2.0.0@sha256:4b01fbf98fa7155f5c21443c285f88853864ae7cc66981cf6b543fc6ba16b81b
+        name: upload-sbom
+        script: |
+          #!/bin/bash
+          set -e
+
+          echo "[$(date --utc -Ins)] Update CA trust"
+
+          ca_bundle=/mnt/trusted-ca/ca-bundle.crt
+          if [ -f "$ca_bundle" ]; then
+            echo "INFO: Using mounted CA bundle: $ca_bundle"
+            cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors
+            update-ca-trust
+          fi
+
+          SBOM_RESULT_FILE="/index-build-data/index.spdx.json"
+          if [ ! -f "$SBOM_RESULT_FILE" ]; then
+            echo "The index.spdx.json file does not exists. Skipping the SBOM upload..."
+            exit 0
+          fi
+
+          # Pre-select the correct credentials to work around cosign not supporting the containers-auth.json spec
+          mkdir -p /tmp/auth && select-oci-auth "$(cat "/tekton/results/IMAGE_REF")" > /tmp/auth/config.json
+          export DOCKER_CONFIG=/tmp/auth
+
+          echo "Pushing sbom to registry"
+          if ! retry cosign attach sbom --sbom "$SBOM_RESULT_FILE" --type spdx "$(cat "/tekton/results/IMAGE_REF")"
+          then
+              echo "Failed to push sbom to registry"
+              exit 1
+          fi
+
+          # Remove tag from IMAGE while allowing registry to contain a port number.
+          sbom_repo="${IMAGE%:*}"
+          sbom_digest="$(sha256sum "$SBOM_RESULT_FILE" | cut -d' ' -f1)"
+          # The SBOM_BLOB_URL is created by `cosign attach sbom`.
+          echo -n "${sbom_repo}@sha256:${sbom_digest}" | tee "/tekton/results/SBOM_BLOB_URL"
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+    volumes:
+      - emptyDir: {}
+        name: shared-dir
+      - configMap:
+          items:
+            - key: ca-bundle.crt
+              path: ca-bundle.crt
+          name: trusted-ca
+          optional: true
+        name: trusted-ca

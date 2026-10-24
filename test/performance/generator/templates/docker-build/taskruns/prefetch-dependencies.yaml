@@ -1,0 +1,187 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/org/repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux,prefetch
+  creationTimestamp: "2026-09-09T12:25:28Z"
+  finalizers:
+  - chains.tekton.dev/taskrun
+  - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    appstudio.openshift.io/application: example-application
+    appstudio.openshift.io/component: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: container-build
+    tekton.dev/pipelineRun: container-build-on-pull-request-a1b2c
+    tekton.dev/pipelineTask: prefetch-dependencies
+    tekton.dev/task: prefetch-dependencies-oci-ta
+  name: container-build-on-pull-request-a1b2c-prefetch-dependencies
+  namespace: build-tenant
+  ownerReferences:
+  - apiVersion: tekton.dev/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: PipelineRun
+    name: container-build-on-pull-request-a1b2c
+    uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9855241870"
+  uid: 00000000-0000-0000-0000-000000000003
+spec:
+  params:
+  - name: input
+    value: ""
+  - name: SOURCE_ARTIFACT
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.git
+  - name: ociStorage
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.prefetch
+  - name: ociArtifactExpiresAfter
+    value: 5d
+  - name: ACTIVATION_KEY
+    value: activation-key
+  - name: enable-package-registry-proxy
+    value: "true"
+  - name: pip-index-url
+    value: ""
+  serviceAccountName: build-pipeline-app-component
+  taskRef:
+    params:
+    - name: name
+      value: prefetch-dependencies-oci-ta
+    - name: bundle
+      value: quay.io/konflux-ci/tekton-catalog/task-prefetch-dependencies-oci-ta:0.10.2@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: kind
+      value: task
+    resolver: bundles
+  timeout: 2h0m0s
+  workspaces:
+  - name: git-basic-auth
+    secret:
+      secretName: pac-gitauth-example
+  - name: netrc
+    emptyDir: {}
+status:
+  completionTime: "2026-09-09T12:26:15Z"
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:26:15Z"
+    message: All Steps have completed executing
+    reason: Succeeded
+    status: "True"
+    type: Succeeded
+  podName: container-build-on-pull-request-a1b2c-prefetch-dependencies-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      enableAPIFields: alpha
+      enableProvenanceInStatus: true
+  results:
+  - name: SOURCE_ARTIFACT
+    type: string
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.git
+  - name: CACHI2_ARTIFACT
+    type: string
+    value: quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.prefetch
+  startTime: "2026-09-09T12:25:28Z"
+  steps:
+  - container: step-fetch-source
+    imageID: quay.io/konflux-ci/oras@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: fetch-source
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:25:35Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:25:32Z"
+  - container: step-prefetch
+    imageID: quay.io/konflux-ci/cachi2@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: prefetch
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:26:08Z"
+      reason: Completed
+      startedAt: "2026-09-09T12:25:36Z"
+  - container: step-store-artifacts
+    imageID: quay.io/konflux-ci/oras@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: store-artifacts
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:26:14Z"
+      message: '[{"key":"SOURCE_ARTIFACT","value":"quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.git","type":1},{"key":"CACHI2_ARTIFACT","value":"quay.io/example-org/build-tenant/example-application/app-component:on-pr-0000000000000000000000000000000000000000.prefetch","type":1}]'
+      reason: Completed
+      startedAt: "2026-09-09T12:26:09Z"
+  taskSpec:
+    description: Prefetch build dependencies and store as OCI artifacts
+    params:
+    - default: ""
+      description: Cachi2 dependency input
+      name: input
+      type: string
+    - description: Source artifact reference
+      name: SOURCE_ARTIFACT
+      type: string
+    - description: OCI storage location for prefetched deps
+      name: ociStorage
+      type: string
+    - default: ""
+      description: OCI artifact expiration
+      name: ociArtifactExpiresAfter
+      type: string
+    - default: activation-key
+      description: Activation key secret name
+      name: ACTIVATION_KEY
+      type: string
+    - default: "true"
+      description: Enable package registry proxy
+      name: enable-package-registry-proxy
+      type: string
+    - default: ""
+      description: Python pip index URL
+      name: pip-index-url
+      type: string
+    results:
+    - description: Source artifact reference
+      name: SOURCE_ARTIFACT
+      type: string
+    - description: Cachi2 artifacts reference
+      name: CACHI2_ARTIFACT
+      type: string
+    steps:
+    - computeResources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      image: quay.io/konflux-ci/oras:latest
+      name: fetch-source
+      script: |
+        #!/usr/bin/env bash
+        oras pull $(params.SOURCE_ARTIFACT)
+    - computeResources:
+        limits:
+          cpu: "4"
+          memory: 4Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      image: quay.io/konflux-ci/cachi2:latest
+      name: prefetch
+      script: |
+        #!/usr/bin/env bash
+        cachi2 fetch-deps --source /workspace/source
+    - image: quay.io/konflux-ci/oras:latest
+      name: store-artifacts
+      script: |
+        #!/usr/bin/env bash
+        oras push $(params.ociStorage) /workspace/cachi2:application/vnd.cachi2.prefetch
+    workspaces:
+    - name: git-basic-auth
+      optional: true
+    - name: netrc
+      optional: true

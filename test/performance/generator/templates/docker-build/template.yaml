@@ -1,0 +1,12 @@
+id: docker-build
+weight: 1.0
+childTaskRuns:
+  min: 10
+  max: 16
+description: >-
+  Multi-platform container build pipeline with security scanning (Clair, Snyk,
+  ClamAV, shell check) and compliance tasks (RPM signature scan, SBOM). Builds
+  for linux/arm64 and linux/x86_64 using matrix tasks, then constructs an OCI
+  image index. This is a realistic Konflux container build with ~14 child
+  TaskRuns, heavier than fbc-builder. Keep out of templates/default/ to avoid
+  slowing default test runs.

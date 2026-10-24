@@ -1,0 +1,9 @@
+id: sample
+weight: 1.0
+childTaskRuns:
+  min: 2
+  max: 4
+description: >-
+  Structurally-representative placeholder modeled on a Konflux-style
+  docker-build PipelineRun. Replace with anonymized real manifests before
+  capturing a baseline.
