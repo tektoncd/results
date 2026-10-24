@@ -122,7 +122,10 @@ func (s *LogServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServer) er
 func (s *LogServer) getLogRequestParams(rec *db.Record) (startTime, endTime, uidKey string, err error) {
 	switch rec.Type {
 	case typePipelineRun:
-		uidKey = pipelineRunUIDKey
+		uidKey = s.config.LOGGING_PLUGIN_PIPELINERUN_UID_KEY
+		if uidKey == "" {
+			uidKey = pipelineRunUIDKey
+		}
 		data := &pipelinev1.PipelineRun{}
 		err := json.Unmarshal(rec.Data, data)
 		if err != nil {
@@ -140,7 +143,10 @@ func (s *LogServer) getLogRequestParams(rec *db.Record) (startTime, endTime, uid
 		endTime = strconv.FormatInt(data.Status.CompletionTime.Add(s.forwarderDelayDuration).UTC().Unix(), 10)
 
 	case typeTaskRun:
-		uidKey = taskRunUIDKey
+		uidKey = s.config.LOGGING_PLUGIN_TASKRUN_UID_KEY
+		if uidKey == "" {
+			uidKey = taskRunUIDKey
+		}
 		data := &pipelinev1.TaskRun{}
 		err := json.Unmarshal(rec.Data, data)
 		if err != nil {
