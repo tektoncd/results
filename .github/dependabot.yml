@@ -21,6 +21,10 @@ updates:
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
       cooldown:
         default-days: 7
         semver-major-days: 30
@@ -52,6 +56,10 @@ updates:
         - kind/misc
       ignore:
         - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
@@ -96,6 +104,10 @@ updates:
         - kind/misc
       ignore:
         - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
@@ -140,6 +152,10 @@ updates:
         - kind/misc
       ignore:
         - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
@@ -184,6 +200,10 @@ updates:
         - kind/misc
       ignore:
         - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
@@ -228,6 +248,10 @@ updates:
         - kind/misc
       ignore:
         - dependency-name: k8s.io/*
+          update-types:
+            - version-update:semver-major
+            - version-update:semver-minor
+        - dependency-name: go.opentelemetry.io/*
           update-types:
             - version-update:semver-major
             - version-update:semver-minor
