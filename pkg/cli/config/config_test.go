@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -680,5 +681,51 @@ func TestNewConfigImpersonation(t *testing.T) {
 	}
 	if got := cfg2.(*config).RESTConfig.Impersonate; got.UserName != "" || got.UID != "" || len(got.Groups) != 0 {
 		t.Errorf("expected no impersonation, got %+v", got)
+	}
+}
+
+// TestImpersonationHeadersSent checks that the impersonation flags reach the
+// Results API as Impersonate-* headers on requests made by the CLI client.
+func TestImpersonationHeadersSent(t *testing.T) {
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	kubeconfigPath := testutils.CreateTestKubeconfig(t, "")
+	p := &common.ResultsParams{}
+	p.SetKubeConfigPath(kubeconfigPath)
+	p.SetKubeContext("test-context")
+	p.SetImpersonation("system:serviceaccount:ns:reader", []string{"developers", "admins"}, "1234")
+
+	cfg, err := NewConfig(p)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	cc := *cfg.(*config).ClientConfig
+	u, err := cc.URL.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	cc.URL = u
+
+	rc, err := client.NewRESTClient(&cc)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if _, err := rc.DoRequest(context.Background(), http.MethodGet, srv.URL+"/apis/results.tekton.dev/v1alpha2/parents/ns/results", nil); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if user := got.Get("Impersonate-User"); user != "system:serviceaccount:ns:reader" {
+		t.Errorf("Impersonate-User = %q", user)
+	}
+	if groups := got.Values("Impersonate-Group"); len(groups) != 2 || groups[0] != "developers" || groups[1] != "admins" {
+		t.Errorf("Impersonate-Group = %v", groups)
+	}
+	if uid := got.Get("Impersonate-Uid"); uid != "1234" {
+		t.Errorf("Impersonate-Uid = %q", uid)
 	}
 }
