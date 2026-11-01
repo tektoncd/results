@@ -88,12 +88,8 @@ func NewConfig(p common.Params) (Config, error) {
 		return nil, err
 	}
 
-	// Honor the impersonation flags (--as, --as-group, --as-uid), which take
-	// precedence over any impersonation configured in the kubeconfig.
-	if p.ImpersonateUser() != "" {
-		rc.Impersonate.UserName = p.ImpersonateUser()
-		rc.Impersonate.Groups = p.ImpersonateGroups()
-		rc.Impersonate.UID = p.ImpersonateUID()
+	if err := applyImpersonation(rc, p); err != nil {
+		return nil, err
 	}
 
 	c := &config{
@@ -471,6 +467,34 @@ func ServerConnectionFlagsChanged(cmd *cobra.Command) bool {
 		cmd.Flags().Changed("api-path")
 }
 
+// applyImpersonation honors the impersonation flags (--as, --as-group, --as-uid), which take
+// precedence over any impersonation configured in the kubeconfig. --as replaces the whole
+// identity. --as-group and --as-uid without --as are applied to the user the kubeconfig
+// already impersonates, and are an error when there is none.
+func applyImpersonation(rc *rest.Config, p common.Params) error {
+	if user := p.ImpersonateUser(); user != "" {
+		rc.Impersonate.UserName = user
+		rc.Impersonate.Groups = p.ImpersonateGroups()
+		rc.Impersonate.UID = p.ImpersonateUID()
+		return nil
+	}
+
+	groups, uid := p.ImpersonateGroups(), p.ImpersonateUID()
+	if len(groups) == 0 && uid == "" {
+		return nil
+	}
+	if rc.Impersonate.UserName == "" {
+		return errors.New("--as-group and --as-uid require --as, or a user to impersonate in the kubeconfig")
+	}
+	if len(groups) > 0 {
+		rc.Impersonate.Groups = groups
+	}
+	if uid != "" {
+		rc.Impersonate.UID = uid
+	}
+	return nil
+}
+
 // BuildDirectClientConfig builds a client.Config from CLI flags (host, token, api-path, insecure-skip-tls-verify).
 func BuildDirectClientConfig(p common.Params) (*client.Config, error) {
 	host := p.Host()
@@ -487,6 +511,9 @@ func BuildDirectClientConfig(p common.Params) (*client.Config, error) {
 	}
 
 	rc.Insecure = p.SkipTLSVerify()
+	if err := applyImpersonation(rc, p); err != nil {
+		return nil, err
+	}
 	// Optionally set timeout (default 60s)
 	rc.Timeout = 60 * time.Second
 

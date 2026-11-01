@@ -38,7 +38,7 @@ Reset configuration to defaults:
 
 ```
       --api-path string            api path to use (default: value provided in config set command)
-      --as string                  username to impersonate for the operation (user or service account)
+      --as string                  username to impersonate for the operation (user or service account); the Results API must run with AUTH_IMPERSONATE=true
       --as-group stringArray       group to impersonate for the operation, this flag can be repeated to specify multiple groups
       --as-uid string              UID to impersonate for the operation
   -c, --context string             name of the kubeconfig context to use (default: kubectl config current-context)

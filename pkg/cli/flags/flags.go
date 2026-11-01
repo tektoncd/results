@@ -73,7 +73,7 @@ func AddResultsOptions(cmd *cobra.Command) {
 
 	cmd.PersistentFlags().String(
 		asUser, "",
-		"username to impersonate for the operation (user or service account)")
+		"username to impersonate for the operation (user or service account); the Results API must run with AUTH_IMPERSONATE=true")
 
 	cmd.PersistentFlags().StringArray(
 		asGroup, nil,
