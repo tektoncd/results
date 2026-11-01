@@ -75,6 +75,7 @@ var (
 	logsAPI                      = flag.Bool("logs_api", false, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 	logsTimestamps               = flag.Bool("logs_timestamps", false, "Collect logs with timestamps")
 	labelSelector                = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
+	resyncPeriod                 = flag.Duration("resync_period", controller.DefaultResyncPeriod, "How often the informers resync, which re-enqueues every cached Run for reconciliation. 0 disables periodic resync. Defaults to the knative default of 10h.")
 	requeueInterval              = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
 	namespace                    = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
 	summaryLabels                = flag.String("summary_labels", "tekton.dev/pipeline", "List of Labels keys separated by comma which should be part of the summary of the result")
@@ -90,6 +91,15 @@ var (
 	requiredAnnotations          = newAnnotationFlag("required_annotation", "Repeatable flag. Use \"key=value\" to require an exact match, or just \"key\" to require existence of the annotation regardless of its value. The stored annotation is always implicitly required.")
 )
 
+// withResyncPeriod returns a context carrying the informer resync period.
+// A period of 0 disables periodic resync; negative values are rejected.
+func withResyncPeriod(ctx context.Context, period time.Duration) (context.Context, error) {
+	if period < 0 {
+		return ctx, fmt.Errorf("resync period must be non-negative, got %v", period)
+	}
+	return controller.WithResyncPeriod(ctx, period), nil
+}
+
 func main() {
 	disableHighAvailability := flag.Bool("disable-ha", false, "Whether to disable high-availability functionality for this component.  This flag will be deprecated "+
 		"and removed when we have promoted this feature to stable, so do not pass it without filing an "+
@@ -101,6 +111,13 @@ func main() {
 	controller.DefaultThreadsPerController = *threadiness
 
 	ctx := signals.NewContext()
+
+	// Allow users to customize how often informers resync (and therefore how
+	// often every cached object is re-enqueued).
+	ctx, err := withResyncPeriod(ctx, *resyncPeriod)
+	if err != nil {
+		log.Fatalf("invalid -resync_period: %v", err)
+	}
 
 	ctx = filteredinformerfactory.WithSelectors(ctx, "app.kubernetes.io/name")
 
