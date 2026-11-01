@@ -687,9 +687,9 @@ func TestNewConfigImpersonation(t *testing.T) {
 // TestImpersonationHeadersSent checks that the impersonation flags reach the
 // Results API as Impersonate-* headers on requests made by the CLI client.
 func TestImpersonationHeadersSent(t *testing.T) {
-	var got http.Header
+	gotCh := make(chan http.Header, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = r.Header.Clone()
+		gotCh <- r.Header.Clone()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -719,10 +719,98 @@ func TestImpersonationHeadersSent(t *testing.T) {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
+	got := <-gotCh
 	if user := got.Get("Impersonate-User"); user != "system:serviceaccount:ns:reader" {
 		t.Errorf("Impersonate-User = %q", user)
 	}
 	if groups := got.Values("Impersonate-Group"); len(groups) != 2 || groups[0] != "developers" || groups[1] != "admins" {
+		t.Errorf("Impersonate-Group = %v", groups)
+	}
+	if uid := got.Get("Impersonate-Uid"); uid != "1234" {
+		t.Errorf("Impersonate-Uid = %q", uid)
+	}
+}
+
+// TestApplyImpersonation tests how --as, --as-group and --as-uid combine with the identity from the kubeconfig
+func TestApplyImpersonation(t *testing.T) {
+	newParams := func(user string, groups []string, uid string) common.Params {
+		p := &common.ResultsParams{}
+		p.SetImpersonation(user, groups, uid)
+		return p
+	}
+
+	t.Run("--as replaces the kubeconfig identity", func(t *testing.T) {
+		rc := &rest.Config{Impersonate: rest.ImpersonationConfig{UserName: "bob", Groups: []string{"old"}, UID: "9"}}
+		if err := applyImpersonation(rc, newParams("alice", nil, "")); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if imp := rc.Impersonate; imp.UserName != "alice" || len(imp.Groups) != 0 || imp.UID != "" {
+			t.Errorf("unexpected impersonation config: %+v", imp)
+		}
+	})
+
+	t.Run("--as-group and --as-uid apply to the kubeconfig user", func(t *testing.T) {
+		rc := &rest.Config{Impersonate: rest.ImpersonationConfig{UserName: "bob", Groups: []string{"old"}, UID: "9"}}
+		if err := applyImpersonation(rc, newParams("", []string{"developers"}, "1234")); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if imp := rc.Impersonate; imp.UserName != "bob" || len(imp.Groups) != 1 || imp.Groups[0] != "developers" || imp.UID != "1234" {
+			t.Errorf("unexpected impersonation config: %+v", imp)
+		}
+	})
+
+	t.Run("--as-group without a user to impersonate is an error", func(t *testing.T) {
+		rc := &rest.Config{}
+		if err := applyImpersonation(rc, newParams("", []string{"developers"}, "")); err == nil {
+			t.Errorf("Expected an error, got none")
+		}
+		if err := applyImpersonation(rc, newParams("", nil, "1234")); err == nil {
+			t.Errorf("Expected an error, got none")
+		}
+	})
+
+	t.Run("no flags leave the kubeconfig identity alone", func(t *testing.T) {
+		rc := &rest.Config{Impersonate: rest.ImpersonationConfig{UserName: "bob"}}
+		if err := applyImpersonation(rc, newParams("", nil, "")); err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if rc.Impersonate.UserName != "bob" {
+			t.Errorf("unexpected impersonation config: %+v", rc.Impersonate)
+		}
+	})
+}
+
+// TestBuildDirectClientConfigImpersonation checks that --host and --token requests carry the impersonation headers
+func TestBuildDirectClientConfigImpersonation(t *testing.T) {
+	gotCh := make(chan http.Header, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCh <- r.Header.Clone()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	p := &common.ResultsParams{}
+	p.SetHost(srv.URL)
+	p.SetToken("test-token")
+	p.SetImpersonation("alice", []string{"developers"}, "1234")
+
+	cc, err := BuildDirectClientConfig(p)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	rc, err := client.NewRESTClient(cc)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if _, err := rc.DoRequest(context.Background(), http.MethodGet, srv.URL+"/apis/results.tekton.dev/v1alpha2/parents/ns/results", nil); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	got := <-gotCh
+	if user := got.Get("Impersonate-User"); user != "alice" {
+		t.Errorf("Impersonate-User = %q", user)
+	}
+	if groups := got.Values("Impersonate-Group"); len(groups) != 1 || groups[0] != "developers" {
 		t.Errorf("Impersonate-Group = %v", groups)
 	}
 	if uid := got.Get("Impersonate-Uid"); uid != "1234" {
