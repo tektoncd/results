@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 func gatewayJSON(t *testing.T, w *httptest.ResponseRecorder, want int) map[string]any {
@@ -182,6 +183,61 @@ func TestGatewayCancellation(t *testing.T) {
 				t.Errorf("already expired request invoked auth %d times", checker.calls.Load())
 			}
 		}
+	}
+}
+
+func TestGatewayDatabaseCancellation(t *testing.T) {
+	for _, tc := range []struct {
+		name, method, path string
+	}{
+		{"GetResult", "GET", resultsURL + "/missing"},
+		{"DeleteRecord", "DELETE", resultsURL + "/missing/records/missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGatewayFixture(t, false, nil, nil)
+			started := make(chan struct{}, 1)
+			release := make(chan struct{})
+			if err := g.db.Callback().Query().Before("gorm:query").Register("test:wait_for_cancellation", func(tx *gorm.DB) {
+				select {
+				case started <- struct{}{}:
+				default:
+				}
+				select {
+				case <-tx.Statement.Context.Done():
+					tx.AddError(tx.Statement.Context.Err())
+				case <-release:
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			req := httptest.NewRequest(tc.method, tc.path, nil).WithContext(ctx)
+			done := make(chan *httptest.ResponseRecorder, 1)
+			go func() {
+				w := httptest.NewRecorder()
+				g.handler.ServeHTTP(w, req)
+				done <- w
+			}()
+
+			select {
+			case <-started:
+			case <-time.After(3 * time.Second):
+				cancel()
+				close(release)
+				t.Fatal("database lookup did not start")
+			}
+			cancel()
+			select {
+			case w := <-done:
+				gatewayJSON(t, w, 499)
+			case <-time.After(3 * time.Second):
+				close(release)
+				<-done
+				t.Fatal("REST request remained blocked after cancellation during database lookup")
+			}
+		})
 	}
 }
 

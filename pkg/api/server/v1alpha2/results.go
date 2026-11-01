@@ -90,7 +90,7 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionGet); err != nil {
 		return nil, err
 	}
-	store, err := getResultByParentName(s.db, parent, name)
+	store, err := getResultByParentName(s.db.WithContext(ctx), parent, name)
 	if err != nil {
 		return nil, err
 	}

@@ -254,7 +254,7 @@ func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) 
 	// the entry is already deleted.
 	// This does not need to be done in the same transaction as to delete,
 	// since the identifiers are immutable.
-	r, err := getRecord(s.db, parent, result, name)
+	r, err := getRecord(s.db.WithContext(ctx), parent, result, name)
 	if err != nil {
 		return &empty.Empty{}, err
 	}
