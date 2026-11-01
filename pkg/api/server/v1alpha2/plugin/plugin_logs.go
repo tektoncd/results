@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -27,6 +28,7 @@ import (
 	"gorm.io/gorm"
 
 	"gocloud.dev/blob"
+	"gocloud.dev/gcerrors"
 
 	// Adding the driver for gcs.
 	_ "gocloud.dev/blob/gcsblob"
@@ -77,6 +79,136 @@ var (
 	}
 )
 
+// httpStatusToCode maps an HTTP status code returned by a logging backend to
+// the gRPC status code that best represents it. This lets log retrieval surface
+// an actionable error (e.g. 403 -> PermissionDenied, 404 -> NotFound) instead
+// of flattening every backend failure to a generic Internal/500. Any status
+// without a specific mapping, including unexpected 5xx values, falls back to
+// codes.Internal.
+func httpStatusToCode(httpStatus int) codes.Code {
+	switch httpStatus {
+	// 400 is deliberately not mapped to InvalidArgument. The query sent to the
+	// log backend is built by the API server from its own configuration (e.g.
+	// LOGGING_PLUGIN_LINE_FORMAT, LOGGING_PLUGIN_JSON_MAP), never from caller
+	// input, so a rejected query is a server-side defect - not a bad request
+	// from the client.
+	case http.StatusBadRequest: // 400
+		return codes.Internal
+	case http.StatusUnauthorized: // 401
+		return codes.Unauthenticated
+	case http.StatusForbidden: // 403
+		return codes.PermissionDenied
+	case http.StatusNotFound: // 404
+		return codes.NotFound
+	case http.StatusTooManyRequests: // 429
+		return codes.ResourceExhausted
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout: // 502, 503, 504
+		return codes.Unavailable
+	default:
+		return codes.Internal
+	}
+}
+
+// transportErrorToCode maps a transport-level error returned by
+// http.Client.Do (i.e. before any HTTP response is received) to a gRPC status
+// code. Timeouts become DeadlineExceeded; all other connection failures
+// (refused, DNS, TLS, reset) become Unavailable.
+func transportErrorToCode(err error) codes.Code {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return codes.DeadlineExceeded
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return codes.DeadlineExceeded
+	}
+	return codes.Unavailable
+}
+
+// blobCodeToGRPC maps a gocloud blob (gcerrors) error code to a gRPC status
+// code, so blob backend failures surface the same meaningful codes as the
+// HTTP-based backends instead of a generic Internal/500.
+func blobCodeToGRPC(code gcerrors.ErrorCode) codes.Code {
+	switch code {
+	case gcerrors.NotFound:
+		return codes.NotFound
+	case gcerrors.PermissionDenied:
+		return codes.PermissionDenied
+	// As with HTTP 400 above, InvalidArgument is not propagated to the caller:
+	// the bucket URL and object keys are built by the API server from its own
+	// configuration (LOGGING_PLUGIN_API_URL, LOGS_PATH) and the record's
+	// identifiers, so a rejected argument is a server-side defect.
+	case gcerrors.InvalidArgument:
+		return codes.Internal
+	case gcerrors.ResourceExhausted:
+		return codes.ResourceExhausted
+	case gcerrors.DeadlineExceeded:
+		return codes.DeadlineExceeded
+	case gcerrors.FailedPrecondition:
+		return codes.FailedPrecondition
+	case gcerrors.Unimplemented:
+		return codes.Unimplemented
+	default:
+		return codes.Internal
+	}
+}
+
+// blobError builds a gRPC status error from a gocloud blob error, mapping the
+// underlying gcerrors code to the corresponding gRPC code.
+func blobError(err error, msg string) error {
+	return status.Error(blobCodeToGRPC(gcerrors.Code(err)), msg)
+}
+
+// codeToHTTPStatus maps a gRPC status code to the HTTP status code returned by
+// the LogMux HTTP handler. It mirrors the standard grpc-gateway mapping for the
+// codes produced by this package, so a backend PermissionDenied surfaces as
+// HTTP 403 rather than a flat 500.
+func codeToHTTPStatus(code codes.Code) int {
+	switch code {
+	case codes.OK:
+		return http.StatusOK
+	case codes.InvalidArgument, codes.FailedPrecondition:
+		return http.StatusBadRequest // 400
+	case codes.Unauthenticated:
+		return http.StatusUnauthorized // 401
+	case codes.PermissionDenied:
+		return http.StatusForbidden // 403
+	case codes.NotFound:
+		return http.StatusNotFound // 404
+	case codes.ResourceExhausted:
+		return http.StatusTooManyRequests // 429
+	case codes.Unimplemented:
+		return http.StatusNotImplemented // 501
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable // 503
+	case codes.DeadlineExceeded:
+		return http.StatusGatewayTimeout // 504
+	default:
+		return http.StatusInternalServerError // 500
+	}
+}
+
+// backendTransportError builds a gRPC status error for a transport-level
+// failure talking to a logging backend (no HTTP response received). The client
+// message stays generic (no backend URL) while the caller logs the detail.
+func backendTransportError(backend string, err error) error {
+	code := transportErrorToCode(err)
+	if code == codes.DeadlineExceeded {
+		return status.Errorf(code, "%s log backend request timed out", backend)
+	}
+	return status.Errorf(code, "%s log backend unavailable", backend)
+}
+
+// logBackendError normalizes an error returned by a log backend plugin into a
+// gRPC status error. Errors that already carry a status code are returned
+// unchanged so the backend's code (e.g. PermissionDenied, NotFound) reaches the
+// client; anything else becomes Internal instead of the default Unknown.
+func logBackendError(err error) error {
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
+	return status.Error(codes.Internal, err.Error())
+}
+
 type getLog func(s *LogServer, writer io.Writer, parent string, rec *db.Record) error
 
 // GetLog streams log record by log request
@@ -106,9 +238,9 @@ func (s *LogServer) GetLog(req *pb3.GetLogRequest, srv pb3.Logs_GetLogServer) er
 
 	writer := logs.NewBufferedHTTPWriter(srv, req.GetName(), s.config.LOGS_BUFFER_SIZE)
 
-	err = s.getLog(s, writer, parent, rec)
-	if err != nil {
+	if err := s.getLog(s, writer, parent, rec); err != nil {
 		s.logger.Error(err)
+		return logBackendError(err)
 	}
 
 	_, err = writer.Flush()
@@ -255,7 +387,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 			s.logger.Debugf("Request Dump***:\n %q\n", dump)
 		}
 		s.logger.Errorf("request to loki failed, err: %s, req: %v", err.Error(), req)
-		return status.Error(codes.Internal, "Error streaming log")
+		return backendTransportError("loki", err)
 	}
 
 	if resp == nil {
@@ -265,7 +397,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		}
 		s.logger.Errorf("request to loki failed, received nil response")
 		s.logger.Debugf("loki request url:%s", URL.String())
-		return status.Error(codes.Internal, "Error streaming log")
+		return status.Error(codes.Unavailable, "loki log backend returned no response")
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -278,7 +410,8 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 		if err == nil {
 			s.logger.Debugf("Response Dump***:\n %q\n", dump)
 		}
-		return status.Error(codes.Internal, "Error fetching log data")
+		return status.Errorf(httpStatusToCode(resp.StatusCode),
+			"loki log backend returned HTTP %d (%s)", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -373,7 +506,7 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 	bucket, err := openBucket(ctx, u.String())
 	if err != nil {
 		s.logger.Errorf("error opening bucket: %s", err)
-		return err
+		return blobError(err, "error opening log storage bucket")
 	}
 	defer clean(bucket, s.logger)
 
@@ -416,9 +549,8 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 				break
 			}
 			if err != nil {
-				err := fmt.Errorf("error listing log bucket objects: %w", err)
-				s.logger.Error(err)
-				return err
+				s.logger.Errorf("error listing log bucket objects: %s", err)
+				return blobError(err, "error listing log storage objects")
 			}
 			toSort = append(toSort, obj)
 		}
@@ -465,7 +597,7 @@ func getBlobLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 				rc, err := bucket.NewReader(ctx, part, nil)
 				if err != nil {
 					s.logger.Errorf("error creating bucket reader: %s for log part: %s", err, part)
-					return err
+					return blobError(err, "error reading log storage object")
 				}
 				defer func() {
 					if err := rc.Close(); err != nil {
@@ -565,13 +697,13 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	resp, err := s.client.Do(req)
 	if err != nil {
 		s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
-		return status.Error(codes.Internal, "Error streaming log")
+		return backendTransportError("splunk", err)
 	}
 
 	if resp == nil {
 		s.logger.Errorf("request to splunk failed, received nil response")
 		s.logger.Debugf("splunk request url:%s", URL.String())
-		return status.Error(codes.Internal, "Error streaming log")
+		return status.Error(codes.Unavailable, "splunk log backend returned no response")
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -581,7 +713,8 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 
 	if resp.StatusCode != http.StatusCreated {
 		s.logger.Errorf("Splunk Job Creation API request failed with HTTP status code: %d", resp.StatusCode)
-		return status.Error(codes.Internal, "Error fetching log data - search job creation failed")
+		return status.Errorf(httpStatusToCode(resp.StatusCode),
+			"splunk log backend search job creation failed with HTTP %d (%s)", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -615,13 +748,13 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	lresp, err := s.client.Do(req)
 	if err != nil {
 		s.logger.Errorf("request to fetch log from  splunk failed, err: %s, req: %v", err.Error(), req)
-		return status.Error(codes.Internal, "Error streaming log")
+		return backendTransportError("splunk", err)
 	}
 
 	if lresp == nil {
 		s.logger.Errorf("request to splunk failed, received nil response")
 		s.logger.Debugf("splunk request url:%s", URL.String())
-		return status.Error(codes.Internal, "Error streaming log")
+		return status.Error(codes.Unavailable, "splunk log backend returned no response")
 	}
 	defer func() {
 		if err := lresp.Body.Close(); err != nil {
@@ -630,8 +763,9 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	}()
 
 	if lresp.StatusCode != http.StatusOK {
-		s.logger.Errorf("Splunk Fetch Log API request failed with HTTP status code: %d", resp.StatusCode)
-		return status.Error(codes.Internal, "Error fetching log data - fetch log api failed")
+		s.logger.Errorf("Splunk Fetch Log API request failed with HTTP status code: %d", lresp.StatusCode)
+		return status.Errorf(httpStatusToCode(lresp.StatusCode),
+			"splunk log backend fetch log request failed with HTTP %d (%s)", lresp.StatusCode, http.StatusText(lresp.StatusCode))
 	}
 
 	data, err = io.ReadAll(lresp.Body)
@@ -811,7 +945,8 @@ func (s *LogServer) LogMux() http.Handler {
 		err = s.getLog(s, w, parent, rec)
 		if err != nil {
 			s.logger.Error(err)
-			http.Error(w, "Failed to stream logs err: "+err.Error(), http.StatusInternalServerError)
+			st := status.Convert(err)
+			http.Error(w, "Failed to stream logs err: "+st.Message(), codeToHTTPStatus(st.Code()))
 			return
 		}
 	})
