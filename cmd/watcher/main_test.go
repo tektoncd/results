@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -57,5 +58,35 @@ func TestDefaultServiceConfig(t *testing.T) {
 
 	if !foundRoundRobin {
 		t.Errorf("defaultServiceConfig must include the round_robin load balancing policy, got: %v", config.LoadBalancingConfig)
+	}
+}
+
+func TestWithResyncPeriod(t *testing.T) {
+	tests := []struct {
+		name    string
+		period  time.Duration
+		wantErr bool
+	}{
+		{name: "default", period: controller.DefaultResyncPeriod},
+		{name: "positive override", period: 30 * time.Minute},
+		{name: "zero disables resync", period: 0},
+		{name: "negative rejected", period: -time.Second, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, err := withResyncPeriod(context.Background(), tc.period)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("withResyncPeriod(%v) error = nil, want error", tc.period)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("withResyncPeriod(%v) unexpected error: %v", tc.period, err)
+			}
+			if got := controller.GetResyncPeriod(ctx); got != tc.period {
+				t.Errorf("GetResyncPeriod() = %v, want %v", got, tc.period)
+			}
+		})
 	}
 }

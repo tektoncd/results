@@ -91,6 +91,15 @@ var (
 	requiredAnnotations          = newAnnotationFlag("required_annotation", "Repeatable flag. Use \"key=value\" to require an exact match, or just \"key\" to require existence of the annotation regardless of its value. The stored annotation is always implicitly required.")
 )
 
+// withResyncPeriod returns a context carrying the informer resync period.
+// A period of 0 disables periodic resync; negative values are rejected.
+func withResyncPeriod(ctx context.Context, period time.Duration) (context.Context, error) {
+	if period < 0 {
+		return ctx, fmt.Errorf("resync period must be non-negative, got %v", period)
+	}
+	return controller.WithResyncPeriod(ctx, period), nil
+}
+
 func main() {
 	disableHighAvailability := flag.Bool("disable-ha", false, "Whether to disable high-availability functionality for this component.  This flag will be deprecated "+
 		"and removed when we have promoted this feature to stable, so do not pass it without filing an "+
@@ -101,15 +110,14 @@ func main() {
 	// controller's workqueue.
 	controller.DefaultThreadsPerController = *threadiness
 
-	if *resyncPeriod < 0 {
-		log.Fatalf("-resync_period must not be negative, got %v", *resyncPeriod)
-	}
-
 	ctx := signals.NewContext()
 
 	// Allow users to customize how often informers resync (and therefore how
 	// often every cached object is re-enqueued).
-	ctx = controller.WithResyncPeriod(ctx, *resyncPeriod)
+	ctx, err := withResyncPeriod(ctx, *resyncPeriod)
+	if err != nil {
+		log.Fatalf("invalid -resync_period: %v", err)
+	}
 
 	ctx = filteredinformerfactory.WithSelectors(ctx, "app.kubernetes.io/name")
 
