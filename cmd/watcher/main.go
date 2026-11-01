@@ -75,6 +75,7 @@ var (
 	logsAPI                      = flag.Bool("logs_api", false, "Disable sending logs. If not set, the logs will be sent only if server support API for it")
 	logsTimestamps               = flag.Bool("logs_timestamps", false, "Collect logs with timestamps")
 	labelSelector                = flag.String("label_selector", "", "Selector (label query) to filter objects to be deleted. Matching objects must satisfy all labels requirements to be eligible for deletion")
+	resyncPeriod                 = flag.Duration("resync_period", controller.DefaultResyncPeriod, "How often the informers resync, which re-enqueues every cached Run for reconciliation. 0 disables periodic resync. Defaults to the knative default of 10h.")
 	requeueInterval              = flag.Duration("requeue_interval", 10*time.Minute, "How long the Watcher waits to reprocess keys on certain events (e.g. an object doesn't match the provided selectors)")
 	namespace                    = flag.String("namespace", corev1.NamespaceAll, "Should the Watcher only watch a single namespace, then this value needs to be set to the namespace name otherwise leave it empty.")
 	summaryLabels                = flag.String("summary_labels", "tekton.dev/pipeline", "List of Labels keys separated by comma which should be part of the summary of the result")
@@ -100,7 +101,15 @@ func main() {
 	// controller's workqueue.
 	controller.DefaultThreadsPerController = *threadiness
 
+	if *resyncPeriod < 0 {
+		log.Fatalf("-resync_period must not be negative, got %v", *resyncPeriod)
+	}
+
 	ctx := signals.NewContext()
+
+	// Allow users to customize how often informers resync (and therefore how
+	// often every cached object is re-enqueued).
+	ctx = controller.WithResyncPeriod(ctx, *resyncPeriod)
 
 	ctx = filteredinformerfactory.WithSelectors(ctx, "app.kubernetes.io/name")
 

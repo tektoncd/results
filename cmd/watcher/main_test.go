@@ -19,9 +19,20 @@ package main
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/balancer/roundrobin"
+	"knative.dev/pkg/controller"
 )
+
+func TestResyncPeriodDefault(t *testing.T) {
+	if *resyncPeriod != controller.DefaultResyncPeriod {
+		t.Errorf("resync_period default = %v, want %v", *resyncPeriod, controller.DefaultResyncPeriod)
+	}
+	if *resyncPeriod != 10*time.Hour {
+		t.Errorf("resync_period default = %v, want 10h", *resyncPeriod)
+	}
+}
 
 func TestDefaultServiceConfig(t *testing.T) {
 	var config struct {

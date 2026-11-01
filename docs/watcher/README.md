@@ -144,3 +144,9 @@ The `disable_storing_incomplete_runs` flag controls whether the Watcher should s
 When set to `true`, the Watcher will only store Runs once they are completed. This is useful for reducing the load for API server and reconciliation queue. 
 
 When set to `false` (default), the Watcher will attempt to continuously store all Runs on every modification regardless of their completion status, allowing you to track the full lifecycle of your PipelineRuns, TaskRuns, and CustomRuns.
+
+## Informer resync period
+
+The `resync_period` flag controls how often the Watcher's informers resync. On every resync, each cached PipelineRun, TaskRun, and CustomRun is re-enqueued for reconciliation, which acts as a safety net for missed events but produces a burst of work on clusters with many runs.
+
+The default is `10h`, matching the knative default, so behavior is unchanged unless the flag is set. A value of `0` disables periodic resync; negative values are rejected at startup. Note that a restart or a change in leader-election bucket ownership still re-enqueues the cached runs regardless of this setting.
