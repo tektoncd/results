@@ -250,19 +250,11 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		dump, derr := httputil.DumpRequest(req, true)
-		if derr == nil {
-			s.logger.Debugf("Request Dump***:\n %q\n", dump)
-		}
-		s.logger.Errorf("request to loki failed, err: %s, req: %v", err.Error(), req)
+		s.logger.Errorf("request to loki failed, err: %s", err.Error())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
 
 	if resp == nil {
-		dump, err := httputil.DumpRequest(req, true)
-		if err == nil {
-			s.logger.Debugf("Request Dump***:\n %q\n", dump)
-		}
 		s.logger.Errorf("request to loki failed, received nil response")
 		s.logger.Debugf("loki request url:%s", URL.String())
 		return status.Error(codes.Internal, "Error streaming log")
@@ -270,11 +262,7 @@ func getLokiLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record) 
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Errorf("Loki API request failed with HTTP status code: %d", resp.StatusCode)
-		dump, err := httputil.DumpRequest(req, true)
-		if err == nil {
-			s.logger.Debugf("Request Dump***:\n %q\n", dump)
-		}
-		dump, err = httputil.DumpResponse(resp, true)
+		dump, err := httputil.DumpResponse(resp, true)
 		if err == nil {
 			s.logger.Debugf("Response Dump***:\n %q\n", dump)
 		}
@@ -564,7 +552,7 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := s.client.Do(req)
 	if err != nil {
-		s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
+		s.logger.Errorf("request to splunk failed, err: %s", err.Error())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
 
@@ -614,7 +602,7 @@ func getSplunkLogs(s *LogServer, writer io.Writer, parent string, rec *db.Record
 	req.Header.Set("Authorization", "Bearer "+token)
 	lresp, err := s.client.Do(req)
 	if err != nil {
-		s.logger.Errorf("request to fetch log from  splunk failed, err: %s, req: %v", err.Error(), req)
+		s.logger.Errorf("request to fetch log from  splunk failed, err: %s", err.Error())
 		return status.Error(codes.Internal, "Error streaming log")
 	}
 
@@ -698,8 +686,8 @@ func pollSplunkJobStatus(s *LogServer, url, token string) error {
 				req.Header.Set("Authorization", "Bearer "+token)
 				resp, err := s.client.Do(req)
 				if err != nil {
-					s.logger.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
-					return fmt.Errorf("request to splunk failed, err: %s, req: %v", err.Error(), req)
+					s.logger.Errorf("request to splunk failed, err: %s", err.Error())
+					return fmt.Errorf("request to splunk failed, err: %s", err.Error())
 				}
 
 				if resp == nil {
@@ -789,7 +777,7 @@ func (s *LogServer) LogMux() http.Handler {
 		parent := r.PathValue("parent")
 		recID := r.PathValue("recordID")
 		res := r.PathValue("resultID")
-		s.logger.Debugf("recordID: %s resultID: %s name: %s md: %+v", recID, res, parent, r.Header)
+		s.logger.Debugf("recordID: %s resultID: %s name: %s", recID, res, parent)
 		if err := s.auth.Check(ctx, parent, auth.ResourceLogs, auth.PermissionGet); err != nil {
 			s.logger.Error(err)
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
