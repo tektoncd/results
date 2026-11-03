@@ -59,6 +59,22 @@ These are the common configuration options for all third party logging APIs.
 - `LOGGING_PLUGIN_QUERY_PARAMS`: Sets the query params for Third Party Logging API, these can be direction/sort order.Specify them in this format: "foo=bar&direction=backward"
 - `LOGGING_PLUGIN_MULTIPART_REGEX`: Sets a Regex for matching parts of the same log. Some log backends (e.g S3) store objects immutably, once stored, you can't append. For long running TaskRun steps, it's not effective to keep such log in memory until the step completes. Instead one can store the log in multiple parts with a name suffix (e.g `-1743932245` seconds since the Epoch) and set a regex to match the parts of the same log (e.g `-\d{10}$`). (optional)
 
+## Error Handling
+
+When Loki or Splunk returns an HTTP error, the API server maps it to the
+appropriate gRPC status code instead of returning a generic Internal error:
+
+| HTTP Status | gRPC Code |
+|---|---|
+| 400 Bad Request | `InvalidArgument` |
+| 401 Unauthorized | `Unauthenticated` |
+| 403 Forbidden | `PermissionDenied` |
+| 404 Not Found | `NotFound` |
+| 429 Too Many Requests | `ResourceExhausted` |
+| Other / 5xx | `Internal` |
+
+The HTTP status code is included in the error message for debuggability.
+
 ## Loki-specific Configuration
 - `LOGGING_PLUGIN_JSON_MAP`: Define a map for the fields in Loki logs to be extracted like `{"timestamp": "@timestamp"}` to extract the timestamp as example.
 - `LOGGING_PLUGIN_LINE_FORMAT`: Define the format of the log line returned when using Loki. To use the Timestamp from the `LOGGING_PLUGIN_JSON_MAP` and the actual message, define `"{{.timestamp}}: {{.message}}"`. Only fields extracted by `LOGGING_PLUGIN_JSON_MAP` can be used here.
