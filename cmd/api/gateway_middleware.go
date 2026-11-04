@@ -75,6 +75,10 @@ func (m *restMetrics) middleware(base context.Context, authDisabled bool) runtim
 				if m.duration != nil {
 					m.duration.WithLabelValues(labels...).Observe(duration.Seconds())
 				}
+				// Successful probes are frequent; retain their metrics without completion logs.
+				if route == "/healthz" && code >= http.StatusOK && code < http.StatusMultipleChoices {
+					return
+				}
 				log := logging.FromContext(ctx)
 				fields := []any{"transport", "rest", "http.method", r.Method, "http.route", route, "http.status_code", code, "http.duration_ms", duration.Milliseconds()}
 				switch {

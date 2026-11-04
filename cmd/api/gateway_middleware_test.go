@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"go.uber.org/zap"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"knative.dev/pkg/logging"
 )
 
@@ -70,7 +71,11 @@ func TestGatewayPanicRecovery(t *testing.T) {
 func TestGatewayObservations(t *testing.T) {
 	for _, histogram := range []bool{false, true} {
 		g := newGatewayFixture(t, false, &config.Config{AUTH_DISABLE: true, PROMETHEUS_HISTOGRAM: histogram}, nil)
+		g.health.SetServingStatus("stopped", healthpb.HealthCheckResponse_NOT_SERVING)
 		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", "/healthz", nil, nil), 200)
+		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", "/healthz?service=tekton.results.v1alpha2.Results", nil, nil), 200)
+		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", "/healthz?service=stopped", nil, nil), 503)
+		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", "/healthz?service=missing", nil, nil), 404)
 		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", resultsURL+"/missing-one", nil, nil), 404)
 		gatewayJSON(t, gatewayRequest(t, g.handler, "GET", resultsURL+"/missing-two", nil, nil), 404)
 		gatewayJSON(t, gatewayRequest(t, g.handler, "POST", resultsURL, []byte("{"), nil), 400)
@@ -81,12 +86,17 @@ func TestGatewayObservations(t *testing.T) {
 			t.Fatal(err)
 		}
 		var count float64
+		var healthCount float64
+		var healthSamples uint64
 		var hasHistogram bool
 		for _, family := range families {
 			if family.GetName() == "tekton_results_rest_requests_total" {
 				for _, metric := range family.Metric {
 					count += metric.GetCounter().GetValue()
 					for _, label := range metric.Label {
+						if label.GetName() == "route" && label.GetValue() == "/healthz" {
+							healthCount += metric.GetCounter().GetValue()
+						}
 						if strings.Contains(label.GetValue(), "missing-one") || strings.Contains(label.GetValue(), "missing-two") {
 							t.Fatal("resource ID in metric label")
 						}
@@ -95,20 +105,38 @@ func TestGatewayObservations(t *testing.T) {
 			}
 			if family.GetName() == "tekton_results_rest_request_duration_seconds" {
 				hasHistogram = true
+				for _, metric := range family.Metric {
+					for _, label := range metric.Label {
+						if label.GetName() == "route" && label.GetValue() == "/healthz" {
+							healthSamples += metric.GetHistogram().GetSampleCount()
+						}
+					}
+				}
 			}
 		}
-		if count != 4 || hasHistogram != histogram {
-			t.Fatalf("count=%v histogram=%v want=%v", count, hasHistogram, histogram)
+		if count != 7 || healthCount != 4 || hasHistogram != histogram || histogram && healthSamples != 4 {
+			t.Fatalf("count=%v healthCount=%v healthSamples=%v histogram=%v want=%v", count, healthCount, healthSamples, hasHistogram, histogram)
 		}
 		entries := g.logs.completions()
-		if len(entries) != 4 {
+		if len(entries) != 5 {
 			t.Fatalf("completion logs=%d", len(entries))
 		}
+		var healthLogs int
 		for _, entry := range entries {
 			fields := entry
 			if fields["transport"] != "rest" || fields["grpc.user"] != "unknown" || fields["http.duration_ms"] == nil {
 				t.Fatalf("log fields: %v", fields)
 			}
+			if fields["http.route"] == "/healthz" {
+				healthLogs++
+				code := fields["http.status_code"]
+				if !(code == float64(404) && fields["level"] == "warn" || code == float64(503) && fields["level"] == "error") {
+					t.Fatalf("unexpected health completion log: %v", fields)
+				}
+			}
+		}
+		if healthLogs != 2 {
+			t.Fatalf("health failure logs=%d, want 2", healthLogs)
 		}
 	}
 }

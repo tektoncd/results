@@ -22,7 +22,29 @@ retain their existing behavior.
 When LOGS_API is enabled without a supported plugin, the entire deprecated v1alpha2 Logs service
 retains its gateway gRPC connection for streaming GetLog, ListLogs and DeleteLog. Startup logs
 identify this exception. Client TLS options exist only for this legacy service. Plugins use the
-existing HTTP handlers without gateway Logs registration. See [logging support](../logging-support.md).
+existing HTTP handlers without gateway Logs registration.
+
+## REST routing and legacy deprecation
+
+Results and Records REST requests run directly in the API process in every logging mode.
+REST health checks use the local health server. Native gRPC clients retain their existing path.
+
+| Configuration | Gateway Logs service | Plugin log URLs |
+|---------------|----------------------|-----------------|
+| LOGS_API enabled, no supported plugin | Deprecated v1alpha2 service retains its loopback gRPC client | No plugin routes |
+| LOGS_API enabled, supported plugin | No gateway Logs registration or loopback client | Existing plugin handlers |
+| LOGS_API disabled | No gateway Logs registration or loopback client | Existing plugin dispatch remains governed by LOGS_TYPE |
+
+The old v1alpha2 streaming GetLog gateway cannot use direct registration because grpc-gateway's
+in-process transport does not support streaming RPCs. Legacy mode therefore preserves the entire
+Logs service, including GetLog, ListLogs and DeleteLog, and logs this remaining connection at
+startup. Results/Records and health do not use that connection.
+
+Logging plugins are the supported configuration. The legacy Logs service is deprecated and will
+be deleted in separate future work; this change does not remove it or announce a removal date.
+Supported plugin URLs under `/apis/results.tekton.dev/.../logs/...` retain their existing handlers.
+The Blob plugin's legacy backend-format options below are independent of the deprecated gateway
+transport.
 
 ## Prometheus migration
 
@@ -34,7 +56,7 @@ The existing metrics listener exposes these new families:
 | `tekton_results_rest_request_duration_seconds` | Duration histogram, enabled by PROMETHEUS_HISTOGRAM | `method`, `route`, `code` |
 
 `route` is a bounded matched template, not a resource name or namespace. `code` is the HTTP
-status. Timing is always available in completion logs; the histogram flag controls distributions.
+status. Timing is included in completion logs; the histogram flag controls distributions.
 The middleware covers Results/Records, health, and registered legacy Logs. Plugin handlers and
 unmatched routes retain their existing behavior outside these families.
 
@@ -65,9 +87,11 @@ REST completion logs use `transport=rest` and the message `finished REST request
 | `grpc.time_duration_in_ms` | `http.duration_ms` |
 
 `grpc.user`, `grpc.issuer`, and `grpc.auth_disabled` retain their identity/configuration meanings.
-Tokens are not included in the new completion logs or metric labels. Health completion logs are
-also available. A panic after response commitment is logged separately, while the completion
-observation retains the committed status. Native gRPC log fields remain unchanged.
+Tokens are not included in the new completion logs or metric labels. Successful (2xx) `/healthz`
+requests omit completion logs, including named-service checks. Failed health checks retain their
+warning/error completion logs. All health requests still contribute to the REST counter and,
+when enabled, the duration histogram. A panic after response commitment is logged separately,
+while the completion observation retains the committed status. Native gRPC log fields remain unchanged.
 
 ## Release note
 
