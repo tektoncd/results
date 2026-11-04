@@ -1,0 +1,841 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    appstudio.openshift.io/snapshot: perf-tenant-v0-on-push-000
+    appstudio.openshift.io/snapshots: perf-tenant-v0-on-push-000
+    build.appstudio.redhat.com/target_branch: main
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push-0
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-tenant
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-tenant
+  finalizers:
+    - results.tekton.dev/pipelinerun
+    - chains.tekton.dev/pipelinerun
+    - pipelinesascode.tekton.dev/finalizer
+  generateName: perf-tenant-v0-on-push-
+  generation: 0
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0-on-push
+    appstudio.openshift.io/component: perf-tenant-v0-on-push
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push-
+    pipelinesascode.tekton.dev/repository: perf-tenant
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-tenant
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+  name: perf-tenant-v0-on-push-rgqnb
+  namespace: perf-tenant
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: git-url
+      value: https://example.com/perf/perf-tenant
+    - name: revision
+      value: 0000000000000000000000000000000000000000
+    - name: output-image
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: dockerfile
+      value: catalog.Containerfile
+    - name: path-context
+      value: catalog/v5.0
+  pipelineSpec:
+    params:
+      - description: Source Repository URL
+        name: git-url
+        type: string
+      - default: ""
+        description: Revision of the Source Repository
+        name: revision
+        type: string
+      - description: Fully Qualified Output Image
+        name: output-image
+        type: string
+      - default: .
+        description: Path to the source code of an application's component from where to build image.
+        name: path-context
+        type: string
+      - default: Dockerfile
+        description: Path to the Dockerfile inside the context specified by parameter path-context
+        name: dockerfile
+        type: string
+      - default: "false"
+        description: Skip checks against built image
+        name: skip-checks
+        type: string
+      - default: "true"
+        description: Execute the build with network isolation
+        name: hermetic
+        type: string
+      - default: ""
+        description: Build dependencies to be prefetched by Cachi2
+        name: prefetch-input
+        type: string
+      - default: ""
+        description: Image tag expiration time, time values could be something like 1h, 2d, 3w for hours, days, and weeks, respectively.
+        name: image-expires-after
+        type: string
+      - default: "false"
+        description: Build a source image.
+        name: build-source-image
+        type: string
+      - default: "true"
+        description: Add built image into an OCI image index
+        name: build-image-index
+        type: string
+      - default:
+          - linux/x86_64
+          - linux/s390x
+          - linux/ppc64le
+          - linux/arm64
+        description: List of platforms to build the container images on. The available set of values is determined by the configuration of the multi-platform-controller.
+        name: build-platforms
+        type: array
+      - default: oci
+        description: The format for the resulting image's mediaType. Valid values are oci or docker.
+        name: buildah-format
+        type: string
+      - default: "false"
+        description: Enable cache proxy configuration
+        name: enable-cache-proxy
+        type: string
+      - default: ""
+        description: Sets the image created time and the SOURCE_DATE_EPOCH build argument. On its own, it does not change file timestamps inside the layers (set rewrite-timestamp to "true" for that). Leave empty to keep the actual build time.
+        name: source-date-epoch
+        type: string
+      - default: "false"
+        description: When "true", clamp file modification times in the image layers to at most source-date-epoch. Does nothing unless source-date-epoch is set.
+        name: rewrite-timestamp
+        type: string
+      - default: "false"
+        description: When "true", omit the build history (history timestamps, layer metadata, etc.) from the resulting image.
+        name: omit-history
+        type: string
+    results:
+      - description: ""
+        name: IMAGE_URL
+        value: $(tasks.build-image-index.results.IMAGE_URL)
+      - description: ""
+        name: IMAGE_DIGEST
+        value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+      - description: ""
+        name: CHAINS-GIT_URL
+        value: $(tasks.clone-repository.results.url)
+      - description: ""
+        name: CHAINS-GIT_COMMIT
+        value: $(tasks.clone-repository.results.commit)
+    tasks:
+      - name: init
+        params:
+          - name: enable-cache-proxy
+            value: $(params.enable-cache-proxy)
+        taskRef:
+          params:
+            - name: name
+              value: init
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-init:0.4.3@sha256:15d3d4a7e5c70b068103a9d4c6ba2e049db8896709fc45c0bd4be49c134b0989
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: clone-repository
+        params:
+          - name: url
+            value: $(params.git-url)
+          - name: revision
+            value: $(params.revision)
+          - name: ociStorage
+            value: $(params.output-image).git
+          - name: ociArtifactExpiresAfter
+            value: $(params.image-expires-after)
+        runAfter:
+          - init
+        taskRef:
+          params:
+            - name: name
+              value: git-clone-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-git-clone-oci-ta:0.2.5@sha256:799e6093832d194293168240a6e2209479cfaad33de51d57bfcbcfead97ed038
+            - name: kind
+              value: task
+          resolver: bundles
+        workspaces:
+          - name: basic-auth
+            workspace: git-auth
+      - matrix:
+          params:
+            - name: PLATFORM
+              value:
+                - $(params.build-platforms)
+        name: build-images
+        params:
+          - name: IMAGE
+            value: $(params.output-image)
+          - name: DOCKERFILE
+            value: $(params.dockerfile)
+          - name: CONTEXT
+            value: $(params.path-context)
+          - name: HERMETIC
+            value: $(params.hermetic)
+          - name: IMAGE_EXPIRES_AFTER
+            value: $(params.image-expires-after)
+          - name: COMMIT_SHA
+            value: $(tasks.clone-repository.results.commit)
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.fbc-inject-lifecycle.results.SOURCE_ARTIFACT)
+          - name: IMAGE_APPEND_PLATFORM
+            value: "true"
+          - name: BUILDAH_FORMAT
+            value: $(params.buildah-format)
+          - name: HTTP_PROXY
+            value: $(tasks.init.results.http-proxy)
+          - name: NO_PROXY
+            value: $(tasks.init.results.no-proxy)
+          - name: SOURCE_DATE_EPOCH
+            value: $(params.source-date-epoch)
+          - name: REWRITE_TIMESTAMP
+            value: $(params.rewrite-timestamp)
+          - name: OMIT_HISTORY
+            value: $(params.omit-history)
+        runAfter:
+          - fbc-inject-lifecycle
+        taskRef:
+          params:
+            - name: name
+              value: buildah-remote-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-buildah-remote-oci-ta:0.11.0@sha256:78529bcd4a665aad693af8b98b2fed223a0b853c4f0cf3a8620eebdd66f517ea
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: build-image-index
+        params:
+          - name: IMAGE
+            value: $(params.output-image)
+          - name: ALWAYS_BUILD_INDEX
+            value: $(params.build-image-index)
+          - name: IMAGES
+            value:
+              - $(tasks.build-images.results.IMAGE_REF[*])
+          - name: BUILDAH_FORMAT
+            value: $(params.buildah-format)
+        runAfter:
+          - build-images
+        taskRef:
+          params:
+            - name: name
+              value: build-image-index
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-build-image-index:0.3.1@sha256:b00c9e68e96d41c95c725805e378ccdda44e0a1e55b69eae3f9d1f0ba1a6a493
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: fbc-fips-check-oci-ta
+        params:
+          - name: image-digest
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+          - name: image-url
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.fbc-inject-lifecycle.results.SOURCE_ARTIFACT)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: fbc-fips-check-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-fips-check-oci-ta:0.1@sha256:11f4adee71143d1bb8504bb96edfa868be9624e0f1758fc299d7a9a86f30e8e0
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: $(params.skip-checks)
+            operator: in
+            values:
+              - "false"
+      - name: deprecated-base-image-check
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: deprecated-image-check
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-deprecated-image-check:0.5@sha256:0ccc688a77e9b7b0b8973c132a1e840844137e77f887be4a0bec8893b0776872
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: $(params.skip-checks)
+            operator: in
+            values:
+              - "false"
+      - name: apply-tags
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: apply-tags
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-apply-tags:0.3@sha256:da0cff2a36f07087798cd5f577b15f3d9e6dd4d3d08956227b298362e08ecc37
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: fbc-target-index-pruning-check
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+          - name: TARGET_INDEX
+            value: registry.redhat.io/redhat/redhat-operator-index
+          - name: RENDERED_CATALOG_DIGEST
+            value: $(tasks.validate-fbc.results.RENDERED_CATALOG_DIGEST)
+        runAfter:
+          - validate-fbc
+        taskRef:
+          params:
+            - name: name
+              value: fbc-target-index-pruning-check
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-target-index-pruning-check:0.1@sha256:a7696d92734be62700723b6d2c40dfaee4809e6a1d42b28deefc7c7463176c32
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: $(params.skip-checks)
+            operator: in
+            values:
+              - "false"
+      - name: validate-fbc
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: validate-fbc
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-validate-fbc:0.3@sha256:5ac2ab06fa8b7b7dfaa7a57cf68d3dd8de3fa9c7d6ebaef17626509c45f234a3
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: $(params.skip-checks)
+            operator: in
+            values:
+              - "false"
+      - name: fbc-inject-lifecycle
+        params:
+          - name: DOCKERFILE
+            value: $(params.dockerfile)
+          - name: CONTEXT
+            value: $(params.path-context)
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.clone-repository.results.SOURCE_ARTIFACT)
+          - name: ociStorage
+            value: $(params.output-image).lifecycle
+          - name: ociArtifactExpiresAfter
+            value: $(params.image-expires-after)
+        runAfter:
+          - clone-repository
+        taskRef:
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: fbc-inject-lifecycle-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-inject-lifecycle-oci-ta:0.1@sha256:da1217be1dcec3d5b5140ea351466607005481397b31f2b81108c4fd3012fbde
+          resolver: bundles
+    workspaces:
+      - name: git-auth
+        optional: true
+      - name: netrc
+        optional: true
+  taskRunTemplate:
+    podTemplate:
+      nodeSelector:
+        konflux-ci.dev/workload: konflux-tenants
+      tolerations:
+        - effect: NoSchedule
+          key: konflux-ci.dev/workload
+          operator: Equal
+          value: konflux-tenants
+    serviceAccountName: build-pipeline-perf-tenant-v0
+  timeouts:
+    pipeline: 1h0m0s
+  workspaces:
+    - name: git-auth
+      secret:
+        secretName: pac-gitauth-00000
+status:
+  childReferences:
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-init
+      pipelineTaskName: init
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-clone-repository
+      pipelineTaskName: clone-repository
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-build-images-0
+      pipelineTaskName: build-images
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-build-images-1
+      pipelineTaskName: build-images
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-build-images-2
+      pipelineTaskName: build-images
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-build-images-3
+      pipelineTaskName: build-images
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-build-image-index
+      pipelineTaskName: build-image-index
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-fbc-fips-check-oci-ta
+      pipelineTaskName: fbc-fips-check-oci-ta
+      whenExpressions:
+        - input: "false"
+          operator: in
+          values:
+            - "false"
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-deprecated-base-image-check
+      pipelineTaskName: deprecated-base-image-check
+      whenExpressions:
+        - input: "false"
+          operator: in
+          values:
+            - "false"
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-apply-tags
+      pipelineTaskName: apply-tags
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rf00430eef91f6ce108cc574a41c1ef36
+      pipelineTaskName: fbc-target-index-pruning-check
+      whenExpressions:
+        - input: "false"
+          operator: in
+          values:
+            - "false"
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-validate-fbc
+      pipelineTaskName: validate-fbc
+      whenExpressions:
+        - input: "false"
+          operator: in
+          values:
+            - "false"
+    - apiVersion: tekton.dev/v1
+      kind: TaskRun
+      name: perf-tenant-v0-on-push-rgqnb-fbc-inject-lifecycle
+      pipelineTaskName: fbc-inject-lifecycle
+  completionTime: "2026-09-02T20:59:20Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:59:20Z"
+      message: 'Tasks Completed: 10 (Failed: 0, Cancelled 0), Skipped: 0'
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  pipelineSpec:
+    params:
+      - description: Source Repository URL
+        name: git-url
+        type: string
+      - default: ""
+        description: Revision of the Source Repository
+        name: revision
+        type: string
+      - description: Fully Qualified Output Image
+        name: output-image
+        type: string
+      - default: .
+        description: Path to the source code of an application's component from where to build image.
+        name: path-context
+        type: string
+      - default: Dockerfile
+        description: Path to the Dockerfile inside the context specified by parameter path-context
+        name: dockerfile
+        type: string
+      - default: "false"
+        description: Skip checks against built image
+        name: skip-checks
+        type: string
+      - default: "true"
+        description: Execute the build with network isolation
+        name: hermetic
+        type: string
+      - default: ""
+        description: Build dependencies to be prefetched by Cachi2
+        name: prefetch-input
+        type: string
+      - default: ""
+        description: Image tag expiration time, time values could be something like 1h, 2d, 3w for hours, days, and weeks, respectively.
+        name: image-expires-after
+        type: string
+      - default: "false"
+        description: Build a source image.
+        name: build-source-image
+        type: string
+      - default: "true"
+        description: Add built image into an OCI image index
+        name: build-image-index
+        type: string
+      - default:
+          - linux/x86_64
+          - linux/s390x
+          - linux/ppc64le
+          - linux/arm64
+        description: List of platforms to build the container images on. The available set of values is determined by the configuration of the multi-platform-controller.
+        name: build-platforms
+        type: array
+      - default: oci
+        description: The format for the resulting image's mediaType. Valid values are oci or docker.
+        name: buildah-format
+        type: string
+      - default: "false"
+        description: Enable cache proxy configuration
+        name: enable-cache-proxy
+        type: string
+      - default: ""
+        description: Sets the image created time and the SOURCE_DATE_EPOCH build argument. On its own, it does not change file timestamps inside the layers (set rewrite-timestamp to "true" for that). Leave empty to keep the actual build time.
+        name: source-date-epoch
+        type: string
+      - default: "false"
+        description: When "true", clamp file modification times in the image layers to at most source-date-epoch. Does nothing unless source-date-epoch is set.
+        name: rewrite-timestamp
+        type: string
+      - default: "false"
+        description: When "true", omit the build history (history timestamps, layer metadata, etc.) from the resulting image.
+        name: omit-history
+        type: string
+    results:
+      - description: ""
+        name: IMAGE_URL
+        value: $(tasks.build-image-index.results.IMAGE_URL)
+      - description: ""
+        name: IMAGE_DIGEST
+        value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+      - description: ""
+        name: CHAINS-GIT_URL
+        value: $(tasks.clone-repository.results.url)
+      - description: ""
+        name: CHAINS-GIT_COMMIT
+        value: $(tasks.clone-repository.results.commit)
+    tasks:
+      - name: init
+        params:
+          - name: enable-cache-proxy
+            value: "false"
+        taskRef:
+          params:
+            - name: name
+              value: init
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-init:0.4.3@sha256:15d3d4a7e5c70b068103a9d4c6ba2e049db8896709fc45c0bd4be49c134b0989
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: clone-repository
+        params:
+          - name: url
+            value: https://example.com/perf/perf-tenant
+          - name: revision
+            value: 0000000000000000000000000000000000000000
+          - name: ociStorage
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.git
+          - name: ociArtifactExpiresAfter
+            value: ""
+        runAfter:
+          - init
+        taskRef:
+          params:
+            - name: name
+              value: git-clone-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-git-clone-oci-ta:0.2.5@sha256:799e6093832d194293168240a6e2209479cfaad33de51d57bfcbcfead97ed038
+            - name: kind
+              value: task
+          resolver: bundles
+        workspaces:
+          - name: basic-auth
+            workspace: git-auth
+      - matrix:
+          params:
+            - name: PLATFORM
+              value:
+                - linux/x86_64
+                - linux/s390x
+                - linux/ppc64le
+                - linux/arm64
+        name: build-images
+        params:
+          - name: IMAGE
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: CONTEXT
+            value: catalog/v5.0
+          - name: HERMETIC
+            value: "true"
+          - name: IMAGE_EXPIRES_AFTER
+            value: ""
+          - name: COMMIT_SHA
+            value: $(tasks.clone-repository.results.commit)
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.fbc-inject-lifecycle.results.SOURCE_ARTIFACT)
+          - name: IMAGE_APPEND_PLATFORM
+            value: "true"
+          - name: BUILDAH_FORMAT
+            value: oci
+          - name: HTTP_PROXY
+            value: $(tasks.init.results.http-proxy)
+          - name: NO_PROXY
+            value: $(tasks.init.results.no-proxy)
+          - name: SOURCE_DATE_EPOCH
+            value: ""
+          - name: REWRITE_TIMESTAMP
+            value: "false"
+          - name: OMIT_HISTORY
+            value: "false"
+        runAfter:
+          - fbc-inject-lifecycle
+        taskRef:
+          params:
+            - name: name
+              value: buildah-remote-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-buildah-remote-oci-ta:0.11.0@sha256:78529bcd4a665aad693af8b98b2fed223a0b853c4f0cf3a8620eebdd66f517ea
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: build-image-index
+        params:
+          - name: IMAGE
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+          - name: ALWAYS_BUILD_INDEX
+            value: "true"
+          - name: IMAGES
+            value:
+              - $(tasks.build-images.results.IMAGE_REF[*])
+          - name: BUILDAH_FORMAT
+            value: oci
+        runAfter:
+          - build-images
+        taskRef:
+          params:
+            - name: name
+              value: build-image-index
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-build-image-index:0.3.1@sha256:b00c9e68e96d41c95c725805e378ccdda44e0a1e55b69eae3f9d1f0ba1a6a493
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: fbc-fips-check-oci-ta
+        params:
+          - name: image-digest
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+          - name: image-url
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.fbc-inject-lifecycle.results.SOURCE_ARTIFACT)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: fbc-fips-check-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-fips-check-oci-ta:0.1@sha256:11f4adee71143d1bb8504bb96edfa868be9624e0f1758fc299d7a9a86f30e8e0
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: "false"
+            operator: in
+            values:
+              - "false"
+      - name: deprecated-base-image-check
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: deprecated-image-check
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-deprecated-image-check:0.5@sha256:0ccc688a77e9b7b0b8973c132a1e840844137e77f887be4a0bec8893b0776872
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: "false"
+            operator: in
+            values:
+              - "false"
+      - name: apply-tags
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: apply-tags
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-apply-tags:0.3@sha256:da0cff2a36f07087798cd5f577b15f3d9e6dd4d3d08956227b298362e08ecc37
+            - name: kind
+              value: task
+          resolver: bundles
+      - name: fbc-target-index-pruning-check
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+          - name: TARGET_INDEX
+            value: registry.redhat.io/redhat/redhat-operator-index
+          - name: RENDERED_CATALOG_DIGEST
+            value: $(tasks.validate-fbc.results.RENDERED_CATALOG_DIGEST)
+        runAfter:
+          - validate-fbc
+        taskRef:
+          params:
+            - name: name
+              value: fbc-target-index-pruning-check
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-target-index-pruning-check:0.1@sha256:a7696d92734be62700723b6d2c40dfaee4809e6a1d42b28deefc7c7463176c32
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: "false"
+            operator: in
+            values:
+              - "false"
+      - name: validate-fbc
+        params:
+          - name: IMAGE_URL
+            value: $(tasks.build-image-index.results.IMAGE_URL)
+          - name: IMAGE_DIGEST
+            value: $(tasks.build-image-index.results.IMAGE_DIGEST)
+        runAfter:
+          - build-image-index
+        taskRef:
+          params:
+            - name: name
+              value: validate-fbc
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-validate-fbc:0.3@sha256:5ac2ab06fa8b7b7dfaa7a57cf68d3dd8de3fa9c7d6ebaef17626509c45f234a3
+            - name: kind
+              value: task
+          resolver: bundles
+        when:
+          - input: "false"
+            operator: in
+            values:
+              - "false"
+      - name: fbc-inject-lifecycle
+        params:
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: CONTEXT
+            value: catalog/v5.0
+          - name: SOURCE_ARTIFACT
+            value: $(tasks.clone-repository.results.SOURCE_ARTIFACT)
+          - name: ociStorage
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.lifecycle
+          - name: ociArtifactExpiresAfter
+            value: ""
+        runAfter:
+          - clone-repository
+        taskRef:
+          params:
+            - name: kind
+              value: task
+            - name: name
+              value: fbc-inject-lifecycle-oci-ta
+            - name: bundle
+              value: quay.io/konflux-ci/tekton-catalog/task-fbc-inject-lifecycle-oci-ta:0.1@sha256:da1217be1dcec3d5b5140ea351466607005481397b31f2b81108c4fd3012fbde
+          resolver: bundles
+    workspaces:
+      - name: git-auth
+        optional: true
+      - name: netrc
+        optional: true
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+  results:
+    - name: IMAGE_URL
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: CHAINS-GIT_URL
+      value: https://example.com/perf/perf-tenant
+    - name: CHAINS-GIT_COMMIT
+      value: 0000000000000000000000000000000000000000
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:52:13Z"

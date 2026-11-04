@@ -1,0 +1,900 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/build-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    chains.tekton.dev/signed: "true"
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/build-tenant/pipelinerun/build-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/build-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/build-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/build-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    results.tekton.dev/childReadyForDeletion: "true"
+    results.tekton.dev/record: build-tenant/results/00000000-0000-0000-0000-000000000000/records/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"app-component","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    results.tekton.dev/result: build-tenant/results/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/stored: "true"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: image-build, konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:52:53Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: build-tenant-v0
+    appstudio.openshift.io/component: build-tenant-v0
+    build.appstudio.redhat.com/build_type: docker
+    build.appstudio.redhat.com/target-platform: linux-x86_64
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: build-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: app-component
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: build-tenant-v0-on-push
+    tekton.dev/pipelineRun: build-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: build-container
+    tekton.dev/task: buildah-remote-oci-ta
+  name: build-tenant-v0-on-push-rgqnb-build-container-0
+  namespace: build-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: build-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772724841"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: PLATFORM
+      value: linux/x86_64
+    - name: IMAGE
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+    - name: DOCKERFILE
+      value: catalog.Containerfile
+    - name: CONTEXT
+      value: catalog/v5.0
+    - name: HERMETIC
+      value: "true"
+    - name: IMAGE_EXPIRES_AFTER
+      value: ""
+    - name: COMMIT_SHA
+      value: "0000000000000000000000000000000000000000"
+    - name: SOURCE_ARTIFACT
+      value: oci:quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_APPEND_PLATFORM
+      value: "true"
+    - name: BUILDAH_FORMAT
+      value: oci
+    - name: HTTP_PROXY
+      value: ""
+    - name: NO_PROXY
+      value: ""
+    - name: SOURCE_DATE_EPOCH
+      value: ""
+    - name: REWRITE_TIMESTAMP
+      value: "false"
+    - name: OMIT_HISTORY
+      value: "false"
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-build-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: buildah-remote-oci-ta
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-buildah-remote-oci-ta:0.11.0@sha256:78529bcd4a665aad693af8b98b2fed223a0b853c4f0cf3a8620eebdd66f517ea
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:54:43Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:54:43Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: build-tenant-v0-on-push-rgqnb-build-container-0-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 78529bcd4a665aad693af8b98b2fed223a0b853c4f0cf3a8620eebdd66f517ea
+      entryPoint: buildah-remote-oci-ta
+      uri: quay.io/konflux-ci/tekton-catalog/task-buildah-remote-oci-ta
+  results:
+    - name: IMAGE_DIGEST
+      type: string
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_REF
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_URL
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64
+    - name: SBOM_BLOB_URL
+      type: string
+      value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:52:53Z"
+  steps:
+    - container: step-use-trusted-artifact
+      imageID: quay.io/konflux-ci/build-trusted-artifacts@sha256:20e9ba7b208a5c09f020ba7bba043aa4c06fab4f98da71ae088e06c055f146a1
+      name: use-trusted-artifact
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:53:00Z"
+        reason: Completed
+        startedAt: "2026-09-02T20:52:59Z"
+      terminationReason: Completed
+    - container: step-build
+      imageID: quay.io/konflux-ci/konflux-build-cli@sha256:12991392b0d0122d665b3bf167462bbc9bcdce42c46f4a4ff4488f0dfcd89813
+      name: build
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:53:44Z"
+        message: '[{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:53:00Z"
+      terminationReason: Completed
+    - container: step-prepare-sboms
+      imageID: quay.io/konflux-ci/mobster@sha256:135eec87fe80d0751a1ea5e8e47b240147b25ee9a41973cae365540d2e2ee473
+      name: prepare-sboms
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:54:05Z"
+        message: '[{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:53:45Z"
+      terminationReason: Completed
+    - container: step-upload-sbom
+      imageID: quay.io/konflux-ci/task-runner@sha256:4b01fbf98fa7155f5c21443c285f88853864ae7cc66981cf6b543fc6ba16b81b
+      name: upload-sbom
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:54:43Z"
+        message: '[{"key":"IMAGE_DIGEST","value":"sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_REF","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"IMAGE_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000-linux-x86-64","type":1},{"key":"SBOM_BLOB_URL","value":"quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:54:05Z"
+      terminationReason: Completed
+  taskSpec:
+    description: |-
+      Buildah task builds source code into a container image and pushes the image into container registry using buildah tool.
+      In addition, it generates a SBOM file, injects the SBOM file into final container image and pushes the SBOM file as separate image using cosign tool.
+      When prefetch-dependencies task is activated it is using its artifacts to run build in hermetic environment.
+    params:
+      - default: activation-key
+        description: Name of secret which contains subscription activation key
+        name: ACTIVATION_KEY
+        type: string
+      - default: []
+        description: Additional base image references to include to the SBOM. Array of image_reference_with_digest strings
+        name: ADDITIONAL_BASE_IMAGES
+        type: array
+      - default: does-not-exist
+        description: Name of a secret which will be made available to the build with 'buildah build --secret' at /run/secrets/$ADDITIONAL_SECRET
+        name: ADDITIONAL_SECRET
+        type: string
+      - default: ""
+        description: Comma separated list of extra capabilities to add when running 'buildah build'
+        name: ADD_CAPABILITIES
+        type: string
+      - default: "false"
+        description: Allows to use parent images that don't match the build host architecture. This option must be used with caution as it may create incompatible images.
+        name: ALLOW_CROSS_PLATFORM_IMAGES
+        type: string
+      - default: []
+        description: Additional key=value annotations that should be applied to the image
+        name: ANNOTATIONS
+        type: array
+      - default: ""
+        description: Path to a file with additional key=value annotations that should be applied to the image
+        name: ANNOTATIONS_FILE
+        type: string
+      - default: oci
+        description: The format for the resulting image's mediaType. Valid values are oci (default) or docker.
+        name: BUILDAH_FORMAT
+        type: string
+      - default: []
+        description: Array of --build-arg values ("arg=value" strings)
+        name: BUILD_ARGS
+        type: array
+      - default: ""
+        description: Path to a file with build arguments, see https://www.mankier.com/1/buildah-build#--build-arg-file
+        name: BUILD_ARGS_FILE
+        type: string
+      - default: ""
+        description: Defines the single build time for all buildah builds in seconds since UNIX epoch. Conflicts with SOURCE_DATE_EPOCH.
+        name: BUILD_TIMESTAMP
+        type: string
+      - default: ""
+        description: The Trusted Artifact URI pointing to the artifact with the prefetched dependencies.
+        name: CACHI2_ARTIFACT
+        type: string
+      - default: ""
+        description: The image is built from this commit.
+        name: COMMIT_SHA
+        type: string
+      - default: .
+        description: Path to the directory to use as context.
+        name: CONTEXT
+        type: string
+      - default: "true"
+        description: Determines if SBOM will be contextualized.
+        name: CONTEXTUALIZE_SBOM
+        type: string
+      - default: ./Dockerfile
+        description: Path to the Dockerfile to build.
+        name: DOCKERFILE
+        type: string
+      - default: etc-pki-entitlement
+        description: Name of secret which contains the entitlement certificates
+        name: ENTITLEMENT_SECRET
+        type: string
+      - default: []
+        description: Array of --env values ("env=value" strings)
+        name: ENV_VARS
+        type: array
+      - default: "false"
+        description: Determines if build will be executed without network access.
+        name: HERMETIC
+        type: string
+      - default: ""
+        description: HTTP/HTTPS proxy to use for the buildah pull and build operations. Will not be passed through to the container during the build process.
+        name: HTTP_PROXY
+        type: string
+      - default: "true"
+        description: Whether to keep compatibility location at /root/buildinfo/ for ICM injection
+        name: ICM_KEEP_COMPAT_LOCATION
+        type: string
+      - description: Reference of the image buildah will produce.
+        name: IMAGE
+        type: string
+      - default: ""
+        description: Delete image tag after specified time. Empty means to keep the image tag. Time values could be something like 1h, 2d, 3w for hours, days, and weeks, respectively.
+        name: IMAGE_EXPIRES_AFTER
+        type: string
+      - default: "true"
+        description: Determines if the image inherits the base image labels.
+        name: INHERIT_BASE_IMAGE_LABELS
+        type: string
+      - default: []
+        description: Additional key=value labels that should be applied to the image
+        name: LABELS
+        type: array
+      - default: info
+        description: Log level for the build command.
+        name: LOG_LEVEL
+        type: string
+      - default: ""
+        description: Comma separated list of hosts or domains which should bypass the HTTP/HTTPS proxy.
+        name: NO_PROXY
+        type: string
+      - default: "false"
+        description: Omit build history information from the resulting image. Improves reproducibility by excluding timestamps and layer metadata.
+        name: OMIT_HISTORY
+        type: string
+      - default: ""
+        description: In case it is not empty, the prefetched content should be made available to the build.
+        name: PREFETCH_INPUT
+        type: string
+      - default: "false"
+        description: Whether to enable privileged mode, should be used only with remote VMs
+        name: PRIVILEGED_NESTED
+        type: string
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the proxy CA bundle data.
+        name: PROXY_CA_TRUST_CONFIG_MAP_KEY
+        type: string
+      - default: caching-ca-bundle
+        description: The name of the ConfigMap to read proxy CA bundle data from.
+        name: PROXY_CA_TRUST_CONFIG_MAP_NAME
+        type: string
+      - default: "false"
+        description: Clamp mtime of all files to at most SOURCE_DATE_EPOCH. Does nothing if SOURCE_DATE_EPOCH is not defined.
+        name: REWRITE_TIMESTAMP
+        type: string
+      - default: auto
+        description: Mount /etc/rhsm/ca from the host machine into the build. Valid values are 'always', 'auto' (default), 'never'. Only effective if HERMETIC=false and ACTIVATION_KEY or ENTITLEMENT_SECRET is set.
+        name: RHSM_MOUNT_CA_CERTS
+        type: string
+      - default: "true"
+        description: Flag to enable or disable SBOM validation before save. Validation is optional - use this if you are experiencing performance issues.
+        name: SBOM_SKIP_VALIDATION
+        type: string
+      - default: "true"
+        description: Flag to enable or disable SBOM generation from source code. The scanner of the source code is enabled only for non-hermetic builds and can be disabled if the SBOM_SYFT_SELECT_CATALOGERS can't turn off catalogers that cause false positives on source code scanning.
+        name: SBOM_SOURCE_SCAN_ENABLED
+        type: string
+      - default: ""
+        description: 'Extra option to customize Syft''s default catalogers when generating SBOMs. The value corresponds to Syft''s CLI flag --select-catalogers. The details about available catalogers can be found here: https://github.com/anchore/syft/wiki/Package-Cataloger-Selection'
+        name: SBOM_SYFT_SELECT_CATALOGERS
+        type: string
+      - default: spdx
+        description: 'Select the SBOM format to generate. Valid values: spdx, cyclonedx. Note: the SBOM from the prefetch task - if there is one - must be in the same format.'
+        name: SBOM_TYPE
+        type: string
+      - default: "false"
+        description: Don't inject a content-sets.json or a labels.json file. This requires that the canonical Containerfile takes care of this itself.
+        name: SKIP_INJECTIONS
+        type: string
+      - default: "false"
+        description: Skip SBOM-related operations. This will likely cause EC policies to fail if enabled
+        name: SKIP_SBOM_GENERATION
+        type: string
+      - default: "true"
+        description: Whether to skip stages in Containerfile that seem unused by subsequent stages
+        name: SKIP_UNUSED_STAGES
+        type: string
+      - description: The Trusted Artifact URI pointing to the artifact with the application source code.
+        name: SOURCE_ARTIFACT
+        type: string
+      - default: ""
+        description: Timestamp in seconds since Unix epoch for reproducible builds. Sets image created time and SOURCE_DATE_EPOCH build arg. Conflicts with BUILD_TIMESTAMP.
+        name: SOURCE_DATE_EPOCH
+        type: string
+      - default: ""
+        description: The image is built from this URL.
+        name: SOURCE_URL
+        type: string
+      - default: "false"
+        description: Squash all new and previous layers added as a part of this build, as per --squash
+        name: SQUASH
+        type: string
+      - default: overlay
+        description: Storage driver to configure for buildah
+        name: STORAGE_DRIVER
+        type: string
+      - default: ""
+        description: Target stage in Dockerfile to build. If not specified, the Dockerfile is processed entirely to (and including) its last stage.
+        name: TARGET_STAGE
+        type: string
+      - default: "true"
+        description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
+        name: TLSVERIFY
+        type: string
+      - default: ""
+        description: Mount the current working directory into the build using --volume $PWD:/$WORKINGDIR_MOUNT. Note that the $PWD will be the context directory for the build (see the CONTEXT param).
+        name: WORKINGDIR_MOUNT
+        type: string
+      - default: fetched.repos.d
+        description: Path in source workspace where dynamically-fetched repos are present
+        name: YUM_REPOS_D_FETCHED
+        type: string
+      - default: repos.d
+        description: Path in the git repository in which yum repository files are stored
+        name: YUM_REPOS_D_SRC
+        type: string
+      - default: /etc/yum.repos.d
+        description: Target path on the container in which yum repository files should be made available
+        name: YUM_REPOS_D_TARGET
+        type: string
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the CA bundle data.
+        name: caTrustConfigMapKey
+        type: string
+      - default: trusted-ca
+        description: The name of the ConfigMap to read CA bundle data from.
+        name: caTrustConfigMapName
+        type: string
+      - description: The platform to build on
+        name: PLATFORM
+        type: string
+      - default: "false"
+        description: Whether to append a sanitized platform architecture on the IMAGE tag
+        name: IMAGE_APPEND_PLATFORM
+        type: string
+    results:
+      - description: Digest of the image just built
+        name: IMAGE_DIGEST
+        type: string
+      - description: Image reference of the built image
+        name: IMAGE_REF
+        type: string
+      - description: Image repository and tag where the built image was pushed
+        name: IMAGE_URL
+        type: string
+      - description: Reference of SBOM blob digest to enable digest-based verification from provenance
+        name: SBOM_BLOB_URL
+        type: string
+    stepTemplate:
+      computeResources:
+        limits:
+          memory: 4Gi
+        requests:
+          cpu: "1"
+          memory: 4Gi
+      env:
+        - name: ADDITIONAL_SECRET
+          value: does-not-exist
+        - name: ADD_CAPABILITIES
+        - name: ALLOW_CROSS_PLATFORM_IMAGES
+          value: "false"
+        - name: ANNOTATIONS_FILE
+        - name: BUILD_ARGS_FILE
+        - name: BUILD_TIMESTAMP
+        - name: CONTEXT
+          value: catalog/v5.0
+        - name: CONTEXTUALIZE_SBOM
+          value: "true"
+        - name: HERMETIC
+          value: "true"
+        - name: IMAGE
+          value: quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0:0000000000000000000000000000000000000000
+        - name: IMAGE_EXPIRES_AFTER
+        - name: INHERIT_BASE_IMAGE_LABELS
+          value: "true"
+        - name: KBC_LOG_LEVEL
+          value: info
+        - name: PRIVILEGED_NESTED
+          value: "false"
+        - name: PUSH_FORMAT
+          value: oci
+        - name: RHSM_MOUNT_CA_CERTS
+          value: auto
+        - name: SBOM_SKIP_VALIDATION
+          value: "true"
+        - name: SBOM_SOURCE_SCAN_ENABLED
+          value: "true"
+        - name: SBOM_SYFT_SELECT_CATALOGERS
+        - name: SBOM_TYPE
+          value: spdx
+        - name: SKIP_INJECTIONS
+          value: "false"
+        - name: SKIP_SBOM_GENERATION
+          value: "false"
+        - name: SKIP_UNUSED_STAGES
+          value: "true"
+        - name: SOURCE_CODE_DIR
+          value: source
+        - name: SQUASH
+          value: "false"
+        - name: STORAGE_DRIVER
+          value: overlay
+        - name: TARGET_STAGE
+        - name: TASKRUN_NAME
+          value: build-tenant-v0-on-push-rgqnb-build-container-0
+        - name: TLSVERIFY
+          value: "true"
+        - name: WORKINGDIR_MOUNT
+        - name: YUM_REPOS_D_FETCHED
+          value: fetched.repos.d
+        - name: YUM_REPOS_D_SRC
+          value: repos.d
+        - name: YUM_REPOS_D_TARGET
+          value: /etc/yum.repos.d
+        - name: BUILDER_IMAGE
+          value: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
+        - name: PLATFORM
+          value: linux/x86_64
+        - name: IMAGE_APPEND_PLATFORM
+          value: "true"
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+        - mountPath: /shared
+          name: shared
+        - mountPath: /var/workdir
+          name: workdir
+    steps:
+      - args:
+          - use
+          - oci:quay.io/redhat-user-workloads/build-tenant/perf/build-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000=/var/workdir/source
+          - =/var/workdir/cachi2
+        computeResources: {}
+        image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:7c51a3530f239323442e28ea7dace8b88a14638d823d5eaa8514843c33b03c02
+        name: use-trusted-artifact
+        volumeMounts:
+          - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+            name: trusted-ca
+            readOnly: true
+            subPath: ca-bundle.crt
+      - args:
+          - --build-args
+          - --envs
+          - --labels
+          - --annotations
+        computeResources:
+          limits:
+            cpu: 4600m
+            memory: 8Gi
+          requests:
+            cpu: 4600m
+            memory: 8Gi
+        env:
+          - name: HOME
+            value: /root
+          - name: COMMIT_SHA
+            value: "0000000000000000000000000000000000000000"
+          - name: SOURCE_URL
+          - name: DOCKERFILE
+            value: catalog.Containerfile
+          - name: BUILDAH_HTTP_PROXY
+          - name: BUILDAH_NO_PROXY
+          - name: ICM_KEEP_COMPAT_LOCATION
+            value: "true"
+          - name: BUILDAH_OMIT_HISTORY
+            value: "false"
+          - name: BUILDAH_SOURCE_DATE_EPOCH
+          - name: BUILDAH_REWRITE_TIMESTAMP
+            value: "false"
+        image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:a48645cf2932d3e2bad76af97c37a1b294bad6a785cd610709c8ee017e8bef19
+        name: build
+        script: |-
+          #!/bin/bash
+          set -e
+          set -o verbose
+
+          echo "[$(date --utc -Ins)] Prepare connection"
+
+          mkdir -p ~/.ssh
+          if [ -e "/ssh/error" ]; then
+            #no server could be provisioned
+            cat /ssh/error
+            exit 1
+          fi
+
+          SSH_HOST=$(cat /ssh/host)
+          export SSH_HOST
+
+          if [ "$SSH_HOST" == "localhost" ] ; then
+            IS_LOCALHOST=true
+            echo "Localhost detected; running build in cluster"
+          elif [ -e "/ssh/otp" ]; then
+            if ! curl --fail --cacert /ssh/otp-ca -XPOST -d @/ssh/otp "$(cat /ssh/otp-server)" >~/.ssh/id_rsa; then
+              echo "Failed to retrieve SSH key from the OTP server. This can happen when the PipelineRun retry option re-runs a task whose one-time credential was already consumed. Please, start a new build, and if problem persists, please report it as an MPC bug." >&2
+              exit 1
+            fi
+            echo "" >> ~/.ssh/id_rsa
+          else
+            cp /ssh/id_rsa ~/.ssh
+          fi
+
+          mkdir -p scripts
+
+          if ! [[ $IS_LOCALHOST ]]; then
+            echo "[$(date --utc -Ins)] Setup VM"
+
+            if [[ "$BUILDAH_HTTP_PROXY" =~ .+\.cluster\.local ]]; then
+              echo "[$(date --utc -Ins)] Ignoring cluster local proxy for remote build"
+              unset BUILDAH_HTTP_PROXY BUILDAH_NO_PROXY
+            fi
+
+            chmod 0400 ~/.ssh/id_rsa
+            BUILD_DIR=$(cat /ssh/user-dir)
+            export BUILD_DIR
+            export SSH_ARGS="-o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10"
+            echo "$BUILD_DIR"
+            # shellcheck disable=SC2086
+            ssh $SSH_ARGS "$SSH_HOST"  mkdir -p "${BUILD_DIR@Q}/workspaces" "${BUILD_DIR@Q}/scripts" "${BUILD_DIR@Q}/volumes"
+
+            PORT_FORWARD=""
+            PODMAN_PORT_FORWARD=""
+            if [ -n "$JVM_BUILD_WORKSPACE_ARTIFACT_CACHE_PORT_80_TCP_ADDR" ] ; then
+              PORT_FORWARD=" -L 80:$JVM_BUILD_WORKSPACE_ARTIFACT_CACHE_PORT_80_TCP_ADDR:80"
+              PODMAN_PORT_FORWARD=" -e JVM_BUILD_WORKSPACE_ARTIFACT_CACHE_PORT_80_TCP_ADDR=localhost"
+            fi
+
+            echo "[$(date --utc -Ins)] Rsync data"
+
+            rsync -razW /shared/ "$SSH_HOST:$BUILD_DIR/volumes/shared/"
+            rsync -razW /var/workdir/ "$SSH_HOST:$BUILD_DIR/volumes/workdir/"
+            rsync -razW /entitlement/ "$SSH_HOST:$BUILD_DIR/volumes/etc-pki-entitlement/"
+            rsync -razW /activation-key/ "$SSH_HOST:$BUILD_DIR/volumes/activation-key/"
+            rsync -razW /additional-secret/ "$SSH_HOST:$BUILD_DIR/volumes/additional-secret/"
+            rsync -razW /mnt/trusted-ca/ "$SSH_HOST:$BUILD_DIR/volumes/trusted-ca/"
+            rsync -razW /mnt/proxy-ca-bundle/ "$SSH_HOST:$BUILD_DIR/volumes/proxy-ca-bundle/"
+            rsync -razW  "$HOME/.docker/" "$SSH_HOST:$BUILD_DIR/.docker/"
+            rsync -razW  "/tekton/results/" "$SSH_HOST:$BUILD_DIR/results/"
+          fi
+          if [ "${IMAGE_APPEND_PLATFORM}" == "true" ]; then
+            IMAGE="${IMAGE}-${PLATFORM//[^a-zA-Z0-9]/-}"
+            export IMAGE
+          fi
+
+          cat >scripts/script-build.sh <<'REMOTESSHEOF'
+          #!/bin/bash
+          set -euo pipefail
+          cd /var/workdir
+
+          ca_bundle=/mnt/trusted-ca/ca-bundle.crt
+          proxy_ca_bundle=/mnt/proxy-ca-bundle/ca-bundle.crt
+          update_ca_trust=false
+
+          if [ -f "$ca_bundle" ]; then
+            echo "[$(date --utc -Ins)] Using mounted CA bundle: $ca_bundle"
+            cp -vf $ca_bundle /etc/pki/ca-trust/source/anchors/ca-bundle.crt
+            update_ca_trust=true
+          fi
+
+          if [ -f "$proxy_ca_bundle" ] && [ -n "${BUILDAH_HTTP_PROXY}" ]; then
+            echo "[$(date --utc -Ins)] Using mounted proxy CA bundle: $proxy_ca_bundle"
+            cp -vf $proxy_ca_bundle /etc/pki/ca-trust/source/anchors/proxy-ca-bundle.crt
+            update_ca_trust=true
+          fi
+
+          if [ "$update_ca_trust" = "true" ]; then
+            echo "[$(date --utc -Ins)] Update CA trust"
+            update-ca-trust
+          fi
+
+          echo "[$(date --utc -Ins)] Prepare system (architecture: $(uname -m))"
+
+          # Fixing group permission on /var/lib/containers
+          chown root:root /var/lib/containers
+
+          sed -i 's/^\s*short-name-mode\s*=\s*.*/short-name-mode = "disabled"/' /etc/containers/registries.conf
+
+          # Delete policy settings for Red Hat registries to disable signature verification.
+          # TODO: don't do this?
+          container_policy=$(
+            jq '.transports |= (
+                  del(.docker.["registry.access.redhat.com"]) |
+                  del(.docker.["registry.redhat.io"]) |
+                  if (.docker == {}) then del(.docker) else . end
+                )' /etc/containers/policy.json
+          )
+          echo "Effective container policy:"
+          printf '%s\n' "$container_policy" | tee /etc/containers/policy.json
+
+          # Setting new namespace to run buildah - 2^32-2
+          echo 'root:1:4294967294' | tee -a /etc/subuid >>/etc/subgid
+
+          echo "[$(date --utc -Ins)] Run the build"
+
+          if [ -e "$SOURCE_CODE_DIR/$CONTEXT/$DOCKERFILE" ]; then
+            dockerfile_path="$(pwd)/$SOURCE_CODE_DIR/$CONTEXT/$DOCKERFILE"
+          elif [ -e "$SOURCE_CODE_DIR/$DOCKERFILE" ]; then
+            dockerfile_path="$(pwd)/$SOURCE_CODE_DIR/$DOCKERFILE"
+          else
+            echo "Cannot find Dockerfile $DOCKERFILE"
+            exit 1
+          fi
+
+          if [ -n "${ANNOTATIONS_FILE}" ] && [ -f "${SOURCE_CODE_DIR}/${ANNOTATIONS_FILE}" ]; then
+            ANNOTATIONS_FILE=$(realpath "${SOURCE_CODE_DIR}/${ANNOTATIONS_FILE}")
+          fi
+
+          if [ -n "${BUILD_ARGS_FILE}" ]; then
+            BUILD_ARGS_FILE=$(realpath "${SOURCE_CODE_DIR}/${BUILD_ARGS_FILE}")
+          fi
+
+          # Necessary for newer version of buildah if the host system does not contain up to date version of container-selinux
+          # TODO remove the option once all hosts were updated
+          security_args=(--security-opts unmask=/proc/interrupts)
+
+          if [ "${PRIVILEGED_NESTED}" == "true" ]; then
+            security_args+=(--security-opts label=disable)
+            security_args+=(--cap-add all)
+            security_args+=(--devices /dev/fuse)
+          fi
+          if [ -n "${ADD_CAPABILITIES}" ]; then
+            security_args+=(--cap-add "${ADD_CAPABILITIES}")
+          fi
+
+          if [ -f "/var/workdir/cachi2/cachi2.env" ]; then
+            prefetch_dir="/var/workdir/cachi2"
+            # KBC defaults to ${prefetch_dir}/copy-*
+            # Copy to a sibling dir instead in case we don't have write permissions to the prefetch_dir.
+            # It's still on the same filesystem, so copying via reflinks should be possible.
+            prefetch_dir_copy="/var/workdir/prefetch-copy"
+          else
+            prefetch_dir=""
+            prefetch_dir_copy=""
+          fi
+
+          yum_repos_d_sources=()
+          if [ -d "${YUM_REPOS_D_FETCHED}" ]; then
+            yum_repos_d_sources+=("${YUM_REPOS_D_FETCHED}")
+          fi
+          if [ -d "${SOURCE_CODE_DIR}/${YUM_REPOS_D_SRC}" ]; then
+            yum_repos_d_sources+=("${SOURCE_CODE_DIR}/${YUM_REPOS_D_SRC}")
+          fi
+
+          # 0. if hermetic=true, skip all subscription related stuff
+          # 1. do not enable activation key and entitlement at same time. If both are provided, prefer activation key.
+          # 2. Activation-keys will be used when the key 'org' exists in the activation key secret.
+          # 3. try to pre-register and mount files to the correct location so that users do no need to modify Dockerfiles.
+          # 4. If the Dockerfile contains the string "subcription-manager register", add the activation-keys volume
+          #    to buildah but don't pre-register for backwards compatibility. Mount an empty directory on
+          #    to "/etc/pki/entitlement" to prevent certificates from being included
+          rhsm_args=()
+          if [ "${HERMETIC}" != "true" ]; then
+            if [ -e /activation-key/org ]; then
+              rhsm_args+=(--rhsm-activation-key=/activation-key/activationkey
+                --rhsm-org=/activation-key/org
+                --rhsm-activation-mount=/activation-key)
+
+              if ! grep -E "^[^#]*subscription-manager.[^#]*register" "$dockerfile_path"; then
+                # user is not running registration in the Containerfile: pre-register.
+                rhsm_args+=(--rhsm-activation-preregister)
+              fi
+            elif find /entitlement -name "*.pem" >/dev/null; then
+              rhsm_args+=(--rhsm-entitlements=/entitlement)
+            fi
+          fi
+          if [ "${RHSM_MOUNT_CA_CERTS}" != "auto" ]; then
+            rhsm_args+=(--rhsm-mount-ca-certs="$RHSM_MOUNT_CA_CERTS")
+          fi
+
+          sbom_args=()
+          if [[ "$SKIP_SBOM_GENERATION" != true ]]; then
+            sbom_args+=(
+              --sbom-format "$SBOM_TYPE"
+              --syft-select-catalogers "$SBOM_SYFT_SELECT_CATALOGERS"
+              --syft-image-output /shared/sbom-image.json
+            )
+            if [[ "${HERMETIC}" == "false" && "${SBOM_SOURCE_SCAN_ENABLED}" == "true" ]]; then
+              sbom_args+=(--syft-source-output /shared/sbom-source.json)
+            fi
+          fi
+
+          # Prevent ShellCheck from giving a warning because 'image' is defined and 'IMAGE' is not.
+          declare IMAGE
+
+          cmd=(
+            konflux-build-cli image build
+            -f "$dockerfile_path" -t "$IMAGE" --source "$SOURCE_CODE_DIR" --context "$CONTEXT"
+            # use the taskRun name as a unique tag to prevent the $IMAGE from being garbage collected
+            # if another build pushes to the same $IMAGE output ref
+            --additional-tags "$TASKRUN_NAME"
+            --push
+            --push-format "$PUSH_FORMAT"
+            --secret-dirs "src=/additional-secret,name=$ADDITIONAL_SECRET,optional=true"
+            --workdir-mount "$WORKINGDIR_MOUNT"
+            --target "$TARGET_STAGE"
+            --inherit-labels="$INHERIT_BASE_IMAGE_LABELS"
+            --source-date-epoch "$BUILDAH_SOURCE_DATE_EPOCH"
+            --rewrite-timestamp="$BUILDAH_REWRITE_TIMESTAMP"
+            --squash="$SQUASH"
+            --omit-history="$BUILDAH_OMIT_HISTORY"
+            --image-source "$SOURCE_URL"
+            --image-revision "$COMMIT_SHA"
+            --quay-image-expires-after "$IMAGE_EXPIRES_AFTER"
+            --build-args-file "$BUILD_ARGS_FILE"
+            --annotations-file "$ANNOTATIONS_FILE"
+            --legacy-build-timestamp "$BUILD_TIMESTAMP"
+            --add-legacy-labels
+            --include-legacy-buildinfo-path="$ICM_KEEP_COMPAT_LOCATION"
+            --skip-injections="$SKIP_INJECTIONS"
+            --skip-unused-stages="$SKIP_UNUSED_STAGES"
+            --hermetic="$HERMETIC"
+            --image-pull-proxy "$BUILDAH_HTTP_PROXY"
+            --image-pull-noproxy "$BUILDAH_NO_PROXY"
+            --yum-repos-d-sources "${yum_repos_d_sources[@]}"
+            --yum-repos-d-target "$YUM_REPOS_D_TARGET"
+            --prefetch-dir "$prefetch_dir"
+            --prefetch-dir-copy "$prefetch_dir_copy"
+            --prefetch-env-mount /cachi2/cachi2.env
+            --prefetch-output-mount /cachi2/output
+            "${security_args[@]}"
+            "${rhsm_args[@]}"
+            "${sbom_args[@]}"
+            --containerfile-json-output /shared/parsed_dockerfile.json
+            --resolved-base-images-output /shared/base_images_digests
+            --no-cache
+            --ulimits nofile=4096:4096
+            --src-tls-verify="$TLSVERIFY"
+            --dest-tls-verify="$TLSVERIFY"
+            --allow-cross-platform-images="$ALLOW_CROSS_PLATFORM_IMAGES"
+            "$@" # --annotations, --labels, --envs, --build-args
+          )
+
+          echo "[$(date --utc -Ins)] $(printf '%q ' "${cmd[@]}")"
+
+          "${cmd[@]}" | tee /tmp/results.json
+
+          jq -j .image_url /tmp/results.json >"/tekton/results/IMAGE_URL"
+          jq -j .digest /tmp/results.json >"/tekton/results/IMAGE_DIGEST"
+          jq -j '"\(.image_url)@\(.digest)"' /tmp/results.json >"/tekton/results/IMAGE_REF"
+
+          echo
+          echo "[$(date --utc -Ins)] Add metadata"
+
+          # Save the SBOM produced in prefetch so it can be merged into the final SBOM later
+          if [ -f "${prefetch_dir}/output/bom.json" ]; then
+            echo "Making copy of sbom-prefetch.json"
+            cp "${prefetch_dir}/output/bom.json" /shared/sbom-prefetch.json
+          fi
+
+          echo "[$(date --utc -Ins)] End build"
+
+          REMOTESSHEOF
+          chmod +x scripts/script-build.sh
+
+          PODMAN_NVIDIA_ARGS=()
+          if [[ "$PLATFORM" == "linux-g"* ]]; then
+              PODMAN_NVIDIA_ARGS+=("--device=nvidia.com/gpu=all" "--security-opt=label=disable")
+          fi
+
+          if ! [[ $IS_LOCALHOST ]]; then
+            PRIVILEGED_NESTED_FLAGS=()
+            if [[ "${PRIVILEGED_NESTED}" == "true" ]]; then
+              # This is a workaround for building bootc images because the cache filesystem (/var/tmp/ on the host) must be a real filesystem that supports setting SELinux security attributes.
+              # https://github.com/coreos/rpm-ostree/discussions/4648
+              # shellcheck disable=SC2086
+              ssh $SSH_ARGS "$SSH_HOST"  mkdir -p "${BUILD_DIR@Q}/var/tmp"
+              PRIVILEGED_NESTED_FLAGS=(--privileged --mount "type=bind,source=$BUILD_DIR/var/tmp,target=/var/tmp,relabel=shared")
+            fi
+            rsync -ra scripts "$SSH_HOST:$BUILD_DIR"
+            echo "[$(date --utc -Ins)] Build via ssh"
+            # shellcheck disable=SC2086
+            # Please note: all variables below the first ssh line must be quoted with ${var@Q}!
+            # See https://stackoverflow.com/questions/6592376/prevent-ssh-from-breaking-up-shell-script-parameters
+            ssh $SSH_ARGS "$SSH_HOST" $PORT_FORWARD podman  run $PODMAN_PORT_FORWARD \
+              --tmpfs /run/secrets \
+              -e ADDITIONAL_SECRET="${ADDITIONAL_SECRET@Q}" \
+              -e ADD_CAPABILITIES="${ADD_CAPABILITIES@Q}" \
+              -e ALLOW_CROSS_PLATFORM_IMAGES="${ALLOW_CROSS_PLATFORM_IMAGES@Q}" \
+              -e ANNOTATIONS_FILE="${ANNOTATIONS_FILE@Q}" \
+              -e BUILD_ARGS_FILE="${BUILD_ARGS_FILE@Q}" \
+              -e BUILD_TIMESTAMP="${BUILD_TIMESTAMP@Q}" \
+              -e CONTEXT="${CONTEXT@Q}" \
+              -e CONTEXTUALIZE_SBOM="${CONTEXTUALIZE_SBOM@Q}" \
+              -e HERMETIC="${HERMETIC@Q}" \

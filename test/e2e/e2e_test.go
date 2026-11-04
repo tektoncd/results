@@ -322,11 +322,13 @@ func resultsClient(t *testing.T, tokenFileName string, impersonationConfig *tran
 	if err != nil {
 		t.Fatalf("Error creating gRPC client: %v", err)
 	}
+	t.Cleanup(func() { _ = grpcClient.Close() })
 
 	restClient, err := client.NewRESTClientFromConfig(envCfg, tokenFileName, impersonationConfig)
 	if err != nil {
 		t.Fatalf("Error creating REST client: %v", err)
 	}
+	t.Cleanup(restClient.CloseIdleConnections)
 
 	return grpcClient, restClient
 }

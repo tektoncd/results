@@ -1,0 +1,454 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    tekton.dev/categories: Git
+    tekton.dev/displayName: git clone oci trusted artifacts
+    tekton.dev/pipelines.minVersion: 0.21.0
+    tekton.dev/platforms: linux/amd64,linux/s390x,linux/ppc64le,linux/arm64
+    tekton.dev/tags: git
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:52:22Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: clone-repository
+    tekton.dev/task: git-clone-oci-ta
+  name: perf-tenant-v0-on-push-rgqnb-clone-repository
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772707227"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: url
+      value: https://example.com/perf/perf-tenant
+    - name: revision
+      value: "0000000000000000000000000000000000000000"
+    - name: ociStorage
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.git
+    - name: ociArtifactExpiresAfter
+      value: ""
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: git-clone-oci-ta
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-git-clone-oci-ta:0.2.5@sha256:799e6093832d194293168240a6e2209479cfaad33de51d57bfcbcfead97ed038
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+  workspaces:
+    - name: basic-auth
+      secret:
+        secretName: pac-gitauth-vposhg
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:52:43Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:52:43Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-push-rgqnb-clone-repository-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 799e6093832d194293168240a6e2209479cfaad33de51d57bfcbcfead97ed038
+      entryPoint: git-clone-oci-ta
+      uri: quay.io/konflux-ci/tekton-catalog/task-git-clone-oci-ta
+  results:
+    - name: CHAINS-GIT_COMMIT
+      type: string
+      value: "0000000000000000000000000000000000000000"
+    - name: CHAINS-GIT_URL
+      type: string
+      value: https://example.com/perf/perf-tenant
+    - name: commit
+      type: string
+      value: "0000000000000000000000000000000000000000"
+    - name: commit-timestamp
+      type: string
+      value: "1788382327"
+    - name: short-commit
+      type: string
+      value: e187499
+    - name: url
+      type: string
+      value: https://example.com/perf/perf-tenant
+    - name: SOURCE_ARTIFACT
+      type: string
+      value: oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:52:22Z"
+  steps:
+    - container: step-clone
+      imageID: quay.io/konflux-ci/konflux-build-cli@sha256:9919b758fe8096c22cee3c881213e8cca4220ac449c2432d7cf08a5730348383
+      name: clone
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:35Z"
+        message: '[{"key":"CHAINS-GIT_COMMIT","value":"0000000000000000000000000000000000000000","type":1},{"key":"CHAINS-GIT_URL","value":"https://example.com/perf/perf-tenant","type":1},{"key":"commit","value":"0000000000000000000000000000000000000000","type":1},{"key":"commit-timestamp","value":"1788382327","type":1},{"key":"short-commit","value":"e187499","type":1},{"key":"url","value":"https://example.com/perf/perf-tenant","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:52:27Z"
+      terminationReason: Completed
+    - container: step-create-trusted-artifact
+      imageID: quay.io/konflux-ci/build-trusted-artifacts@sha256:20e9ba7b208a5c09f020ba7bba043aa4c06fab4f98da71ae088e06c055f146a1
+      name: create-trusted-artifact
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:52:42Z"
+        message: '[{"key":"CHAINS-GIT_COMMIT","value":"0000000000000000000000000000000000000000","type":1},{"key":"CHAINS-GIT_URL","value":"https://example.com/perf/perf-tenant","type":1},{"key":"SOURCE_ARTIFACT","value":"oci:quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0@sha256:0000000000000000000000000000000000000000000000000000000000000000","type":1},{"key":"commit","value":"0000000000000000000000000000000000000000","type":1},{"key":"commit-timestamp","value":"1788382327","type":1},{"key":"short-commit","value":"e187499","type":1},{"key":"url","value":"https://example.com/perf/perf-tenant","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:52:35Z"
+      terminationReason: Completed
+  taskSpec:
+    description: The git-clone-oci-ta Task will clone a repo from the provided url and store it as a trusted artifact in the provided OCI repository.
+    params:
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the CA bundle data.
+        name: caTrustConfigMapKey
+        type: string
+      - default: trusted-ca
+        description: The name of the ConfigMap to read CA bundle data from.
+        name: caTrustConfigMapName
+        type: string
+      - default: "1"
+        description: Perform a shallow clone, fetching only the most recent N commits.
+        name: depth
+        type: string
+      - default: "true"
+        description: |
+          Check symlinks in the repo. If they're pointing outside of the repo, the build will fail.
+        name: enableSymlinkCheck
+        type: string
+      - default: "false"
+        description: Fetch all tags for the repo.
+        name: fetchTags
+        type: string
+      - default: ""
+        description: HTTP proxy server for non-SSL requests.
+        name: httpProxy
+        type: string
+      - default: ""
+        description: HTTPS proxy server for SSL requests.
+        name: httpsProxy
+        type: string
+      - default: info
+        description: Log level for the git-clone command.
+        name: logLevel
+        type: string
+      - default: ""
+        description: |
+          Perform a shallow fetch of the target branch, fetching only the most recent N commits.
+          If empty, fetches the full history of the target branch.
+        name: mergeSourceDepth
+        type: string
+      - default: ""
+        description: |
+          URL of the repository to fetch the target branch from when mergeTargetBranch is true.
+          If empty, uses the same repository (origin). This allows merging a branch from a different repository.
+        name: mergeSourceRepoUrl
+        type: string
+      - default: "false"
+        description: Set to "true" to merge the targetBranch into the checked-out revision.
+        name: mergeTargetBranch
+        type: string
+      - default: ""
+        description: Opt out of proxying HTTP/HTTPS requests.
+        name: noProxy
+        type: string
+      - default: ""
+        description: Expiration date for the trusted artifacts created in the OCI repository. An empty string means the artifacts do not expire.
+        name: ociArtifactExpiresAfter
+        type: string
+      - description: The OCI repository where the Trusted Artifacts are stored.
+        name: ociStorage
+        type: string
+      - default: ""
+        description: Refspec to fetch before checking out revision.
+        name: refspec
+        type: string
+      - default: ""
+        description: Revision to checkout. (branch, tag, sha, ref, etc...)
+        name: revision
+        type: string
+      - default: "7"
+        description: Minimum length of the short commit SHA. Git may return a longer prefix if needed for uniqueness.
+        name: shortCommitLength
+        type: string
+      - default: ""
+        description: Define the directory patterns to match or exclude when performing a sparse checkout.
+        name: sparseCheckoutDirectories
+        type: string
+      - default: "true"
+        description: Set the `http.sslVerify` global git config. Setting this to `false` is not advised unless you are sure that you trust your git remote.
+        name: sslVerify
+        type: string
+      - default: ""
+        description: Comma-separated list of specific submodule paths to initialize and fetch. Only submodules in the specified directories and their subdirectories will be fetched. Empty string fetches all submodules. Parameter "submodules" must be set to "true" to make this parameter applicable.
+        name: submodulePaths
+        type: string
+      - default: "true"
+        description: Initialize and fetch git submodules.
+        name: submodules
+        type: string
+      - default: ""
+        description: |
+          CSV list of path patterns to exclude from the symlink check. Symlinks whose paths match
+          are not checked. Patterns are relative to the checkout directory and must not start with '/'.
+          Use '*' and '?' as wildcards ('*' matches across '/').
+          Quote patterns containing commas using CSV double quotes.
+        name: symlinkCheckIgnorePattern
+        type: string
+      - default: main
+        description: The target branch to merge into the revision (if mergeTargetBranch is true).
+        name: targetBranch
+        type: string
+      - description: Repository URL to clone from.
+        name: url
+        type: string
+    results:
+      - description: The precise commit SHA that was fetched by this Task. This result uses Chains type hinting to include in the provenance.
+        name: CHAINS-GIT_COMMIT
+        type: string
+      - description: The precise URL that was fetched by this Task. This result uses Chains type hinting to include in the provenance.
+        name: CHAINS-GIT_URL
+        type: string
+      - description: The Trusted Artifact URI pointing to the artifact with the application source code.
+        name: SOURCE_ARTIFACT
+        type: string
+      - description: The precise commit SHA that was fetched by this Task.
+        name: commit
+        type: string
+      - description: The commit timestamp of the checkout
+        name: commit-timestamp
+        type: string
+      - description: The SHA of the commit after merging the target branch (if the param mergeTargetBranch is true).
+        name: merged_sha
+        type: string
+      - description: Abbreviated commit SHA for the checkout. At least params.shortCommitLength characters; longer if Git requires more for uniqueness.
+        name: short-commit
+        type: string
+      - description: The precise URL that was fetched by this Task.
+        name: url
+        type: string
+    steps:
+      - computeResources:
+          limits:
+            memory: 2Gi
+          requests:
+            cpu: 350m
+            memory: 2Gi
+        env:
+          - name: KBC_GIT_CLONE_URL
+            value: https://example.com/perf/perf-tenant
+          - name: KBC_GIT_CLONE_REVISION
+            value: "0000000000000000000000000000000000000000"
+          - name: KBC_GIT_CLONE_REFSPEC
+          - name: KBC_GIT_CLONE_SUBMODULES
+            value: "true"
+          - name: KBC_GIT_CLONE_SUBMODULE_PATHS
+          - name: KBC_GIT_CLONE_DEPTH
+            value: "1"
+          - name: KBC_GIT_CLONE_SHORT_COMMIT_LENGTH
+            value: "7"
+          - name: KBC_GIT_CLONE_SSL_VERIFY
+            value: "true"
+          - name: KBC_GIT_CLONE_SPARSE_CHECKOUT_DIRECTORIES
+          - name: KBC_GIT_CLONE_ENABLE_SYMLINK_CHECK
+            value: "true"
+          - name: KBC_GIT_CLONE_SYMLINK_CHECK_IGNORE_PATTERN
+          - name: KBC_GIT_CLONE_FETCH_TAGS
+            value: "false"
+          - name: KBC_GIT_CLONE_MERGE_TARGET_BRANCH
+            value: "false"
+          - name: KBC_GIT_CLONE_TARGET_BRANCH
+            value: main
+          - name: KBC_GIT_CLONE_MERGE_SOURCE_REPO_URL
+          - name: KBC_GIT_CLONE_MERGE_SOURCE_DEPTH
+          - name: KBC_GIT_CLONE_BASIC_AUTH_DIRECTORY
+            value: /workspace/basic-auth
+          - name: KBC_GIT_CLONE_SSH_DIRECTORY
+          - name: PARAM_HTTP_PROXY
+          - name: PARAM_HTTPS_PROXY
+          - name: PARAM_NO_PROXY
+          - name: KBC_LOG_LEVEL
+            value: info
+          - name: KBC_GIT_CLONE_OUTPUT_DIR
+            value: /var/workdir
+          - name: KBC_GIT_CLONE_SUBDIRECTORY
+            value: source
+        image: quay.io/konflux-ci/konflux-build-cli:latest@sha256:9919b758fe8096c22cee3c881213e8cca4220ac449c2432d7cf08a5730348383
+        name: clone
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          ca_bundle=/mnt/trusted-ca/ca-bundle.crt
+          if [ -f "$ca_bundle" ]; then
+            echo "INFO: Using mounted CA bundle: $ca_bundle"
+            cp -vf "$ca_bundle" /etc/pki/ca-trust/source/anchors
+            update-ca-trust
+          fi
+
+          test -z "${PARAM_HTTP_PROXY}" || export HTTP_PROXY="${PARAM_HTTP_PROXY}"
+          test -z "${PARAM_HTTPS_PROXY}" || export HTTPS_PROXY="${PARAM_HTTPS_PROXY}"
+          test -z "${PARAM_NO_PROXY}" || export NO_PROXY="${PARAM_NO_PROXY}"
+
+          RESULT_FILE="$(mktemp)"
+          konflux-build-cli git-clone >"${RESULT_FILE}"
+
+          printf "%s" "$(jq -r '.commit' "${RESULT_FILE}")" >"/tekton/results/commit"
+          printf "%s" "$(jq -r '.shortCommit' "${RESULT_FILE}")" >"/tekton/results/short-commit"
+          printf "%s" "$(jq -r '.url' "${RESULT_FILE}")" >"/tekton/results/url"
+          printf "%s" "$(jq -r '.commitTimestamp' "${RESULT_FILE}")" >"/tekton/results/commit-timestamp"
+          printf "%s" "$(jq -r '."CHAINS-GIT_URL"' "${RESULT_FILE}")" >"/tekton/results/CHAINS-GIT_URL"
+          printf "%s" "$(jq -r '."CHAINS-GIT_COMMIT"' "${RESULT_FILE}")" >"/tekton/results/CHAINS-GIT_COMMIT"
+
+          MERGED_SHA=$(jq -r '.mergedSha // empty' "${RESULT_FILE}")
+          if [ -n "${MERGED_SHA}" ]; then
+            printf "%s" "${MERGED_SHA}" >"/tekton/results/merged_sha"
+          fi
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+          - mountPath: /mnt/trusted-ca
+            name: trusted-ca
+            readOnly: true
+          - mountPath: /var/workdir
+            name: workdir
+      - args:
+          - create
+          - --store
+          - quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000.git
+          - /tekton/results/SOURCE_ARTIFACT=/var/workdir/source
+        computeResources:
+          limits:
+            memory: 3Gi
+          requests:
+            cpu: "1"
+            memory: 3Gi
+        env:
+          - name: IMAGE_EXPIRES_AFTER
+        image: quay.io/konflux-ci/build-trusted-artifacts:latest@sha256:7c51a3530f239323442e28ea7dace8b88a14638d823d5eaa8514843c33b03c02
+        name: create-trusted-artifact
+        volumeMounts:
+          - mountPath: /var/workdir
+            name: workdir
+          - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+            name: trusted-ca
+            readOnly: true
+            subPath: ca-bundle.crt
+    volumes:
+      - configMap:
+          items:
+            - key: ca-bundle.crt
+              path: ca-bundle.crt
+          name: trusted-ca
+          optional: true
+        name: trusted-ca
+      - emptyDir: {}
+        name: workdir
+    workspaces:
+      - description: |
+          A Workspace containing a .gitconfig and .git-credentials file or username and password.
+          These will be copied to the user's home before any git commands are run. Any
+          other files in this Workspace are ignored. It is strongly recommended
+          to use ssh-directory over basic-auth whenever possible and to bind a
+          Secret to this Workspace over other volume types.
+        name: basic-auth
+        optional: true
+      - description: |
+          A .ssh directory with private key, known_hosts, config, etc. Copied to
+          the user's home before git commands are executed. Used to authenticate
+          with the git remote when performing the clone. Binding a Secret to this
+          Workspace is strongly recommended over other volume types.
+        name: ssh-directory
+        optional: true
