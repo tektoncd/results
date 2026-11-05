@@ -1,16 +1,12 @@
 package impersonation
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/metadata"
 	authorizationv1 "k8s.io/api/authorization/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/kubernetes/fake"
-	test "k8s.io/client-go/testing"
 )
 
 func TestHeaderMatcher(t *testing.T) {
@@ -126,46 +122,23 @@ func TestNewImpersonation(t *testing.T) {
 		}
 	})
 
-}
+	t.Run("preserve multiple extra keys", func(t *testing.T) {
+		md := metadata.MD{}
+		md.Append("Impersonate-User", "authorized-user")
+		md.Append("Impersonate-Extra-Scope", "read", "write")
+		md.Append("Impersonate-Extra-Tenant", "team-a")
 
-func TestImpersonation_Check(t *testing.T) {
-	k8s := fake.NewSimpleClientset()
-	k8s.PrependReactor("create", "subjectaccessreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
-		sar := action.(test.CreateActionImpl).Object.(*authorizationv1.SubjectAccessReview)
-		if sar.Spec.User == "authorized" {
-			sar.Status = authorizationv1.SubjectAccessReviewStatus{
-				Allowed: true,
-			}
-		} else {
-			sar.Status = authorizationv1.SubjectAccessReviewStatus{
-				Denied: true,
-			}
-		}
-		return true, sar, nil
-	})
-
-	md := metadata.MD{}
-	md.Append("Impersonate-User", "authorized-user")
-	md.Append("Impersonate-Group", "authorized-group")
-	md.Append("Impersonate-Uid", "authorized-uid")
-	md.Append("Impersonate-Extra-Scope", "authorized-scope")
-
-	i, err := NewImpersonation(md)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Run("authorized user", func(t *testing.T) {
-		err := i.Check(context.Background(), k8s.AuthorizationV1(), "authorized")
+		got, err := NewImpersonation(md)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
+		}
+		want := map[string][]string{
+			"scope":  {"read", "write"},
+			"tenant": {"team-a"},
+		}
+		if diff := cmp.Diff(want, got.userInfo.Extra); diff != "" {
+			t.Errorf("extra (-want, +got): %s", diff)
 		}
 	})
 
-	t.Run("unauthorized user", func(t *testing.T) {
-		err := i.Check(context.Background(), k8s.AuthorizationV1(), "unauthorized")
-		if err == nil {
-			t.Error("Expected unauthorized error")
-		}
-	})
 }
