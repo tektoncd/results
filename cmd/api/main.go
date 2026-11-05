@@ -266,7 +266,7 @@ func main() {
 		if burst > 0 {
 			k8sConfig.Burst = burst
 		}
-		k8s, err := kubernetes.NewForConfig(k8sConfig)
+		k8sClient, err := kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
 		}
@@ -275,7 +275,19 @@ func main() {
 			log.Info("Kubernetes RBAC impersonation enabled")
 			serverMuxOptions = append(serverMuxOptions, runtime.WithIncomingHeaderMatcher(impersonation.HeaderMatcher))
 		}
-		authCheck = auth.NewRBAC(k8s, auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE))
+		rbac := auth.NewRBAC(k8sClient, auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE))
+		authnTTL := parseAuthCacheTTL(log, "AUTH_CACHE_AUTHN_TTL", serverConfig.AUTH_CACHE_AUTHN_TTL)
+		authzTTL := parseAuthCacheTTL(log, "AUTH_CACHE_AUTHZ_TTL", serverConfig.AUTH_CACHE_AUTHZ_TTL)
+		authCheck = auth.NewCheckerFromConfig(rbac, auth.CacheConfig{
+			Enabled:  serverConfig.AUTH_CACHE_ENABLED,
+			AuthnTTL: authnTTL,
+			AuthzTTL: authzTTL,
+		})
+		if serverConfig.AUTH_CACHE_ENABLED {
+			log.Infof("Auth cache enabled (authn TTL=%s, authz TTL=%s)", authnTTL, authzTTL)
+		} else {
+			log.Info("Auth cache disabled (AUTH_CACHE_ENABLED=false)")
+		}
 	}
 
 	// Register API server(s)
@@ -443,6 +455,19 @@ func grpcHandler(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler
 // recoveryHandler returns custom messages when server panics
 func recoveryHandler(p any) error {
 	return status.Errorf(codes.Unknown, "Error: %v", p)
+}
+
+// parseAuthCacheTTL wraps auth.ParseCacheTTL and logs when the configured value
+// is invalid or non-positive so operators notice the fallback to 5m.
+func parseAuthCacheTTL(log *zap.SugaredLogger, name, value string) time.Duration {
+	if value != "" {
+		if _, err := time.ParseDuration(value); err != nil {
+			log.Warnf("Invalid %s %q, using default 5m: %v", name, value, err)
+		} else if d, _ := time.ParseDuration(value); d <= 0 {
+			log.Warnf("Non-positive %s %q, using default 5m", name, value)
+		}
+	}
+	return auth.ParseCacheTTL(value)
 }
 
 func determineAuth(ctx context.Context) (context.Context, error) {
