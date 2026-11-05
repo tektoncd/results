@@ -2,17 +2,13 @@
 package impersonation
 
 import (
-	"context"
 	"errors"
-	"fmt"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc/metadata"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
-	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
 	"net/url"
 	"strings"
@@ -105,7 +101,9 @@ func (i *Impersonation) parseMetadata(md metadata.MD) error {
 
 		hasExtra = true
 		extraKey := unescapeExtraKey(strings.ToLower(name[len(authenticationv1.ImpersonateUserExtraHeaderPrefix):]))
-		i.userInfo.Extra = make(map[string][]string)
+		if i.userInfo.Extra == nil {
+			i.userInfo.Extra = make(map[string][]string)
+		}
 		// Each extra value is a separate resource to check.
 		for _, value := range values {
 			i.userInfo.Extra[extraKey] = append(i.userInfo.Extra[extraKey], value)
@@ -171,34 +169,11 @@ func unescapeExtraKey(encodedKey string) string {
 	return key
 }
 
-// Check checks if the requester has permission to impersonate every resource.
-func (i *Impersonation) Check(ctx context.Context, authorizer authorizationclient.AuthorizationV1Interface, requester string) error {
-	if i.resourceAttributes == nil {
-		return ErrNoImpersonationData
-	}
-	for _, resourceAttribute := range i.resourceAttributes {
-		sar, err := authorizer.SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{
-			Spec: authorizationv1.SubjectAccessReviewSpec{
-				User: requester,
-				ResourceAttributes: &authorizationv1.ResourceAttributes{
-					Group:       resourceAttribute.Group,
-					Name:        resourceAttribute.Name,
-					Namespace:   resourceAttribute.Namespace,
-					Resource:    resourceAttribute.Resource,
-					Subresource: resourceAttribute.Subresource,
-					Verb:        resourceAttribute.Verb,
-				},
-			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-		if !sar.Status.Allowed {
-			return fmt.Errorf("forbidden: '%s' doesn't have permission to impersonate '%s'", requester, resourceAttribute.Resource)
-		}
-	}
-
-	return nil
+// ResourceAttributes returns the SubjectAccessReview attributes used to
+// authorize each impersonation header. Callers that cache SAR results can
+// key entries from these attributes.
+func (i *Impersonation) ResourceAttributes() []authorizationv1.ResourceAttributes {
+	return append([]authorizationv1.ResourceAttributes(nil), i.resourceAttributes...)
 }
 
 // GetUserInfo returns the impersonated user information.

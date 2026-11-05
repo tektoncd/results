@@ -35,6 +35,10 @@ type Config struct {
 	AUTH_DISABLE     bool `mapstructure:"AUTH_DISABLE"`
 	AUTH_IMPERSONATE bool `mapstructure:"AUTH_IMPERSONATE"`
 
+	AUTH_CACHE_ENABLED      bool   `mapstructure:"AUTH_CACHE_ENABLED"`
+	AUTH_CACHE_POSITIVE_TTL string `mapstructure:"AUTH_CACHE_POSITIVE_TTL"`
+	AUTH_CACHE_NEGATIVE_TTL string `mapstructure:"AUTH_CACHE_NEGATIVE_TTL"`
+
 	LOGS_API         bool   `mapstructure:"LOGS_API"`
 	LOGS_TYPE        string `mapstructure:"LOGS_TYPE"`
 	LOGS_BUFFER_SIZE int    `mapstructure:"LOGS_BUFFER_SIZE"`
@@ -74,23 +78,32 @@ type Config struct {
 	LOGGING_PLUGIN_LINE_FORMAT              string `mapstructure:"LOGGING_PLUGIN_LINE_FORMAT"`
 }
 
+// newViper returns an isolated configuration reader with server defaults.
+func newViper() *viper.Viper {
+	v := viper.New()
+	v.SetDefault("AUTH_CACHE_ENABLED", false)
+	v.SetDefault("AUTH_CACHE_POSITIVE_TTL", "5m")
+	v.SetDefault("AUTH_CACHE_NEGATIVE_TTL", "1m")
+	return v
+}
+
 func Get() *Config {
-	viper.SetConfigName("config")
-	viper.SetConfigType("env")
-	viper.AddConfigPath("/etc/tekton/results")
-	viper.AddConfigPath("config/base/env")
-	viper.AddConfigPath("config")
-	viper.AddConfigPath(".")
+	v := newViper()
+	v.SetConfigName("config")
+	v.SetConfigType("env")
+	v.AddConfigPath("/etc/tekton/results")
+	v.AddConfigPath("config/base/env")
+	v.AddConfigPath("config")
+	v.AddConfigPath(".")
+	v.AutomaticEnv()
 
-	viper.AutomaticEnv()
-
-	err := viper.ReadInConfig()
+	err := v.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Error reading config: %v", err)
 	}
 
 	config := Config{}
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := v.Unmarshal(&config); err != nil {
 		log.Fatal("Cannot load config:", err)
 	}
 

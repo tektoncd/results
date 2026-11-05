@@ -77,6 +77,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/logging"
 )
 
 // profilingServerAddress returns the address to bind the profiling server to.
@@ -266,7 +267,7 @@ func main() {
 		if burst > 0 {
 			k8sConfig.Burst = burst
 		}
-		k8s, err := kubernetes.NewForConfig(k8sConfig)
+		k8sClient, err := kubernetes.NewForConfig(k8sConfig)
 		if err != nil {
 			log.Fatal("Error creating kubernetes clientset:", err)
 		}
@@ -275,7 +276,16 @@ func main() {
 			log.Info("Kubernetes RBAC impersonation enabled")
 			serverMuxOptions = append(serverMuxOptions, runtime.WithIncomingHeaderMatcher(impersonation.HeaderMatcher))
 		}
-		authCheck = auth.NewRBAC(k8s, auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE))
+		rbacOptions := []auth.Option{auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE)}
+		if serverConfig.AUTH_CACHE_ENABLED {
+			positiveTTL := parseAuthCacheTTL(log, "AUTH_CACHE_POSITIVE_TTL", serverConfig.AUTH_CACHE_POSITIVE_TTL, auth.DefaultPositiveCacheTTL)
+			negativeTTL := parseAuthCacheTTL(log, "AUTH_CACHE_NEGATIVE_TTL", serverConfig.AUTH_CACHE_NEGATIVE_TTL, auth.DefaultNegativeCacheTTL)
+			rbacOptions = append(rbacOptions, auth.WithCaching(positiveTTL, negativeTTL))
+			log.Infof("Auth cache enabled (positive TTL=%s, negative TTL=%s)", positiveTTL, negativeTTL)
+		} else {
+			log.Info("Auth cache disabled (AUTH_CACHE_ENABLED=false)")
+		}
+		authCheck = auth.NewRBAC(k8sClient, rbacOptions...)
 	}
 
 	// Register API server(s)
@@ -445,6 +455,16 @@ func recoveryHandler(p any) error {
 	return status.Errorf(codes.Unknown, "Error: %v", p)
 }
 
+// parseAuthCacheTTL parses a cache TTL and logs when the configured value is
+// rejected so operators notice the fallback.
+func parseAuthCacheTTL(log *zap.SugaredLogger, name, value string, fallback time.Duration) time.Duration {
+	ttl, err := auth.ParseCacheTTL(value, fallback)
+	if err != nil {
+		log.Warnf("Invalid %s: %v, using default %s", name, err, ttl)
+	}
+	return ttl
+}
+
 func determineAuth(ctx context.Context) (context.Context, error) {
 	// This code is used to extract values
 	// it is not doing any form of verification.
@@ -454,7 +474,7 @@ func determineAuth(ctx context.Context) (context.Context, error) {
 		ctxzap.AddFields(ctx,
 			zap.String("grpc.user", "unknown"),
 		)
-		return ctx, nil
+		return logging.WithLogger(ctx, ctxzap.Extract(ctx).Sugar()), nil
 	}
 
 	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
@@ -462,7 +482,7 @@ func determineAuth(ctx context.Context) (context.Context, error) {
 		ctxzap.AddFields(ctx,
 			zap.String("grpc.user", "unknown"),
 		)
-		return ctx, nil
+		return logging.WithLogger(ctx, ctxzap.Extract(ctx).Sugar()), nil
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
@@ -473,5 +493,5 @@ func determineAuth(ctx context.Context) (context.Context, error) {
 			zap.String("grpc.issuer", iss),
 		)
 	}
-	return ctx, nil
+	return logging.WithLogger(ctx, ctxzap.Extract(ctx).Sugar()), nil
 }

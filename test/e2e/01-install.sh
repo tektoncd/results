@@ -60,6 +60,7 @@ else
 fi
 extra_ko_params="linux/$(go env GOARCH)"
 kubectl kustomize "${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
+kubectl set env deployment/tekton-results-api --namespace="tekton-pipelines" AUTH_CACHE_ENABLED=true
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"
