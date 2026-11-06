@@ -126,6 +126,32 @@ func TestNewImpersonation(t *testing.T) {
 		}
 	})
 
+	t.Run("parse multiple impersonate group headers", func(t *testing.T) {
+		// tkn-results --as-group sends one Impersonate-Group header per group.
+		md := metadata.MD{}
+		md.Append("Impersonate-User", "authorized-user")
+		md.Append("Impersonate-Group", "developers")
+		md.Append("Impersonate-Group", "admins")
+
+		got, err := NewImpersonation(md)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantGroups := []string{"developers", "admins", "system:authenticated"}
+		if diff := cmp.Diff(wantGroups, got.userInfo.Groups); diff != "" {
+			t.Errorf("-want, +got: %s", diff)
+		}
+		var impersonatedGroups []string
+		for _, ra := range got.resourceAttributes {
+			if ra.Resource == "groups" {
+				impersonatedGroups = append(impersonatedGroups, ra.Name)
+			}
+		}
+		if diff := cmp.Diff([]string{"developers", "admins"}, impersonatedGroups); diff != "" {
+			t.Errorf("-want, +got: %s", diff)
+		}
+	})
+
 }
 
 func TestImpersonation_Check(t *testing.T) {
