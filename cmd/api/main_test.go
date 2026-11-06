@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	v1alpha2pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
@@ -66,6 +68,48 @@ func contextWithLogger(w io.Writer) context.Context {
 	writer := zapcore.AddSync(w)
 	logger := zap.New(zapcore.NewCore(encoder, writer, zapcore.DebugLevel))
 	return ctxzap.ToContext(context.Background(), logger)
+}
+
+func TestAPIJSONMarshaler_EmptyListRecordsResponse(t *testing.T) {
+	m := apiJSONMarshaler()
+	got, err := m.Marshal(&v1alpha2pb.ListRecordsResponse{})
+	if err != nil {
+		t.Fatalf("Marshal(): %v", err)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(got, &parsed); err != nil {
+		t.Fatalf("json.Unmarshal(): %v", err)
+	}
+	if _, ok := parsed["records"]; !ok {
+		t.Fatalf("missing records field in %s", got)
+	}
+	if string(parsed["records"]) != "[]" {
+		t.Fatalf("records = %s, want []", parsed["records"])
+	}
+	if string(parsed["next_page_token"]) != `""` {
+		t.Fatalf("next_page_token = %s, want \"\"", parsed["next_page_token"])
+	}
+}
+
+func TestAPIJSONMarshaler_EmptyListResultsResponse(t *testing.T) {
+	m := apiJSONMarshaler()
+	got, err := m.Marshal(&v1alpha2pb.ListResultsResponse{})
+	if err != nil {
+		t.Fatalf("Marshal(): %v", err)
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(got, &parsed); err != nil {
+		t.Fatalf("json.Unmarshal(): %v", err)
+	}
+	if _, ok := parsed["results"]; !ok {
+		t.Fatalf("missing results field in %s", got)
+	}
+	if string(parsed["results"]) != "[]" {
+		t.Fatalf("results = %s, want []", parsed["results"])
+	}
+	if string(parsed["next_page_token"]) != `""` {
+		t.Fatalf("next_page_token = %s, want \"\"", parsed["next_page_token"])
+	}
 }
 
 func Test_profilingServerAddress(t *testing.T) {
