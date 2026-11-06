@@ -173,6 +173,9 @@ spec:
       # Publish images and create release_base.yaml (with tags)
       kustomize build ${PROJECT_ROOT}/release | ko resolve \
         --image-label=org.opencontainers.image.source=https://$(params.package) \
+        --image-label=org.opencontainers.image.url=https://$(params.package) \
+        --image-label=org.opencontainers.image.title=results \
+        --image-label=org.opencontainers.image.description=Tekton\ Results \
         --platform=$(params.platforms) \
         -t $(params.versionTag) \
         -R ${KO_EXTRA_ARGS} \
@@ -183,6 +186,9 @@ spec:
       # This is currently the case for `cri-o` (and most likely others)
       kustomize build ${PROJECT_ROOT}/release | ko resolve \
         --image-label=org.opencontainers.image.source=https://$(params.package) \
+        --image-label=org.opencontainers.image.url=https://$(params.package) \
+        --image-label=org.opencontainers.image.title=results \
+        --image-label=org.opencontainers.image.description=Tekton\ Results \
         --platform=$(params.platforms) \
         -R ${KO_EXTRA_ARGS} \
         -f - > $OUTPUT_RELEASE_DIR/release_base.notags.yaml
