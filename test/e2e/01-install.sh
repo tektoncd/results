@@ -69,6 +69,12 @@ for service_account in "${service_accounts[@]}"; do
     echo "Created ${SA_TOKEN_PATH}/$service_account"
 done
 
+echo "Waiting for database schema migrations..."
+kubectl wait job "tekton-results-db-migrate" --namespace="tekton-pipelines" --for="condition=complete" --timeout="300s" || {
+    kubectl logs job/tekton-results-db-migrate --namespace="tekton-pipelines" --all-containers || true
+    exit 1
+}
+
 if [ "$MODE" = "ha" ]; then
     echo "Waiting for Tekton Results pods..."
     # The watcher and API run with multiple replicas in HA mode, so wait on
@@ -86,6 +92,6 @@ if [ "$MODE" = "ha" ]; then
 else
     echo "Waiting for deployments to be ready..."
     kubectl wait pod "tekton-results-postgres-0" --namespace="tekton-pipelines" --for="condition=Ready" --timeout="120s"
-    kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
+    kubectl wait deployment "tekton-results-api" --namespace="tekton-pipelines" --for="condition=available" --timeout="300s"
     kubectl wait deployment "tekton-results-watcher" --namespace="tekton-pipelines" --for="condition=available" --timeout="120s"
 fi

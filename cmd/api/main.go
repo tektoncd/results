@@ -20,7 +20,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -51,6 +50,7 @@ import (
 
 	serverdb "github.com/tektoncd/results/pkg/api/server/db"
 	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
+	"github.com/tektoncd/results/pkg/api/server/db/migrations"
 
 	"github.com/golang-jwt/jwt/v4"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -202,25 +202,24 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	var sqlDB *sql.DB
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Error getting database handle: %v", err)
+	}
 
 	// Set DB connection limits
-	maxIdle := serverConfig.DB_MAX_IDLE_CONNECTIONS
-	maxOpen := serverConfig.DB_MAX_OPEN_CONNECTIONS
-	if maxOpen > 0 {
-		sqlDB, err = db.DB()
-		if err != nil {
-			log.Fatalf("Error getting database configuration for updating max open connections: %s", err.Error())
-		}
-		sqlDB.SetMaxOpenConns(maxOpen)
+	if serverConfig.DB_MAX_OPEN_CONNECTIONS > 0 {
+		sqlDB.SetMaxOpenConns(serverConfig.DB_MAX_OPEN_CONNECTIONS)
 	}
-	if maxIdle > 0 {
-		sqlDB, err = db.DB()
-		if err != nil {
-			log.Fatalf("Error getting database configuration for updating max open connections: %s", err.Error())
-		}
-		sqlDB.SetMaxIdleConns(maxIdle)
+	if serverConfig.DB_MAX_IDLE_CONNECTIONS > 0 {
+		sqlDB.SetMaxIdleConns(serverConfig.DB_MAX_IDLE_CONNECTIONS)
 	}
+
+	schema, err := migrations.CheckAtStartup(ctx, sqlDB, serverConfig.DB_SCHEMA_REQUIRED_VERSION_OVERRIDE, log.Warnf)
+	if err != nil {
+		log.Fatalf("Database schema is not compatible with this release: %v", err)
+	}
+	log.Infof("Database schema version %d (dirty=%t) is compatible", schema.Version, schema.Dirty)
 
 	if serverConfig.CONVERTER_ENABLE {
 		log.Info("Starting api converter")

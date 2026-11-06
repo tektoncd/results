@@ -70,26 +70,36 @@ DB_HOST=
 DB_NAME=
 ```
 
-Here is the required patch if you want to use Kubernetes Secret for passing
-these values as well.
+The API server, the retention policy agent and the database migration Job
+all read this configuration, so changing it in one place is enough.
+
+If you prefer to set these values as environment variables instead (for
+example to read them from a Secret), patch **all three** components: the
+`api` Deployment, the `retention-policy-agent` Deployment and the
+`db-migrate` Job. Environment variables take precedence over the
+configuration file. For example, for the Job:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: api
+  name: tekton-results-db-migrate
   namespace: tekton-pipelines
 spec:
   template:
     spec:
       containers:
-        - name: api
+        - name: db-migrate
           env:
             - name: DB_HOST
               value: <put-your-external-db-host-here>
             - name: DB_NAME
               value: <your-db-name default:tekton-results>
 ```
+
+Use the same `env` entries for the `tekton-results-api` Deployment
+(container `api`) and the `tekton-results-retention-policy-agent` Deployment
+(container `retention-policy-agent`).
 
 ## Create Secret for storing database username and password
 
@@ -114,6 +124,17 @@ at startup. After changing database settings in the
 apply the changes. Updating the ConfigMap or Secret alone does not reconfigure
 their existing database connections. This includes changes to the database
 host, port, name, credentials, SSL settings, and connection pool limits.
+
+When the change points Tekton Results at a different database, for example
+after installing with the default settings and then switching to an external
+database, the new database also needs its schema: run the migration Job
+against it before restarting. See
+[Changing the database after installation](database-migrations.md#changing-the-database-after-installation).
+
+If you install `release_base.yaml`, which does not include the bundled
+database, and configure the database right after applying it, the migration
+Job waits for the settings: it retries for up to ten minutes and re-reads the
+ConfigMap before each attempt.
 
 ## Binding everything together
 

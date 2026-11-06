@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/config"
 	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
+	"github.com/tektoncd/results/pkg/api/server/db/migrations"
 	"github.com/tektoncd/results/pkg/api/server/logger"
 	"github.com/tektoncd/results/pkg/retention"
 
@@ -101,6 +103,17 @@ func main() {
 		}
 		sqlDB.SetMaxIdleConns(maxIdle)
 	}
+
+	if sqlDB == nil {
+		if sqlDB, err = db.DB(); err != nil {
+			log.Fatalf("Error getting database handle: %v", err)
+		}
+	}
+	schema, err := migrations.CheckAtStartup(context.Background(), sqlDB, serverConfig.DB_SCHEMA_REQUIRED_VERSION_OVERRIDE, log.Warnf)
+	if err != nil {
+		log.Fatalf("Database schema is not compatible with this release: %v", err)
+	}
+	log.Infof("Database schema version %d (dirty=%t) is compatible", schema.Version, schema.Dirty)
 
 	if _, err := retention.NewAgent(db); err != nil {
 		log.Fatalf("Failed to start Retention Agent: %v", err)

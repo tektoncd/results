@@ -134,6 +134,56 @@ jobs:
         working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
         run: ./test/presubmit-tests.sh --build-tests
 
+  db-migrations:
+    name: Database Migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: ${{ github.workspace }}/src/github.com/tektoncd/results
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          cache-dependency-path: src/github.com/tektoncd/results/go.sum
+          go-version-file: src/github.com/tektoncd/results/go.mod
+
+      # Released migrations may already be applied to user databases, so they
+      # must never change. Fixes go into a new migration.
+      - name: Check published migrations are unchanged
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only --diff-filter=DMRT "${BASE_SHA}...HEAD" -- 'pkg/api/server/db/migrations/*.sql')
+          if [ -n "${changed}" ]; then
+            echo "::error::Existing migration files must not be modified, renamed or deleted; add a new migration instead:"
+            echo "${changed}"
+            exit 1
+          fi
+
+      - name: Run migration tests against Postgres
+        working-directory: ${{ github.workspace }}/src/github.com/tektoncd/results
+        env:
+          DB_URL: host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable
+        run: go test -tags=e2e -count=1 ./pkg/api/server/db/migrations/...
+
   ci-summary:
     name: CI summary
     if: ${{ always() && !inputs.skip-ci-summary }}
@@ -141,6 +191,7 @@ jobs:
       - unit-tests
       - integration-tests
       - build-tests
+      - db-migrations
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

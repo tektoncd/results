@@ -25,7 +25,6 @@ import (
 	"github.com/google/uuid"
 	cw "github.com/jonboulle/clockwork"
 	resultscel "github.com/tektoncd/results/pkg/api/server/cel"
-	model "github.com/tektoncd/results/pkg/api/server/db"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth"
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/plugin"
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
@@ -90,12 +89,6 @@ func New(config *config.Config, logger *zap.SugaredLogger, db *gorm.DB, opts ...
 
 	for _, o := range opts {
 		o(srv)
-	}
-
-	if config.DB_ENABLE_AUTO_MIGRATION {
-		if err := db.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
-			return nil, fmt.Errorf("error automigrating DB: %w", err)
-		}
 	}
 
 	pluginServer, err := plugin.NewLogServer(srv.config, srv.logger, srv.auth, srv.db)

@@ -7,26 +7,29 @@ import (
 )
 
 type Config struct {
-	DB_USER                  string `mapstructure:"DB_USER"`
-	DB_PASSWORD              string `mapstructure:"DB_PASSWORD"`
-	DB_HOST                  string `mapstructure:"DB_HOST"`
-	DB_PORT                  string `mapstructure:"DB_PORT"`
-	DB_NAME                  string `mapstructure:"DB_NAME"`
-	DB_SSLMODE               string `mapstructure:"DB_SSLMODE"`
-	DB_SSLROOTCERT           string `mapstructure:"DB_SSLROOTCERT"`
-	DB_ENABLE_AUTO_MIGRATION bool   `mapstructure:"DB_ENABLE_AUTO_MIGRATION"`
-	DB_MAX_IDLE_CONNECTIONS  int    `mapstructure:"DB_MAX_IDLE_CONNECTIONS"`
-	DB_MAX_OPEN_CONNECTIONS  int    `mapstructure:"DB_MAX_OPEN_CONNECTIONS"`
-	SERVER_PORT              string `mapstructure:"SERVER_PORT"`
-	PROMETHEUS_PORT          string `mapstructure:"PROMETHEUS_PORT"`
-	PROMETHEUS_HISTOGRAM     bool   `mapstructure:"PROMETHEUS_HISTOGRAM"`
-	LOG_LEVEL                string `mapstructure:"LOG_LEVEL"`
-	SQL_LOG_LEVEL            string `mapstructure:"SQL_LOG_LEVEL"`
-	TLS_PATH                 string `mapstructure:"TLS_PATH"`
-	TLS_MIN_VERSION          string `mapstructure:"TLS_MIN_VERSION"`
-	TLS_CIPHER_SUITES        string `mapstructure:"TLS_CIPHER_SUITES"`
-	TLS_CURVE_PREFERENCES    string `mapstructure:"TLS_CURVE_PREFERENCES"`
-	FEATURE_GATES            string `mapstructure:"FEATURE_GATES"`
+	DB_USER                 string `mapstructure:"DB_USER"`
+	DB_PASSWORD             string `mapstructure:"DB_PASSWORD"`
+	DB_HOST                 string `mapstructure:"DB_HOST"`
+	DB_PORT                 string `mapstructure:"DB_PORT"`
+	DB_NAME                 string `mapstructure:"DB_NAME"`
+	DB_SSLMODE              string `mapstructure:"DB_SSLMODE"`
+	DB_SSLROOTCERT          string `mapstructure:"DB_SSLROOTCERT"`
+	DB_MAX_IDLE_CONNECTIONS int    `mapstructure:"DB_MAX_IDLE_CONNECTIONS"`
+	DB_MAX_OPEN_CONNECTIONS int    `mapstructure:"DB_MAX_OPEN_CONNECTIONS"`
+	// DB_SCHEMA_REQUIRED_VERSION_OVERRIDE replaces the schema version this
+	// release requires when non-zero. It is an emergency setting for a release
+	// whose required version is wrong; see docs/database-migrations.md.
+	DB_SCHEMA_REQUIRED_VERSION_OVERRIDE uint   `mapstructure:"DB_SCHEMA_REQUIRED_VERSION_OVERRIDE"`
+	SERVER_PORT                         string `mapstructure:"SERVER_PORT"`
+	PROMETHEUS_PORT                     string `mapstructure:"PROMETHEUS_PORT"`
+	PROMETHEUS_HISTOGRAM                bool   `mapstructure:"PROMETHEUS_HISTOGRAM"`
+	LOG_LEVEL                           string `mapstructure:"LOG_LEVEL"`
+	SQL_LOG_LEVEL                       string `mapstructure:"SQL_LOG_LEVEL"`
+	TLS_PATH                            string `mapstructure:"TLS_PATH"`
+	TLS_MIN_VERSION                     string `mapstructure:"TLS_MIN_VERSION"`
+	TLS_CIPHER_SUITES                   string `mapstructure:"TLS_CIPHER_SUITES"`
+	TLS_CURVE_PREFERENCES               string `mapstructure:"TLS_CURVE_PREFERENCES"`
+	FEATURE_GATES                       string `mapstructure:"FEATURE_GATES"`
 
 	GRPC_WORKER_POOL int `mapstructure:"GRPC_WORKER_POOL"`
 	K8S_QPS          int `mapstructure:"K8S_QPS"`
@@ -87,6 +90,10 @@ func Get() *Config {
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Error reading config: %v", err)
+	}
+
+	if viper.IsSet("DB_ENABLE_AUTO_MIGRATION") {
+		log.Print("DB_ENABLE_AUTO_MIGRATION is no longer supported and is ignored; the database schema is managed by `results-admin migrate-up`")
 	}
 
 	config := Config{}
