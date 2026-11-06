@@ -32,14 +32,12 @@ import (
 
 	"github.com/tektoncd/results/internal/fieldmask"
 
-	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"github.com/tektoncd/results/pkg/converter"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -59,7 +57,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	promclient "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tektoncd/results/pkg/api/server/config"
 	"github.com/tektoncd/results/pkg/api/server/logger"
@@ -77,6 +75,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/logging"
 )
 
 // profilingServerAddress returns the address to bind the profiling server to.
@@ -173,7 +172,7 @@ func main() {
 	}
 
 	// Retry database connection, sometimes the database is not ready to accept connection
-	ctx := context.Background()
+	ctx := logging.WithLogger(context.Background(), log)
 	err = wait.PollUntilContextTimeout(ctx, 10*time.Second, 2*time.Minute, true, func(pollCtx context.Context) (bool, error) {
 		connection, err := gorm.Open(postgres.Open(dbURI), gormConfig)
 		if err != nil {
@@ -239,14 +238,6 @@ func main() {
 
 	// Create the authorization authCheck
 	var authCheck auth.Checker
-	serverMuxOptions := []runtime.ServeMuxOption{runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
-		MarshalOptions: protojson.MarshalOptions{
-			UseProtoNames: true,
-		},
-		UnmarshalOptions: protojson.UnmarshalOptions{
-			DiscardUnknown: true,
-		},
-	})}
 	if serverConfig.AUTH_DISABLE {
 		log.Warn("Kubernetes RBAC authorization check disabled - all requests will be allowed by the API server")
 		authCheck = &auth.AllowAll{}
@@ -273,7 +264,6 @@ func main() {
 
 		if serverConfig.AUTH_IMPERSONATE {
 			log.Info("Kubernetes RBAC impersonation enabled")
-			serverMuxOptions = append(serverMuxOptions, runtime.WithIncomingHeaderMatcher(impersonation.HeaderMatcher))
 		}
 		authCheck = auth.NewRBAC(k8s, auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE))
 	}
@@ -368,51 +358,32 @@ func main() {
 		}
 	}()
 
-	// Load client TLS to dial gRPC
-	if tlsError == nil {
-		// This is an internal client to proxy request from the REST listener to gRPC listener.
-		// So we don't need certificate verification here, but we still use the same TLS profile
-		clientTLSConfig := serverTLSConfig.Clone()
-		clientTLSConfig.InsecureSkipVerify = true
-		creds = credentials.NewTLS(clientTLSConfig)
-	}
-
-	// Setup gRPC gateway to proxy request to gRPC health checks
-	clientConn, err := grpc.Dial(":"+serverConfig.SERVER_PORT, grpc.WithTransportCredentials(creds), grpc.WithNoProxy()) //nolint:staticcheck
-	if err != nil {
-		log.Fatalf("Error dialing gRPC endpoint: %v", err)
-	}
-	serverMuxOptions = append(serverMuxOptions,
-		runtime.WithHealthzEndpoint(healthpb.NewHealthClient(clientConn)),
-		runtime.WithMetadata(fieldmask.MetadataAnnotator),
-	)
-
-	// Create server for gRPC gateway
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var httpMux http.Handler
-	httpMux = runtime.NewServeMux(serverMuxOptions...)
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100 * 1024 * 1024)),
-		grpc.WithNoProxy(),
-	}
-
-	// Register gRPC server endpoint to gRPC gateway
-	err = v1alpha2pb.RegisterResultsHandlerFromEndpoint(ctx, httpMux.(*runtime.ServeMux), ":"+serverConfig.SERVER_PORT, opts)
-	if err != nil {
-		log.Fatal("Error registering gRPC server endpoint for Results API: ", err)
-	}
-
+	var opts []grpc.DialOption
 	if serverConfig.LOGS_API && !v1a2.LogPluginServer.IsLogPluginEnabled {
-		log.Info("Registering server endpoints for Logs v1alpha2 API")
-		err = v1alpha2pb.RegisterLogsHandlerFromEndpoint(ctx, httpMux.(*runtime.ServeMux), ":"+serverConfig.SERVER_PORT, opts)
-		if err != nil {
-			log.Fatal("Error registering gRPC server endpoints for Logs v1alpha2 API: ", err)
+		clientCreds := creds
+		if tlsError == nil {
+			// The deprecated Logs gateway uses the listener's TLS profile over loopback.
+			clientTLSConfig := serverTLSConfig.Clone()
+			clientTLSConfig.InsecureSkipVerify = true
+			clientCreds = credentials.NewTLS(clientTLSConfig)
+		}
+		opts = []grpc.DialOption{
+			grpc.WithTransportCredentials(clientCreds),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100 * 1024 * 1024)),
+			grpc.WithNoProxy(),
 		}
 	}
+	metrics, err := newRESTMetrics(promclient.DefaultRegisterer, serverConfig.PROMETHEUS_HISTOGRAM)
+	if err != nil {
+		log.Fatal("Error registering REST metrics: ", err)
+	}
 
-	httpMux = v1alpha2.Handler(httpMux, v1a2.LogPluginServer)
+	httpMux, err := newGateway(ctx, serverConfig, v1a2, hs, f.Get(features.PartialResponse), opts, metrics)
+	if err != nil {
+		log.Fatal("Error setting up REST gateway: ", err)
+	}
 
 	// Start server with gRPC and REST handler
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)

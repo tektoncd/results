@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
@@ -228,5 +230,19 @@ func UnaryServerInterceptor(enabled *atomic.Bool) grpc.UnaryServerInterceptor {
 		fm := FromMetadata(md)
 		fm.Filter(message)
 		return resp, err
+	}
+}
+
+// ForwardResponseFilter preserves response selection for direct Results gateway calls.
+// Legacy Logs still runs its native interceptors and must not be filtered again.
+func ForwardResponseFilter(enabled *atomic.Bool) func(context.Context, http.ResponseWriter, proto.Message) error {
+	return func(ctx context.Context, _ http.ResponseWriter, message proto.Message) error {
+		method, _ := runtime.RPCMethod(ctx)
+		if message == nil || !enabled.Load() || !strings.HasPrefix(method, "/tekton.results.v1alpha2.Results/") {
+			return nil
+		}
+		md, _ := metadata.FromIncomingContext(ctx)
+		FromMetadata(md).Filter(message)
+		return nil
 	}
 }
