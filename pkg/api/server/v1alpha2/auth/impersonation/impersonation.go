@@ -171,12 +171,22 @@ func unescapeExtraKey(encodedKey string) string {
 	return key
 }
 
+// ResourceAttributes returns the SubjectAccessReview attributes used to
+// authorize each impersonation header. Callers that cache SAR results can
+// key entries from these attributes.
+func (i *Impersonation) ResourceAttributes() []authorizationv1.ResourceAttributes {
+	return append([]authorizationv1.ResourceAttributes(nil), i.resourceAttributes...)
+}
+
 // Check checks if the requester has permission to impersonate every resource.
+// An Allowed decision is honored even when EvaluationError is also set, matching
+// Kubernetes authorizer semantics.
 func (i *Impersonation) Check(ctx context.Context, authorizer authorizationclient.AuthorizationV1Interface, requester string) error {
-	if i.resourceAttributes == nil {
+	attrs := i.ResourceAttributes()
+	if len(attrs) == 0 {
 		return ErrNoImpersonationData
 	}
-	for _, resourceAttribute := range i.resourceAttributes {
+	for _, resourceAttribute := range attrs {
 		sar, err := authorizer.SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{
 			Spec: authorizationv1.SubjectAccessReviewSpec{
 				User: requester,
@@ -193,9 +203,13 @@ func (i *Impersonation) Check(ctx context.Context, authorizer authorizationclien
 		if err != nil {
 			return err
 		}
-		if !sar.Status.Allowed {
-			return fmt.Errorf("forbidden: '%s' doesn't have permission to impersonate '%s'", requester, resourceAttribute.Resource)
+		if sar.Status.Allowed {
+			continue
 		}
+		if sar.Status.EvaluationError != "" {
+			return fmt.Errorf("subject access review evaluation error: %s", sar.Status.EvaluationError)
+		}
+		return fmt.Errorf("forbidden: '%s' doesn't have permission to impersonate '%s'", requester, resourceAttribute.Resource)
 	}
 
 	return nil

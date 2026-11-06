@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -13,6 +14,38 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
 )
+
+func Test_parseAuthCacheTTL(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  time.Duration
+		warn  bool
+	}{
+		{name: "empty uses default", value: "", want: 5 * time.Minute},
+		{name: "valid", value: "10m", want: 10 * time.Minute},
+		{name: "invalid falls back", value: "nope", want: 5 * time.Minute, warn: true},
+		{name: "non-positive falls back", value: "0s", want: 5 * time.Minute, warn: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var b bytes.Buffer
+			encoder := zapcore.NewJSONEncoder(zap.NewDevelopmentConfig().EncoderConfig)
+			logger := zap.New(zapcore.NewCore(encoder, zapcore.AddSync(&b), zapcore.WarnLevel)).Sugar()
+			got := parseAuthCacheTTL(logger, "AUTH_CACHE_AUTHN_TTL", tc.value)
+			if got != tc.want {
+				t.Fatalf("parseAuthCacheTTL(%q)=%v, want %v", tc.value, got, tc.want)
+			}
+			logged := b.String()
+			if tc.warn && logged == "" {
+				t.Fatal("expected warning log for fallback")
+			}
+			if !tc.warn && logged != "" {
+				t.Fatalf("unexpected warning logs: %s", logged)
+			}
+		})
+	}
+}
 
 func Test_determineAuth(t *testing.T) {
 	validToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.RegisteredClaims{

@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
@@ -33,7 +32,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	authnclient "k8s.io/client-go/kubernetes/typed/authentication/v1"
 	authzclient "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	"knative.dev/pkg/logging"
 )
+
+var errTokenNotAuthenticated = errors.New("token not authenticated")
 
 // RBAC is a Kubernetes RBAC based auth checker. This uses the Kubernetes
 // TokenReview and SubjectAccessReview APIs to defer auth decisions to the
@@ -45,6 +47,18 @@ type RBAC struct {
 	allowImpersonation bool
 	authn              authnclient.AuthenticationV1Interface
 	authz              authzclient.AuthorizationV1Interface
+
+	// Optional caches enabled by NewCachingChecker. Nil means caching is off.
+	authnCache *Cache
+	authzCache *Cache
+}
+
+// authnResult holds the authenticated user identity from a TokenReview.
+type authnResult struct {
+	Username string
+	UID      string
+	Groups   []string
+	Extra    map[string]authnv1.ExtraValue
 }
 
 // Option is configuration option for RBAC checker.
@@ -62,8 +76,187 @@ func NewRBAC(client kubernetes.Interface, options ...Option) *RBAC {
 	return rbac
 }
 
+// Stop shuts down auth cache cleanup goroutines when caching is enabled.
+func (r *RBAC) Stop() {
+	if r.authnCache != nil {
+		r.authnCache.Stop()
+	}
+	if r.authzCache != nil {
+		r.authzCache.Stop()
+	}
+}
+
+// AuthnCacheKeys returns authn cache keys for tests. Nil when caching is disabled.
+func (r *RBAC) AuthnCacheKeys() []string {
+	if r.authnCache == nil {
+		return nil
+	}
+	return r.authnCache.Keys()
+}
+
+// AuthzCacheKeys returns authz cache keys for tests. Nil when caching is disabled.
+func (r *RBAC) AuthzCacheKeys() []string {
+	if r.authzCache == nil {
+		return nil
+	}
+	return r.authzCache.Keys()
+}
+
+// authenticate validates a bearer token via the Kubernetes TokenReview API
+// and returns the authenticated user's identity. When caching is enabled,
+// successful and definitive unauthenticated results are cached. Transport
+// failures and TokenReview Status.Error responses are not cached so transient
+// auth-backend outages are retried.
+func (r *RBAC) authenticate(ctx context.Context, token string) (*authnResult, error) {
+	tokenHash := hashString(token)
+	if r.authnCache != nil {
+		if cached, ok := r.authnCache.Get(tokenHash); ok {
+			if cached == nil {
+				return nil, errTokenNotAuthenticated
+			}
+			return cached.(*authnResult), nil
+		}
+	}
+
+	tr, err := r.authn.TokenReviews().Create(ctx, &authnv1.TokenReview{
+		Spec: authnv1.TokenReviewSpec{
+			Token: token,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		// Do not cache transport / API-server errors.
+		return nil, fmt.Errorf("token review failed: %w", err)
+	}
+	if !tr.Status.Authenticated {
+		// Status.Error means the token could not be checked (transient).
+		// Do not negative-cache that outcome.
+		if tr.Status.Error != "" {
+			return nil, fmt.Errorf("token review error: %s", tr.Status.Error)
+		}
+		if r.authnCache != nil {
+			r.authnCache.Set(tokenHash, nil)
+		}
+		return nil, errTokenNotAuthenticated
+	}
+
+	result := &authnResult{
+		Username: tr.Status.User.Username,
+		UID:      tr.Status.User.UID,
+		Groups:   tr.Status.User.Groups,
+		Extra:    tr.Status.User.Extra,
+	}
+	if r.authnCache != nil {
+		r.authnCache.Set(tokenHash, result)
+	}
+	return result, nil
+}
+
+// authorize checks whether the given user is allowed to perform the specified
+// action via the Kubernetes SubjectAccessReview API. When caching is enabled,
+// definitive allow/deny results are cached. An Allowed decision is honored even
+// when EvaluationError is also set. Pure EvaluationError responses (no allow)
+// are not cached so transient authorizer failures are retried.
+func (r *RBAC) authorize(ctx context.Context, user, uid string, groups []string, extra map[string]authzv1.ExtraValue, namespace, resource, verb string) (bool, error) {
+	attrs := ResourceAttributesFrom(ctx)
+	key := buildAuthzKey(user, uid, groups, extra, namespace, attrs.Group, attrs.Version, resource, attrs.Name, attrs.Subresource, verb)
+	if r.authzCache != nil {
+		if cached, ok := r.authzCache.Get(key); ok {
+			return cached.(bool), nil
+		}
+	}
+
+	sar, err := r.authz.SubjectAccessReviews().Create(ctx, &authzv1.SubjectAccessReview{
+		Spec: authzv1.SubjectAccessReviewSpec{
+			User:   user,
+			UID:    uid,
+			Groups: groups,
+			Extra:  extra,
+			ResourceAttributes: &authzv1.ResourceAttributes{
+				Namespace:   namespace,
+				Group:       attrs.Group,
+				Version:     attrs.Version,
+				Resource:    resource,
+				Name:        attrs.Name,
+				Subresource: attrs.Subresource,
+				Verb:        verb,
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return false, err
+	}
+	if sar.Status.Allowed {
+		if r.authzCache != nil {
+			r.authzCache.Set(key, true)
+		}
+		return true, nil
+	}
+	if sar.Status.EvaluationError != "" {
+		// Do not cache authorizer timeouts / partial failures.
+		return false, fmt.Errorf("subject access review evaluation error: %s", sar.Status.EvaluationError)
+	}
+
+	if r.authzCache != nil {
+		r.authzCache.Set(key, false)
+	}
+	return false, nil
+}
+
+// checkImpersonation verifies the requester may impersonate each requested
+// identity. When caching is enabled, each impersonation SAR is cached under a
+// structured key derived from the requester and ResourceAttributes.
+func (r *RBAC) checkImpersonation(ctx context.Context, impersonator *impersonation.Impersonation, requester string) error {
+	attrs := impersonator.ResourceAttributes()
+	if len(attrs) == 0 {
+		return impersonation.ErrNoImpersonationData
+	}
+	for _, ra := range attrs {
+		key := buildImpersonationAuthzKey(requester, ra)
+		if r.authzCache != nil {
+			if cached, ok := r.authzCache.Get(key); ok {
+				if !cached.(bool) {
+					return fmt.Errorf("forbidden: '%s' doesn't have permission to impersonate '%s'", requester, ra.Resource)
+				}
+				continue
+			}
+		}
+
+		sar, err := r.authz.SubjectAccessReviews().Create(ctx, &authzv1.SubjectAccessReview{
+			Spec: authzv1.SubjectAccessReviewSpec{
+				User: requester,
+				ResourceAttributes: &authzv1.ResourceAttributes{
+					Group:       ra.Group,
+					Name:        ra.Name,
+					Namespace:   ra.Namespace,
+					Resource:    ra.Resource,
+					Subresource: ra.Subresource,
+					Verb:        ra.Verb,
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		if sar.Status.Allowed {
+			if r.authzCache != nil {
+				r.authzCache.Set(key, true)
+			}
+			continue
+		}
+		if sar.Status.EvaluationError != "" {
+			return fmt.Errorf("subject access review evaluation error: %s", sar.Status.EvaluationError)
+		}
+		if r.authzCache != nil {
+			r.authzCache.Set(key, false)
+		}
+		return fmt.Errorf("forbidden: '%s' doesn't have permission to impersonate '%s'", requester, ra.Resource)
+	}
+	return nil
+}
+
 // Check determines if resource can be accessed with impersonation metadata stored in the context.
 func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) error {
+	logger := logging.FromContext(ctx)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return status.Error(codes.Unauthenticated, "unable to get context metadata")
@@ -77,7 +270,7 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		// Ignore ErrorNoImpersonationData errors. This means that the request does not have any
 		// impersonation headers and should be processed normally.
 		if err != nil && !errors.Is(err, impersonation.ErrNoImpersonationData) {
-			log.Println(err)
+			logger.Warnw("Invalid impersonation data", "error", err)
 			return status.Error(codes.Unauthenticated, "invalid impersonation data")
 		}
 	}
@@ -99,66 +292,51 @@ func (r *RBAC) Check(ctx context.Context, namespace, resource, verb string) erro
 		// We expect tokens to be in the form "Bearer <token>". Parse the token out.
 		s := strings.SplitN(raw, " ", 2)
 		if len(s) < 2 {
-			log.Println("unknown auth token format")
+			logger.Debug("Unknown authorization header format")
 			continue
 		}
 		t := s[1]
 
-		// Authenticate the token by sending it to the API Server for review.
-		tr, err := r.authn.TokenReviews().Create(ctx, &authnv1.TokenReview{
-			Spec: authnv1.TokenReviewSpec{
-				Token: t,
-			},
-		}, metav1.CreateOptions{})
+		authn, err := r.authenticate(ctx, t)
 		if err != nil {
-			log.Println(err)
-			continue
-		}
-		if !tr.Status.Authenticated {
+			logger.Debugw("Authentication failed", "error", err)
 			continue
 		}
 
-		user := tr.Status.User.Username
-		UID := tr.Status.User.UID
-		groups := tr.Status.User.Groups
-		extra := convertExtra[authnv1.ExtraValue](tr.Status.User.Extra)
+		user := authn.Username
+		uid := authn.UID
+		groups := authn.Groups
+		extra := convertExtra[authnv1.ExtraValue](authn.Extra)
 
-		// Check whether the authenticated user has permission to impersonate
+		// Check whether the authenticated user has permission to impersonate.
+		// Impersonation SARs share the authz cache when caching is enabled.
 		if impersonator != nil {
-			if err := impersonator.Check(ctx, r.authz, user); err != nil {
-				log.Println(err)
+			if err := r.checkImpersonation(ctx, impersonator, user); err != nil {
+				logger.Warnw("Impersonation authorization failed", "error", err, "user", user)
 				retMsg = fmt.Sprintf("%s: %s", retMsg, err.Error())
 				return status.Error(codes.Unauthenticated, retMsg)
 			}
 			// Change user data to impersonated user
 			userInfo := impersonator.GetUserInfo()
 			user = userInfo.GetName()
-			UID = userInfo.GetUID()
+			uid = userInfo.GetUID()
 			groups = userInfo.GetGroups()
 			extra = convertExtra[[]string](userInfo.GetExtra())
 		}
 
-		// Authorize the request by checking the RBAC permissions for the resource.
-		sar, err := r.authz.SubjectAccessReviews().Create(ctx, &authzv1.SubjectAccessReview{
-			Spec: authzv1.SubjectAccessReviewSpec{
-				User:   user,
-				UID:    UID,
-				Groups: groups,
-				Extra:  extra,
-				ResourceAttributes: &authzv1.ResourceAttributes{
-					Namespace: namespace,
-					Group:     "results.tekton.dev",
-					Resource:  resource,
-					Verb:      verb,
-				},
-			},
-		}, metav1.CreateOptions{})
+		allowed, err := r.authorize(ctx, user, uid, groups, extra, namespace, resource, verb)
 		if err != nil {
 			retMsg = fmt.Sprintf("%s user %q in groups %q employing %q against %q: %s", retMsg, user, groups, verb, resource, err.Error())
-			log.Println(err)
+			logger.Warnw("Authorization check failed",
+				"error", err,
+				"user", user,
+				"groups", groups,
+				"verb", verb,
+				"resource", resource,
+			)
 			continue
 		}
-		if sar.Status.Allowed {
+		if allowed {
 			return nil
 		}
 	}
