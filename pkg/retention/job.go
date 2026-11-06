@@ -44,21 +44,31 @@ func (a *Agent) stop() {
 }
 
 func (a *Agent) job() {
-	a.Logger.Infof("retention job started at: %s, retention policy: %+v", time.Now().String(), a.RetentionPolicy)
+	// The configuration is snapshotted once so that a ConfigMap update landing
+	// while the job runs cannot be picked up halfway through it.
+	cfg := a.snapshotConfig()
 
-	caseStatement, err := buildCaseStatement(a.Policies, a.DefaultRetention)
+	a.Logger.Infof("retention job started at: %s, retention policy: %+v", time.Now().String(), cfg)
+
+	// First, remove the data of the namespaces that no longer exist in the
+	// cluster, when enabled. It runs before the age based cleanup.
+	if cfg.NamespaceCleanup.Enabled {
+		a.cleanupDeletedNamespaces(cfg.NamespaceCleanup)
+	}
+
+	caseStatement, err := buildCaseStatement(cfg.Policies, cfg.DefaultRetention)
 	if err != nil {
 		a.Logger.Errorf("failed to build case statement: %v", err)
 		return
 	}
 
-	// First, clean up PipelineRun results.
+	// Then, clean up PipelineRun results.
 	a.cleanupResults(caseStatement, "tekton.dev/v1.PipelineRun")
 
-	// Second, clean up top-level TaskRun results.
+	// Next, clean up top-level TaskRun results.
 	a.cleanupResults(caseStatement, "tekton.dev/v1.TaskRun")
 
-	// Third, clean up top-level CustomRun results.
+	// Finally, clean up top-level CustomRun results.
 	a.cleanupResults(caseStatement, "tekton.dev/v1beta1.CustomRun")
 
 	a.Logger.Infof("retention job finished at: %s", time.Now().String())
