@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/results/pkg/api/server/db"
 	_ "github.com/tektoncd/results/pkg/api/server/db/errors/postgres"
