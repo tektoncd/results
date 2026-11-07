@@ -44,8 +44,17 @@ type mixedParams struct {
 func runMixed(ctx context.Context, gc pb.ResultsClient, live, seed *generator.Generator, p mixedParams) *metrics.MetricSet {
 	writers, readers := splitWorkers(p.Concurrency, p.ReadRatio, p.WriteRatio)
 
-	runCtx, cancel := context.WithTimeout(ctx, p.Duration)
-	defer cancel()
+	runCtx := ctx
+	if p.Duration > 0 {
+		var cancel context.CancelFunc
+		runCtx, cancel = context.WithTimeout(ctx, p.Duration)
+		defer cancel()
+	}
+
+	readerCtx, stopReaders := context.WithCancel(runCtx)
+	defer stopReaders()
+
+	var writerWG, readerWG sync.WaitGroup
 
 	total := metrics.NewMetricSet()
 	total.Start()
@@ -64,9 +73,9 @@ func runMixed(ctx context.Context, gc pb.ResultsClient, live, seed *generator.Ge
 	var nextIndex int64 = -1
 	liveCount := live.Count()
 	for w := 0; w < writers; w++ {
-		wg.Add(1)
+		writerWG.Add(1)
 		go func() {
-			defer wg.Done()
+			defer writerWG.Done()
 			ws := metrics.NewMetricSet()
 			addSet(ws)
 			for runCtx.Err() == nil {
@@ -89,20 +98,26 @@ func runMixed(ctx context.Context, gc pb.ResultsClient, live, seed *generator.Ge
 	namespaces := seed.Config().Namespaces
 	l := grpcLister{c: gc}
 	for r := 0; r < readers; r++ {
-		wg.Add(1)
+		readerWG.Add(1)
 		go func(readerID int) {
-			defer wg.Done()
+			defer readerWG.Done()
 			rs := metrics.NewMetricSet()
 			addSet(rs)
-			for iter := 0; runCtx.Err() == nil; iter++ {
+			for iter := 0; readerCtx.Err() == nil; iter++ {
 				q := queries[iter%len(queries)]
 				ns := namespaces[(readerID+iter)%len(namespaces)]
-				runQuery(runCtx, l, q, ns, p.PageSize, rs)
+				runQuery(readerCtx, l, q, ns, p.PageSize, rs)
 			}
 		}(r)
 	}
 
-	wg.Wait()
+	writerWG.Wait()
+
+	if p.Duration == 0 {
+		stopReaders()
+	}
+
+	readerWG.Wait()
 	total.Stop()
 	for _, s := range sets {
 		total.Merge(s)

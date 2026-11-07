@@ -75,8 +75,13 @@ func runTimed(ctx context.Context, concurrency int, duration time.Duration, fn t
 	if concurrency < 1 {
 		concurrency = 1
 	}
-	runCtx, cancel := context.WithTimeout(ctx, duration)
-	defer cancel()
+
+	runCtx := ctx
+	if duration > 0 {
+		var cancel context.CancelFunc
+		runCtx, cancel = context.WithTimeout(ctx, duration)
+		defer cancel()
+	}
 
 	total := metrics.NewMetricSet()
 	sets := make([]*metrics.MetricSet, concurrency)

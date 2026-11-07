@@ -46,8 +46,6 @@ import (
 	"github.com/tektoncd/results/test/performance/report"
 )
 
-const defaultReadDuration = 30 * time.Second
-
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -333,9 +331,6 @@ func listerPicker(transport string, clients *APIClients) (func(iter int) lister,
 
 // readDuration returns the configured duration, defaulting when unset.
 func readDuration(cfg *RunConfig) time.Duration {
-	if cfg.DurationSec <= 0 {
-		return defaultReadDuration
-	}
 	return time.Duration(cfg.DurationSec) * time.Second
 }
 
