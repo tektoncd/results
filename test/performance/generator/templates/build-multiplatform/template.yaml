@@ -1,0 +1,11 @@
+id: build-multiplatform
+weight: 1.0
+childTaskRuns:
+  min: 5
+  max: 10
+description: >-
+  Multi-platform ML/AI base image build with CUDA support. Builds for
+  linux/arm64 and linux/x86_64 with hermetic dependency prefetching
+  (RPM + pip packages). Includes security scanning and SBOM generation.
+  Smaller child count than docker-build but similar complexity with
+  platform-specific builds and AI/ML toolchain requirements.

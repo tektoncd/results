@@ -1,0 +1,121 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/org/repo/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/event-type: Merge Request
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/repository: example-com-org-repo
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+  creationTimestamp: "2026-09-09T12:25:07Z"
+  finalizers:
+  - chains.tekton.dev/taskrun
+  - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    appstudio.openshift.io/application: ml-application
+    appstudio.openshift.io/component: ml-base-image
+    pipelines.appstudio.openshift.io/type: build
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: ml-container-build
+    tekton.dev/pipelineRun: ml-ml-base-image-on-pull-request-xyz12
+    tekton.dev/pipelineTask: init
+    tekton.dev/task: init
+  name: ml-ml-base-image-on-pull-request-xyz12-init
+  namespace: build-tenant
+  ownerReferences:
+  - apiVersion: tekton.dev/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: PipelineRun
+    name: ml-ml-base-image-on-pull-request-xyz12
+    uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9855241850"
+  uid: 00000000-0000-0000-0000-000000000001
+spec:
+  params:
+  - name: enable-cache-proxy
+    value: "false"
+  serviceAccountName: build-pipeline-ml-base-image
+  taskRef:
+    params:
+    - name: name
+      value: init
+    - name: bundle
+      value: quay.io/konflux-ci/tekton-catalog/task-init:0.4.3@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: kind
+      value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  completionTime: "2026-09-09T12:25:12Z"
+  conditions:
+  - lastTransitionTime: "2026-09-09T12:25:12Z"
+    message: All Steps have completed executing
+    reason: Succeeded
+    status: "True"
+    type: Succeeded
+  podName: ml-ml-base-image-on-pull-request-xyz12-init-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      enableAPIFields: alpha
+      enableProvenanceInStatus: true
+  results:
+  - name: http-proxy
+    type: string
+    value: ""
+  - name: no-proxy
+    type: string
+    value: ""
+  startTime: "2026-09-09T12:25:07Z"
+  steps:
+  - container: step-init
+    imageID: quay.io/konflux-ci/konflux-build-cli@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    name: init
+    terminated:
+      containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+      exitCode: 0
+      finishedAt: "2026-09-09T12:25:11Z"
+      message: '[{"key":"http-proxy","value":"","type":1},{"key":"no-proxy","value":"","type":1}]'
+      reason: Completed
+      startedAt: "2026-09-09T12:25:11Z"
+  taskSpec:
+    description: Initialize Pipeline Task
+    params:
+    - default: "false"
+      description: Enable cache proxy configuration
+      name: enable-cache-proxy
+      type: string
+    results:
+    - description: HTTP proxy URL
+      name: http-proxy
+      type: string
+    - description: NO_PROXY value
+      name: no-proxy
+      type: string
+    steps:
+    - args:
+      - --enable
+      - "false"
+      command:
+      - konflux-build-cli
+      - config
+      - cache-proxy
+      computeResources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      image: quay.io/konflux-ci/konflux-build-cli:latest
+      name: init

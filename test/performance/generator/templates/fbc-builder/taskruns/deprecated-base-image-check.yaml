@@ -1,0 +1,390 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://example.com/perf/perf-tenant/-/tree/0000000000000000000000000000000000000000
+    build.appstudio.redhat.com/commit_sha: "0000000000000000000000000000000000000000"
+    build.appstudio.redhat.com/target_branch: main
+    kueue.konflux-ci.dev/requests-konflux-ci-dev-token: "1"
+    pipeline.tekton.dev/release: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/branch: main
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/controller-info: '{"name":"default","configmap":"pipelines-as-code","secret":"pipelines-as-code-secret", "gRepo": "pipelines-as-code"}'
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/git-auth-secret: pac-gitauth-vposhg
+    pipelinesascode.tekton.dev/git-provider: gitlab
+    pipelinesascode.tekton.dev/gitlab-pipeline-id: "0"
+    pipelinesascode.tekton.dev/log-url: https://konflux-ui.apps.example.com/ns/perf-tenant/pipelinerun/perf-tenant-v0-on-push-rgqnb
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"  && ( "catalog/v5.0/***".pathChanged() || ".tekton/perf-tenant-v0-push.yaml".pathChanged()  || ".tekton/fbc-build-pipeline.yaml".pathChanged())
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/scm-reporting-plr-started: "true"
+    pipelinesascode.tekton.dev/secret-created: "true"
+    pipelinesascode.tekton.dev/sender: perf-user
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/sha-title: Merge branch 'add-fbc-v5.0-pipelines' into 'main'
+    pipelinesascode.tekton.dev/sha-url: https://example.com/perf/perf-tenant/-/commit/0000000000000000000000000000000000000000
+    pipelinesascode.tekton.dev/source-branch: refs/heads/main
+    pipelinesascode.tekton.dev/source-project-id: "0"
+    pipelinesascode.tekton.dev/source-repo-url: https://example.com/perf/perf-tenant
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/target-project-id: "0"
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    results.tekton.dev/childReadyForDeletion: "true"
+    results.tekton.dev/record: perf-tenant/results/00000000-0000-0000-0000-000000000000/records/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/recordSummaryAnnotations: '{"repo":"perf-operator","commit":"0000000000000000000000000000000000000000","eventType":"push"}'
+    results.tekton.dev/result: perf-tenant/results/00000000-0000-0000-0000-000000000000
+    results.tekton.dev/stored: "true"
+    tekton.dev/pipelines.minVersion: 0.12.1
+    tekton.dev/tags: konflux
+    tekton.dev/taskrunSpanContext: '{"traceparent":"00-00000000000000000000000000000000-0000000000000000-01"}'
+  creationTimestamp: "2026-09-02T20:56:59Z"
+  finalizers:
+    - chains.tekton.dev/taskrun
+    - results.tekton.dev/taskrun
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: pipelinesascode.tekton.dev
+    app.kubernetes.io/version: v0.49.0
+    appstudio.openshift.io/application: perf-tenant-v0
+    appstudio.openshift.io/component: perf-tenant-v0
+    kueue.x-k8s.io/priority-class: konflux-post-merge-build
+    kueue.x-k8s.io/queue-name: pipelines-queue
+    pipelines.appstudio.openshift.io/type: build
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/event-type: push
+    pipelinesascode.tekton.dev/original-prname: perf-tenant-v0-on-push
+    pipelinesascode.tekton.dev/repository: perf-project-clone
+    pipelinesascode.tekton.dev/sha: "0000000000000000000000000000000000000000"
+    pipelinesascode.tekton.dev/state: queued
+    pipelinesascode.tekton.dev/url-org: perf
+    pipelinesascode.tekton.dev/url-repository: perf-operator
+    tekton.dev/memberOf: tasks
+    tekton.dev/pipeline: perf-tenant-v0-on-push
+    tekton.dev/pipelineRun: perf-tenant-v0-on-push-rgqnb
+    tekton.dev/pipelineRunUID: 00000000-0000-0000-0000-000000000000
+    tekton.dev/pipelineTask: deprecated-base-image-check
+    tekton.dev/task: deprecated-image-check
+  name: perf-tenant-v0-on-push-rgqnb-deprecated-base-image-check
+  namespace: perf-tenant
+  ownerReferences:
+    - apiVersion: tekton.dev/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: PipelineRun
+      name: perf-tenant-v0-on-push-rgqnb
+      uid: 00000000-0000-0000-0000-000000000000
+  resourceVersion: "9772747875"
+  uid: 00000000-0000-0000-0000-000000000000
+spec:
+  params:
+    - name: IMAGE_URL
+      value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  podTemplate:
+    nodeSelector:
+      konflux-ci.dev/workload: konflux-tenants
+    tolerations:
+      - effect: NoSchedule
+        key: konflux-ci.dev/workload
+        operator: Equal
+        value: konflux-tenants
+  serviceAccountName: build-pipeline-perf-tenant-v0
+  taskRef:
+    params:
+      - name: name
+        value: deprecated-image-check
+      - name: bundle
+        value: quay.io/konflux-ci/tekton-catalog/task-deprecated-image-check:0.5@sha256:0ccc688a77e9b7b0b8973c132a1e840844137e77f887be4a0bec8893b0776872
+      - name: kind
+        value: task
+    resolver: bundles
+  timeout: 2h0m0s
+status:
+  artifacts: {}
+  completionTime: "2026-09-02T20:57:19Z"
+  conditions:
+    - lastTransitionTime: "2026-09-02T20:57:19Z"
+      message: All Steps have completed executing
+      reason: Succeeded
+      status: "True"
+      type: Succeeded
+  podName: perf-tenant-v0-on-pu5558d17f8e5bb5df1e964e97f4519393-pod
+  provenance:
+    featureFlags:
+      awaitSidecarReadiness: true
+      coschedule: workspaces
+      enableAPIFields: alpha
+      enableParamEnum: true
+      enableProvenanceInStatus: true
+      enforceNonfalsifiability: none
+      maxResultSize: 4096
+      resultExtractionMethod: termination-message
+      runningInEnvWithInjectedSidecars: true
+      verificationNoMatchPolicy: ignore
+    refSource:
+      digest:
+        sha256: 0ccc688a77e9b7b0b8973c132a1e840844137e77f887be4a0bec8893b0776872
+      entryPoint: deprecated-image-check
+      uri: quay.io/konflux-ci/tekton-catalog/task-deprecated-image-check
+  results:
+    - name: IMAGES_PROCESSED
+      type: string
+      value: |
+        {"image": {"pullspec": "quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000", "digests": ["sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000","sha256:0000000000000000000000000000000000000000000000000000000000000000"]}}
+    - name: TEST_OUTPUT
+      type: string
+      value: |
+        {"result":"WARNING","timestamp":"2026-09-02T20:57:18+00:00","note":"Task deprecated-image-check completed: Check result for task result.","namespace":"required_checks","successes":0,"failures":0,"warnings":1}
+  spanContext:
+    traceparent: 00-00000000000000000000000000000000-0000000000000000-01
+  startTime: "2026-09-02T20:56:59Z"
+  steps:
+    - container: step-check-images
+      imageID: quay.io/konflux-ci/konflux-test@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+      name: check-images
+      provenance: {}
+      terminated:
+        containerID: cri-o://0000000000000000000000000000000000000000000000000000000000000000
+        exitCode: 0
+        finishedAt: "2026-09-02T20:57:18Z"
+        message: '[{"key":"IMAGES_PROCESSED","value":"{\"image\": {\"pullspec\": \"quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000\", \"digests\": [\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"sha256:0000000000000000000000000000000000000000000000000000000000000000\"]}}\n","type":1},{"key":"TEST_OUTPUT","value":"{\"result\":\"WARNING\",\"timestamp\":\"2026-09-02T20:57:18+00:00\",\"note\":\"Task deprecated-image-check completed: Check result for task result.\",\"namespace\":\"required_checks\",\"successes\":0,\"failures\":0,\"warnings\":1}\n","type":1}]'
+        reason: Completed
+        startedAt: "2026-09-02T20:57:03Z"
+      terminationReason: Completed
+  taskSpec:
+    description: Identifies the unmaintained and potentially insecure deprecated base images. Pyxis API collects metadata from image repository, and Conftest applies supplied policy to identify the deprecated images using that metadata.
+    params:
+      - default: /project/repository/
+        description: Path to directory containing Conftest policies.
+        name: POLICY_DIR
+        type: string
+      - default: required_checks
+        description: Namespace for Conftest policy.
+        name: POLICY_NAMESPACE
+        type: string
+      - default: ""
+        description: Digests of base build images.
+        name: BASE_IMAGES_DIGESTS
+        type: string
+      - description: Fully qualified image name.
+        name: IMAGE_URL
+        type: string
+      - description: Image digest.
+        name: IMAGE_DIGEST
+        type: string
+      - default: trusted-ca
+        description: The name of the ConfigMap to read CA bundle data from.
+        name: CA_TRUST_CONFIG_MAP_NAME
+        type: string
+      - default: ca-bundle.crt
+        description: The name of the key in the ConfigMap that contains the CA bundle data.
+        name: CA_TRUST_CONFIG_MAP_KEY
+        type: string
+    results:
+      - description: Tekton task test output.
+        name: TEST_OUTPUT
+        type: string
+      - description: Images processed in the task.
+        name: IMAGES_PROCESSED
+        type: string
+    steps:
+      - computeResources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        env:
+          - name: POLICY_DIR
+            value: /project/repository/
+          - name: POLICY_NAMESPACE
+            value: required_checks
+          - name: BASE_IMAGES_DIGESTS
+          - name: IMAGE_URL
+            value: quay.io/redhat-user-workloads/perf-tenant/perf/perf-tenant-v0:0000000000000000000000000000000000000000
+          - name: IMAGE_DIGEST
+            value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        image: quay.io/konflux-ci/konflux-test:v1.5.4@sha256:dae74bf0d6fc349d3ae140d9e3a921ad5009fdf8dade3186bfd9b65fbe3a365b
+        name: check-images
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          # shellcheck disable=SC1091 # /utils.sh is only available in the container image at runtime
+          source /utils.sh
+          trap 'handle_error /tekton/results/TEST_OUTPUT' EXIT
+
+          IMAGES_TO_BE_PROCESSED_PATH="/tmp/images_to_be_processed.txt"
+          touch /tmp/images_to_be_processed.txt
+
+          success_counter=0
+          failure_counter=0
+          error_counter=0
+          warnings_counter=0
+
+          images_processed_template='{"image": {"pullspec": "'"$IMAGE_URL"'", "digests": [%s]}}'
+          digests_processed=()
+
+          imagewithouttag=$(echo -n "$IMAGE_URL" | sed "s/\(.*\):.*/\1/")
+          # strip new-line escape symbol from parameter and save it to variable
+          imageanddigest="${imagewithouttag}@${IMAGE_DIGEST}"
+
+          # Get the arch and image manifests by inspecting the image. This is mainly for identifying image indexes
+          image_manifests=$(get_image_manifests -i "${imageanddigest}")
+          if [ -n "$image_manifests" ]; then
+            while read -r arch arch_sha; do
+              SBOM_FILE_PATH="/tmp/sbom-${arch}.json"
+              arch_imageanddigest="${imagewithouttag}@${arch_sha}"
+
+              # Pre-select the correct credentials to work around cosign not supporting the containers-auth.json spec
+              mkdir -p /tmp/auth && select-oci-auth "${arch_imageanddigest}" >/tmp/auth/config.json
+              export DOCKER_CONFIG=/tmp/auth
+
+              # Get base images from SBOM
+              if ! cosign download sbom "$arch_imageanddigest" > "${SBOM_FILE_PATH}"; then
+                echo "Unable to download sbom for arch $arch."
+                continue
+              fi
+
+              < "${SBOM_FILE_PATH}" jq -r '
+                  if .bomFormat == "CycloneDX" then
+                      .formulation[]?
+                      | .components[]?
+                      | select(any(.properties[]?; .name | test("^konflux:container:is_(base|builder)_image")))
+                      | (
+                          .purl
+                          | capture("^pkg:oci/.*?@(?<digest>[a-z0-9]+:[a-f0-9]+)(?:\\?[^#]*repository_url=(?<repository_url>[^&#]*))?")
+                        ) as $matched
+                      | $matched.repository_url
+                  else
+                      .packages[]
+                      | select(any(.annotations[]?.comment; (fromjson?).name? | test("^konflux:container:is_(base|builder)_image")?))
+                      | [.externalRefs[]? | select(.referenceType == "purl").referenceLocator] as $purls
+                      | (
+                          $purls | first
+                          | capture("^pkg:oci/.*?@(?<digest>[a-z0-9]+:[a-f0-9]+)(?:\\?[^#]*repository_url=(?<repository_url>[^&#]*))?")
+                        ) as $matched
+                      | $matched.repository_url
+                  end
+              ' >> "${IMAGES_TO_BE_PROCESSED_PATH}"
+              echo "Detected base images from $arch SBOM:"
+              cat "${IMAGES_TO_BE_PROCESSED_PATH}"
+              echo ""
+
+              digests_processed+=("\"$arch_sha\"")
+            done < <(echo "$image_manifests" | jq -r 'to_entries[] | "\(.key) \(.value)"')
+          else
+            echo "Failed to get image manifests from image \"$imageanddigest\""
+            note="Task deprecated-image-check failed: Failed to get image manifests from image \"$imageanddigest\". For details, check Tekton task log."
+            ERROR_OUTPUT=$(make_result_json -r "ERROR" -t "$note")
+            echo "${ERROR_OUTPUT}" | tee "/tekton/results/TEST_OUTPUT"
+            exit 0
+          fi
+
+          # If the image is an Image Index, also add the Image Index digest to the list.
+          if [[ "${digests_processed[*]}" != *"$IMAGE_DIGEST"* ]]; then
+            digests_processed+=("\"$IMAGE_DIGEST\"")
+          fi
+
+          digests_processed_string=$(IFS=,; echo "${digests_processed[*]}")
+
+          if [ -n "${BASE_IMAGES_DIGESTS}" ];
+          then
+            echo "Base images passed by param BASE_IMAGES_DIGESTS: $BASE_IMAGES_DIGESTS"
+            # Get images from the parameter
+            for IMAGE_WITH_TAG in $(echo -n "$BASE_IMAGES_DIGESTS" | sed 's/\\n/\'$'\n''/g' );
+            do
+              echo "$IMAGE_WITH_TAG" | cut -d ":" -f1 >> "${IMAGES_TO_BE_PROCESSED_PATH}"
+            done
+          fi
+
+          # we want to remove duplicated entries
+          BASE_IMAGES=$(sort -u "${IMAGES_TO_BE_PROCESSED_PATH}")
+
+          echo "Images to be checked:"
+          echo "$BASE_IMAGES"
+          echo ""
+
+          for BASE_IMAGE in ${BASE_IMAGES};
+          do
+            IFS=:'/' read -r IMAGE_REGISTRY IMAGE_REPOSITORY<<< "$BASE_IMAGE"
+
+            # Red Hat Catalog hack: registry.redhat.io must be queried as registry.access.redhat.com in Red Hat catalog
+            IMAGE_REGISTRY_CATALOG=$(echo "${IMAGE_REGISTRY}" | sed 's/^registry.redhat.io$/registry.access.redhat.com/')
+
+            export IMAGE_REPO_PATH="/tmp/${IMAGE_REPOSITORY}"
+            mkdir -p "${IMAGE_REPO_PATH}"
+            echo "Querying Red Hat Catalog for $BASE_IMAGE."
+            http_code=$(curl -s -o "${IMAGE_REPO_PATH}/repository_data.json" -w '%{http_code}' "https://catalog.redhat.com/api/containers/v1/repositories/registry/${IMAGE_REGISTRY_CATALOG}/repository/${IMAGE_REPOSITORY}")
+
+            if [ "$http_code" == "200" ];
+            then
+              echo "Running conftest using $POLICY_DIR policy, $POLICY_NAMESPACE namespace."
+              /usr/bin/conftest test --no-fail "${IMAGE_REPO_PATH}/repository_data.json" \
+              --policy "$POLICY_DIR" --namespace "$POLICY_NAMESPACE" \
+              --output=json | tee "${IMAGE_REPO_PATH}/deprecated_image_check_output.json"
+
+              failures_num=$(jq -r '.[].failures|length' "${IMAGE_REPO_PATH}/deprecated_image_check_output.json")
+              if [[ "${failures_num}" -gt 0 ]]; then
+                echo "[FAILURE] Image ${IMAGE_REGISTRY}/${IMAGE_REPOSITORY} has been deprecated"
+              fi
+              failure_counter=$((failure_counter+failures_num))
+
+              successes_num=$(jq -r '.[].successes' "${IMAGE_REPO_PATH}/deprecated_image_check_output.json")
+              if [[ "${successes_num}" -gt 0 ]]; then
+                echo "[SUCCESS] Image ${IMAGE_REGISTRY}/${IMAGE_REPOSITORY} is valid"
+              fi
+              success_counter=$((success_counter+successes_num))
+
+            elif [ "$http_code" == "404" ];
+            then
+              echo "[WARNING] Registry/image ${IMAGE_REGISTRY}/${IMAGE_REPOSITORY} not found in Red Hat Catalog. Task cannot provide results if image is deprecated."
+              warnings_counter=$((warnings_counter+1))
+            else
+              echo "[ERROR] Unexpected error (HTTP code: ${http_code}) occurred for registry/image ${IMAGE_REGISTRY}/${IMAGE_REPOSITORY}."
+              error_counter=$((error_counter+1))
+            fi
+          done
+
+          note="Task deprecated-image-check failed: Command conftest failed. For details, check Tekton task log."
+          ERROR_OUTPUT=$(make_result_json -r ERROR -n "$POLICY_NAMESPACE" -t "$note")
+
+          note="Task deprecated-image-check completed: Check result for task result."
+          if [[ "$error_counter" == 0 ]];
+          then
+            if [[ "${failure_counter}" -gt 0 ]]; then
+              RES="FAILURE"
+            elif [[ "${warnings_counter}" -gt 0 ]]; then
+              RES="WARNING"
+            elif [[ "${success_counter}" -eq 0 ]]; then
+              # when all counters are 0, there are no base images to check
+              note="Task deprecated-image-check success: No base images to check."
+              RES="SUCCESS"
+            else
+              RES="SUCCESS"
+            fi
+            TEST_OUTPUT=$(make_result_json \
+              -r "${RES}" -n "$POLICY_NAMESPACE" \
+              -s "${success_counter}" -f "${failure_counter}" -w "${warnings_counter}" -t "$note")
+          fi
+          echo "${TEST_OUTPUT:-${ERROR_OUTPUT}}" | tee "/tekton/results/TEST_OUTPUT"
+
+          echo "${images_processed_template/\[%s]/[$digests_processed_string]}" | tee "/tekton/results/IMAGES_PROCESSED"
+        volumeMounts:
+          - mountPath: /etc/pki/tls/certs/ca-custom-bundle.crt
+            name: trusted-ca
+            readOnly: true
+            subPath: ca-bundle.crt
+    volumes:
+      - configMap:
+          items:
+            - key: ca-bundle.crt
+              path: ca-bundle.crt
+          name: trusted-ca
+          optional: true
+        name: trusted-ca
