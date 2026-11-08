@@ -67,8 +67,6 @@ func runMixed(ctx context.Context, gc pb.ResultsClient, live, seed *generator.Ge
 		mu.Unlock()
 	}
 
-	var wg sync.WaitGroup
-
 	// Writers: dispatch distinct live indices until exhausted or time is up.
 	var nextIndex int64 = -1
 	liveCount := live.Count()
