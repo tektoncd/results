@@ -136,11 +136,19 @@ func newQueryCmd() *cobra.Command {
 			namespaces := g.Config().Namespaces
 			queries := defaultQueries()
 
-			m := runTimed(ctx, cfg.Concurrency, readDuration(cfg), func(ctx context.Context, workerID, iter int, m *metrics.MetricSet) {
+			read := func(ctx context.Context, workerID, iter int, m *metrics.MetricSet) {
 				q := queries[iter%len(queries)]
 				ns := namespaces[(workerID+iter)%len(namespaces)]
 				runQuery(ctx, pick(iter), q, ns, pageSize, m)
-			})
+			}
+			var m *metrics.MetricSet
+			if cfg.DurationSec > 0 {
+				m = runTimed(ctx, cfg.Concurrency, readDuration(cfg), read)
+			} else {
+				m = runIndexed(ctx, cfg.Concurrency, 0, cfg.Count, func(ctx context.Context, index int, m *metrics.MetricSet) {
+					read(ctx, 0, index, m)
+				})
+			}
 			hash, err := contentHash(g)
 			if err != nil {
 				return err
@@ -329,7 +337,7 @@ func listerPicker(transport string, clients *APIClients) (func(iter int) lister,
 	}
 }
 
-// readDuration returns the configured duration, defaulting when unset.
+// readDuration returns the configured duration; zero selects count-bounded work.
 func readDuration(cfg *RunConfig) time.Duration {
 	return time.Duration(cfg.DurationSec) * time.Second
 }

@@ -85,15 +85,15 @@ type SeedLoadMetrics struct {
 
 // OpReport is the per-operation summary in report units (milliseconds).
 type OpReport struct {
-	Count      int64            `json:"count"`
-	Errors     int64            `json:"errors"`
-	ErrorCodes map[string]int64 `json:"error_codes"`
-	P50MS      float64          `json:"p50_ms"`
-	P90MS      float64          `json:"p90_ms"`
-	P99MS      float64          `json:"p99_ms"`
-	MinMS      float64          `json:"min_ms"`
-	MaxMS      float64          `json:"max_ms"`
-	MeanMS     float64          `json:"mean_ms"`
+	Count     int64            `json:"count"`
+	Errors    int64            `json:"errors"`
+	ExitCodes map[string]int64 `json:"exit_codes"`
+	P50MS     float64          `json:"p50_ms"`
+	P90MS     float64          `json:"p90_ms"`
+	P99MS     float64          `json:"p99_ms"`
+	MinMS     float64          `json:"min_ms"`
+	MaxMS     float64          `json:"max_ms"`
+	MeanMS    float64          `json:"mean_ms"`
 }
 
 // New assembles a Report from run metadata, config, and a metrics snapshot.
@@ -122,15 +122,15 @@ func buildMetrics(snap metrics.Snapshot) Metrics {
 	}
 	for _, op := range snap.Ops {
 		m.ByOp[op.Name] = OpReport{
-			Count:      op.Total,
-			Errors:     op.ErrorTotal,
-			ErrorCodes: op.Errors,
-			P50MS:      ms(op.Latency.P50),
-			P90MS:      ms(op.Latency.P90),
-			P99MS:      ms(op.Latency.P99),
-			MinMS:      ms(op.Latency.Min),
-			MaxMS:      ms(op.Latency.Max),
-			MeanMS:     ms(op.Latency.Mean),
+			Count:     op.Total,
+			Errors:    op.ErrorTotal,
+			ExitCodes: op.Errors,
+			P50MS:     ms(op.Latency.P50),
+			P90MS:     ms(op.Latency.P90),
+			P99MS:     ms(op.Latency.P99),
+			MinMS:     ms(op.Latency.Min),
+			MaxMS:     ms(op.Latency.Max),
+			MeanMS:    ms(op.Latency.Mean),
 		}
 	}
 	return m

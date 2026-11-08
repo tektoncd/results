@@ -140,12 +140,21 @@ Defaults come from the same environment variables the e2e suite uses.
 | `--token`         | —                                    | `SA_TOKEN_PATH`   |
 | `--concurrency`   | `8`                                  |                   |
 | `--count`         | `1000` (count-bounded runs)          |                   |
-| `--duration`      | `0` → 30s default for time-bounded   |                   |
+| `--duration`      | `0` (count-bounded)                 |                   |
 | `--seed`          | `42`                                 |                   |
 | `--namespaces`    | `50`                                 |                   |
 | `--child-min/max` | `2` / `15`                           |                   |
 | `--db-type`    | `local`                              | `BENCH_DB_TYPE`   |
 | `--output`        | `/tmp/<timestamp>-<commit>.json`      |                   |
+
+Without `--duration`, `query` attempts `--count` complete paginated queries in
+total across all workers (default `1000`), then writes its report. Each page
+request is measured separately, so the report's operation count can exceed
+`--count`. With `--transport both`, successful queries alternate between gRPC and
+REST; all pages of a query use the same transport. A positive `--duration`
+repeats queries for that many seconds instead of applying the query count limit.
+In `mixed` mode, zero duration stops readers after all writers finish the live
+dataset; a positive duration keeps the timed reader workload.
 
 ### Mixed read/write ratios
 

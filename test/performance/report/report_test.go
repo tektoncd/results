@@ -63,8 +63,8 @@ func TestNewReportShape(t *testing.T) {
 	if op.Count != 101 {
 		t.Errorf("Count = %d, want 101", op.Count)
 	}
-	if op.Errors != 1 || op.ErrorCodes["Unavailable"] != 1 {
-		t.Errorf("errors = %d, codes = %v", op.Errors, op.ErrorCodes)
+	if op.Errors != 1 || op.ExitCodes["Unavailable"] != 1 {
+		t.Errorf("errors = %d, codes = %v", op.Errors, op.ExitCodes)
 	}
 	// 101 ops over 2s.
 	if want := 101.0 / 2.0; r.Metrics.ThroughputPerSec != want {

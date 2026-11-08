@@ -62,8 +62,8 @@ func bindCommon(cmd *cobra.Command, cfg *RunConfig) {
 	f.StringVar(&cfg.TokenFile, "token", os.Getenv("SA_TOKEN_FILE"), "bearer token file (env SA_TOKEN_FILE)")
 
 	f.IntVar(&cfg.Concurrency, "concurrency", 8, "number of concurrent workers")
-	f.IntVar(&cfg.Count, "count", 1000, "number of top-level PipelineRuns for count-bounded runs")
-	f.IntVar(&cfg.DurationSec, "duration", 0, "run duration in seconds for time-bounded runs (0 = count-bounded)")
+	f.IntVar(&cfg.Count, "count", 1000, "number of top-level PipelineRuns (query: complete paginated queries) for count-bounded runs")
+	f.IntVar(&cfg.DurationSec, "duration", 0, "query/mixed run duration in seconds (0 = count-bounded)")
 
 	f.Int64Var(&cfg.Seed, "seed", 42, "deterministic generator seed")
 	f.StringVar(&cfg.DatasetVersion, "dataset-version", "seed-small-v1", "dataset content version tag")
