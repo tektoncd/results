@@ -56,4 +56,4 @@ page_sizes:
   weight: 0.17391304347826086
 sample_size: 28
 schema_version: "1"
-source: anonymized sample (test/performance/harness/workload/testdata/sample-access.log)
+source: anonymized sample (test/performance/benchmark/workload/testdata/sample-access.log)

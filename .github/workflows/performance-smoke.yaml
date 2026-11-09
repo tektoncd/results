@@ -1,6 +1,6 @@
 name: Performance Smoke
 
-# On-demand functional smoke of the performance harness against a tier-1 kind
+# On-demand functional smoke of the performance benchmark against a tier-1 kind
 # cluster. This is NOT a performance gate — it only proves the load/store/query/
 # mixed drivers run end-to-end and emit valid JSON. Tier-2 runs stay manual
 # (they need a booked ephemeral OpenShift cluster); see

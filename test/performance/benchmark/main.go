@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Command bench is the Tekton Results performance benchmark harness. It drives
+// Command bench is the Tekton Results performance benchmark. It drives
 // the real deployed API surface (gRPC for store, REST/gRPC for query) against a
 // deterministic, versioned dataset and emits machine-readable JSON reports.
 //
@@ -32,7 +32,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -42,12 +44,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tektoncd/results/test/performance/generator"
-	"github.com/tektoncd/results/test/performance/harness/workload"
 	"github.com/tektoncd/results/test/performance/metrics"
 	"github.com/tektoncd/results/test/performance/report"
 )
-
-const defaultReadDuration = 30 * time.Second
 
 func main() {
 	if err := run(); err != nil {
@@ -65,80 +64,12 @@ func run() error {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "bench",
-		Short:         "Tekton Results performance benchmark harness",
+		Short:         "Tekton Results performance benchmark",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 	root.AddCommand(newLoadCmd(), newStoreCmd(), newQueryCmd(), newMixedCmd(), newDatasetCmd(), newDeriveCmd(), newCompareCmd())
 	return root
-}
-
-// newDeriveCmd builds `bench derive`, which turns raw KubeArchive access logs into
-// an anonymized query-mix spec (see the workload package). It needs no cluster.
-func newDeriveCmd() *cobra.Command {
-	var input, output string
-	cmd := &cobra.Command{
-		Use:   "derive",
-		Short: "Derive an anonymized query-mix spec from KubeArchive access logs",
-		Long: "Derive scans KubeArchive access-log lines and emits an anonymized " +
-			"QueryMixSpec (kinds, label keys, page sizes, and namespace fan-out as " +
-			"counts only). Raw namespaces, label values, tokens, and UIDs are never " +
-			"written to the spec.",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			in := os.Stdin
-			if input != "" {
-				f, err := os.Open(input) //nolint:gosec // operator-provided log path
-				if err != nil {
-					return err
-				}
-				defer func() { _ = f.Close() }()
-				in = f
-			}
-			spec, err := workload.Derive(in)
-			if err != nil {
-				return err
-			}
-			if input != "" {
-				spec.Source = fmt.Sprintf("derived from %s", filepath.Base(input))
-			}
-			return withOutput(output, func(w *os.File) error {
-				return workload.Write(w, spec)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&input, "input", "", "access-log file to read; empty reads stdin")
-	cmd.Flags().StringVar(&output, "output", "", "spec output path; empty writes to stdout")
-	return cmd
-}
-
-// newCompareCmd builds `bench compare`, the milestone-gate regression checker. It
-// exits non-zero when any metric regresses beyond the threshold so CI can gate on
-// it. It needs no cluster.
-func newCompareCmd() *cobra.Command {
-	threshold := defaultThreshold
-	cmd := &cobra.Command{
-		Use:   "compare <baseline.json> <candidate.json>",
-		Short: "Compare two benchmark reports and flag regressions",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			baseline, err := readReport(args[0])
-			if err != nil {
-				return err
-			}
-			candidate, err := readReport(args[1])
-			if err != nil {
-				return err
-			}
-			c := compareReports(baseline, candidate, threshold)
-			writeComparison(cmd.OutOrStdout(), c)
-			if regressed := c.regressions(); len(regressed) > 0 {
-				return fmt.Errorf("%d metric(s) regressed beyond %.0f%% threshold", len(regressed), threshold*100)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().Float64Var(&threshold, "threshold", defaultThreshold, "relative change flagged as a regression (0.10 = ±10%)")
-	return cmd
 }
 
 func newStoreCmd() *cobra.Command {
@@ -152,6 +83,7 @@ func newStoreCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer func() { _ = clients.Close() }()
 			g, err := newGenerator(cfg, true) // store writes the live range
 			if err != nil {
 				return err
@@ -196,6 +128,7 @@ func newQueryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer func() { _ = clients.Close() }()
 			pick, err := listerPicker(transport, clients)
 			if err != nil {
 				return err
@@ -205,18 +138,25 @@ func newQueryCmd() *cobra.Command {
 				return err
 			}
 			namespaces := g.Config().Namespaces
-
 			queries, pageSizes, nsSeq, err := buildQuerySchedule(querySpecPath, legacyQueries, pageSize, len(namespaces))
 			if err != nil {
 				return err
 			}
 
-			m := runTimed(ctx, cfg.Concurrency, readDuration(cfg), func(ctx context.Context, workerID, iter int, m *metrics.MetricSet) {
+			read := func(ctx context.Context, workerID, iter int, m *metrics.MetricSet) {
 				q := queries[iter%len(queries)]
 				ps := pageSizes[iter%len(pageSizes)]
 				ns := namespaces[nsSeq[(workerID+iter)%len(nsSeq)]]
 				runQuery(ctx, pick(iter), q, ns, ps, m)
-			})
+			}
+			var m *metrics.MetricSet
+			if cfg.DurationSec > 0 {
+				m = runTimed(ctx, cfg.Concurrency, readDuration(cfg), read)
+			} else {
+				m = runIndexed(ctx, cfg.Concurrency, 0, cfg.Count, func(ctx context.Context, index int, m *metrics.MetricSet) {
+					read(ctx, 0, index, m)
+				})
+			}
 			hash, err := contentHash(g)
 			if err != nil {
 				return err
@@ -244,13 +184,14 @@ func newMixedCmd() *cobra.Command {
 		Short: "Benchmark parallel store (live range) and query (seed range)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if cfg.Concurrency <= 1 {
-				return fmt.Errorf("concurrency for mixed mode must be grater than 1")
+				return fmt.Errorf("concurrency for mixed mode must be greater than 1")
 			}
 			ctx := cmd.Context()
 			clients, err := NewAPIClients(cfg.clientConfig())
 			if err != nil {
 				return err
 			}
+			defer func() { _ = clients.Close() }()
 			live, err := newGenerator(cfg, true)
 			if err != nil {
 				return err
@@ -298,8 +239,19 @@ func newLoadCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			m, def, err := loadSeed(ctx, clients.GRPC, cfg)
+			defer func() { _ = clients.Close() }()
+			m, def, log, err := loadSeed(ctx, clients.GRPC, cfg)
 			if err != nil {
+				return err
+			}
+			snap := m.Snapshot()
+			if err := writeSendLog(cfg.OutputPath, log); err != nil {
+				return err
+			}
+			if err := emitReport(ctx, cfg, "load", "grpc", reportExtra{
+				datasetHash: def.ContentHash,
+				seedLoad:    summarizeSeedLoad(log),
+			}, snap); err != nil {
 				return err
 			}
 			if verify {
@@ -308,7 +260,7 @@ func newLoadCmd() *cobra.Command {
 				}
 				fmt.Fprintf(os.Stderr, "seed verified: %d PipelineRuns, dataset hash %s\n", def.Count, def.ContentHash)
 			}
-			return emitReport(ctx, cfg, "load", "grpc", reportExtra{datasetHash: def.ContentHash}, m.Snapshot())
+			return nil
 		},
 	}
 	bindCommon(cmd, cfg)
@@ -344,9 +296,10 @@ type reportExtra struct {
 	datasetHash string
 	readRatio   int
 	writeRatio  int
+	seedLoad    *report.SeedLoadMetrics
 }
 
-// emitReport assembles and writes the JSON report for a completed run.
+// emitReport writes the same completed JSON report to its file and stdout.
 func emitReport(ctx context.Context, cfg *RunConfig, mode, transport string, extra reportExtra, snap metrics.Snapshot) error {
 	meta := report.CaptureMeta(ctx)
 	meta.DatasetVersion = cfg.DatasetVersion
@@ -368,8 +321,9 @@ func emitReport(ctx context.Context, cfg *RunConfig, mode, transport string, ext
 		Seed:        cfg.Seed,
 	}
 	rep := report.New(meta, rc, snap)
+	rep.Metrics.SeedLoad = extra.seedLoad
 	return withOutput(cfg.OutputPath, func(w *os.File) error {
-		return report.Write(w, rep)
+		return report.Write(io.MultiWriter(w, os.Stdout), rep)
 	})
 }
 
@@ -393,17 +347,14 @@ func listerPicker(transport string, clients *APIClients) (func(iter int) lister,
 	}
 }
 
-// readDuration returns the configured duration, defaulting when unset.
+// readDuration returns the configured duration; zero selects count-bounded work.
 func readDuration(cfg *RunConfig) time.Duration {
-	if cfg.DurationSec <= 0 {
-		return defaultReadDuration
-	}
 	return time.Duration(cfg.DurationSec) * time.Second
 }
 
-// writeSendLog writes the store driver's actual send log alongside the report so
-// it can be joined against the golden DatasetDefinition on UID. It is skipped when
-// the report goes to stdout (no path to derive a sidecar from).
+// writeSendLog writes the load or store driver's actual send log alongside the
+// report so it can be joined against the golden DatasetDefinition on UID. It is
+// skipped when no explicit report path was provided for deriving a sidecar path.
 func writeSendLog(reportPath string, log *sendLog) error {
 	if reportPath == "" {
 		return nil
@@ -412,12 +363,28 @@ func writeSendLog(reportPath string, log *sendLog) error {
 	return withOutput(path, func(w *os.File) error { return log.write(w) })
 }
 
-// withOutput invokes fn with the report sink: a file when path is set, else stdout.
+func getGitCommit() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// withOutput invokes fn with the report sink: a file when path is set, otherwise
+// a file under os.TempDir() named <timestamp>-<commit-sha>.json (or <timestamp>.json
+// when Git is unavailable).
 // The parent directory is created on demand so an operator can point --output at a
 // nested folder (e.g. test/performance/output/store.json) without pre-creating it.
 func withOutput(path string, fn func(*os.File) error) error {
 	if path == "" {
-		return fn(os.Stdout)
+
+		commit, err := getGitCommit()
+		if err != nil {
+			path = filepath.Join(os.TempDir(), time.Now().Format("20060102-150405")+".json")
+		} else {
+			path = filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s.json", time.Now().Format("20060102-150405"), commit))
+		}
 	}
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // operator-provided report output path
@@ -428,6 +395,7 @@ func withOutput(path string, fn func(*os.File) error) error {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(os.Stderr, "Report is written to: %s\n", path)
 	defer func() { _ = f.Close() }()
 	return fn(f)
 }

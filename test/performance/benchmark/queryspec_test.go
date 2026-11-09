@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tektoncd/results/test/performance/harness/workload"
+	"github.com/tektoncd/results/test/performance/benchmark/workload"
 )
 
 func TestPlanFromSpecExpandsByWeight(t *testing.T) {

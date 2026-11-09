@@ -17,7 +17,7 @@
 #
 # Reports land under BENCH_OUTPUT_DIR (default test/performance/output/tier2) tagged
 # with --tier tier2. The query driver replays the committed, KubeArchive-derived
-# query mix by default (see harness/workload); override with --query-spec.
+# query mix by default (see benchmark/workload); override with --query-spec.
 #
 # The default BENCH_COUNT matches the small/ephemeral-cluster profile (see 02-load.sh
 # and postgres-patch.yaml) so a run fits the bundled 1Gi Postgres PVC and the 3Gi DB
@@ -31,7 +31,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(git rev-parse --show-toplevel)"
-HARNESS="${ROOT}/test/performance/harness"
+BENCHMARK="${ROOT}/test/performance/benchmark"
 NAMESPACE="${BENCH_NAMESPACE:-tekton-pipelines}"
 # shellcheck source=test/performance/environments/openshift/common.sh
 source "${HERE}/common.sh"
@@ -45,10 +45,12 @@ mkdir -p "${OUTPUT_DIR}"
 
 COUNT="${BENCH_COUNT:-10000}"
 CONCURRENCY="${BENCH_CONCURRENCY:-64}"
+NAMESPACES="${BENCH_NAMESPACES:-20}"
 DURATION="${BENCH_DURATION:-120}"
 if [ "${CLUSTER}" = "kind" ]; then
     COUNT="${BENCH_COUNT:-2000}"
     CONCURRENCY="${BENCH_CONCURRENCY:-8}"
+    NAMESPACES="${BENCH_NAMESPACES:-50}"
     DURATION="${BENCH_DURATION:-30}"
 fi
 
@@ -60,7 +62,8 @@ TOKEN="${SA_TOKEN_PATH}/all-namespaces-admin-access"
 # not the API namespace.
 TOKEN_NAMESPACE="${BENCH_TOKEN_NAMESPACE:-default}"
 
-common=(--cert "${CERT}" --token "${TOKEN}" --tier tier2 --count "${COUNT}" --concurrency "${CONCURRENCY}")
+common=(--cert "${CERT}" --token "${TOKEN}" --tier tier2 --count "${COUNT}" --concurrency "${CONCURRENCY}"
+    --namespaces "${NAMESPACES}" --dataset seed-large --dataset-version seed-large-v1)
 
 # Mint a token that outlives the run, then make the API reachable and pin the
 # client to the deployment under test.
@@ -68,18 +71,18 @@ bench::refresh_token "${TOKEN_NAMESPACE}" all-namespaces-admin-access "${TOKEN}"
 bench::api_forward "${NAMESPACE}"
 
 bench::phase "phase 3: store"
-go run "${HARNESS}" store "${common[@]}" --output "${OUTPUT_DIR}/store.json"
+go run "${BENCHMARK}" store "${common[@]}" --output "${OUTPUT_DIR}/store.json"
 
 bench::phase "phase 3: query"
-go run "${HARNESS}" query "${common[@]}" --transport both --duration "${DURATION}" --output "${OUTPUT_DIR}/query.json"
+go run "${BENCHMARK}" query "${common[@]}" --transport both --duration "${DURATION}" --output "${OUTPUT_DIR}/query.json"
 
 bench::phase "phase 3: mixed"
-go run "${HARNESS}" mixed "${common[@]}" --duration "${DURATION}" --output "${OUTPUT_DIR}/mixed.json"
+go run "${BENCHMARK}" mixed "${common[@]}" --duration "${DURATION}" --output "${OUTPUT_DIR}/mixed.json"
 
 bench::phase "phase 3: benchmark complete (${CLUSTER})"
 echo "Reports written to ${OUTPUT_DIR}"
 
-# Validate that all reports are valid JSON (belt-and-suspenders; the harness would
+# Validate that all reports are valid JSON (belt-and-suspenders; the benchmark would
 # have errored on write if JSON serialization failed, but this catches any post-write
 # corruption or incomplete files before an operator tries to compare them).
 echo
@@ -115,7 +118,7 @@ Next steps:
 
   1. Compare against a baseline to detect regressions:
 
-     go run ${HARNESS} compare \\
+     go run ${BENCHMARK} compare \\
        <baseline.json> \\
        ${OUTPUT_DIR}/query.json
 

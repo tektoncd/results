@@ -16,8 +16,8 @@
 # Phase 1 — install Tekton Results + Postgres for a tier-2 run.
 #
 # openshift: install the app, then apply the tier-2 Postgres tuning (dedicated-node
-#            nodeSelector + larger postgresql.conf). Set BENCH_DB_URL to use an
-#            external managed Postgres instead of the in-cluster one.
+#            nodeSelector + larger postgresql.conf). BENCH_DB_URL only skips
+#            tuning; external connection configuration is still manual.
 # kind:      delegate to the tier-1 local-DB installer; the tier-2 Postgres tuning
 #            (dedicated node) does not apply on a single-node kind cluster.
 
@@ -133,7 +133,7 @@ export KEY_FILE_NAME="tekton-results-key.pem"
 
 echo "Building and publishing Tekton Results images to the OpenShift registry..."
 RENDERED_MANIFEST="${REGISTRY_TMP_DIR}/tekton-results.yaml"
-bench::kubectl kustomize "${ROOT}/test/e2e/kustomize" |
+bench::kubectl kustomize "${ROOT}/test/performance/kustomize" |
     ko resolve --insecure-registry --platform="linux/$(go env GOARCH)" -f - >"${RENDERED_MANIFEST}"
 kill "${REGISTRY_PORT_FORWARD_PID}" 2>/dev/null || true
 wait "${REGISTRY_PORT_FORWARD_PID}" 2>/dev/null || true
@@ -148,19 +148,9 @@ if grep -Fq 'localhost:5000/' "${RENDERED_MANIFEST}"; then
 fi
 bench::kubectl apply -f "${RENDERED_MANIFEST}"
 
-# The API server runs an RBAC check (TokenReview + SubjectAccessReview against the
-# kube-apiserver) on every gRPC call, using a client-go client capped by K8S_QPS/
-# K8S_BURST (defaults 5/10, see config/base/env/config). At the concurrency this
-# benchmark drives, that default throttles the API server's own outbound auth calls
-# to ~5/sec — the true store-throughput ceiling, visible as "client-side throttling,
-# not priority and fairness" delays in the API log. Raise it so auth is not the
-# bottleneck; the apiserver's API Priority & Fairness still protects it server-side.
-# The explicit env entries override the values baked into the config ConfigMap.
-API_K8S_QPS="${BENCH_API_K8S_QPS:-100}"
-API_K8S_BURST="${BENCH_API_K8S_BURST:-200}"
-echo "Raising API server kube-client rate limits (K8S_QPS=${API_K8S_QPS}, K8S_BURST=${API_K8S_BURST})..."
-bench::kubectl set env deployment/tekton-results-api --namespace="${NAMESPACE}" \
-    "K8S_QPS=${API_K8S_QPS}" "K8S_BURST=${API_K8S_BURST}"
+# API rate limits and authentication settings come from the same
+# api-client-tuning component as Kind. Edit that component and re-install to
+# change them; a separate tier-2 override would hide those shared settings.
 
 echo "Fetching access tokens..."
 mkdir -p "${SA_TOKEN_PATH}"

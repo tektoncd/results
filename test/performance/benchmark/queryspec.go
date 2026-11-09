@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tektoncd/results/test/performance/harness/workload"
+	"github.com/tektoncd/results/test/performance/benchmark/workload"
 )
 
 // planResolution is the number of slots a weighted distribution is expanded into.

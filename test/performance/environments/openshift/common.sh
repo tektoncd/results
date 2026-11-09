@@ -105,7 +105,7 @@ bench::refresh_token() {
 }
 
 # bench::api_forward makes the Results API reachable at https://localhost:${BENCH_API_PORT}
-# for the harness and pins the client to the deployment under test. It always exports
+# for the benchmark and pins the client to the deployment under test. It always exports
 # API_SERVER_ADDR and API_SERVER_NAME (the TLS SNI, keyed to the given namespace so it
 # is correct even when BENCH_NAMESPACE overrides the default). On OpenShift it also
 # starts a background port-forward, blocks until it is accepting connections, and

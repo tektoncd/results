@@ -30,9 +30,9 @@
 # SubjectAccessReview against the kube-apiserver) on EVERY gRPC call, and each
 # PipelineRun is ~7 calls. That auth path — not Postgres or --concurrency — is the
 # store bottleneck, capped by the API server's client-go rate limits (K8S_QPS/
-# K8S_BURST). 01-install.sh raises them (default 100/200) so auth keeps up; if you
-# see "client-side throttling" delays in the API log, raise BENCH_API_K8S_QPS and
-# re-install. Beyond that, load time scales linearly with BENCH_COUNT, so size it to
+# K8S_BURST). 01-install.sh applies the shared api-client-tuning component so auth
+# keeps up; if you see "client-side throttling" delays in the API log, edit that
+# component and re-install. Load time scales linearly with BENCH_COUNT, so size it to
 # the ~90-min budget.
 #
 # Tunables (env): BENCH_COUNT, BENCH_CONCURRENCY, BENCH_NAMESPACES, BENCH_SEED_DUMP.
@@ -41,7 +41,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(git rev-parse --show-toplevel)"
-HARNESS="${ROOT}/test/performance/harness"
+BENCHMARK="${ROOT}/test/performance/benchmark"
 NAMESPACE="${BENCH_NAMESPACE:-tekton-pipelines}"
 # shellcheck source=test/performance/environments/openshift/common.sh
 source "${HERE}/common.sh"
@@ -88,11 +88,12 @@ bench::refresh_token "${TOKEN_NAMESPACE}" all-namespaces-admin-access "${TOKEN}"
 bench::api_forward "${NAMESPACE}"
 
 echo "Loading ${COUNT} PipelineRuns across ${NAMESPACES} namespaces at concurrency ${CONCURRENCY}..."
-go run "${HARNESS}" load --verify \
+go run "${BENCHMARK}" load --verify \
     --cert "${CERT}" --token "${TOKEN}" \
     --count "${COUNT}" \
     --concurrency "${CONCURRENCY}" \
     --namespaces "${NAMESPACES}" \
+    --tier tier2 \
     --dataset seed-large --dataset-version seed-large-v1
 
 bench::phase "phase 2: load complete (${CLUSTER})"

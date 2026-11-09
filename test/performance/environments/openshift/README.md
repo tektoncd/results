@@ -1,7 +1,7 @@
 # Tier-2 environment (ephemeral OpenShift)
 
 Automation for the **tier-2** performance environment: a multi-node ephemeral
-OpenShift cluster with a 5–10 GB dataset, run within a ~90-minute session budget.
+OpenShift cluster targeting a 5–10 GB dataset within a ~90-minute session budget.
 Tier 2 exposes planner regressions, index bloat, and lock contention that the
 tier-1 kind environment (<1 GB) is too small to surface.
 
@@ -16,12 +16,23 @@ baseline.
 | Script            | Phase | Does                                                                 |
 | ----------------- | ----- | ------------------------------------------------------------------- |
 | `00-cluster.sh`   | 0     | Select + validate the target cluster (`--cluster kind\|openshift`). |
-| `01-install.sh`   | 1     | Install Results + Postgres (dedicated node + tuning, or `BENCH_DB_URL`). |
+| `01-install.sh`   | 1     | Install Results + Postgres with dedicated node + tuning. |
 | `02-load.sh`      | 2     | Parallel seed load via the API (or `BENCH_SEED_DUMP` restore, query-only). |
 | `03-benchmark.sh` | 3     | Run store/query/mixed at `--tier tier2`; validate and write JSON reports. |
 
 `common.sh` is sourced by every phase for `--cluster` resolution and phase-budget
 timing; it is not executed directly.
+
+Both installers use the shared
+[`api-client-tuning` component](../../kustomize/api-client-tuning/kustomization.yaml)
+for `K8S_QPS`, `K8S_BURST`, and `AUTH_DISABLE`. Edit that file and re-install to
+change API tuning; the old `BENCH_API_K8S_QPS` / `BENCH_API_K8S_BURST` overrides
+are no longer used.
+
+Phases 2 and 3 use the same `seed-large` / `seed-large-v1` dataset and namespace
+pool (20 on OpenShift, 50 on Kind). Keep `BENCH_COUNT` and `BENCH_NAMESPACES`
+unchanged between loading and measuring. Kind mode is a small development run;
+its reports retain the `tier2` phase label and must not become OpenShift baselines.
 
 ## Safety: production cluster protection
 
@@ -72,11 +83,17 @@ export BENCH_CLUSTER=openshift
 | `BENCH_NAMESPACES`     | Namespaces to spread the dataset across.                       |
 | `BENCH_DURATION`       | Query/mixed run duration (seconds).                            |
 | `BENCH_OUTPUT_DIR`     | Where reports are written (default `output/tier2`).            |
-| `BENCH_DB_URL`         | Use an external managed Postgres instead of the in-cluster one.|
+| `BENCH_DB_URL`         | Skips local Postgres tuning; external connection setup is manual. |
 | `BENCH_SEED_DUMP`      | Restore a pg_dump snapshot as the **query-only** seed.         |
 
-The `tier2-5-10gb` dataset size is reached by tuning `BENCH_COUNT` /
-`BENCH_NAMESPACES`; capture the exact values in the committed baseline metadata.
+The committed defaults use a small profile with a **1 GiB Postgres PVC**, not a
+provisioned 5–10 GB baseline. Increase storage and size the database node before
+scaling `BENCH_COUNT`; measure the database size and record the exact settings.
+Changing `BENCH_NAMESPACES` changes distribution, not the number of runs.
+
+`BENCH_DB_URL` currently only skips database tuning in the OpenShift installer;
+it does not configure the external connection or remove local Postgres. The
+automated external-DB installer is available under `../kind/02-install-externaldb.sh`.
 
 ## Establishing and using baselines
 
@@ -126,7 +143,7 @@ cd test/performance/environments/openshift
 cd ../..
 BASELINE_COMMIT=<the-sha-from-your-baseline-filename>
 
-go run ./harness compare \
+go run ./benchmark compare \
   baselines/current/tier2-seed-large-v1-${BASELINE_COMMIT}.json \
   output/tier2/query.json
 ```
