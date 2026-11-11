@@ -277,6 +277,10 @@ func main() {
 			serverMuxOptions = append(serverMuxOptions, runtime.WithIncomingHeaderMatcher(impersonation.HeaderMatcher))
 		}
 		rbacOptions := []auth.Option{auth.WithImpersonation(serverConfig.AUTH_IMPERSONATE)}
+		if audiences := serverConfig.TokenAudiences(); len(audiences) > 0 {
+			rbacOptions = append(rbacOptions, auth.WithTokenAudiences(audiences))
+			log.Infof("TokenReview audiences: %s", strings.Join(audiences, ", "))
+		}
 		if serverConfig.AUTH_CACHE_ENABLED {
 			positiveTTL := parseAuthCacheTTL(log, "AUTH_CACHE_POSITIVE_TTL", serverConfig.AUTH_CACHE_POSITIVE_TTL, auth.DefaultPositiveCacheTTL)
 			negativeTTL := parseAuthCacheTTL(log, "AUTH_CACHE_NEGATIVE_TTL", serverConfig.AUTH_CACHE_NEGATIVE_TTL, auth.DefaultNegativeCacheTTL)
