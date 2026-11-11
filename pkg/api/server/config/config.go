@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -34,6 +35,8 @@ type Config struct {
 
 	AUTH_DISABLE     bool `mapstructure:"AUTH_DISABLE"`
 	AUTH_IMPERSONATE bool `mapstructure:"AUTH_IMPERSONATE"`
+
+	AUTH_TOKEN_AUDIENCES string `mapstructure:"AUTH_TOKEN_AUDIENCES"`
 
 	AUTH_CACHE_ENABLED      bool   `mapstructure:"AUTH_CACHE_ENABLED"`
 	AUTH_CACHE_POSITIVE_TTL string `mapstructure:"AUTH_CACHE_POSITIVE_TTL"`
@@ -76,6 +79,19 @@ type Config struct {
 	LOGGING_PLUGIN_MULTIPART_REGEX          string `mapstructure:"LOGGING_PLUGIN_MULTIPART_REGEX"`
 	LOGGING_PLUGIN_JSON_MAP                 string `mapstructure:"LOGGING_PLUGIN_JSON_MAP"`
 	LOGGING_PLUGIN_LINE_FORMAT              string `mapstructure:"LOGGING_PLUGIN_LINE_FORMAT"`
+}
+
+// TokenAudiences returns the audiences from the comma-separated
+// AUTH_TOKEN_AUDIENCES setting, with surrounding spaces and empty entries
+// removed. It returns nil when no audience is configured.
+func (c *Config) TokenAudiences() []string {
+	var audiences []string
+	for _, a := range strings.Split(c.AUTH_TOKEN_AUDIENCES, ",") {
+		if a = strings.TrimSpace(a); a != "" {
+			audiences = append(audiences, a)
+		}
+	}
+	return audiences
 }
 
 // newViper returns an isolated configuration reader with server defaults.

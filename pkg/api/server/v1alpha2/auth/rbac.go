@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ var errTokenNotAuthenticated = errors.New("token not authenticated")
 // checks are done at the namespace
 type RBAC struct {
 	allowImpersonation bool
+	audiences          []string
 	authn              authnclient.AuthenticationV1Interface
 	authz              authzclient.AuthorizationV1Interface
 	clock              Clock
@@ -117,7 +119,8 @@ func (r *RBAC) authenticate(ctx context.Context, token string) (*authnResult, er
 
 	tr, err := r.authn.TokenReviews().Create(ctx, &authnv1.TokenReview{
 		Spec: authnv1.TokenReviewSpec{
-			Token: token,
+			Token:     token,
+			Audiences: r.audiences,
 		},
 	}, metav1.CreateOptions{})
 	if err != nil {
@@ -130,6 +133,16 @@ func (r *RBAC) authenticate(ctx context.Context, token string) (*authnResult, er
 		if tr.Status.Error != "" {
 			return nil, fmt.Errorf("token review error: %s", tr.Status.Error)
 		}
+		if r.authnCache != nil {
+			r.authnCache.SetWithTTL(tokenHash, nil, r.negativeCacheTTL)
+		}
+		return nil, errTokenNotAuthenticated
+	}
+	// When audiences are requested, the API server returns the ones the token
+	// is valid for. An empty list means the authenticator did not confirm any
+	// of them (for example because it is not audience aware), so the token is
+	// rejected.
+	if len(r.audiences) > 0 && !hasCommonAudience(r.audiences, tr.Status.Audiences) {
 		if r.authnCache != nil {
 			r.authnCache.SetWithTTL(tokenHash, nil, r.negativeCacheTTL)
 		}
@@ -401,4 +414,24 @@ func WithImpersonation(enabled bool) Option {
 	return func(r *RBAC) {
 		r.allowImpersonation = enabled
 	}
+}
+
+// WithTokenAudiences sets the audiences sent with each TokenReview. A token is
+// then only accepted when the API server confirms it is valid for at least one
+// of them. Without this option the API server checks the token against its
+// own default audience.
+func WithTokenAudiences(audiences []string) Option {
+	return func(r *RBAC) {
+		r.audiences = audiences
+	}
+}
+
+// hasCommonAudience reports whether any of the returned audiences was requested.
+func hasCommonAudience(requested, returned []string) bool {
+	for _, a := range returned {
+		if slices.Contains(requested, a) {
+			return true
+		}
+	}
+	return false
 }
