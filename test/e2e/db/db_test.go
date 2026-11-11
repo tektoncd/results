@@ -26,7 +26,7 @@
 // A raw database connection is used only for schema introspection and to
 // trigger FK violations that the server's pre-checks would otherwise mask.
 //
-// Future features (labels, metadata columns, golang-migrate migrations) add
+// Future features (labels, metadata columns) add
 // their Postgres-specific tests to this package. See the stub files for
 // placeholders.
 package db_test

@@ -11,7 +11,7 @@ spec:
       default: github.com/tektoncd/results
     - name: images
       description: List of cmd/* paths to be published as images
-      default: "api retention-policy-agent watcher"
+      default: "api results-admin retention-policy-agent watcher"
     - name: koExtraArgs
       description: Extra args to be passed to ko
       default: "--preserve-import-paths"

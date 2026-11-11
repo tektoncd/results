@@ -20,6 +20,7 @@ make bin/api                    # API server
 make bin/watcher                # Result watcher
 make bin/retention-policy-agent # Retention policy agent
 make bin/tkn-results            # CLI tool
+make bin/results-admin          # Database schema administration
 
 # Test — requires no cluster
 ./test/presubmit-tests.sh --unit-tests
@@ -95,6 +96,10 @@ Deletes old data from the database based on configured retention policies.
 
 **CLI** (`cmd/tkn-results`): Client tool for querying the Results API.
 
+**Schema administration** (`cmd/results-admin`, `pkg/api/server/db/migrations/`):
+Applies versioned SQL migrations (run by the `db-migrate` Job). The API server
+and retention agent only check the recorded schema version at startup.
+
 **Logs** (`pkg/logs/`): Integration with the configured logging backend
 (e.g., Loki, Blob storage such as GCS/S3, Splunk) for log retrieval.
 Logs are read from the external log store, not stored in the Results database.
@@ -107,7 +112,7 @@ Logs are read from the external log store, not stored in the Results database.
 - **Watcher shared reconciler logic**: See `pkg/watcher/reconciler/dynamic/`
 - **Watcher resource-specific reconciler**: See `pkg/watcher/reconciler/pipelinerun/`, `taskrun/`, or `customrun/`
 - **Proto definition changes**: Follow `proto/<proto_version>/results.proto`
-- **Database migrations**: See `tools/tkn-results-migrator/`
+- **Database schema migrations**: See `pkg/api/server/db/migrations/README.md` (developer guide) and `docs/database-migrations.md` (operator guide)
 - **Integration tests**: Follow examples in `test/e2e/`
 
 ---

@@ -16,6 +16,7 @@ resources:
 - 100-api-serviceaccount.yaml
 - 100-watcher-serviceaccount.yaml
 - api.yaml
+- db-migrate.yaml
 - retention-policy-agent.yaml
 - default-clusterroles.yaml
 - watcher.yaml

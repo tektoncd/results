@@ -42,6 +42,9 @@ Tekton Results is composed of 3 main components:
   CustomRun updates to the API server.
 - A [retention policy agent](retention-policy-agent/), an agent which deletes older data from DB.
 
+The database schema is versioned and upgraded by a migration Job shipped with
+each release; see [Database migrations](database-migrations.md).
+
 ### Life of a Result
 
 ```mermaid

@@ -39,7 +39,6 @@ const (
 //nolint:staticcheck
 func NewResultsClient(t *testing.T, config *config.Config, opts ...server.Option) (pb.ResultsClient, pb.LogsClient) {
 	t.Helper()
-	config.DB_ENABLE_AUTO_MIGRATION = true
 	config.LOGS_API = true
 	config.LOGS_TYPE = "File"
 	srv, err := server.New(config, logger.Get("info"), test.NewDB(t), opts...)

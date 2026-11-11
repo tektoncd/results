@@ -40,7 +40,7 @@ import (
 )
 
 func TestCreateResult(t *testing.T) {
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	srv, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestCreateResult(t *testing.T) {
 }
 
 func TestUpdateResult(t *testing.T) {
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	srv, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestUpdateResult(t *testing.T) {
 }
 
 func TestGetResult(t *testing.T) {
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	srv, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestGetResult(t *testing.T) {
 }
 
 func TestDeleteResult(t *testing.T) {
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	srv, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestDeleteResult(t *testing.T) {
 }
 
 func TestCascadeDelete(t *testing.T) {
-	srv, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	srv, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestCascadeDelete(t *testing.T) {
 
 func TestListResults(t *testing.T) {
 	lastID = 0
-	server, err := New(&config.Config{DB_ENABLE_AUTO_MIGRATION: true}, logger.Get("info"), test.NewDB(t))
+	server, err := New(&config.Config{}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatal(err)
 	}

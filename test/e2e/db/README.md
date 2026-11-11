@@ -13,7 +13,7 @@ cluster and a **live** Postgres instance.
 | Lister behavior (filter, sort, pagination via Postgres) | `lister_test.go` | Active |
 | Labels (normalized table, selector operators) | `labels_test.go` | Placeholder |
 | Metadata columns (text[], GIN indexes) | `migrations_test.go` | Placeholder |
-| golang-migrate migrations | `migrations_test.go` | Placeholder |
+| Deployed schema version and baseline structure | `migrations_test.go` | Active |
 | Relationships & retention | `relationships_test.go`, `retention_test.go` | Placeholder |
 
 ## Prerequisites

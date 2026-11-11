@@ -22,8 +22,8 @@ import (
 	pb "github.com/tektoncd/results/proto/v1alpha2/results_go_proto"
 )
 
-// TestSchema_TablesExist verifies that the deployed API server's AutoMigrate
-// created both core tables in the live Postgres instance.
+// TestSchema_TablesExist verifies that the release's schema migrations created
+// both core tables in the live Postgres instance.
 func TestSchema_TablesExist(t *testing.T) {
 	for _, table := range []string{"results", "records"} {
 		t.Run(table, func(t *testing.T) {

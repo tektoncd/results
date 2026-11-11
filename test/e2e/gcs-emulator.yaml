@@ -76,7 +76,6 @@ data:
     DB_PORT=5432
     DB_NAME=tekton-results
     DB_SSLMODE=disable
-    DB_ENABLE_AUTO_MIGRATION=true
     FEATURE_GATES=
     SERVER_PORT=8080
     PROMETHEUS_PORT=9090

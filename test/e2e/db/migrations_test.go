@@ -16,30 +16,38 @@
 
 package db_test
 
-import "testing"
+import (
+	"context"
+	"testing"
 
-// TestMigrations_GolangMigrateApply will verify that versioned .sql migration
-// files apply cleanly to a fresh Postgres database.
-func TestMigrations_GolangMigrateApply(t *testing.T) {
-	t.Skip("golang-migrate not yet implemented")
-}
+	"github.com/tektoncd/results/pkg/api/server/db/migrations"
+)
 
-// TestMigrations_BaselineThenMigrate will verify that a GORM AutoMigrate
-// database can be baselined and then receive golang-migrate migrations.
-func TestMigrations_BaselineThenMigrate(t *testing.T) {
-	t.Skip("golang-migrate not yet implemented")
-}
-
-// TestMigrations_Idempotent will verify that running the full migration
-// sequence twice is a no-op.
-func TestMigrations_Idempotent(t *testing.T) {
-	t.Skip("golang-migrate not yet implemented")
-}
-
-// TestMigrations_VersionGate will verify that the server rejects databases
-// at too-old or too-new migration versions.
-func TestMigrations_VersionGate(t *testing.T) {
-	t.Skip("golang-migrate not yet implemented")
+// TestMigrations_DeployedSchema verifies that the release's migration Job
+// brought the live database to a clean version the deployed API accepts, and
+// that the migrated baseline tables match their expected definition.
+// Migration behavior itself is covered against a dedicated Postgres database
+// by the tests in pkg/api/server/db/migrations.
+func TestMigrations_DeployedSchema(t *testing.T) {
+	ctx := context.Background()
+	sqlDB, err := rawDB.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := migrations.Check(ctx, sqlDB, migrations.RequiredSchemaVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest, err := migrations.Latest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Dirty || s.Version != int(latest) {
+		t.Errorf("schema status = %+v, want clean version %d", s, latest)
+	}
+	if err := migrations.ValidateStructure(ctx, sqlDB); err != nil {
+		t.Error(err)
+	}
 }
 
 // TestMigrations_MetadataColumns will verify the text[] metadata columns

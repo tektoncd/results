@@ -87,9 +87,8 @@ func (m *mockUpdateLogServer) Context() context.Context {
 
 func TestGetLog(t *testing.T) {
 	srv, err := New(&config.Config{
-		LOGS_API:                 true,
-		LOGS_TYPE:                "File",
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_API:  true,
+		LOGS_TYPE: "File",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
@@ -165,9 +164,8 @@ func TestGetLog(t *testing.T) {
 
 func TestGetLogV2(t *testing.T) {
 	srv, err := New(&config.Config{
-		LOGS_API:                 true,
-		LOGS_TYPE:                "File",
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_API:  true,
+		LOGS_TYPE: "File",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
@@ -247,9 +245,8 @@ func TestUpdateLog(t *testing.T) {
 		t.Fatalf("failed to test temp folder: %v", err)
 	}
 	c := &config.Config{
-		LOGS_TYPE:                "File",
-		LOGS_API:                 true,
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_TYPE: "File",
+		LOGS_API:  true,
 	}
 	srv, err := New(c, logger.Get("info"), test.NewDB(t))
 	if err != nil {
@@ -327,9 +324,8 @@ func TestUpdateLog(t *testing.T) {
 func TestListLogs(t *testing.T) {
 	// Create a temporary database
 	srv, err := New(&config.Config{
-		LOGS_API:                 true,
-		LOGS_TYPE:                "File",
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_API:  true,
+		LOGS_TYPE: "File",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to setup db: %v", err)
@@ -585,9 +581,8 @@ func TestListLogs(t *testing.T) {
 func TestListLogs_multiresult(t *testing.T) {
 	// Create a temporary database
 	srv, err := New(&config.Config{
-		LOGS_API:                 true,
-		LOGS_TYPE:                "File",
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_API:  true,
+		LOGS_TYPE: "File",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to setup db: %v", err)
@@ -646,9 +641,8 @@ func TestListLogs_multiresult(t *testing.T) {
 
 func TestDeleteLog(t *testing.T) {
 	srv, err := New(&config.Config{
-		LOGS_API:                 true,
-		LOGS_TYPE:                "File",
-		DB_ENABLE_AUTO_MIGRATION: true,
+		LOGS_API:  true,
+		LOGS_TYPE: "File",
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)

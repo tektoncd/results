@@ -23,6 +23,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	model "github.com/tektoncd/results/pkg/api/server/db"
 	// Inject sqlite error checking.
 	_ "github.com/tektoncd/results/pkg/api/server/db/errors/sqlite"
 )
@@ -62,6 +63,12 @@ func NewDB(t *testing.T) *gorm.DB {
 	// Enable foreign key support. Only needed for sqlite instance we use for
 	// tests.
 	gdb.Exec("PRAGMA foreign_keys = ON;")
+
+	// Production schemas are created by versioned PostgreSQL migrations; the
+	// SQLite test schema is derived from the models.
+	if err := gdb.AutoMigrate(&model.Result{}, &model.Record{}); err != nil {
+		t.Fatalf("failed to create the test schema: %v", err)
+	}
 
 	return gdb
 }
