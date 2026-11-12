@@ -220,3 +220,89 @@ func TestRBAC(t *testing.T) {
 		})
 	}
 }
+
+func TestRBACTokenAudiences(t *testing.T) {
+	// The fake API server knows three tokens: one issued for the
+	// "tekton-results" audience, one for its own default audience, and one
+	// accepted by an authenticator that is not audience aware and returns no
+	// audiences.
+	tokenAudiences := map[string][]string{
+		"results-token": {"tekton-results"},
+		"default-token": {"https://kubernetes.default.svc"},
+		"unaware-token": nil,
+	}
+	var requested [][]string
+	k8s := fake.NewSimpleClientset()
+	k8s.PrependReactor("create", "tokenreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
+		tr := action.(test.CreateActionImpl).Object.(*authnv1.TokenReview)
+		requested = append(requested, tr.Spec.Audiences)
+		audiences, ok := tokenAudiences[tr.Spec.Token]
+		if !ok {
+			tr.Status = authnv1.TokenReviewStatus{Authenticated: false}
+			return true, tr, nil
+		}
+		var common []string
+		if tr.Spec.Token != "unaware-token" {
+			want := tr.Spec.Audiences
+			if len(want) == 0 {
+				want = []string{"https://kubernetes.default.svc"}
+			}
+			for _, a := range audiences {
+				if slices.Contains(want, a) {
+					common = append(common, a)
+				}
+			}
+			if len(common) == 0 {
+				tr.Status = authnv1.TokenReviewStatus{Authenticated: false}
+				return true, tr, nil
+			}
+		}
+		tr.Status = authnv1.TokenReviewStatus{
+			Authenticated: true,
+			Audiences:     common,
+			User:          authnv1.UserInfo{Username: "authorized"},
+		}
+		return true, tr, nil
+	})
+	k8s.PrependReactor("create", "subjectaccessreviews", func(action test.Action) (handled bool, ret runtime.Object, err error) {
+		sar := action.(test.CreateActionImpl).Object.(*authzv1.SubjectAccessReview)
+		sar.Status = authzv1.SubjectAccessReviewStatus{Allowed: sar.Spec.User == "authorized"}
+		return true, sar, nil
+	})
+
+	for _, tc := range []struct {
+		name      string
+		audiences []string
+		token     string
+		want      codes.Code
+	}{
+		{name: "default audience, default token", token: "default-token", want: codes.OK},
+		{name: "default audience, results token", token: "results-token", want: codes.Unauthenticated},
+		{name: "results audience, results token", audiences: []string{"tekton-results"}, token: "results-token", want: codes.OK},
+		{name: "results audience, default token", audiences: []string{"tekton-results"}, token: "default-token", want: codes.Unauthenticated},
+		{name: "both audiences, default token", audiences: []string{"tekton-results", "https://kubernetes.default.svc"}, token: "default-token", want: codes.OK},
+		{name: "results audience, authenticator not audience aware", audiences: []string{"tekton-results"}, token: "unaware-token", want: codes.Unauthenticated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requested = nil
+			var opts []auth.Option
+			if tc.audiences != nil {
+				opts = append(opts, auth.WithTokenAudiences(tc.audiences))
+			}
+			resultsClient, _ := testclient.NewResultsClient(t, &config.Config{}, server.WithAuth(auth.NewRBAC(k8s, opts...)))
+			ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+tc.token)
+			_, err := resultsClient.ListResults(ctx, &pb.ListResultsRequest{Parent: "foo"})
+			if status.Code(err) != tc.want {
+				t.Fatalf("ListResults: %v, want %v", err, tc.want)
+			}
+			if len(requested) == 0 {
+				t.Fatal("no TokenReview was sent")
+			}
+			for _, got := range requested {
+				if !slices.Equal(got, tc.audiences) {
+					t.Errorf("TokenReview audiences = %q, want %q", got, tc.audiences)
+				}
+			}
+		})
+	}
+}
