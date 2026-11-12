@@ -196,3 +196,47 @@ func TestS3Stream_Delete(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestInitConfigCredentials(t *testing.T) {
+	t.Setenv("AWS_ACCESS_KEY_ID", "env-key")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "env-secret")
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+	tests := []struct {
+		name    string
+		cfg     server.Config
+		wantKey string
+	}{
+		{
+			name:    "static credentials take precedence",
+			cfg:     server.Config{S3_REGION: "us-east-1", S3_ACCESS_KEY_ID: "static-key", S3_SECRET_ACCESS_KEY: "static-secret"},
+			wantKey: "static-key",
+		},
+		{
+			name:    "default credential chain without static credentials",
+			cfg:     server.Config{S3_REGION: "us-east-1"},
+			wantKey: "env-key",
+		},
+		{
+			name:    "default credential chain with only the key id set",
+			cfg:     server.Config{S3_REGION: "us-east-1", S3_ACCESS_KEY_ID: "static-key"},
+			wantKey: "env-key",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, err := initConfig(context.Background(), &tc.cfg)
+			if err != nil {
+				t.Fatalf("initConfig() error = %v", err)
+			}
+			creds, err := client.Options().Credentials.Retrieve(context.Background())
+			if err != nil {
+				t.Fatalf("Retrieve() error = %v", err)
+			}
+			if creds.AccessKeyID != tc.wantKey {
+				t.Errorf("AccessKeyID = %q, want %q", creds.AccessKeyID, tc.wantKey)
+			}
+		})
+	}
+}
