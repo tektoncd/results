@@ -2,7 +2,6 @@ package log
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -168,6 +167,10 @@ func (s *mockStream) Flush() error {
 	return fmt.Errorf("not implemented")
 }
 
+func (s *mockStream) Close() error {
+	return fmt.Errorf("not implemented")
+}
+
 func TestToStream(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -230,13 +233,15 @@ func TestToStream(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			streamer, _, err := ToStream(context.TODO(), tc.in, &config.Config{})
+			logDir := t.TempDir()
+			streamer, _, err := ToStream(t.Context(), tc.in, &config.Config{LOGS_PATH: logDir})
 			if err != nil {
 				if !tc.expectErr {
 					t.Errorf("unexpected error: %v", err)
 				}
 				return
 			}
+			t.Cleanup(func() { _ = streamer.Close() })
 			if streamer.Type() != tc.want.Type() {
 				t.Errorf("expected log streamer %s, got %s", tc.want.Type(), streamer.Type())
 			}

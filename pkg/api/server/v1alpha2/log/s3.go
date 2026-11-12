@@ -232,3 +232,8 @@ func (s3s *s3Stream) Delete() error {
 	})
 	return err
 }
+
+// Close is a no-op for S3 streams, since they do not hold any local resources.
+func (*s3Stream) Close() error {
+	return nil
+}

@@ -86,9 +86,11 @@ func (m *mockUpdateLogServer) Context() context.Context {
 }
 
 func TestGetLog(t *testing.T) {
+	logsDir := t.TempDir()
 	srv, err := New(&config.Config{
 		LOGS_API:                 true,
 		LOGS_TYPE:                "File",
+		LOGS_PATH:                logsDir,
 		DB_ENABLE_AUTO_MIGRATION: true,
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
@@ -109,7 +111,7 @@ func TestGetLog(t *testing.T) {
 	}
 
 	expectedData := "Hello World!"
-	logFile, err := os.CreateTemp("", "test-log-taskrun-*.log")
+	logFile, err := os.CreateTemp(logsDir, "test-log-taskrun-*.log")
 	t.Log("test log file: ", logFile.Name())
 	t.Cleanup(func() {
 		logFile.Close()
@@ -139,7 +141,7 @@ func TestGetLog(t *testing.T) {
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
 					Status: v1alpha3.LogStatus{
-						Path:     logFile.Name(),
+						Path:     filepath.Base(logFile.Name()),
 						Size:     1024,
 						IsStored: true,
 					},
@@ -164,9 +166,11 @@ func TestGetLog(t *testing.T) {
 }
 
 func TestGetLogV2(t *testing.T) {
+	logsDir := t.TempDir()
 	srv, err := New(&config.Config{
 		LOGS_API:                 true,
 		LOGS_TYPE:                "File",
+		LOGS_PATH:                logsDir,
 		DB_ENABLE_AUTO_MIGRATION: true,
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
@@ -187,7 +191,7 @@ func TestGetLogV2(t *testing.T) {
 	}
 
 	expectedData := "Hello World!"
-	logFile, err := os.CreateTemp("", "test-log-taskrun-*.log")
+	logFile, err := os.CreateTemp(logsDir, "test-log-taskrun-*.log")
 	t.Log("test log file: ", logFile.Name())
 	t.Cleanup(func() {
 		logFile.Close()
@@ -217,7 +221,7 @@ func TestGetLogV2(t *testing.T) {
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
 					Status: v1alpha3.LogStatus{
-						Path:     logFile.Name(),
+						Path:     filepath.Base(logFile.Name()),
 						Size:     1024,
 						IsStored: true,
 					},
@@ -249,6 +253,7 @@ func TestUpdateLog(t *testing.T) {
 	c := &config.Config{
 		LOGS_TYPE:                "File",
 		LOGS_API:                 true,
+		LOGS_PATH:                testDir,
 		DB_ENABLE_AUTO_MIGRATION: true,
 	}
 	srv, err := New(c, logger.Get("info"), test.NewDB(t))
@@ -270,7 +275,7 @@ func TestUpdateLog(t *testing.T) {
 		os.RemoveAll(testDir)
 	})
 	recordName := record.FormatName(res.GetName(), "baz-log")
-	path := filepath.Join(testDir, "test-uid", "task-run.log")
+	path := filepath.Join("test-uid", "task-run.log")
 	rec, err := srv.CreateRecord(ctx, &pb.CreateRecordRequest{
 		Parent: res.GetName(),
 		Record: &pb.Record{
@@ -311,7 +316,7 @@ func TestUpdateLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to put log: %v", err)
 	}
-	actualData, err := os.ReadFile(path)
+	actualData, err := os.ReadFile(filepath.Join(testDir, path))
 	if err != nil {
 		t.Fatalf("failed to read data from file: %v", err)
 	}
@@ -645,9 +650,11 @@ func TestListLogs_multiresult(t *testing.T) {
 }
 
 func TestDeleteLog(t *testing.T) {
+	logsDir := t.TempDir()
 	srv, err := New(&config.Config{
 		LOGS_API:                 true,
 		LOGS_TYPE:                "File",
+		LOGS_PATH:                logsDir,
 		DB_ENABLE_AUTO_MIGRATION: true,
 	}, logger.Get("info"), test.NewDB(t))
 	if err != nil {
@@ -668,7 +675,7 @@ func TestDeleteLog(t *testing.T) {
 	}
 
 	// Create log to stream
-	logFile, err := os.CreateTemp("", "test-log-taskrun-*.log")
+	logFile, err := os.CreateTemp(logsDir, "test-log-taskrun-*.log")
 	t.Log("test log file: ", logFile.Name())
 	t.Cleanup(func() {
 		logFile.Close()
@@ -699,7 +706,7 @@ func TestDeleteLog(t *testing.T) {
 					},
 					// To avoid defaulting behavior, explicitly set the file path in status
 					Status: v1alpha3.LogStatus{
-						Path: logFile.Name(),
+						Path: filepath.Base(logFile.Name()),
 						Size: 1024,
 					},
 				}),

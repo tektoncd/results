@@ -165,3 +165,8 @@ func (gcs *gcsStream) Delete() (err error) {
 	}
 	return nil
 }
+
+// Close is a no-op for GCS streams, since they do not hold any local resources.
+func (*gcsStream) Close() error {
+	return nil
+}

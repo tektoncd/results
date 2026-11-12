@@ -48,6 +48,7 @@ func FormatName(parent, name string) string {
 type Stream interface {
 	io.ReaderFrom
 	io.WriterTo
+	io.Closer
 	Type() string
 	Delete() error
 	Flush() error

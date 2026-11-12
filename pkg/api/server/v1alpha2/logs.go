@@ -60,6 +60,11 @@ func (s *Server) GetLog(req *pb.GetLogRequest, srv pb.Logs_GetLogServer) error {
 		s.logger.Error(err)
 		return status.Error(codes.Internal, "Error streaming log")
 	}
+	defer func() {
+		if err := stream.Close(); err != nil {
+			s.logger.Error(err)
+		}
+	}()
 
 	// Handle v1alpha2 and earlier differently from v1alpha3 until v1alpha2 and earlier are deprecated
 	if object.APIVersion == "results.tekton.dev/v1alpha3" {
@@ -108,6 +113,14 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 	var rec *db.Record
 	var object *v1alpha3.Log
 	var stream log.Stream
+	defer func() {
+		if stream != nil {
+			if err := stream.Close(); err != nil {
+				s.logger.Error(err)
+			}
+		}
+	}()
+
 	// fyi we cannot defer the flush call in case we need to return the error
 	// but instead we pass the stream into handleError to preserve the behavior of
 	// calling Flush regardless when we previously called Flush via defer
@@ -116,7 +129,7 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 		recv, err := srv.Recv()
 		// If we reach the end of the srv, we receive an io.EOF error
 		if err != nil {
-			return s.handleReturn(srv, rec, object, bytesWritten, stream, err, true)
+			return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, true)
 		}
 		// Ensure that we are receiving logs for the same record
 		if name == "" {
@@ -124,16 +137,16 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 			s.logger.Debugf("receiving logs for %s", name)
 			parent, resultName, recordName, err = log.ParseName(name)
 			if err != nil {
-				return s.handleReturn(srv, rec, object, bytesWritten, stream, err, true)
+				return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, true)
 			}
 
 			if err = s.auth.Check(srv.Context(), parent, auth.ResourceLogs, auth.PermissionUpdate); err != nil {
-				return s.handleReturn(srv, rec, object, bytesWritten, stream, err, false)
+				return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, false)
 			}
 		}
 		if name != recv.GetName() {
 			err = fmt.Errorf("cannot put logs for multiple records in the same server")
-			return s.handleReturn(srv,
+			return s.handleUpdateReturn(srv,
 				rec,
 				object,
 				bytesWritten,
@@ -145,14 +158,14 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 		if rec == nil {
 			rec, err = getRecord(s.db.WithContext(srv.Context()), parent, resultName, recordName)
 			if err != nil {
-				return s.handleReturn(srv, rec, object, bytesWritten, stream, err, true)
+				return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, true)
 			}
 		}
 
 		if stream == nil {
 			stream, object, err = log.ToStream(srv.Context(), rec, s.config)
 			if err != nil {
-				return s.handleReturn(srv, rec, object, bytesWritten, stream, err, false)
+				return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, false)
 			}
 		}
 
@@ -162,12 +175,12 @@ func (s *Server) UpdateLog(srv pb.Logs_UpdateLogServer) error {
 		bytesWritten += written
 
 		if err != nil {
-			return s.handleReturn(srv, rec, object, bytesWritten, stream, err, true)
+			return s.handleUpdateReturn(srv, rec, object, bytesWritten, stream, err, true)
 		}
 	}
 }
 
-func (s *Server) handleReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *v1alpha3.Log, written int64, stream log.Stream, returnErr error, isRetryableErr bool) error {
+func (s *Server) handleUpdateReturn(srv pb.Logs_UpdateLogServer, rec *db.Record, log *v1alpha3.Log, written int64, stream log.Stream, returnErr error, isRetryableErr bool) error {
 	// When the srv reaches the end, srv.Recv() returns an io.EOF error
 	// Therefore we should not return io.EOF if it is received in this function.
 	// Otherwise, we should return the original error and not mask any subsequent errors handling cleanup/return.
@@ -417,6 +430,11 @@ func (s *Server) DeleteLog(ctx context.Context, req *pb.DeleteLogRequest) (*empt
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := streamer.Close(); err != nil {
+			s.logger.Error(err)
+		}
+	}()
 	err = streamer.Delete()
 	if err != nil {
 		return nil, err
