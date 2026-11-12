@@ -94,6 +94,12 @@ type Config struct {
 	// implicitly required and does not need to be listed. When nil/empty,
 	// only the stored annotation is checked (existing behavior).
 	RequiredAnnotations map[string]AnnotationRequirement
+
+	// StripFields lists field paths, split into their segments, that are
+	// removed from PipelineRuns, TaskRuns and CustomRuns before they are
+	// stored, for example metadata.managedFields. Empty means objects are
+	// stored as they are.
+	StripFields [][]string
 }
 
 // AnnotationRequirement defines the condition an annotation must meet.

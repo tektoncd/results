@@ -27,6 +27,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/tektoncd/results/pkg/watcher/convert"
 	"github.com/tektoncd/results/pkg/watcher/logs"
 
 	creds "github.com/tektoncd/results/pkg/watcher/grpc"
@@ -88,6 +89,7 @@ var (
 	storeDeadline                = flag.Duration("store_deadline", 10*time.Minute, "How long to wait for storing the PipelineRun and TaskRun resources before aborting and clearing the finalizer in case of delete event")
 	forwardBuffer                = flag.Duration("forward_buffer", 150*time.Second, "This determines duration since completion time of TaskRun to wait for forwarder to finish")
 	managedByValues              = flag.String("managed_by_values", "", "Comma-separated list of additional spec.managedBy values the watcher will process. Runs with unset, empty, whitespace-only or \"tekton.dev/pipeline\" managedBy values are always accepted.")
+	stripFields                  = flag.String("strip_fields", "", "Comma-separated list of dot-separated field paths to remove from runs before they are stored, for example metadata.managedFields. Paths are not followed through lists. By default runs are stored as they are.")
 	requiredAnnotations          = newAnnotationFlag("required_annotation", "Repeatable flag. Use \"key=value\" to require an exact match, or just \"key\" to require existence of the annotation regardless of its value. The stored annotation is always implicitly required.")
 )
 
@@ -164,6 +166,13 @@ func main() {
 
 	log.Printf("dynamic reconcile timeout %s and update log timeout is %s", cfg.DynamicReconcileTimeout.String(), cfg.UpdateLogTimeout.String())
 	log.Printf("managed_by_values: %v", sets.List(cfg.AllowedManagedByValues))
+
+	if paths, err := convert.ParseFieldPaths(*stripFields); err != nil {
+		log.Fatalf("Malformed -strip_fields value: %v", err)
+	} else if len(paths) > 0 {
+		cfg.StripFields = paths
+		log.Printf("strip_fields: %s", *stripFields)
+	}
 
 	if selector := *labelSelector; selector != "" {
 		if err := cfg.SetLabelSelector(selector); err != nil {

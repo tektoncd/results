@@ -16,6 +16,7 @@ package results
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -555,6 +556,60 @@ func TestUpsertRecord(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+func TestUpsertRecordStripFields(t *testing.T) {
+	ctx := context.Background()
+	c := client(t)
+	paths, err := convert.ParseFieldPaths("metadata.managedFields")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.StripFields = paths
+
+	tr := &pipelinev1.TaskRun{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "tekton.dev/v1",
+			Kind:       "TaskRun",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "taskrun",
+			Namespace: "test",
+			UID:       "taskrun-id",
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{Manager: "controller", Operation: metav1.ManagedFieldsOperationUpdate},
+			},
+		},
+	}
+	result, err := c.ensureResult(ctx, tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := c.upsertRecord(ctx, result.GetName(), tr)
+	if err != nil {
+		t.Fatalf("upsertRecord: %v", err)
+	}
+
+	var stored pipelinev1.TaskRun
+	if err := json.Unmarshal(record.GetData().GetValue(), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.ManagedFields) != 0 {
+		t.Errorf("stored managedFields = %v, want none", stored.ManagedFields)
+	}
+	if stored.Name != "taskrun" || stored.Namespace != "test" || stored.UID != "taskrun-id" {
+		t.Errorf("stored metadata = %s/%s (%s), want test/taskrun (taskrun-id)", stored.Namespace, stored.Name, stored.UID)
+	}
+
+	// A change limited to a stripped field must not update the record.
+	tr.ManagedFields = append(tr.ManagedFields, metav1.ManagedFieldsEntry{Manager: "other"})
+	again, err := c.upsertRecord(ctx, result.GetName(), tr)
+	if err != nil {
+		t.Fatalf("upsertRecord: %v", err)
+	}
+	if again.GetEtag() != record.GetEtag() {
+		t.Errorf("record was updated (etag %q -> %q), want no update", record.GetEtag(), again.GetEtag())
 	}
 }
 
