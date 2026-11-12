@@ -3,12 +3,15 @@ package fieldmask
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/tektoncd/results/internal/fieldmask/test"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc/metadata"
@@ -132,5 +135,33 @@ func TestMetadataAnnotator(t *testing.T) {
 	})
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("Metadata mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestForwardResponseFilter(t *testing.T) {
+	var enabled atomic.Bool
+	for _, method := range []string{"/tekton.results.v1alpha2.Results/GetRecord", "/tekton.results.v1alpha2.Logs/ListLogs"} {
+		for _, on := range []bool{false, true} {
+			enabled.Store(on)
+			ctx, err := runtime.AnnotateIncomingContext(context.Background(), runtime.NewServeMux(), httptest.NewRequest("GET", "/", nil), method)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx = metadata.NewIncomingContext(ctx, metadata.Pairs("fields", "name", "fields", "data.value.d"))
+			got := proto.Clone(pm)
+			want := proto.Clone(pm)
+			if on && strings.Contains(method, ".Results/") {
+				FromMetadata(metadata.Pairs("fields", "name", "fields", "data.value.d")).Filter(want)
+			}
+			if err := ForwardResponseFilter(&enabled)(ctx, httptest.NewRecorder(), got); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+				t.Fatalf("method=%s enabled=%v: %s", method, on, diff)
+			}
+			if err := ForwardResponseFilter(&enabled)(ctx, httptest.NewRecorder(), nil); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 }

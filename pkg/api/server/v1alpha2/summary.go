@@ -13,6 +13,9 @@ import (
 
 // GetRecordListSummary returns the summary and aggregation for a given list of records
 func (s *Server) GetRecordListSummary(ctx context.Context, req *pb.RecordListSummaryRequest) (*pb.RecordListSummary, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
