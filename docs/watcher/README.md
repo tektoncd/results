@@ -145,6 +145,27 @@ When set to `true`, the Watcher will only store Runs once they are completed. Th
 
 When set to `false` (default), the Watcher will attempt to continuously store all Runs on every modification regardless of their completion status, allowing you to track the full lifecycle of your PipelineRuns, TaskRuns, and CustomRuns.
 
+## Stripping fields before storing
+
+The `strip_fields` flag removes fields from PipelineRuns, TaskRuns and CustomRuns before the Watcher stores them, which reduces database storage for fields that are rarely useful in the archive. It takes a comma-separated list of dot-separated paths:
+
+```
+--strip_fields=metadata.managedFields
+```
+
+Multiple paths:
+
+```
+--strip_fields=metadata.managedFields,status.provenance
+```
+
+- Paths are followed through objects only, not through lists, so `status.steps.name` has no effect.
+- Paths that do not exist on an object are ignored.
+- `apiVersion`, `kind`, `metadata.name`, `metadata.namespace` and `metadata.uid` cannot be stripped, nor can a parent of them such as `metadata`. The Watcher refuses to start if one is listed.
+- Records that are already stored keep the stripped fields until the run is updated and stored again.
+
+By default the flag is empty and runs are stored as they are.
+
 ## Informer resync period
 
 The `resync_period` flag controls how often the Watcher's informers resync. On every resync, each cached PipelineRun, TaskRun, and CustomRun is re-enqueued for reconciliation, which acts as a safety net for missed events but produces a burst of work on clusters with many runs.
