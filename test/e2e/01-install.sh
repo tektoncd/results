@@ -58,6 +58,7 @@ else
     echo "Installing Tekton Results..."
     kustomize_dir="${ROOT}/test/e2e/kustomize"
 fi
+kustomize_dir="${TEKTON_RESULTS_KUSTOMIZATION:-${kustomize_dir}}"
 extra_ko_params="linux/$(go env GOARCH)"
 kubectl kustomize "${kustomize_dir}" | ko apply --platform="$extra_ko_params" -f -
 kubectl set env deployment/tekton-results-api --namespace="tekton-pipelines" AUTH_CACHE_ENABLED=true

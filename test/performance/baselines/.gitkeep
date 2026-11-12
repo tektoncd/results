@@ -1,0 +1,3 @@
+# Committed baseline reports land here (one JSON per mode/tier/dataset version).
+# Populated as a follow-up: run store|query|mixed against main and commit the
+# reports as tier1-<dataset-version>-<mode>-baseline.json.
