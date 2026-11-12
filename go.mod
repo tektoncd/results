@@ -265,3 +265,10 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
+
+replace (
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp => github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0
+	go.opentelemetry.io/contrib/detectors/gcp => go.opentelemetry.io/contrib/detectors/gcp v1.43.0
+	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.43.0
+	go.opentelemetry.io/otel/sdk/metric => go.opentelemetry.io/otel/sdk/metric v1.43.0
+)
