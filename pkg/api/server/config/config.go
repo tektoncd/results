@@ -76,6 +76,8 @@ type Config struct {
 	LOGGING_PLUGIN_MULTIPART_REGEX          string `mapstructure:"LOGGING_PLUGIN_MULTIPART_REGEX"`
 	LOGGING_PLUGIN_JSON_MAP                 string `mapstructure:"LOGGING_PLUGIN_JSON_MAP"`
 	LOGGING_PLUGIN_LINE_FORMAT              string `mapstructure:"LOGGING_PLUGIN_LINE_FORMAT"`
+	LOGGING_PLUGIN_PIPELINERUN_UID_KEY      string `mapstructure:"LOGGING_PLUGIN_PIPELINERUN_UID_KEY"`
+	LOGGING_PLUGIN_TASKRUN_UID_KEY          string `mapstructure:"LOGGING_PLUGIN_TASKRUN_UID_KEY"`
 }
 
 // newViper returns an isolated configuration reader with server defaults.
