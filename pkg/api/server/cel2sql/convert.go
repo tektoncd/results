@@ -20,21 +20,28 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
-// Convert takes CEL expressions and attempt to convert them into Postgres SQL
-// filters.
-func Convert(env *cel.Env, filters string) (string, error) {
+// Convert takes CEL expressions and attempts to convert them into a
+// parameterized Postgres SQL WHERE fragment.  It returns the SQL string
+// (containing GORM-style ? placeholders), a slice of bind-parameter values,
+// and any error.  Callers must pass both to GORM:
+//
+//	db.Where(sql, args...)
+//
+// This ensures that user-controlled string values are never interpolated
+// directly into the SQL string, preventing SQL injection.
+func Convert(env *cel.Env, filters string) (string, []any, error) {
 	ast, issues := env.Compile(filters)
 	if issues != nil && issues.Err() != nil {
-		return "", fmt.Errorf("error compiling CEL filters: %w", issues.Err())
+		return "", nil, fmt.Errorf("error compiling CEL filters: %w", issues.Err())
 	}
 
 	if outputType := ast.OutputType(); !outputType.IsAssignableType(cel.BoolType) {
-		return "", fmt.Errorf("expected boolean expression, but got %s", outputType.String())
+		return "", nil, fmt.Errorf("expected boolean expression, but got %s", outputType.String())
 	}
 
 	interpreter, err := newInterpreter(ast)
 	if err != nil {
-		return "", fmt.Errorf("error creating cel2sql interpreter: %w", err)
+		return "", nil, fmt.Errorf("error creating cel2sql interpreter: %w", err)
 	}
 
 	return interpreter.interpret()

@@ -15,6 +15,7 @@
 package cel2sql
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/cel-go/common/operators"
@@ -54,9 +55,16 @@ func (i *interpreter) translateToJSONPathContainsExpression(arg1 *exprpb.Expr, a
 		}
 	}
 
-	fmt.Fprintf(&i.query, ` @> '{"%s":"%s"}'::jsonb`,
-		key.GetConstExpr().GetStringValue(),
-		arg2.GetConstExpr().GetStringValue())
+	jsonObj := map[string]string{
+		key.GetConstExpr().GetStringValue(): arg2.GetConstExpr().GetStringValue(),
+	}
+	jsonBytes, err := json.Marshal(jsonObj)
+	if err != nil {
+		return fmt.Errorf("cel2sql: failed to marshal jsonb containment value: %w", err)
+	}
+	i.query.WriteString(` @> `)
+	i.addParam(string(jsonBytes))
+	i.query.WriteString("::jsonb")
 
 	return nil
 }
@@ -71,7 +79,8 @@ func (i *interpreter) interpretIndexExpr(id int64, expr *exprpb.Expr_Call) error
 			return err
 		}
 
-		fmt.Fprintf(&i.query, "->>'%s'", args[1].GetConstExpr().GetStringValue())
+		i.query.WriteString("->>")
+		i.addParam(args[1].GetConstExpr().GetStringValue())
 
 		return nil
 	}

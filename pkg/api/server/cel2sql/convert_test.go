@@ -25,134 +25,179 @@ import (
 
 func TestConvertRecordExpressions(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		want string
+		name     string
+		in       string
+		wantSQL  string
+		wantArgs []any
 	}{
 		{
-			name: "simple expression",
-			in:   `name == "foo"`,
-			want: "(name = 'foo')",
+			name:     "simple expression",
+			in:       `name == "foo"`,
+			wantSQL:  "(name = ?)",
+			wantArgs: []any{"foo"},
 		},
 		{
-			name: "select expression",
-			in:   `data.metadata.namespace == "default"`,
-			want: "((data->'metadata'->>'namespace') = 'default')",
+			name:     "select expression",
+			in:       `data.metadata.namespace == "default"`,
+			wantSQL:  "((data->'metadata'->>'namespace') = ?)",
+			wantArgs: []any{"default"},
 		},
 		{
-			name: "type coercion with a dyn expression in the left hand side",
-			in:   `data.status.completionTime > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "((data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
+			name:     "type coercion with a dyn expression in the left hand side",
+			in:       `data.status.completionTime > timestamp("2022/10/30T21:45:00.000Z")`,
+			wantSQL:  "((data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE > ?::TIMESTAMP WITH TIME ZONE)",
+			wantArgs: []any{"2022/10/30T21:45:00.000Z"},
 		},
 		{
-			name: "type coercion with a dyn expression in the right hand side",
-			in:   `timestamp("2022/10/30T21:45:00.000Z") < data.status.completionTime`,
-			want: "('2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE < (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE)",
+			name:     "type coercion with a dyn expression in the right hand side",
+			in:       `timestamp("2022/10/30T21:45:00.000Z") < data.status.completionTime`,
+			wantSQL:  "(?::TIMESTAMP WITH TIME ZONE < (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE)",
+			wantArgs: []any{"2022/10/30T21:45:00.000Z"},
 		},
 		{
-			name: "in operator",
-			in:   `data.metadata.namespace in ["foo", "bar"]`,
-			want: "((data->'metadata'->>'namespace') IN ('foo', 'bar'))",
+			name:     "in operator",
+			in:       `data.metadata.namespace in ["foo", "bar"]`,
+			wantSQL:  "((data->'metadata'->>'namespace') IN (?, ?))",
+			wantArgs: []any{"foo", "bar"},
 		},
 		{
-			name: "index operator",
-			in:   `data.metadata.labels["foo"] == "bar"`,
-			want: "((data->'metadata'->'labels'->>'foo') = 'bar')",
+			name:     "index operator",
+			in:       `data.metadata.labels["foo"] == "bar"`,
+			wantSQL:  "((data->'metadata'->'labels'->>?) = ?)",
+			wantArgs: []any{"foo", "bar"},
 		},
 		{
-			name: "concatenate strings",
-			in:   `name + "bar" == "foobar"`,
-			want: "(CONCAT(name, 'bar') = 'foobar')",
+			name:     "concatenate strings",
+			in:       `name + "bar" == "foobar"`,
+			wantSQL:  "(CONCAT(name, ?) = ?)",
+			wantArgs: []any{"bar", "foobar"},
 		},
 		{
-			name: "multiple concatenate strings",
-			in:   `name + "bar" + "baz" == "foobarbaz"`,
-			want: "(CONCAT(name, 'bar', 'baz') = 'foobarbaz')",
+			name:     "multiple concatenate strings",
+			in:       `name + "bar" + "baz" == "foobarbaz"`,
+			wantSQL:  "(CONCAT(name, ?, ?) = ?)",
+			wantArgs: []any{"bar", "baz", "foobarbaz"},
 		},
 		{
-			name: "contains string function",
-			in:   `data.metadata.name.contains("foo")`,
-			want: "POSITION('foo' IN (data->'metadata'->>'name')) <> 0",
+			name:     "contains string function",
+			in:       `data.metadata.name.contains("foo")`,
+			wantSQL:  "POSITION(? IN (data->'metadata'->>'name')) <> 0",
+			wantArgs: []any{"foo"},
 		},
 		{
-			name: "not contains string function",
-			in:   `!(data.metadata.annotations.contains("foo"))`,
-			want: "NOT (POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0)",
+			name:     "not contains string function",
+			in:       `!(data.metadata.annotations.contains("foo"))`,
+			wantSQL:  "NOT (POSITION(? IN (data->'metadata'->>'annotations')) <> 0)",
+			wantArgs: []any{"foo"},
 		},
 		{
-			name: "complex not expressions",
-			in:   `!(data.metadata.annotations.contains("foo")) && data.metadata.name.endsWith("bar")`,
-			want: "(NOT (POSITION('foo' IN (data->'metadata'->>'annotations')) <> 0) AND (data->'metadata'->>'name') LIKE '%' || 'bar')",
+			name:     "complex not expressions",
+			in:       `!(data.metadata.annotations.contains("foo")) && data.metadata.name.endsWith("bar")`,
+			wantSQL:  "(NOT (POSITION(? IN (data->'metadata'->>'annotations')) <> 0) AND (data->'metadata'->>'name') LIKE '%' || ?)",
+			wantArgs: []any{"foo", "bar"},
 		},
 		{
-			name: "endsWith string function",
-			in:   `data.metadata.name.endsWith("bar")`,
-			want: "(data->'metadata'->>'name') LIKE '%' || 'bar'",
+			name:     "endsWith string function",
+			in:       `data.metadata.name.endsWith("bar")`,
+			wantSQL:  "(data->'metadata'->>'name') LIKE '%' || ?",
+			wantArgs: []any{"bar"},
 		},
 		{
-			name: "getDate function",
-			in:   `data.status.completionTime.getDate() == 2`,
-			want: "(EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) = 2)",
+			name:     "getDate function",
+			in:       `data.status.completionTime.getDate() == 2`,
+			wantSQL:  "(EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) = 2)",
+			wantArgs: nil,
 		},
 		{
-			name: "getDayOfMonth function",
-			in:   `data.status.completionTime.getDayOfMonth() == 2`,
-			want: "((EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) = 2)",
+			name:     "getDayOfMonth function",
+			in:       `data.status.completionTime.getDayOfMonth() == 2`,
+			wantSQL:  "((EXTRACT(DAY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) = 2)",
+			wantArgs: nil,
 		},
 		{
-			name: "getDayOfWeek function",
-			in:   `data.status.completionTime.getDayOfWeek() > 0`,
-			want: "(EXTRACT(DOW FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) > 0)",
+			name:     "getDayOfWeek function",
+			in:       `data.status.completionTime.getDayOfWeek() > 0`,
+			wantSQL:  "(EXTRACT(DOW FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) > 0)",
+			wantArgs: nil,
 		},
 		{
-			name: "getDayOfYear function",
-			in:   `data.status.completionTime.getDayOfYear() > 15`,
-			want: "((EXTRACT(DOY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) > 15)",
+			name:     "getDayOfYear function",
+			in:       `data.status.completionTime.getDayOfYear() > 15`,
+			wantSQL:  "((EXTRACT(DOY FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) - 1) > 15)",
+			wantArgs: nil,
 		},
 		{
-			name: "getFullYear function",
-			in:   `data.status.completionTime.getFullYear() >= 2022`,
-			want: "(EXTRACT(YEAR FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) >= 2022)",
+			name:     "getFullYear function",
+			in:       `data.status.completionTime.getFullYear() >= 2022`,
+			wantSQL:  "(EXTRACT(YEAR FROM (data->'status'->>'completionTime')::TIMESTAMP WITH TIME ZONE) >= 2022)",
+			wantArgs: nil,
 		},
 		{
-			name: "matches function",
-			in:   `data.metadata.name.matches("^foo.*$")`,
-			want: "(data->'metadata'->>'name') ~ '^foo.*$'",
+			name:     "matches function",
+			in:       `data.metadata.name.matches("^foo.*$")`,
+			wantSQL:  "(data->'metadata'->>'name') ~ ?",
+			wantArgs: []any{"^foo.*$"},
 		},
 		{
-			name: "startsWith string function",
-			in:   `data.metadata.name.startsWith("bar")`,
-			want: "(data->'metadata'->>'name') LIKE 'bar' || '%'",
+			name:     "startsWith string function",
+			in:       `data.metadata.name.startsWith("bar")`,
+			wantSQL:  "(data->'metadata'->>'name') LIKE ? || '%'",
+			wantArgs: []any{"bar"},
 		},
 		{
-			name: "data_type field",
-			in:   `data_type == PIPELINE_RUN`,
-			want: "(type = 'tekton.dev/v1.PipelineRun')",
+			name:     "data_type field",
+			in:       `data_type == PIPELINE_RUN`,
+			wantSQL:  "(type = ?)",
+			wantArgs: []any{"tekton.dev/v1.PipelineRun"},
 		},
 		{
-			name: "index operator with numeric argument in JSON arrays",
-			in:   `data_type == "tekton.dev/v1.TaskRun" && data.status.conditions[0].status == "True"`,
-			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			name:     "index operator with numeric argument in JSON arrays",
+			in:       `data_type == "tekton.dev/v1.TaskRun" && data.status.conditions[0].status == "True"`,
+			wantSQL:  "((type = ?) AND ((data->'status'->'conditions'->0->>'status') = ?))",
+			wantArgs: []any{"tekton.dev/v1.TaskRun", "True"},
 		},
 		{
-			name: "index operator as first operation in JSON object",
-			in:   `data_type == "tekton.dev/v1.TaskRun" && data["status"].conditions[0].status == "True"`,
-			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			name:     "index operator as first operation in JSON object",
+			in:       `data_type == "tekton.dev/v1.TaskRun" && data["status"].conditions[0].status == "True"`,
+			wantSQL:  "((type = ?) AND ((data->?->'conditions'->0->>'status') = ?))",
+			wantArgs: []any{"tekton.dev/v1.TaskRun", "status", "True"},
 		},
 		{
-			name: "index operator with string argument in JSON object",
-			in:   `data_type == "tekton.dev/v1.TaskRun" && data.status["conditions"][0].status == "True"`,
-			want: "((type = 'tekton.dev/v1.TaskRun') AND ((data->'status'->'conditions'->0->>'status') = 'True'))",
+			name:     "index operator with string argument in JSON object",
+			in:       `data_type == "tekton.dev/v1.TaskRun" && data.status["conditions"][0].status == "True"`,
+			wantSQL:  "((type = ?) AND ((data->'status'->?->0->>'status') = ?))",
+			wantArgs: []any{"tekton.dev/v1.TaskRun", "conditions", "True"},
 		},
 		{
-			name: "complex expression with subgroups",
-			in:   `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz") || (data.metadata.name.startsWith("foo")))`,
-			want: `(((data->'metadata'->'annotations'->>'foo') = 'bar') AND NOT (((data->'metadata'->>'name') LIKE '%' || 'baz' OR (data->'metadata'->>'name') LIKE 'foo' || '%')))`,
+			name:     "complex expression with subgroups",
+			in:       `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz") || (data.metadata.name.startsWith("foo")))`,
+			wantSQL:  `(((data->'metadata'->'annotations'->>?) = ?) AND NOT (((data->'metadata'->>'name') LIKE '%' || ? OR (data->'metadata'->>'name') LIKE ? || '%')))`,
+			wantArgs: []any{"foo", "bar", "baz", "foo"},
 		},
 		{
-			name: "complex expression involving multiple subgroups and operators",
-			in:   `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz")) || (data.metadata.name.startsWith("foo") && data.metadata.name.contains("bar"))`,
-			want: `((((data->'metadata'->'annotations'->>'foo') = 'bar') AND NOT ((data->'metadata'->>'name') LIKE '%' || 'baz')) OR ((data->'metadata'->>'name') LIKE 'foo' || '%' AND POSITION('bar' IN (data->'metadata'->>'name')) <> 0))`,
+			name:     "complex expression involving multiple subgroups and operators",
+			in:       `data.metadata.annotations["foo"] == "bar" && !(data.metadata.name.endsWith("baz")) || (data.metadata.name.startsWith("foo") && data.metadata.name.contains("bar"))`,
+			wantSQL:  `((((data->'metadata'->'annotations'->>?) = ?) AND NOT ((data->'metadata'->>'name') LIKE '%' || ?)) OR ((data->'metadata'->>'name') LIKE ? || '%' AND POSITION(? IN (data->'metadata'->>'name')) <> 0))`,
+			wantArgs: []any{"foo", "bar", "baz", "foo", "bar"},
+		},
+		// Injection regression tests
+		{
+			name:     "SQL injection via string value is blocked",
+			in:       `name == "x') OR 1=1 OR ('a'='b"`,
+			wantSQL:  "(name = ?)",
+			wantArgs: []any{"x') OR 1=1 OR ('a'='b"},
+		},
+		{
+			name:     "SQL injection via contains argument is blocked",
+			in:       `data.metadata.name.contains("') OR 1=1 --")`,
+			wantSQL:  "POSITION(? IN (data->'metadata'->>'name')) <> 0",
+			wantArgs: []any{"') OR 1=1 --"},
+		},
+		{
+			name:     "single-quote in JSON accessor key is parameterized",
+			in:       `data.metadata.labels["it''s"] == "safe"`,
+			wantSQL:  "((data->'metadata'->'labels'->>?) = ?)",
+			wantArgs: []any{"it''s", "safe"},
 		},
 	}
 
@@ -163,14 +208,17 @@ func TestConvertRecordExpressions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Convert(env, test.in)
+			gotSQL, gotArgs, err := Convert(env, test.in)
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Logf("want: %+v\n", test.want)
-			t.Logf("got:  %+v\n", got)
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("Mismatch (-want +got):\n%s", diff)
+			t.Logf("wantSQL: %+v\n", test.wantSQL)
+			t.Logf("gotSQL:  %+v\n", gotSQL)
+			if diff := cmp.Diff(test.wantSQL, gotSQL); diff != "" {
+				t.Errorf("SQL mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(test.wantArgs, gotArgs); diff != "" {
+				t.Errorf("args mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -178,88 +226,116 @@ func TestConvertRecordExpressions(t *testing.T) {
 
 func TestConvertResultExpressions(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		want string
-	}{{
-		name: "Result.Parent field",
-		in:   `parent.endsWith("bar")`,
-		want: "parent LIKE '%' || 'bar'",
-	},
+		name     string
+		in       string
+		wantSQL  string
+		wantArgs []any
+	}{
 		{
-			name: "Result.Uid field",
-			in:   `uid == "foo"`,
-			want: "(id = 'foo')",
+			name:     "Result.Parent field",
+			in:       `parent.endsWith("bar")`,
+			wantSQL:  "parent LIKE '%' || ?",
+			wantArgs: []any{"bar"},
 		},
 		{
-			name: "Result.Annotations field",
-			in:   `annotations["repo"] == "tektoncd/results"`,
-			want: `annotations @> '{"repo":"tektoncd/results"}'::jsonb`,
+			name:     "Result.Uid field",
+			in:       `uid == "foo"`,
+			wantSQL:  "(id = ?)",
+			wantArgs: []any{"foo"},
 		},
 		{
-			name: "Result.Annotations field",
-			in:   `"tektoncd/results" == annotations["repo"]`,
-			want: `annotations @> '{"repo":"tektoncd/results"}'::jsonb`,
+			name:     "Result.Annotations field",
+			in:       `annotations["repo"] == "tektoncd/results"`,
+			wantSQL:  `annotations @> ?::jsonb`,
+			wantArgs: []any{`{"repo":"tektoncd/results"}`},
 		},
 		{
-			name: "other operators involving the Result.Annotations field",
-			in:   `annotations["repo"].startsWith("tektoncd")`,
-			want: "annotations->>'repo' LIKE 'tektoncd' || '%'",
+			name:     "Result.Annotations field reversed operands",
+			in:       `"tektoncd/results" == annotations["repo"]`,
+			wantSQL:  `annotations @> ?::jsonb`,
+			wantArgs: []any{`{"repo":"tektoncd/results"}`},
 		},
 		{
-			name: "Result.CreateTime field",
-			in:   `create_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "(created_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
+			name:     "other operators involving the Result.Annotations field",
+			in:       `annotations["repo"].startsWith("tektoncd")`,
+			wantSQL:  "annotations->>? LIKE ? || '%'",
+			wantArgs: []any{"repo", "tektoncd"},
 		},
 		{
-			name: "Result.UpdateTime field",
-			in:   `update_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "(updated_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
+			name:     "Result.CreateTime field",
+			in:       `create_time > timestamp("2022/10/30T21:45:00.000Z")`,
+			wantSQL:  "(created_time > ?::TIMESTAMP WITH TIME ZONE)",
+			wantArgs: []any{"2022/10/30T21:45:00.000Z"},
 		},
 		{
-			name: "Result.Summary.Record field",
-			in:   `summary.record == "foo/results/bar/records/baz"`,
-			want: "(recordsummary_record = 'foo/results/bar/records/baz')",
+			name:     "Result.UpdateTime field",
+			in:       `update_time > timestamp("2022/10/30T21:45:00.000Z")`,
+			wantSQL:  "(updated_time > ?::TIMESTAMP WITH TIME ZONE)",
+			wantArgs: []any{"2022/10/30T21:45:00.000Z"},
 		},
 		{
-			name: "Result.Summary.StartTime field",
-			in:   `summary.start_time > timestamp("2022/10/30T21:45:00.000Z")`,
-			want: "(recordsummary_start_time > '2022/10/30T21:45:00.000Z'::TIMESTAMP WITH TIME ZONE)",
+			name:     "Result.Summary.Record field",
+			in:       `summary.record == "foo/results/bar/records/baz"`,
+			wantSQL:  "(recordsummary_record = ?)",
+			wantArgs: []any{"foo/results/bar/records/baz"},
 		},
 		{
-			name: "comparison with the PIPELINE_RUN const value",
-			in:   `summary.type == PIPELINE_RUN`,
-			want: "(recordsummary_type = 'tekton.dev/v1.PipelineRun')",
+			name:     "Result.Summary.StartTime field",
+			in:       `summary.start_time > timestamp("2022/10/30T21:45:00.000Z")`,
+			wantSQL:  "(recordsummary_start_time > ?::TIMESTAMP WITH TIME ZONE)",
+			wantArgs: []any{"2022/10/30T21:45:00.000Z"},
 		},
 		{
-			name: "comparison with the TASK_RUN const value",
-			in:   `summary.type == TASK_RUN`,
-			want: "(recordsummary_type = 'tekton.dev/v1.TaskRun')",
+			name:     "comparison with the PIPELINE_RUN const value",
+			in:       `summary.type == PIPELINE_RUN`,
+			wantSQL:  "(recordsummary_type = ?)",
+			wantArgs: []any{"tekton.dev/v1.PipelineRun"},
 		},
 		{
-			name: "RecordSummary_Status constants",
-			in:   `summary.status == CANCELLED || summary.status == TIMEOUT`,
-			want: "((recordsummary_status = 4) OR (recordsummary_status = 3))",
+			name:     "comparison with the TASK_RUN const value",
+			in:       `summary.type == TASK_RUN`,
+			wantSQL:  "(recordsummary_type = ?)",
+			wantArgs: []any{"tekton.dev/v1.TaskRun"},
 		},
 		{
-			name: "Result.Summary.Annotations",
-			in:   `summary.annotations["branch"] == "main"`,
-			want: `recordsummary_annotations @> '{"branch":"main"}'::jsonb`,
+			name:     "RecordSummary_Status constants",
+			in:       `summary.status == CANCELLED || summary.status == TIMEOUT`,
+			wantSQL:  "((recordsummary_status = 4) OR (recordsummary_status = 3))",
+			wantArgs: nil,
 		},
 		{
-			name: "not Result.Summary.Annotations",
-			in:   `!(summary.annotations["branch"] == "main")`,
-			want: `NOT (recordsummary_annotations @> '{"branch":"main"}'::jsonb)`,
+			name:     "Result.Summary.Annotations",
+			in:       `summary.annotations["branch"] == "main"`,
+			wantSQL:  `recordsummary_annotations @> ?::jsonb`,
+			wantArgs: []any{`{"branch":"main"}`},
 		},
 		{
-			name: "Result.Summary.Annotations",
-			in:   `"main" == summary.annotations["branch"]`,
-			want: `recordsummary_annotations @> '{"branch":"main"}'::jsonb`,
+			name:     "not Result.Summary.Annotations",
+			in:       `!(summary.annotations["branch"] == "main")`,
+			wantSQL:  `NOT (recordsummary_annotations @> ?::jsonb)`,
+			wantArgs: []any{`{"branch":"main"}`},
 		},
 		{
-			name: "more complex expression",
-			in:   `summary.annotations["actor"] == "john-doe" && summary.annotations["branch"] == "feat/amazing" && summary.status == SUCCESS`,
-			want: `((recordsummary_annotations @> '{"actor":"john-doe"}'::jsonb AND recordsummary_annotations @> '{"branch":"feat/amazing"}'::jsonb) AND (recordsummary_status = 1))`,
+			name:     "Result.Summary.Annotations reversed operands",
+			in:       `"main" == summary.annotations["branch"]`,
+			wantSQL:  `recordsummary_annotations @> ?::jsonb`,
+			wantArgs: []any{`{"branch":"main"}`},
+		},
+		{
+			name:    "more complex expression",
+			in:      `summary.annotations["actor"] == "john-doe" && summary.annotations["branch"] == "feat/amazing" && summary.status == SUCCESS`,
+			wantSQL: `((recordsummary_annotations @> ?::jsonb AND recordsummary_annotations @> ?::jsonb) AND (recordsummary_status = 1))`,
+			wantArgs: []any{
+				`{"actor":"john-doe"}`,
+				`{"branch":"feat/amazing"}`,
+			},
+		},
+		// Injection regression tests
+		{
+			name:     "SQL injection via jsonb value is blocked",
+			in:       `annotations["key"] == "val\") OR 1=1 --"`,
+			wantSQL:  `annotations @> ?::jsonb`,
+			wantArgs: []any{`{"key":"val\") OR 1=1 --"}`},
 		},
 	}
 
@@ -270,13 +346,16 @@ func TestConvertResultExpressions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Convert(env, test.in)
+			gotSQL, gotArgs, err := Convert(env, test.in)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff(test.want, got); diff != "" {
-				t.Errorf("Mismatch (-want +got):\n%s", diff)
+			if diff := cmp.Diff(test.wantSQL, gotSQL); diff != "" {
+				t.Errorf("SQL mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(test.wantArgs, gotArgs); diff != "" {
+				t.Errorf("args mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -301,7 +380,7 @@ func TestConversionErrors(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := Convert(env, test.in)
+			got, _, err := Convert(env, test.in)
 			if err == nil {
 				t.Fatalf("Want the %q error, but the interpreter returned the following result instead: %q", test.want.Error(), got)
 			}

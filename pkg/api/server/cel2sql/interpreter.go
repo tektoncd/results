@@ -38,6 +38,25 @@ type interpreter struct {
 	checkedExpr *exprpb.CheckedExpr
 
 	query strings.Builder
+	// args holds bind-parameter values that correspond to ? placeholders
+	// emitted into query. GORM's db.Where(sql, args...) consumes these.
+	args []any
+}
+
+// addParam appends val to i.args and writes a GORM ? placeholder into the
+// query buffer.  All user-controlled string values must go through this path
+// instead of being interpolated directly into the SQL string.
+func (i *interpreter) addParam(val any) {
+	i.args = append(i.args, val)
+	i.query.WriteString("?")
+}
+
+// escapeSQLString replaces single-quotes with the SQL standard escaped form
+// ('').  This is used only for identifier-like positions (JSON key names in
+// -> / ->> accessors) where ? placeholders are not syntactically valid in
+// PostgreSQL.
+func escapeSQLString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
 }
 
 // newInterpreter takes an abstract syntax tree and returns an Interpreter object capable
@@ -53,12 +72,14 @@ func newInterpreter(ast *cel.Ast) (*interpreter, error) {
 }
 
 // interpret attempts to convert the CEL AST into a set of valid SQL filters. It
-// returns an error if the conversion cannot be done.
-func (i *interpreter) interpret() (string, error) {
+// returns the SQL fragment, the corresponding bind-parameter slice, and any
+// error.  Pass both to GORM as db.Where(sql, args...) to get a parameterized
+// query.
+func (i *interpreter) interpret() (string, []any, error) {
 	if err := i.interpretExpr(i.checkedExpr.Expr); err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return strings.TrimSpace(i.query.String()), nil
+	return strings.TrimSpace(i.query.String()), i.args, nil
 }
 
 func (i *interpreter) interpretExpr(expr *exprpb.Expr) error {
@@ -127,14 +148,15 @@ func (i *interpreter) interpretConstExpr(id int64, expr *exprpb.Constant) error 
 		fmt.Fprintf(&i.query, "%f", expr.GetDoubleValue())
 
 	case *exprpb.Constant_StringValue:
-		fmt.Fprintf(&i.query, "'%s'", expr.GetStringValue())
+		i.addParam(expr.GetStringValue())
 
 	case *exprpb.Constant_DurationValue:
 		fmt.Fprintf(&i.query, "'%d SECONDS'", expr.GetDurationValue().Seconds)
 
 	case *exprpb.Constant_TimestampValue:
 		timestamp := expr.GetTimestampValue()
-		fmt.Fprintf(&i.query, "TIMESTAMP WITH TIME ZONE '%s'", timestamp.AsTime().Format(time.RFC3339))
+		i.addParam(timestamp.AsTime().UTC().Format(time.RFC3339))
+		i.query.WriteString("::TIMESTAMP WITH TIME ZONE")
 
 	default:
 		return i.unsupportedExprError(id, "constant")
@@ -174,7 +196,15 @@ type SingleQuoted struct {
 }
 
 func (s *SingleQuoted) String() string {
-	return fmt.Sprintf("'%s'", s.s)
+	return fmt.Sprintf("'%s'", escapeSQLString(s.s))
+}
+
+type Parameterized struct {
+	s string
+}
+
+func (p *Parameterized) String() string {
+	return "?"
 }
 
 func (i *interpreter) getIndexKey(expr *exprpb.Expr) (fmt.Stringer, error) {
@@ -187,7 +217,7 @@ func (i *interpreter) getIndexKey(expr *exprpb.Expr) (fmt.Stringer, error) {
 		return &Unquoted{fmt.Sprintf("%d", key.GetInt64Value())}, nil
 
 	case *exprpb.Constant_StringValue:
-		return &SingleQuoted{key.GetStringValue()}, nil
+		return &Parameterized{key.GetStringValue()}, nil
 
 	default:
 		return nil, i.unsupportedExprError(lastArg.Id, "constant")
@@ -249,7 +279,7 @@ func (i *interpreter) interpretSelectExpr(id int64, expr *exprpb.Expr_SelectExpr
 	for _, node := range additionalExprs {
 		switch node.ExprKind.(type) {
 		case *exprpb.Expr_ConstExpr:
-			reversedFields = append(reversedFields, &SingleQuoted{node.GetConstExpr().GetStringValue()})
+			reversedFields = append(reversedFields, &Parameterized{node.GetConstExpr().GetStringValue()})
 
 		default:
 			return ErrUnsupportedExpression

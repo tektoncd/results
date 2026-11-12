@@ -28,11 +28,21 @@ func (i *interpreter) translateToJSONAccessors(fieldPath []fmt.Stringer) {
 	fmt.Fprintf(&i.query, "(")
 	if len(fieldPath) > 1 {
 		for _, field := range fieldPath[0 : len(fieldPath)-1] {
-			fmt.Fprintf(&i.query, "%s->", field)
+			i.writeJSONAccessor(field)
+			i.query.WriteString("->")
 		}
 	}
-	fmt.Fprintf(&i.query, ">%s", lastField)
+	i.query.WriteString(">")
+	i.writeJSONAccessor(lastField)
 	fmt.Fprintf(&i.query, ")")
+}
+
+func (i *interpreter) writeJSONAccessor(field fmt.Stringer) {
+	if parameter, ok := field.(*Parameterized); ok {
+		i.addParam(parameter.s)
+		return
+	}
+	fmt.Fprint(&i.query, field)
 }
 
 // translateToRecordSummaryColumn

@@ -57,11 +57,11 @@ func (f *filter) build(db *gorm.DB) (*gorm.DB, error) {
 	}
 
 	if expr := strings.TrimSpace(f.expr); expr != "" {
-		sql, err := cel2sql.Convert(f.env, expr)
+		sql, args, err := cel2sql.Convert(f.env, expr)
 		if err != nil {
 			return nil, err
 		}
-		db = db.Where(sql)
+		db = db.Where(sql, args...)
 	}
 	return db, nil
 }
