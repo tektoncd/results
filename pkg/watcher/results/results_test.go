@@ -613,6 +613,58 @@ func TestUpsertRecordStripFields(t *testing.T) {
 	}
 }
 
+// resourceVersion changes with every update, so it has to be stripped too for a
+// managedFields-only update to be skipped.
+func TestUpsertRecordStripFieldsResourceVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		strip      string
+		wantUpdate bool
+	}{
+		{name: "managedFields only", strip: "metadata.managedFields", wantUpdate: true},
+		{name: "managedFields and resourceVersion", strip: "metadata.managedFields,metadata.resourceVersion"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			c := client(t)
+			paths, err := convert.ParseFieldPaths(tc.strip)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.StripFields = paths
+
+			tr := &pipelinev1.TaskRun{
+				TypeMeta: metav1.TypeMeta{APIVersion: "tekton.dev/v1", Kind: "TaskRun"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "taskrun",
+					Namespace:       "test",
+					UID:             "taskrun-id",
+					ResourceVersion: "1",
+				},
+			}
+			result, err := c.ensureResult(ctx, tr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			record, err := c.upsertRecord(ctx, result.GetName(), tr)
+			if err != nil {
+				t.Fatalf("upsertRecord: %v", err)
+			}
+
+			// A managedFields-only update still bumps the resourceVersion.
+			tr.ResourceVersion = "2"
+			tr.ManagedFields = []metav1.ManagedFieldsEntry{{Manager: "controller"}}
+			again, err := c.upsertRecord(ctx, result.GetName(), tr)
+			if err != nil {
+				t.Fatalf("upsertRecord: %v", err)
+			}
+			if updated := again.GetEtag() != record.GetEtag(); updated != tc.wantUpdate {
+				t.Errorf("record updated = %v, want %v", updated, tc.wantUpdate)
+			}
+		})
+	}
+}
+
 func TestPut(t *testing.T) {
 	ctx := context.Background()
 	client := client(t)

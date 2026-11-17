@@ -163,6 +163,7 @@ Multiple paths:
 - Paths that do not exist on an object are ignored.
 - `apiVersion`, `kind`, `metadata.name`, `metadata.namespace` and `metadata.uid` cannot be stripped, nor can a parent of them such as `metadata`. The Watcher refuses to start if one is listed.
 - Records that are already stored keep the stripped fields until the run is updated and stored again.
+- A change limited to stripped fields does not update the stored record. Kubernetes also bumps `metadata.resourceVersion` on every update, so to skip updates that only touch `metadata.managedFields`, strip `metadata.resourceVersion` as well.
 
 By default the flag is empty and runs are stored as they are.
 
