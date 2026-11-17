@@ -1,0 +1,75 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: simple-build-build-container
+  namespace: default
+  labels:
+    tekton.dev/pipeline: docker-build
+    tekton.dev/pipelineTask: build-container
+    appstudio.openshift.io/application: sample-app
+    appstudio.openshift.io/component: sample-component
+  annotations:
+    chains.tekton.dev/signed: "true"
+spec:
+  params:
+    - name: IMAGE
+      value: quay.example.test/org/sample-component:latest
+    - name: DOCKERFILE
+      value: ./Dockerfile
+    - name: CONTEXT
+      value: .
+    - name: HERMETIC
+      value: "false"
+    - name: BUILD_ARGS
+      value: []
+  taskRef:
+    resolver: bundles
+    params:
+      - name: name
+        value: buildah
+      - name: bundle
+        value: quay.example.test/konflux-ci/tekton-catalog/task-buildah:latest
+      - name: kind
+        value: task
+  serviceAccountName: appstudio-pipeline
+  timeout: 1h0m0s
+status:
+  startTime: "2026-01-01T00:01:00Z"
+  completionTime: "2026-01-01T00:11:30Z"
+  conditions:
+    - type: Succeeded
+      status: "True"
+      reason: Succeeded
+      message: All Steps have completed executing
+      lastTransitionTime: "2026-01-01T00:11:30Z"
+  podName: simple-build-build-container-pod
+  steps:
+    - name: build
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-01-01T00:01:10Z"
+        finishedAt: "2026-01-01T00:08:40Z"
+    - name: sbom-syft-generate
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-01-01T00:08:40Z"
+        finishedAt: "2026-01-01T00:10:20Z"
+    - name: inject-sbom-and-push
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-01-01T00:10:20Z"
+        finishedAt: "2026-01-01T00:11:25Z"
+  results:
+    - name: IMAGE_DIGEST
+      value: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: IMAGE_URL
+      value: quay.example.test/org/sample-component:latest
+    - name: IMAGE_REF
+      value: quay.example.test/org/sample-component@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: SBOM_BLOB_URL
+      value: quay.example.test/org/sample-component@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    - name: BASE_IMAGES_DIGESTS
+      value: registry.example.test/ubi9/ubi-minimal@sha256:0000000000000000000000000000000000000000000000000000000000000000

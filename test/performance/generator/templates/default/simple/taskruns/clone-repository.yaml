@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: simple-build-clone-repository
+  namespace: default
+  labels:
+    tekton.dev/pipeline: docker-build
+    tekton.dev/pipelineTask: clone-repository
+    appstudio.openshift.io/application: sample-app
+    appstudio.openshift.io/component: sample-component
+spec:
+  params:
+    - name: url
+      value: https://example.test/org/repo
+    - name: revision
+      value: "0000000000000000000000000000000000000000"
+  taskRef:
+    resolver: bundles
+    params:
+      - name: name
+        value: git-clone
+      - name: bundle
+        value: quay.example.test/konflux-ci/tekton-catalog/task-git-clone:latest
+      - name: kind
+        value: task
+  serviceAccountName: appstudio-pipeline
+  timeout: 1h0m0s
+status:
+  startTime: "2026-01-01T00:00:10Z"
+  completionTime: "2026-01-01T00:01:00Z"
+  conditions:
+    - type: Succeeded
+      status: "True"
+      reason: Succeeded
+      message: All Steps have completed executing
+      lastTransitionTime: "2026-01-01T00:01:00Z"
+  podName: simple-build-clone-repository-pod
+  steps:
+    - name: clone
+      terminated:
+        exitCode: 0
+        reason: Completed
+        startedAt: "2026-01-01T00:00:15Z"
+        finishedAt: "2026-01-01T00:00:58Z"
+  results:
+    - name: commit
+      value: "0000000000000000000000000000000000000000"
+    - name: url
+      value: https://example.test/org/repo
