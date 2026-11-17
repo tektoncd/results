@@ -37,6 +37,9 @@ import (
 
 // CreateRecord creates a new record in the database.
 func (s *Server) CreateRecord(ctx context.Context, req *pb.CreateRecordRequest) (*pb.Record, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	r := req.GetRecord()
 
 	// Validate the incoming request
@@ -108,6 +111,9 @@ func (s *Server) getResultIDImpl(ctx context.Context, parent, result string) (st
 
 // GetRecord returns a single Record.
 func (s *Server) GetRecord(ctx context.Context, req *pb.GetRecordRequest) (*pb.Record, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	parent, result, name, err := record.ParseName(req.GetName())
 	if err != nil {
 		return nil, err
@@ -141,6 +147,9 @@ func getRecord(txn *gorm.DB, parent, result, name string) (*db.Record, error) {
 
 // ListRecords returns list records from the database.
 func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*pb.ListRecordsResponse, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
@@ -172,6 +181,9 @@ func (s *Server) ListRecords(ctx context.Context, req *pb.ListRecordsRequest) (*
 
 // UpdateRecord updates a record in the database.
 func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) (*pb.Record, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	in := req.GetRecord()
 
 	parent, result, name, err := record.ParseName(in.GetName())
@@ -227,6 +239,9 @@ func (s *Server) UpdateRecord(ctx context.Context, req *pb.UpdateRecordRequest) 
 
 // DeleteRecord deletes a given record.
 func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) (*empty.Empty, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	parent, result, name, err := record.ParseName(req.GetName())
 	if err != nil {
 		return nil, err
@@ -239,7 +254,7 @@ func (s *Server) DeleteRecord(ctx context.Context, req *pb.DeleteRecordRequest) 
 	// the entry is already deleted.
 	// This does not need to be done in the same transaction as to delete,
 	// since the identifiers are immutable.
-	r, err := getRecord(s.db, parent, result, name)
+	r, err := getRecord(s.db.WithContext(ctx), parent, result, name)
 	if err != nil {
 		return &empty.Empty{}, err
 	}
