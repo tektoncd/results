@@ -51,8 +51,8 @@ func (i *interpreter) addParam(val any) {
 	i.query.WriteString("?")
 }
 
-// escapeSQLString replaces single-quotes with the SQL standard escaped form
-// ('').  This is used only for identifier-like positions (JSON key names in
+// escapeSQLString escapes single quotes by doubling them, as required by SQL.
+// It is used only for identifier-like positions (JSON key names in
 // -> / ->> accessors) where ? placeholders are not syntactically valid in
 // PostgreSQL.
 func escapeSQLString(s string) string {
