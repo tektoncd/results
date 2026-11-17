@@ -100,6 +100,8 @@ func newViper() *viper.Viper {
 	v.SetDefault("AUTH_CACHE_ENABLED", false)
 	v.SetDefault("AUTH_CACHE_POSITIVE_TTL", "5m")
 	v.SetDefault("AUTH_CACHE_NEGATIVE_TTL", "1m")
+	// Registered so AUTH_TOKEN_AUDIENCES can come from the environment alone.
+	v.SetDefault("AUTH_TOKEN_AUDIENCES", "")
 	return v
 }
 

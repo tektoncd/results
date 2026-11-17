@@ -68,3 +68,17 @@ func TestTokenAudiences(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenAudiencesFromEnvOnly(t *testing.T) {
+	v := newViper()
+	v.AutomaticEnv()
+	t.Setenv("AUTH_TOKEN_AUDIENCES", "a, b")
+
+	var c Config
+	if err := v.Unmarshal(&c); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := c.TokenAudiences(), []string{"a", "b"}; !slices.Equal(got, want) {
+		t.Fatalf("TokenAudiences() = %v, want %v", got, want)
+	}
+}
