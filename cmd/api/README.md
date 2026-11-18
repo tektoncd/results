@@ -53,6 +53,8 @@
 
 These values can also be set in the config file located in the `config/env/config` directory.
 
+`AUTH_TOKEN_AUDIENCES` replaces the audience the Kubernetes API server checks tokens against, it does not add to it. The Tekton Results watcher authenticates with a token for the cluster's default audience, so a list that leaves the default audience out makes the API server reject the watcher and nothing gets stored. Always include the default audience in the list. You can find it in the `aud` claim of any service account token from the cluster, or in the `--api-audiences` flag of the kube-apiserver; for most clusters it is `https://kubernetes.default.svc`.
+
 Values derived from Postgres DSN
 
 If you use the default postgres database we provide, the `DB_HOST` can be set as `tekton-results-postgres-service.tekton-pipelines`.
