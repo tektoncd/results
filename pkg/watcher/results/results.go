@@ -372,6 +372,13 @@ func (c *Client) upsertRecord(ctx context.Context, parent string, o Object, opts
 	if err != nil {
 		return nil, err
 	}
+	if data != nil && len(c.StripFields) > 0 {
+		// Strip before comparing with the stored data, so that a change
+		// limited to stripped fields does not cause an update.
+		if data.Value, err = convert.StripFields(data.Value, c.StripFields); err != nil {
+			return nil, err
+		}
+	}
 
 	curr, err := c.GetRecord(ctx, &pb.GetRecordRequest{Name: recName}, opts...)
 	if err != nil && status.Code(err) != codes.NotFound {
