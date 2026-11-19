@@ -20,6 +20,9 @@ sed -i "s/devel$/${RELEASE_VERSION}/g" ${ROOT}/config/base/config-info.yaml
 # Apply kustomization + build images + generate yaml
 kubectl kustomize ${RELEASE_DIR} | ko resolve \
     --image-label=org.opencontainers.image.source=${GITHUB_REPO} \
+    --image-label=org.opencontainers.image.url=https://$(params.package) \
+    --image-label=org.opencontainers.image.title=results \
+    --image-label=org.opencontainers.image.description=Tekton\ Results \
     --platform "linux/amd64,linux/arm,linux/arm64,linux/ppc64le,linux/s390x" \
     ${KO_EXTRA_ARGS} -f - -t ${RELEASE_VERSION} > ${RELEASE_DIR}/release_base.yaml
 
