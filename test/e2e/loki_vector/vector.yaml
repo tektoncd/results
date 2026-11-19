@@ -4,7 +4,6 @@ customConfig:
   api:
     enabled: true
     address: 127.0.0.1:8686
-    playground: false
   sources:
     kubernetes_logs:
       type: kubernetes_logs
@@ -19,6 +18,8 @@ customConfig:
         .log_type = "application"
         .log_tekton = "application"
         .kubernetes_namespace_name = .kubernetes.pod_namespace
+        .kubernetes.labels.tekton_dev_taskRunUID = .kubernetes.pod_labels."tekton.dev/taskRunUID"
+        .kubernetes.labels.tekton_dev_pipelineRunUID = .kubernetes.pod_labels."tekton.dev/pipelineRunUID"
   sinks:
     loki:
       type: loki
