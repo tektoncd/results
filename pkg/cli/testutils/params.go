@@ -8,13 +8,16 @@ import (
 // Params implements common.Params interface for testing
 // This allows injecting fake/mock clients during tests
 type Params struct {
-	kubeConfigPath string
-	kubeContext    string
-	namespace      string
-	host           string
-	token          string
-	apiPath        string
-	skipTLSVerify  bool
+	kubeConfigPath    string
+	kubeContext       string
+	namespace         string
+	host              string
+	token             string
+	apiPath           string
+	skipTLSVerify     bool
+	impersonateUser   string
+	impersonateGroups []string
+	impersonateUID    string
 
 	// Simple client storage for testing
 	restClient *client.RESTClient
@@ -79,6 +82,20 @@ func (p *Params) SetSkipTLSVerify(skip bool) { p.skipTLSVerify = skip }
 
 // SkipTLSVerify returns whether to skip TLS verification
 func (p *Params) SkipTLSVerify() bool { return p.skipTLSVerify }
+
+// SetImpersonation sets the user, groups and UID to impersonate
+func (p *Params) SetImpersonation(user string, groups []string, uid string) {
+	p.impersonateUser, p.impersonateGroups, p.impersonateUID = user, groups, uid
+}
+
+// ImpersonateUser returns the user to impersonate
+func (p *Params) ImpersonateUser() string { return p.impersonateUser }
+
+// ImpersonateGroups returns the groups to impersonate
+func (p *Params) ImpersonateGroups() []string { return p.impersonateGroups }
+
+// ImpersonateUID returns the UID to impersonate
+func (p *Params) ImpersonateUID() string { return p.impersonateUID }
 
 // SetRESTClient injects a REST client for testing purposes
 func (p *Params) SetRESTClient(client *client.RESTClient) {
