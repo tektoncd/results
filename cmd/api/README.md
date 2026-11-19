@@ -27,6 +27,7 @@
 | TLS_CURVE_PREFERENCES    | Comma-separated list of elliptic curves for key exchange (e.g., X25519, P256)                                                     | X25519,P256                                                                                  |
 | AUTH_DISABLE             | Disable RBAC check for resources                                                                                                  | false (default)                                                                              |
 | AUTH_IMPERSONATE         | Enable RBAC impersonation                                                                                                         | true (default)                                                                               |
+| AUTH_TOKEN_AUDIENCES     | Comma-separated audiences sent with each TokenReview, for tokens issued for an audience other than the Kubernetes API server      | empty (default; the API server's default audience)                                           |
 | AUTH_CACHE_ENABLED       | Enable in-memory caching of TokenReview and SubjectAccessReview results (10k authn entries and 100k authz entries)                  | false (default; opt in with `true`)                                                          |
 | AUTH_CACHE_POSITIVE_TTL  | TTL for successful authentication and allowed authorization decisions; invalid/non-positive values fall back to 5m                | 5m (default)                                                                                 |
 | AUTH_CACHE_NEGATIVE_TTL  | TTL for unauthenticated and denied authorization decisions; transient errors are not cached                                       | 1m (default)                                                                                 |
@@ -51,6 +52,8 @@
 | FEATURE_GATES            | Configuration to enable/disable a feature                                                                                         | PartialResponse=true,foo=false,bar=true                                                      |
 
 These values can also be set in the config file located in the `config/env/config` directory.
+
+`AUTH_TOKEN_AUDIENCES` replaces the audience the Kubernetes API server checks tokens against, it does not add to it. The Tekton Results watcher authenticates with a token for the cluster's default audience, so a list that leaves the default audience out makes the API server reject the watcher and nothing gets stored. Always include the default audience in the list. You can find it in the `aud` claim of any service account token from the cluster, or in the `--api-audiences` flag of the kube-apiserver; for most clusters it is `https://kubernetes.default.svc`.
 
 Values derived from Postgres DSN
 
