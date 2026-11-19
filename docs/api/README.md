@@ -696,3 +696,8 @@ For more details on using the profiles, see <https://pkg.go.dev/net/http/pprof>.
 ## References
 
 - [OpenAPI Specification](openapi.yaml)
+
+## REST gateway transport and observability
+
+See [REST gateway behavior and telemetry](rest-gateway.md) for direct dispatch, payload limits,
+metrics/logging migration and the deprecated legacy Logs exception.

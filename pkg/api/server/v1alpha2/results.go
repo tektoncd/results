@@ -35,6 +35,9 @@ import (
 
 // CreateResult creates a new result in the database.
 func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) (*pb.Result, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	r := req.GetResult()
 
 	// Validate the incoming request
@@ -77,6 +80,9 @@ func (s *Server) CreateResult(ctx context.Context, req *pb.CreateResultRequest) 
 
 // GetResult returns a single Result.
 func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.Result, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	parent, name, err := result.ParseName(req.GetName())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -84,7 +90,7 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 	if err := s.auth.Check(ctx, parent, auth.ResourceResults, auth.PermissionGet); err != nil {
 		return nil, err
 	}
-	store, err := getResultByParentName(s.db, parent, name)
+	store, err := getResultByParentName(s.db.WithContext(ctx), parent, name)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +99,9 @@ func (s *Server) GetResult(ctx context.Context, req *pb.GetResultRequest) (*pb.R
 
 // UpdateResult updates a Result in the database.
 func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) (*pb.Result, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	// Retrieve result from database by name
 	parent, name, err := result.ParseName(req.GetName())
 	if err != nil {
@@ -150,6 +159,9 @@ func (s *Server) UpdateResult(ctx context.Context, req *pb.UpdateResultRequest) 
 
 // DeleteResult deletes a given result.
 func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) (*empty.Empty, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	parent, name, err := result.ParseName(req.GetName())
 	if err != nil {
 		return nil, err
@@ -177,6 +189,9 @@ func (s *Server) DeleteResult(ctx context.Context, req *pb.DeleteResultRequest) 
 
 // ListResults returns list results from the database.
 func (s *Server) ListResults(ctx context.Context, req *pb.ListResultsRequest) (*pb.ListResultsResponse, error) {
+	if err := checkRESTRequestSize(ctx, req); err != nil {
+		return nil, err
+	}
 	if req.GetParent() == "" {
 		return nil, status.Error(codes.InvalidArgument, "parent missing")
 	}
