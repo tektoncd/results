@@ -23,3 +23,16 @@ data:
   runAt: "5 5 * * 0"
   # default-retention in days determines for how long to keep the data in DB.
   defaultRetention: "30"
+  # namespaceCleanup removes from the DB the data of the namespaces that no
+  # longer exist in the cluster. It is disabled by default.
+  namespaceCleanup: |
+    enabled: false
+    # A namespace is only cleaned up once its data has been untouched for at
+    # least this long.
+    inactivityPeriod: "24h"
+    # Namespaces that are never cleaned up.
+    excludeNamespaces: []
+    # The cleanup is skipped when more namespaces than this are eligible.
+    maxNamespacesPerRun: 10
+    # Log the namespaces that would be cleaned up without deleting any data.
+    dryRun: false

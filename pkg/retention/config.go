@@ -18,6 +18,7 @@ limitations under the License.
 package retention
 
 import (
+	"context"
 	"log"
 	"sync"
 
@@ -26,6 +27,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/robfig/cron/v3"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
@@ -38,6 +40,11 @@ const (
 	ResultsRetentionPolicyAgent = "results-retention-policy-agent"
 )
 
+// namespaceLister lists the namespaces that currently exist in the cluster.
+type namespaceLister interface {
+	List(ctx context.Context) ([]string, error)
+}
+
 // Agent have all the information needed to run retention job
 type Agent struct {
 	config.RetentionPolicy
@@ -49,6 +56,10 @@ type Agent struct {
 	db *gorm.DB
 
 	cron *cron.Cron
+
+	ctx context.Context
+
+	namespaces namespaceLister
 }
 
 // NewAgent returns the Retention Policy Agent
@@ -70,8 +81,10 @@ func NewAgent(db *gorm.DB) (*Agent, error) {
 	cmw := sharedmain.SetupConfigMapWatchOrDie(ctx, logger)
 
 	agent := Agent{
-		Logger: logger,
-		db:     db,
+		Logger:     logger,
+		db:         db,
+		ctx:        ctx,
+		namespaces: &kubeNamespaceLister{client: kubeclient.Get(ctx)},
 	}
 	configStore := config.NewStore(logger.Named("config-store"), agent.AgentOnStore(logger))
 	configStore.WatchConfigs(cmw)
@@ -103,4 +116,13 @@ func (a *Agent) setAgentConfig(cfg *config.RetentionPolicy) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.RetentionPolicy = *cfg
+}
+
+// snapshotConfig returns a copy of the current retention policy configuration.
+// The configuration is replaced whenever the ConfigMap changes, so readers take
+// a snapshot instead of accessing the fields of the agent directly.
+func (a *Agent) snapshotConfig() config.RetentionPolicy {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return *a.DeepCopy()
 }
