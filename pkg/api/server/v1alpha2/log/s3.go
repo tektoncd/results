@@ -101,7 +101,13 @@ func NewS3Stream(ctx context.Context, log *v1alpha3.Log, config *server.Config) 
 }
 
 func initConfig(ctx context.Context, cfg *server.Config) (*s3.Client, error) {
-	credentialsOpt := config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.S3_ACCESS_KEY_ID, cfg.S3_SECRET_ACCESS_KEY, ""))
+	loadOpts := []func(*config.LoadOptions) error{config.WithRegion(cfg.S3_REGION)}
+	// Static credentials are only used when both values are configured. Otherwise the
+	// default AWS credential chain applies, which covers web identity tokens (IRSA),
+	// instance profiles and the AWS_* environment variables.
+	if cfg.S3_ACCESS_KEY_ID != "" && cfg.S3_SECRET_ACCESS_KEY != "" {
+		loadOpts = append(loadOpts, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.S3_ACCESS_KEY_ID, cfg.S3_SECRET_ACCESS_KEY, "")))
+	}
 
 	var awsConfig aws.Config
 	var err error
@@ -116,9 +122,9 @@ func initConfig(ctx context.Context, cfg *server.Config) (*s3.Client, error) {
 			}
 			return aws.Endpoint{}, &aws.EndpointNotFoundError{} //nolint:staticcheck
 		})
-		awsConfig, err = config.LoadDefaultConfig(ctx, config.WithRegion(cfg.S3_REGION), credentialsOpt, config.WithEndpointResolverWithOptions(customResolver)) //nolint:staticcheck
+		awsConfig, err = config.LoadDefaultConfig(ctx, append(loadOpts, config.WithEndpointResolverWithOptions(customResolver))...) //nolint:staticcheck
 	} else {
-		awsConfig, err = config.LoadDefaultConfig(ctx, config.WithRegion(cfg.S3_REGION), credentialsOpt)
+		awsConfig, err = config.LoadDefaultConfig(ctx, loadOpts...)
 	}
 
 	if err != nil {
