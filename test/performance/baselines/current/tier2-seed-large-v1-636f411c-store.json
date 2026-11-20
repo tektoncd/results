@@ -1,0 +1,86 @@
+{
+  "schema_version": "1",
+  "meta": {
+    "git_commit": "4bebd028f6c8c5093314250a8c6aceb27f5ad0f7",
+    "git_dirty": true,
+    "dataset_version": "seed-small-v1",
+    "dataset_hash": "8079c47e1bc8633a508576c8e855155fc46ea6a0f96a8287e964369861414e0a",
+    "tier": "tier1",
+    "mode": "store",
+    "started_at": "2026-09-20T09:34:01Z",
+    "duration_ms": 38,
+    "hostname": "obetsun-thinkpadp1gen7.raanaii.csb",
+    "api_server_addr": "https://localhost:8080",
+    "db_backend": "local",
+    "server_image": ""
+  },
+  "config": {
+    "count": 1000,
+    "concurrency": 8,
+    "duration_sec": 0,
+    "transport": "grpc",
+    "read_ratio": 0,
+    "write_ratio": 0,
+    "dataset": "seed-small",
+    "seed": 42
+  },
+  "metrics": {
+    "throughput_per_sec": 158232.07626681076,
+    "total_ops": 6028,
+    "total_errors": 6028,
+    "by_op": {
+      "create_child_record": {
+        "count": 3028,
+        "errors": 3028,
+        "error_codes": {
+          "Unavailable": 3028
+        },
+        "p50_ms": 0.00764,
+        "p90_ms": 0.014095,
+        "p99_ms": 0.133271,
+        "min_ms": 0.003859,
+        "max_ms": 0.530366,
+        "mean_ms": 0.011579
+      },
+      "create_record": {
+        "count": 1000,
+        "errors": 1000,
+        "error_codes": {
+          "Unavailable": 1000
+        },
+        "p50_ms": 0.007952,
+        "p90_ms": 0.01466,
+        "p99_ms": 0.176087,
+        "min_ms": 0.00401,
+        "max_ms": 0.43001,
+        "mean_ms": 0.011988
+      },
+      "create_result": {
+        "count": 1000,
+        "errors": 1000,
+        "error_codes": {
+          "Unavailable": 1000
+        },
+        "p50_ms": 0.008739,
+        "p90_ms": 0.016453,
+        "p99_ms": 0.19275,
+        "min_ms": 0.004056,
+        "max_ms": 6.881872,
+        "mean_ms": 0.06495
+      },
+      "update_result": {
+        "count": 1000,
+        "errors": 1000,
+        "error_codes": {
+          "Unavailable": 1000
+        },
+        "p50_ms": 0.008333,
+        "p90_ms": 0.015945,
+        "p99_ms": 0.140683,
+        "min_ms": 0.004214,
+        "max_ms": 0.388983,
+        "mean_ms": 0.012229
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # Tekton Results — Performance Benchmark Framework
 
 A repeatable benchmark for measuring **store** (write/ingest) and **query**
+
 (read/list) performance of Tekton Results — separately and in parallel — always
 starting from an identical, versioned seed dataset. It drives the **real deployed
 API** only (gRPC for writes, REST/gRPC for reads); it never touches the database
@@ -109,6 +110,9 @@ go run ./test/performance/benchmark mixed  \
 | `query`   | Read/list — a fixed CEL query mix (by status, recent window, by type, by label) against the **seed** range, paginated. `--transport grpc\|rest\|both`. |
 | `mixed`   | Writers (live range) and readers (seed range) in parallel; sized by `--read-ratio`/`--write-ratio`. |
 | `dataset` | Emits the golden `DatasetDefinition` JSON — no cluster required. |
+| `dataset` | Emits the golden `DatasetDefinition` JSON — no cluster required. |
+| `derive`  | Turns raw KubeArchive access logs into an anonymized query-mix spec — no cluster required. |
+| `compare` | Diffs two JSON reports and flags regressions; exits non-zero when the gate fails — no cluster required. |
 
 `load`, `store`, `query`, and `mixed` print the JSON benchmark report to stdout
 only — there is no `--output` flag. Redirect stdout yourself if you want to keep
@@ -224,7 +228,7 @@ realistic child-record size spread rather than repeating one identical TaskRun.
 ## Report schema
 
 Every run emits a JSON `Report` (`report.SchemaVersion`) — the comparison input
-for later runs:
+for runs:
 
 ```jsonc
 {
@@ -235,6 +239,7 @@ for later runs:
     "tier": "tier1", "mode": "load",
     "started_at": "…", "duration_ms": 1234,
     "api_server_addr": "…",
+    "hostname": "…", "api_server_addr": "…",
     "db_type": "local", "server_image": "…"
   },
   "config": { "count": 1000, "concurrency": 8, "transport": "grpc", "seed": 42, … },
@@ -363,6 +368,92 @@ compare two runs, diff `metrics.by_op[*].p99_ms` and `throughput_per_sec` for th
 same `mode` and `dataset_hash`. Guideline variance for a pass/fail gate is ±10% on
 p99.
 
+```bash
+go run ./test/performance/harness compare baseline.json candidate.json
+# or loosen/tighten the gate:
+go run ./test/performance/harness compare --threshold 0.15 baseline.json candidate.json
+```
+
+It compares `metrics.by_op[*].p99_ms` (lower is better) and `throughput_per_sec`
+(higher is better), warns when `mode` or `dataset_hash` differ (numbers are then
+not strictly comparable), and **exits non-zero** when any metric regresses beyond
+the threshold — so CI and the milestone gates can consume it directly. Guideline
+variance is ±10% on p99 (the default); the tier-2 threshold is TBD until the first
+ephemeral runs establish run-to-run variance. Committed reference runs live in
+[`baselines/`](baselines/) and promoted milestone results in
+[`results/`](results/README.md) (both populated as a follow-up).
+
+## Query workload (derived from KubeArchive logs)
+
+The `query` driver replays a **query mix derived from real KubeArchive deployment
+access logs** rather than a hand-guessed set. The committed spec lives at
+[`harness/workload/querymix.yaml`](harness/workload/querymix.yaml) and is embedded
+in the binary, so `query` is spec-driven with no extra flags.
+
+The spec is **anonymized**: it records only operation types, resource kinds,
+label-selector *keys*, page-size distribution, and namespace fan-out as counts and
+weights. Raw namespaces, label values, tokens, hostnames, and UIDs are never
+stored, so no identifiers from the source deployment leak into the repo. Regenerate
+it from logs with `derive` (raw logs are never committed):
+
+```bash
+go run ./test/performance/harness derive --input access.log --output harness/workload/querymix.yaml
+```
+
+### Capturing a real access log
+
+`derive` reads the KubeArchive API server's **structured (slog) access log** — the
+`msg="Served request"` lines emitted by `pkg/middleware/logging.go`, where the verb
+and URL-encoded path are discrete `method=`/`path=` fields. Non-access-log noise
+(klog throttling, http2 preface errors, trace-export failures), write verbs, and
+health/metrics paths are ignored automatically, so the raw log needs no
+pre-cleaning. Capture a representative window from a cluster with real traffic:
+
+```bash
+# From pod logs (needs enough retention to cover a busy window):
+kubectl -n kubearchive logs deploy/kubearchive-api-server --since=3h > access.log
+# On production, prefer the central logging backend (Loki/Splunk/Vector) for the
+# kubearchive-api-server component so the window isn't truncated by log rotation.
+```
+
+Treat `access.log` as **sensitive** (it contains real namespaces, label values, and
+UIDs) and keep it **outside the repo** — only the derived, anonymized spec is
+committed. After deriving, verify nothing leaked before committing `querymix.yaml`:
+
+```bash
+go run ./test/performance/harness derive --input access.log --output harness/workload/querymix.yaml
+grep -Ei '<a-real-namespace>|<a-real-app>|[0-9a-f]{8}-[0-9a-f]{4}' harness/workload/querymix.yaml  # expect no matches
+```
+
+An anonymized sample log ships at
+[`harness/workload/testdata/sample-access.log`](harness/workload/testdata/sample-access.log)
+and reproduces the committed spec. Override the spec per-run with
+`--query-spec <file>`, or fall back to the historic hardcoded mix with
+`--legacy-queries`. Native Kubernetes-style API replay (namespaces/kind paths) is
+out of scope until that API lands (epic Stories 14–16); today each spec operation
+is mapped to the closest Results/Records query.
+
+## Tier-2 (ephemeral OpenShift)
+
+Tier 2 is a multi-node ephemeral OpenShift cluster with a 5–10 GB dataset, run
+inside a ~90-minute session budget — large enough to expose planner regressions,
+index bloat, and lock contention that tier-1 kind (<1 GB) cannot. The phase scripts
+live in [`environments/openshift/`](environments/openshift/README.md); each accepts
+`--cluster kind|openshift` (default `openshift`) so the whole pipeline can be
+dry-run on kind before booking cluster time.
+
+```bash
+cd test/performance/environments/openshift
+export BENCH_CLUSTER=openshift          # or: kind, for a local dry run
+./00-cluster.sh                         # validate the booked cluster
+./01-install.sh                         # install + tier-2 Postgres tuning
+./02-load.sh                            # parallel seed load (5-10 GB)
+./03-benchmark.sh                       # store/query/mixed at --tier tier2
+```
+
+Capturing the tier-2 5–10 GB baseline and committing milestone result JSONs under
+[`results/`](results/README.md) is a follow-up that needs a live cluster.
+
 ## Tests
 
 ```bash
@@ -370,15 +461,23 @@ go test ./test/performance/...
 ```
 
 Covers generator determinism and distributions, UID non-overlap, metrics
-percentile math, report round-trip, and benchmark workload wiring.
+percentile math, report round-trip, and harness workload wiring. 
 
 ## Smoke tests
 
-The CI smoke run stands up local-db kind, loads `seed-small`, then runs `store|query|mixed` capped
-at 1k records and asserts each emits valid JSON.
+The smoke run stands up local-db kind, loads `seed-small`, then runs
+`store|query|mixed` capped at 1k records and asserts each emits valid JSON. It is a
+functional check, **not** a performance gate.
 
 ```bash
+make performance-smoke
+# or directly:
 ./test/performance/environments/kind/03-smoke.sh
 ```
 
-Currently it can be executed manually, but later will be integrated to CI workflows (TBD).
+CI runs it on demand via the **Performance Smoke** GitHub Actions workflow
+(`workflow_dispatch`, see
+[`.github/workflows/performance-smoke.yaml`](../../.github/workflows/performance-smoke.yaml)),
+which stands up kind local-db and runs `make performance-smoke`. Tier-2 runs stay
+manual (they need a booked ephemeral OpenShift cluster).
+
