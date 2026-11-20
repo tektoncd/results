@@ -25,13 +25,19 @@ limitations under the License.
 //	bench query            run the predefined read mix against the seed range
 //	bench mixed            run writers (live) and readers (seed) in parallel
 //	bench dataset          emit the golden DatasetDefinition (no cluster needed)
+//	bench derive           derive an anonymized query-mix spec from access logs
+//	bench compare          diff two JSON reports and flag regressions (exit 1)
 package main
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -62,7 +68,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(newLoadCmd(), newStoreCmd(), newQueryCmd(), newMixedCmd(), newDatasetCmd())
+	root.AddCommand(newLoadCmd(), newStoreCmd(), newQueryCmd(), newMixedCmd(), newDatasetCmd(), newDeriveCmd(), newCompareCmd())
 	return root
 }
 
@@ -96,6 +102,8 @@ func newStoreCmd() *cobra.Command {
 				if err := printSendLog(log); err != nil {
 					return err
 				}
+			if err := writeSendLog(cfg.OutputPath, log); err != nil {
+				return err
 			}
 			hash, err := contentHash(g)
 			if err != nil {
@@ -112,8 +120,10 @@ func newStoreCmd() *cobra.Command {
 func newQueryCmd() *cobra.Command {
 	cfg := &RunConfig{}
 	var (
-		transport string
-		pageSize  int32
+		transport     string
+		pageSize      int32
+		querySpecPath string
+		legacyQueries bool
 	)
 	cmd := &cobra.Command{
 		Use:   "query",
@@ -134,12 +144,16 @@ func newQueryCmd() *cobra.Command {
 				return err
 			}
 			namespaces := g.Config().Namespaces
-			queries := defaultQueries()
+			queries, pageSizes, nsSeq, err := buildQuerySchedule(querySpecPath, legacyQueries, pageSize, len(namespaces))
+			if err != nil {
+				return err
+			}
 
 			read := func(ctx context.Context, workerID, iter int, m *metrics.MetricSet) {
 				q := queries[iter%len(queries)]
-				ns := namespaces[(workerID+iter)%len(namespaces)]
-				runQuery(ctx, pick(iter), q, ns, pageSize, m)
+				ps := pageSizes[iter%len(pageSizes)]
+				ns := namespaces[nsSeq[(workerID+iter)%len(nsSeq)]]
+				runQuery(ctx, pick(iter), q, ns, ps, m)
 			}
 			var m *metrics.MetricSet
 			if cfg.DurationSec > 0 {
@@ -158,7 +172,9 @@ func newQueryCmd() *cobra.Command {
 	}
 	bindCommon(cmd, cfg)
 	cmd.Flags().StringVar(&transport, "transport", "grpc", "query transport: grpc|rest|both")
-	cmd.Flags().Int32Var(&pageSize, "page-size", 1000, "list page size")
+	cmd.Flags().Int32Var(&pageSize, "page-size", 1000, "list page size (used only with --legacy-queries; otherwise drawn from the spec)")
+	cmd.Flags().StringVar(&querySpecPath, "query-spec", "", "query-mix spec file; empty uses the embedded committed spec")
+	cmd.Flags().BoolVar(&legacyQueries, "legacy-queries", false, "use the built-in hardcoded query mix instead of the derived spec")
 	return cmd
 }
 
@@ -221,6 +237,7 @@ func newLoadCmd() *cobra.Command {
 	cfg := &RunConfig{}
 	var verify bool
 	var debug bool
+
 	cmd := &cobra.Command{
 		Use:   "load",
 		Short: "Load the seed dataset through the API and optionally verify row counts",
@@ -240,6 +257,8 @@ func newLoadCmd() *cobra.Command {
 				if err := printSendLog(log); err != nil {
 					return err
 				}
+			if err := writeSendLog(cfg.OutputPath, log); err != nil {
+				return err
 			}
 			if err := emitReport(ctx, cfg, "load", "grpc", reportExtra{
 				datasetHash: def.ContentHash,
@@ -276,7 +295,9 @@ func newDatasetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return generator.WriteDefinition(os.Stdout, def)
+			return withOutput(cfg.OutputPath, func(w *os.File) error {
+				return generator.WriteDefinition(w, def)
+			})
 		},
 	}
 	bindCommon(cmd, cfg)
