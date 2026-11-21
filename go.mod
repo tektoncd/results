@@ -42,7 +42,6 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.28.0
 	gocloud.dev v0.46.0
-	golang.org/x/net v0.60.0
 	golang.org/x/oauth2 v0.37.0
 	google.golang.org/api v0.297.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260727163830-6c54dddc4772
@@ -240,6 +239,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect

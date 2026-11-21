@@ -34,8 +34,6 @@ import (
 
 	"github.com/tektoncd/results/pkg/api/server/v1alpha2/auth/impersonation"
 	"github.com/tektoncd/results/pkg/converter"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
@@ -427,7 +425,20 @@ func main() {
 	// Start server with gRPC and REST handler
 	log.Infof("gRPC and REST server listening on: %s", serverConfig.SERVER_PORT)
 	if tlsError != nil {
-		log.Fatal(http.ListenAndServe(":"+serverConfig.SERVER_PORT, grpcHandler(gs, httpMux)))
+		// Serve gRPC and REST on plaintext, including HTTP/2 without TLS (h2c)
+		// for gRPC clients, using net/http's native Protocols support. This
+		// supports h2c via prior knowledge (RFC 7540 section 3.4), which is
+		// what gRPC clients use, but not the HTTP/1.1 Upgrade: h2c handshake
+		// (RFC 7540 section 3.2) that golang.org/x/net/http2/h2c also handled.
+		var cleartextProtocols http.Protocols
+		cleartextProtocols.SetHTTP1(true)
+		cleartextProtocols.SetUnencryptedHTTP2(true)
+		cleartextServer := &http.Server{
+			Addr:      ":" + serverConfig.SERVER_PORT,
+			Handler:   grpcHandler(gs, httpMux),
+			Protocols: &cleartextProtocols,
+		}
+		log.Fatal(cleartextServer.ListenAndServe())
 	}
 
 	// Create HTTP server with TLS config
@@ -441,13 +452,13 @@ func main() {
 
 // grpcHandler forwards the request to gRPC server based on the Content-Type header.
 func grpcHandler(grpcServer *grpc.Server, httpHandler http.Handler) http.Handler {
-	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
 			grpcServer.ServeHTTP(w, r)
 		} else {
 			httpHandler.ServeHTTP(w, r)
 		}
-	}), &http2.Server{})
+	})
 }
 
 // recoveryHandler returns custom messages when server panics
