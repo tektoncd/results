@@ -52,6 +52,13 @@ spec:
       containers:
         - name: api
           image: ko://github.com/tektoncd/results/cmd/api
+          ports:
+            - name: server
+              containerPort: 8080
+              protocol: TCP
+            - name: prometheus
+              containerPort: 9090
+              protocol: TCP
           env:
             # See cmd/api/README.md for documentation of these vars.
             - name: DB_USER
