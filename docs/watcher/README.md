@@ -150,8 +150,10 @@ When set to `false` (default), the Watcher will attempt to continuously store al
 The `strip_fields` flag removes fields from PipelineRuns, TaskRuns and CustomRuns before the Watcher stores them, which reduces database storage for fields that are rarely useful in the archive. It takes a comma-separated list of dot-separated paths:
 
 ```
---strip_fields=metadata.managedFields
+--strip_fields=metadata.managedFields,metadata.resourceVersion
 ```
+
+Kubernetes changes `metadata.resourceVersion` on every update, so it is stripped together with `metadata.managedFields` to avoid a stored update when only managed fields changed.
 
 Multiple paths:
 
@@ -161,6 +163,7 @@ Multiple paths:
 
 - Paths are followed through objects only, not through lists, so `status.steps.name` has no effect.
 - Paths that do not exist on an object are ignored.
+- A dot that is part of a field name is written as `\.`, for example `metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration`. A literal backslash is written as `\\`.
 - `apiVersion`, `kind`, `metadata.name`, `metadata.namespace` and `metadata.uid` cannot be stripped, nor can a parent of them such as `metadata`. The Watcher refuses to start if one is listed.
 - Records that are already stored keep the stripped fields until the run is updated and stored again.
 - A change limited to stripped fields does not update the stored record. Kubernetes also bumps `metadata.resourceVersion` on every update, so to skip updates that only touch `metadata.managedFields`, strip `metadata.resourceVersion` as well.

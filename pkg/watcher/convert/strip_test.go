@@ -41,6 +41,9 @@ func TestParseFieldPaths(t *testing.T) {
 		{raw: "metadata.name", wantErr: true},
 		{raw: "metadata.uid", wantErr: true},
 		{raw: "metadata.labels", want: [][]string{{"metadata", "labels"}}},
+		{raw: `metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration`, want: [][]string{{"metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration"}}},
+		{raw: `metadata.a\\.b`, want: [][]string{{"metadata", `a\`, "b"}}},
+		{raw: `metadata\.name`, want: [][]string{{"metadata.name"}}},
 	} {
 		t.Run(tc.raw, func(t *testing.T) {
 			got, err := ParseFieldPaths(tc.raw)
@@ -101,6 +104,31 @@ func TestStripFields(t *testing.T) {
 	// Large integers must keep their exact value.
 	if !strings.Contains(string(out), `"generation":9007199254740993`) {
 		t.Errorf("StripFields changed the generation value: %s", out)
+	}
+}
+
+func TestStripFieldsEmptyPath(t *testing.T) {
+	got, err := StripFields([]byte(`{"a":1}`), [][]string{{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != `{"a":1}` {
+		t.Errorf("got %s", got)
+	}
+}
+
+func TestStripFieldsEscapedKey(t *testing.T) {
+	paths, err := ParseFieldPaths(`metadata.annotations.kubectl\.kubernetes\.io/last-applied-configuration`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := `{"metadata":{"annotations":{"kubectl.kubernetes.io/last-applied-configuration":"x","keep":"y"}}}`
+	got, err := StripFields([]byte(in), paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"metadata":{"annotations":{"keep":"y"}}}`; string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
 	}
 }
 

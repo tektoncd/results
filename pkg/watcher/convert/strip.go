@@ -34,7 +34,9 @@ var protectedFields = []string{
 }
 
 // ParseFieldPaths parses a comma-separated list of dot-separated field paths,
-// such as "metadata.managedFields,status.provenance". Surrounding spaces and
+// such as "metadata.managedFields,status.provenance". A dot that is part of a
+// field name, such as in the annotation key kubectl.kubernetes.io/foo, is
+// written as "\." and a literal backslash as "\\". Surrounding spaces and
 // empty entries are ignored. Paths that would remove a field needed to
 // identify the object are rejected.
 func ParseFieldPaths(raw string) ([][]string, error) {
@@ -44,20 +46,52 @@ func ParseFieldPaths(raw string) ([][]string, error) {
 		if p == "" {
 			continue
 		}
-		segments := strings.Split(p, ".")
+		segments := splitPath(p)
 		for _, s := range segments {
 			if s == "" {
 				return nil, fmt.Errorf("invalid field path %q: empty segment", p)
 			}
 		}
 		for _, protected := range protectedFields {
-			if protected == p || strings.HasPrefix(protected, p+".") {
+			if isPrefix(segments, strings.Split(protected, ".")) {
 				return nil, fmt.Errorf("field path %q cannot be stripped: %s is needed to identify the object", p, protected)
 			}
 		}
 		paths = append(paths, segments)
 	}
 	return paths, nil
+}
+
+// splitPath splits a path on dots that are not escaped with a backslash.
+func splitPath(p string) []string {
+	var segments []string
+	var cur strings.Builder
+	for i := 0; i < len(p); i++ {
+		switch {
+		case p[i] == '\\' && i+1 < len(p) && (p[i+1] == '.' || p[i+1] == '\\'):
+			i++
+			cur.WriteByte(p[i])
+		case p[i] == '.':
+			segments = append(segments, cur.String())
+			cur.Reset()
+		default:
+			cur.WriteByte(p[i])
+		}
+	}
+	return append(segments, cur.String())
+}
+
+// isPrefix reports whether prefix is the same as, or a parent of, path.
+func isPrefix(prefix, path []string) bool {
+	if len(prefix) > len(path) {
+		return false
+	}
+	for i := range prefix {
+		if prefix[i] != path[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // StripFields removes the given field paths from a JSON object and returns the
@@ -81,6 +115,9 @@ func StripFields(data []byte, paths [][]string) ([]byte, error) {
 }
 
 func deletePath(obj map[string]any, path []string) {
+	if len(path) == 0 {
+		return
+	}
 	for _, key := range path[:len(path)-1] {
 		next, ok := obj[key].(map[string]any)
 		if !ok {
